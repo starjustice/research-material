@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview Prep — Study Hub</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86;
+    --accent: #f5c542; --green: #3a9d6e; --blue-soft: #dbeafe;
+    --border: #e6dfd2; --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 720px; margin: 0 auto; padding: 28px 16px 60px;
+  }
+  header { text-align: center; margin-bottom: 24px; }
+  h1 { font-size: 1.5rem; }
+  header p {
+    display: inline-block; margin-top: 6px; font-weight: 600;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+  }
+  h2 { font-size: 1.05rem; margin: 26px 0 10px; }
+  .card {
+    display: block; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px;
+    text-decoration: none; color: var(--ink);
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .card:active { transform: scale(.99); }
+  .card b { display: block; margin-bottom: 2px; }
+  .card span { font-size: .82rem; color: var(--muted); }
+  .tag {
+    display: inline-block; font-size: .68rem; font-weight: 700; border-radius: 6px;
+    padding: 2px 8px; margin-bottom: 6px; letter-spacing: .03em;
+  }
+  .tag.sheet { background: var(--accent); color: var(--ink); }
+  .tag.note { background: var(--blue-soft); color: var(--ink); }
+  .tag.app { background: #e3f4ec; color: var(--green); }
+  footer { text-align: center; margin-top: 34px; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📚 Interview Prep — Study Hub</h1>
+  <p>Cheatsheets open here · notes open on GitHub</p>
+</header>
+
+<h2>🎴 Visual cheatsheets (interactive)</h2>
+
+<a class="card" href="notes/system-design-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>System Design Basics</b>
+  <span>Concepts, whiteboard diagrams, numbers, decision verdicts, real cases</span>
+</a>
+<a class="card" href="notes/load-balancers-microservices-online-shop-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Load Balancers + Microservices Online Shop</b>
+  <span>L4 vs L7, algorithms, deploys, the shop architecture, webhooks (V-D-Q-A)</span>
+</a>
+<a class="card" href="notes/dotnet-basics-for-typescript-devs-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>.NET Basics for a TypeScript Dev</b>
+  <span>C#↔TS mapping cards, pipeline, EF Core vs Prisma, dotnet CLI table</span>
+</a>
+<a class="card" href="notes/express-graphql-auth-tutorial-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Express + GraphQL + Auth</b>
+  <span>Context, JWT anatomy, access vs refresh tokens, authn vs authz</span>
+</a>
+
+<h2>📄 Study notes (render best on GitHub — diagrams included)</h2>
+
+<a class="card" href="https://github.com/starjustice/research-material/blob/main/notes/system-design-basics-senior-fullstack-interview.md">
+  <span class="tag note">NOTE</span>
+  <b>System Design Basics for Senior Full-Stack Interviews</b>
+  <span>The interview flow, caching, Postgres scaling ladder, queues, L4 vs L7</span>
+</a>
+<a class="card" href="https://github.com/starjustice/research-material/blob/main/notes/load-balancers-microservices-online-shop.md">
+  <span class="tag note">NOTE</span>
+  <b>Load Balancers in Depth + Online Shop Worked Example</b>
+  <span>Health checks, draining, sticky sessions, service split, payment webhooks, sagas</span>
+</a>
+<a class="card" href="https://github.com/starjustice/research-material/blob/main/notes/dbo-b2b-platform-system-design-case-study.md">
+  <span class="tag note">NOTE</span>
+  <b>DBO B2B Platform — My System, Told the Senior Way</b>
+  <span>My real architecture, improvements, API gateway deep dive, TADA incident</span>
+</a>
+<a class="card" href="https://github.com/starjustice/research-material/blob/main/notes/dotnet-basics-for-typescript-devs.md">
+  <span class="tag note">NOTE</span>
+  <b>.NET Basics for a TypeScript Developer</b>
+  <span>C#, ASP.NET Core, EF Core migrations, DI, middleware, JWT — via my Skyworx code</span>
+</a>
+<a class="card" href="https://github.com/starjustice/research-material/blob/main/notes/skyworx-backend-interview-prep.md">
+  <span class="tag note">NOTE</span>
+  <b>Skyworx Review Meeting Prep</b>
+  <span>Walkthrough script, likely questions per soal, weaknesses to own proactively</span>
+</a>
+<a class="card" href="https://github.com/starjustice/research-material/blob/main/notes/express-graphql-auth-tutorial.md">
+  <span class="tag note">NOTE</span>
+  <b>Express + GraphQL + Prisma Auth Tutorial</b>
+  <span>File-by-file walkthrough of the example app, auth deep dive</span>
+</a>
+
+<h2>🧪 Example projects</h2>
+
+<a class="card" href="https://github.com/starjustice/research-material/tree/main/examples/express-graphql-auth">
+  <span class="tag app">CODE</span>
+  <b>express-graphql-auth</b>
+  <span>Runnable: register → login → refresh rotation → protected resolvers (SQLite, zero setup)</span>
+</a>
+
+<footer>Preparation today, confidence tomorrow ♥</footer>
+
+</body>
+</html>
