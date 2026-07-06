@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  /* Concept cards — everything visible */
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* Diagram cards */
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  /* Numbers table */
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  /* Decision cards — both sides visible */
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  /* Hooks + real cases */
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  /* SVG shared */
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SYSTEM DESIGN CHEATSHEET</h1>
+  <p class="sub">Master the fundamentals. Impress in the interview.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="code">💻 Code</button>
+  <button data-tab="cases">🏢 Real Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">The pictures to draw on the whiteboard. Practice sketching each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The classic scalable web architecture</h3>
+    <svg viewBox="0 0 720 190" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box" x="10" y="70" width="80" height="44" rx="8"/><text class="lbl" x="50" y="96">Client</text>
+      <rect class="box box-yellow" x="130" y="70" width="80" height="44" rx="8"/><text class="lbl" x="170" y="90">CDN</text><text class="lbl-s" x="170" y="104">static / ISR</text>
+      <rect class="box box-blue" x="250" y="70" width="90" height="44" rx="8"/><text class="lbl" x="295" y="90">Load</text><text class="lbl" x="295" y="104">Balancer</text>
+      <rect class="box" x="385" y="14" width="110" height="38" rx="8"/><text class="lbl" x="440" y="37">Node app 1</text>
+      <rect class="box" x="385" y="76" width="110" height="38" rx="8"/><text class="lbl" x="440" y="99">Node app 2</text>
+      <rect class="box" x="385" y="138" width="110" height="38" rx="8"/><text class="lbl" x="440" y="161">Node app 3</text>
+      <text class="lbl-s" x="440" y="66">stateless!</text>
+      <rect class="box box-pink" x="545" y="24" width="90" height="40" rx="8"/><text class="lbl" x="590" y="48">Redis</text>
+      <rect class="box box-green" x="545" y="94" width="90" height="40" rx="8"/><text class="lbl" x="590" y="112">Postgres</text><text class="lbl-s" x="590" y="126">primary</text>
+      <rect class="box box-green" x="545" y="146" width="90" height="36" rx="8"/><text class="lbl-s" x="590" y="168">read replica</text>
+      <path class="arrow" d="M90,92 L128,92"/><path class="arrow" d="M210,92 L248,92"/>
+      <path class="arrow" d="M340,84 L383,38"/><path class="arrow" d="M340,92 L383,95"/><path class="arrow" d="M340,100 L383,152"/>
+      <path class="arrow" d="M495,88 L543,52"/><path class="arrow" d="M495,102 L543,110"/>
+      <path class="arrow-dash" d="M590,134 L590,144"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "The app tier is stateless — sessions live in JWT or Redis — so I can scale horizontally behind the load balancer. Reads that tolerate lag go to the replica."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Cache-aside (the caching pattern to know)</h3>
+    <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="60" width="110" height="48" rx="8"/><text class="lbl" x="75" y="88">App</text>
+      <rect class="box box-pink" x="300" y="12" width="120" height="44" rx="8"/><text class="lbl" x="360" y="38">Redis cache</text>
+      <rect class="box box-green" x="300" y="110" width="120" height="44" rx="8"/><text class="lbl" x="360" y="136">Postgres</text>
+      <path class="arrow" d="M130,70 C200,40 240,34 296,34"/><text class="lbl-s" x="205" y="34">1. GET key — hit? return ✓</text>
+      <path class="arrow" d="M130,98 C200,120 240,130 296,132"/><text class="lbl-s" x="200" y="140">2. miss → read DB</text>
+      <path class="arrow-dash" d="M420,110 C480,80 480,60 424,44"/><text class="lbl-s" x="530" y="80">3. SET key + TTL</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Cache-aside with a TTL. Risks: stale data — I delete on write for correctness-sensitive keys — and cache-miss stampedes, fixed with request coalescing."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Queue + worker (async work done right)</h3>
+    <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="15" y="55" width="95" height="46" rx="8"/><text class="lbl" x="62" y="75">API</text><text class="lbl-s" x="62" y="91">respond fast</text>
+      <rect class="box box-yellow" x="175" y="55" width="110" height="46" rx="8"/><text class="lbl" x="230" y="83">Queue</text>
+      <rect class="box" x="350" y="20" width="110" height="40" rx="8"/><text class="lbl" x="405" y="44">Worker 1</text>
+      <rect class="box" x="350" y="96" width="110" height="40" rx="8"/><text class="lbl" x="405" y="120">Worker 2</text>
+      <rect class="box box-green" x="530" y="55" width="100" height="46" rx="8"/><text class="lbl" x="580" y="83">DB</text>
+      <rect class="box box-pink" x="350" y="132" width="110" height="24" rx="8"/><text class="lbl-s" x="405" y="148">DLQ (gave up)</text>
+      <path class="arrow" d="M110,78 L173,78"/><text class="lbl-s" x="141" y="68">enqueue</text>
+      <path class="arrow" d="M285,70 L348,42"/><path class="arrow" d="M285,86 L348,112"/>
+      <path class="arrow" d="M460,42 L528,70"/><path class="arrow" d="M460,114 L528,88"/>
+      <path class="arrow-dash" d="M347,120 C310,120 310,78 285,78"/><text class="lbl-s" x="300" y="108">retry+backoff</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "At-least-once delivery means duplicates happen, so workers are idempotent — I dedupe on an idempotency key. Failed jobs retry with backoff, then land in a dead-letter queue."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The Postgres scaling ladder (climb in order, stop early)</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-green" x="15" y="150" width="130" height="38" rx="8"/><text class="lbl" x="80" y="173">1. Indexes</text>
+      <rect class="box box-green" x="155" y="115" width="130" height="38" rx="8"/><text class="lbl" x="220" y="138">2. PgBouncer</text>
+      <rect class="box box-green" x="295" y="80" width="130" height="38" rx="8"/><text class="lbl" x="360" y="103">3. Read replicas</text>
+      <rect class="box box-yellow" x="435" y="45" width="130" height="38" rx="8"/><text class="lbl" x="500" y="68">4. Partitioning</text>
+      <rect class="box box-pink" x="575" y="10" width="130" height="38" rx="8"/><text class="lbl" x="640" y="33">5. Sharding</text>
+      <text class="lbl-s" x="80" y="145">EXPLAIN ANALYZE first</text>
+      <text class="lbl-s" x="220" y="110">conns are expensive</text>
+      <text class="lbl-s" x="360" y="75">mind replication lag</text>
+      <text class="lbl-s" x="500" y="40">by time / tenant</text>
+      <text class="lbl-s" x="640" y="62">LAST resort</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Most 'we need to shard' conversations end at step 1. A tuned single Postgres handles ~100GB and thousands of QPS."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Fan-out: on write vs on read</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl" x="180" y="20">ON WRITE (push)</text>
+      <rect class="box box-blue" x="120" y="34" width="120" height="36" rx="8"/><text class="lbl" x="180" y="56">New post</text>
+      <rect class="box box-pink" x="30" y="120" width="90" height="34" rx="8"/><text class="lbl-s" x="75" y="141">feed: userA</text>
+      <rect class="box box-pink" x="135" y="120" width="90" height="34" rx="8"/><text class="lbl-s" x="180" y="141">feed: userB</text>
+      <rect class="box box-pink" x="240" y="120" width="90" height="34" rx="8"/><text class="lbl-s" x="285" y="141">feed: userC</text>
+      <path class="arrow" d="M155,70 L80,118"/><path class="arrow" d="M180,70 L180,118"/><path class="arrow" d="M205,70 L280,118"/>
+      <text class="lbl-s" x="180" y="175">fast reads · heavy writes · celebrity problem</text>
+      <line x1="365" y1="10" x2="365" y2="190" stroke="#e6dfd2" stroke-width="2"/>
+      <text class="lbl" x="545" y="20">ON READ (pull)</text>
+      <rect class="box box-blue" x="485" y="34" width="120" height="36" rx="8"/><text class="lbl" x="545" y="56">Open feed</text>
+      <rect class="box box-green" x="400" y="120" width="90" height="34" rx="8"/><text class="lbl-s" x="445" y="141">posts: F1</text>
+      <rect class="box box-green" x="505" y="120" width="90" height="34" rx="8"/><text class="lbl-s" x="550" y="141">posts: F2</text>
+      <rect class="box box-green" x="610" y="120" width="90" height="34" rx="8"/><text class="lbl-s" x="655" y="141">posts: F3</text>
+      <path class="arrow" d="M520,70 L450,118"/><path class="arrow" d="M545,70 L548,118"/><path class="arrow" d="M570,70 L650,118"/>
+      <text class="lbl-s" x="545" y="175">cheap writes · slower reads · query at view time</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Hybrid wins: push for normal users, pull for high-follower accounts, merge at read time. That's how Twitter/Instagram handle celebrity skew."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">Calibrated numbers = instant senior signal. All visible — memorize the pattern, not the decimals.</p>
+  <table class="numbers">
+    <tr><th>Operation</th><th>Ballpark</th><th>Why it matters</th></tr>
+    <tr><td>Redis GET</td><td class="val">&lt; 1 ms</td><td class="why">Why caching hot reads works.</td></tr>
+    <tr><td>Indexed Postgres read (tuned)</td><td class="val">1–5 ms</td><td class="why">Tuned Postgres is fast — you may not need Redis yet.</td></tr>
+    <tr><td>New Postgres connection</td><td class="val">20–100 ms</td><td class="why">Why PgBouncer / connection pooling exists.</td></tr>
+    <tr><td>Same-region network hop</td><td class="val">~0.5–1 ms</td><td class="why">Microservice hops are cheap but not free.</td></tr>
+    <tr><td>Cross-continent round trip</td><td class="val">~100–150 ms</td><td class="why">Why CDNs and edge computing exist.</td></tr>
+    <tr><td>One Node instance, WebSockets</td><td class="val">~50–100k conns</td><td class="why">Tuned. Know this for chat / realtime designs.</td></tr>
+    <tr><td>Single Postgres, no drama</td><td class="val">~100 GB, 1000s QPS</td><td class="why">With indexes + pooling. "Postgres until it hurts."</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="code">
+  <p class="hint">One snippet to remember: Redis fixed-window rate limiter. Expand to token bucket verbally.</p>
+<pre><code>async function allow(userId: string, limit = 100): Promise&lt;boolean&gt; {
+  // per-minute window
+  const key = `rl:${userId}:${Math.floor(Date.now() / 60_000)}`;
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, 60);
+  return count &lt;= limit; // false → respond 429 + Retry-After
+}</code></pre>
+  <div class="code-note">
+    <b>How to talk about it:</b> "This is fixed-window — simple but allows a 2× burst at the window edge.
+    In production I'd use a <b>token bucket</b> (allows short bursts, enforces average rate) or sliding window,
+    and run it in Redis so it works across all instances behind the load balancer."
+  </div>
+</section>
+
+<!-- ============ REAL CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Load balancer", d: "Spreads requests across stateless instances (round-robin / least-connections); health-checks eject dead nodes." },
+  { t: "Cache-aside", d: "App checks cache first; on miss it reads the DB and fills the cache with a TTL. Delete-on-write for correctness-sensitive data." },
+  { t: "CDN", d: "Geographically distributed cache for static assets and cacheable pages — beats the ~100–150ms cross-continent round trip." },
+  { t: "Read replica", d: "Copy of the DB serving reads. Replication lag causes read-your-own-writes issues — route those reads to the primary briefly after a write." },
+  { t: "PgBouncer (transaction mode)", d: "Multiplexes thousands of client connections onto tens of real Postgres connections. Exists because a new Postgres connection costs 20–100ms." },
+  { t: "Sharding", d: "Splitting data across databases by key. Kills cross-shard joins and transactions — LAST resort, after indexes, pooling, replicas, partitioning." },
+  { t: "Idempotency", d: "Same operation applied twice = applied once. Mandatory with at-least-once queues — dedupe on an idempotency key stored with the result." },
+  { t: "Token bucket", d: "Rate limiting that permits short bursts up to bucket size while enforcing the average rate. The usual pick over fixed window." },
+  { t: "CAP theorem", d: "Under a network partition, pick consistency or availability. Choose per feature: money → consistent; feeds and counters → available." },
+  { t: "Circuit breaker", d: "Stop calling a failing dependency so it can recover — and you fail fast instead of hanging the whole fleet." },
+  { t: "Fan-out", d: "One event delivered to many consumers/feeds. On write = fast reads, expensive writes. On read = cheap writes, slower reads. Hybrid for celebrities." },
+  { t: "SSE", d: "One-way server→client stream over plain HTTP. The standard for LLM token streaming. Simpler than WebSockets when you don't need bidirectional." },
+];
+
+const decisions = [
+  { q: "Postgres vs NoSQL", a: "Pick Postgres when", at: "You need transactions, joins, one-system simplicity — the default.", b: "Pick NoSQL when", bt: "Massive horizontal write scale with simple key-access patterns (DynamoDB, Cassandra).", v: "Default to Postgres; reach for NoSQL with a named access pattern, not vibes." },
+  { q: "Monolith vs Microservices", a: "Pick modular monolith when", at: "You want velocity, real transactions, easy debugging — most teams, most of the time.", b: "Pick microservices when", bt: "Independent scaling/deploys and team autonomy at org scale actually matter.", v: "2026 consensus: modular monolith core, extract a service when a boundary proves itself." },
+  { q: "REST vs GraphQL", a: "Pick REST when", at: "Public API, CDN cacheability by URL, simple resources.", b: "Pick GraphQL when", bt: "Product UIs with nested data and multiple clients (web + React Native).", v: "Name GraphQL's costs out loud: N+1 (fix: DataLoader), cache complexity, query cost control." },
+  { q: "Hasura vs custom GraphQL server", a: "Pick Hasura when", at: "Speed-to-CRUD, permissions, subscriptions out of the box.", b: "Pick custom (Express/Node) when", bt: "The domain is mostly custom business logic.", v: "Hybrid: Hasura for CRUD, Actions/remote schemas or your own service for the logic-heavy domain." },
+  { q: "Sync vs Async (queue)", a: "Pick sync when", at: "The user needs the result now — login, checkout confirmation.", b: "Pick async when", bt: "Work is slow, spiky, or retryable — email, media processing, webhooks, fan-out.", v: "The price of async: eventual consistency + idempotent consumers. Say it before they ask." },
+  { q: "Consistency vs Availability", a: "Pick consistency when", at: "Money, inventory, anything where stale = wrong.", b: "Pick availability when", bt: "Counters, feeds, likes — stale for seconds is fine.", v: "Decide per FEATURE, not per system. That one word is the senior answer." },
+  { q: "Cache vs No cache", a: "Add Redis when", at: "Hot reads dominate and the DB is the measured bottleneck.", b: "Skip it when", bt: "Tuned Postgres + PgBouncer already reads in 1–5ms.", v: "Every cache adds an invalidation bug surface. Knowing when NOT to cache reads as senior." },
+  { q: "Serverless vs Containers", a: "Pick serverless when", at: "Spiky traffic, zero ops appetite, per-request billing wins.", b: "Pick containers when", bt: "Long-lived connections (WebSockets), cold-start-sensitive latency, DB connection control.", v: "If serverless + Postgres: mention RDS Proxy / PgBouncer or connections will kill you." },
+  { q: "WebSockets vs SSE vs Polling", a: "WebSockets when", at: "Bidirectional — chat, collaborative editing.", b: "SSE when", bt: "Server-push only — notifications, LLM token streams. Polling if neither is worth it yet.", v: "Pick the least powerful tool that meets the requirement." },
+  { q: "Fan-out on write vs on read", a: "On write when", at: "Reads must be instant and follower counts are normal.", b: "On read when", bt: "Writes are huge (celebrities) or feeds are rarely viewed.", v: "Hybrid for celebrity skew: push for normal users, pull + merge for mega-accounts." },
+];
+
+const cases = [
+  { topic: "Idempotency", b: "Stripe", p: "Every payment API call takes an Idempotency-Key header — retry a charge and it's applied exactly once. Cite this when you explain queue consumers or payment flows." },
+  { topic: "Fan-out", b: "Twitter/X & Instagram", p: "Famously hybrid: normal users' posts are pushed to follower feeds on write; celebrity posts are pulled and merged at read time to avoid millions of writes per tweet." },
+  { topic: "Modular monolith", b: "Shopify", p: "Runs one of the world's biggest commerce platforms on a modular monolith, scaled by sharding per-shop ('pods'). Great counter to 'microservices are mandatory'." },
+  { topic: "Postgres until it hurts", b: "Figma", p: "Scaled years on a single Postgres, then partitioned and sharded it in-place rather than migrating to NoSQL. The canonical 'scale Postgres first' story." },
+  { topic: "Realtime at scale", b: "Discord", p: "Holds millions of concurrent WebSocket connections; messages route across gateway servers via pub/sub — exactly the chat-app answer pattern." },
+  { topic: "Circuit breakers", b: "Netflix", p: "Popularized circuit breakers (Hystrix) and chaos engineering: assume dependencies fail, fail fast, degrade gracefully. Cite when you cover failure modes." },
+];
+
+const hooks = [
+  { b: "Interview flow: \"R-E-A-D Deep\"", p: "Requirements → Entities → API → Design → Deep dives. Spend most of your time in the deep dives — that's where senior signal lives." },
+  { b: "Postgres ladder: \"I Pool Replicas, Partition, Shard\"", p: "Indexes → PgBouncer → read replicas → partitioning → sharding. In that order. Stop as early as possible." },
+  { b: "Queues", p: "\"At-least-once delivery means at-least-twice processing — unless you're idempotent.\"" },
+  { b: "Cache invalidation", p: "A cache is a lie you've agreed to tell for TTL seconds." },
+  { b: "Fan-out", p: "Write-time = mailing letters to every follower. Read-time = everyone visits the notice board." },
+  { b: "Close every design with \"MFC\"", p: "Monitoring, Failure modes, Cost. That's the 2026 rubric tail — say it before the interviewer asks." },
+];
+
+// ---- concepts + progress ----
+const KEY = "sd-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

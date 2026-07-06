@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>.NET for a TypeScript Dev — Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept p code, td code, .decision code {
+    background: #eef3f7; border-radius: 4px; padding: 1px 5px;
+    font-size: .82em; font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .concept .ts-anchor {
+    display: block; margin-top: 8px; background: var(--green-soft);
+    border-left: 3px solid var(--green); border-radius: 6px;
+    padding: 6px 9px; font-size: .8rem; line-height: 1.45;
+  }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); margin-bottom: 22px; }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>.NET for a TypeScript Dev</h1>
+  <p class="sub">Your Skyworx.Kredit.Api, explained in your own language</p>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-label"><span id="progressLabel">0 / 0 concepts</span> · <button class="reset-btn" onclick="resetProgress()">reset</button></div>
+</div>
+
+<nav>
+  <button class="active" data-tab="concepts">Concepts</button>
+  <button data-tab="diagrams">Diagrams</button>
+  <button data-tab="numbers">CLI &amp; Numbers</button>
+  <button data-tab="decisions">Decisions</button>
+  <button data-tab="cases">Real Cases</button>
+  <button data-tab="hooks">Memory Hooks</button>
+</nav>
+
+<!-- ================= CONCEPTS ================= -->
+<section id="concepts" class="active">
+  <p class="hint">Every card is a C# ↔ TypeScript pair. Tick the circle when you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid">
+
+    <div class="concept" data-key="c1">
+      <span class="num-chip">1</span><button class="got">✓</button>
+      <h3>.NET = runtime + stdlib + CLI</h3>
+      <p>The CLR runs compiled C#. ASP.NET Core is the built-in web framework. One install, batteries included.</p>
+      <span class="ts-anchor">In TS: Node.js + npm + Express, but the framework ships with the platform.</span>
+    </div>
+
+    <div class="concept" data-key="c2">
+      <span class="num-chip">2</span><button class="got">✓</button>
+      <h3>C# = TypeScript, compiled</h3>
+      <p>Static types like TS, but they are not erased — types exist at runtime. <code>var</code> is inference, not <code>any</code>.</p>
+      <span class="ts-anchor">In TS: strict mode, except the type checker also runs in production.</span>
+    </div>
+
+    <div class="concept" data-key="c3">
+      <span class="num-chip">3</span><button class="got">✓</button>
+      <h3>.csproj + NuGet</h3>
+      <p>The .csproj file lists dependencies and build config. NuGet is the package registry. <code>bin/</code> and <code>obj/</code> are build output.</p>
+      <span class="ts-anchor">In TS: package.json + npm + dist/.</span>
+    </div>
+
+    <div class="concept" data-key="c4">
+      <span class="num-chip">4</span><button class="got">✓</button>
+      <h3>Program.cs shape</h3>
+      <p>Always: builder → register services → <code>Build()</code> → order middleware → <code>Run()</code>. Registration and pipeline are separate phases.</p>
+      <span class="ts-anchor">In TS: index.ts with app.use() and app.listen(), but Express mixes both phases.</span>
+    </div>
+
+    <div class="concept" data-key="c5">
+      <span class="num-chip">5</span><button class="got">✓</button>
+      <h3>Controller = router class</h3>
+      <p><code>[Route("api/[controller]")]</code> maps PengajuanKreditController to <code>api/pengajuankredit</code>. <code>[HttpGet("{id}")]</code> marks an action.</p>
+      <span class="ts-anchor">In TS: an Express Router; [HttpGet("{id}")] ≈ router.get("/:id").</span>
+    </div>
+
+    <div class="concept" data-key="c6">
+      <span class="num-chip">6</span><button class="got">✓</button>
+      <h3>ActionResult returns</h3>
+      <p><code>Ok(x)</code>, <code>NotFound(x)</code>, <code>NoContent()</code>, <code>CreatedAtAction(...)</code> — you return the response instead of writing to it. CreatedAtAction builds the Location header for you.</p>
+      <span class="ts-anchor">In TS: res.status(200).json(x), res.status(404).json(x), res.status(204).end().</span>
+    </div>
+
+    <div class="concept" data-key="c7">
+      <span class="num-chip">7</span><button class="got">✓</button>
+      <h3>Model binding</h3>
+      <p>Typed parameters are filled automatically: <code>Guid id</code> from the route, DTO from the JSON body. Malformed UUID = automatic 400 before your code runs.</p>
+      <span class="ts-anchor">In TS: req.params + req.body, but parsed, typed, and validated for you.</span>
+    </div>
+
+    <div class="concept" data-key="c8">
+      <span class="num-chip">8</span><button class="got">✓</button>
+      <h3>DTO vs entity</h3>
+      <p>Entity = DB shape. DTO = API contract. Clients cannot set Id or CreatedAt — mass-assignment protection built into the design.</p>
+      <span class="ts-anchor">In TS: GraphQL input types vs the Prisma model — same separation, same reason.</span>
+    </div>
+
+    <div class="concept" data-key="c9">
+      <span class="num-chip">9</span><button class="got">✓</button>
+      <h3>Dependency injection</h3>
+      <p>Register in Program.cs, declare in the constructor, the container delivers. Never <code>new</code> a dependency. Tests pass fakes straight into the constructor.</p>
+      <span class="ts-anchor">In TS: import prisma from "./db" — Node's module cache is your implicit container.</span>
+    </div>
+
+    <div class="concept" data-key="c10">
+      <span class="num-chip">10</span><button class="got">✓</button>
+      <h3>Lifetimes: Singleton / Scoped / Transient</h3>
+      <p>One forever / one per HTTP request / new every resolve. DbContext is Scoped: stateful + not thread-safe, so it must not be shared across requests.</p>
+      <span class="ts-anchor">In TS: module import / res.locals-style per-request value / calling a factory each time.</span>
+    </div>
+
+    <div class="concept" data-key="c11">
+      <span class="num-chip">11</span><button class="got">✓</button>
+      <h3>DbContext + DbSet</h3>
+      <p><code>KreditDbContext</code> is the DB gateway; <code>DbSet&lt;PengajuanKredit&gt;</code> is the typed table handle you query with LINQ.</p>
+      <span class="ts-anchor">In TS: PrismaClient and prisma.pengajuanKredit — but scoped per request, not a singleton.</span>
+    </div>
+
+    <div class="concept" data-key="c12">
+      <span class="num-chip">12</span><button class="got">✓</button>
+      <h3>OnModelCreating = schema in code</h3>
+      <p>Fluent config maps classes to tables: <code>ToTable</code>, <code>HasColumnName</code>, <code>HasColumnType</code>, <code>HasIndex</code>. Your UTC value converter normalizes DateTime on every read/write.</p>
+      <span class="ts-anchor">In TS: schema.prisma — @@map, @map, @db.Decimal, @@index.</span>
+    </div>
+
+    <div class="concept" data-key="c13">
+      <span class="num-chip">13</span><button class="got">✓</button>
+      <h3>EF migrations</h3>
+      <p><code>dotnet ef migrations add X</code> diffs model vs snapshot and writes C# Up()/Down() methods. <code>dotnet ef database update</code> applies them.</p>
+      <span class="ts-anchor">In TS: prisma migrate dev --name x — Prisma writes SQL, EF writes C# that makes SQL, with rollback included.</span>
+    </div>
+
+    <div class="concept" data-key="c14">
+      <span class="num-chip">14</span><button class="got">✓</button>
+      <h3>Change tracking — the big shift</h3>
+      <p>Load an entity, mutate its properties, call <code>SaveChangesAsync()</code>. EF diffs against original values and UPDATEs only changed columns. There is no update() call in your PUT.</p>
+      <span class="ts-anchor">In TS: Prisma is explicit — update({ where, data }). EF watches; Prisma is told.</span>
+    </div>
+
+    <div class="concept" data-key="c15">
+      <span class="num-chip">15</span><button class="got">✓</button>
+      <h3>Validation via data annotations</h3>
+      <p><code>[Range(0.01, ...)]</code> on the DTO + <code>[ApiController]</code> = automatic 400 with field errors before the action runs. Gotcha: [Required] on decimal does nothing — a missing field becomes 0, so Range(0.01, …) is the real guard.</p>
+      <span class="ts-anchor">In TS: a zod schema + a validate middleware — here the pipeline is the middleware.</span>
+    </div>
+
+    <div class="concept" data-key="c16">
+      <span class="num-chip">16</span><button class="got">✓</button>
+      <h3>Middleware = onion</h3>
+      <p>Class with <code>InvokeAsync(HttpContext)</code>; <code>await _next(context)</code> passes the request on. First registered = outermost, so the exception handler goes first.</p>
+      <span class="ts-anchor">In TS: app.use with next() — but Express puts the error handler LAST; .NET puts it FIRST. Both mean outermost.</span>
+    </div>
+
+    <div class="concept" data-key="c17">
+      <span class="num-chip">17</span><button class="got">✓</button>
+      <h3>ILogger&lt;T&gt; + Serilog</h3>
+      <p>ILogger is the built-in abstraction (T = category). Serilog is the implementation with sinks: your app writes to Console + a daily rolling file.</p>
+      <span class="ts-anchor">In TS: pino / winston; sinks ≈ transports.</span>
+    </div>
+
+    <div class="concept" data-key="c18">
+      <span class="num-chip">18</span><button class="got">✓</button>
+      <h3>Message templates, not interpolation</h3>
+      <p><code>"error on {Method} {Path}"</code> stores Method and Path as queryable properties. String interpolation melts them into text — searchable only by regex.</p>
+      <span class="ts-anchor">In TS: logger.error({ path }, "msg") in pino — pass objects, never concatenate.</span>
+    </div>
+
+    <div class="concept" data-key="c19">
+      <span class="num-chip">19</span><button class="got">✓</button>
+      <h3>JWT: AddJwtBearer + [Authorize]</h3>
+      <p>TokenValidationParameters checks signature, expiry, issuer, audience. UseAuthentication fills <code>HttpContext.User</code>; [Authorize] rejects with 401. Claims = payload fields (Sub, Jti).</p>
+      <span class="ts-anchor">In TS: jwt.verify + an Express auth middleware; HttpContext.User ≈ req.user.</span>
+    </div>
+
+    <div class="concept" data-key="c20">
+      <span class="num-chip">20</span><button class="got">✓</button>
+      <h3>Task ≈ Promise, but threads</h3>
+      <p>Same async/await model, different engine: thread pool vs event loop. <code>.Result</code> blocks a thread and can deadlock — Node cannot even express that mistake. Rule: async all the way down.</p>
+      <span class="ts-anchor">In TS: Task&lt;T&gt; ≈ Promise&lt;T&gt;; there is no ".Result" in JS — and that is a feature.</span>
+    </div>
+
+    <div class="concept" data-key="c21">
+      <span class="num-chip">21</span><button class="got">✓</button>
+      <h3>decimal vs double — money</h3>
+      <p>double = IEEE 754 float = JS number (0.1 + 0.2 problem). decimal = exact base-10, 28–29 digits. Your entity uses decimal for plafon, bunga, angsuran — deliberate, because it is money.</p>
+      <span class="ts-anchor">In TS: number is always double; Prisma Decimal wraps a library to get what C# has natively.</span>
+    </div>
+
+    <div class="concept" data-key="c22">
+      <span class="num-chip">22</span><button class="got">✓</button>
+      <h3>LINQ ≈ filter / map / sort</h3>
+      <p><code>Where / Select / OrderBy / FirstOrDefault</code>. On a DB query it compiles to SQL, like Prisma; on a List it runs in memory, like array methods.</p>
+      <span class="ts-anchor">In TS: .filter().map().sort().find() — with SQL translation when aimed at the database.</span>
+    </div>
+
+    <div class="concept" data-key="c23">
+      <span class="num-chip">23</span><button class="got">✓</button>
+      <h3>xUnit + your test isolation</h3>
+      <p><code>[Fact]</code> ≈ test(); <code>[Theory] + [InlineData]</code> ≈ test.each. Each test builds an InMemory DbContext named with a fresh Guid — isolated, parallel-safe.</p>
+      <span class="ts-anchor">In TS: Jest with a fresh in-memory DB per test; WebApplicationFactory ≈ supertest for real-pipeline tests.</span>
+    </div>
+
+    <div class="concept" data-key="c24">
+      <span class="num-chip">24</span><button class="got">✓</button>
+      <h3>appsettings.json = config home</h3>
+      <p>Connection string, JWT settings, log levels. Environment variables override it at runtime. Secrets belong in env vars or a secret manager in production.</p>
+      <span class="ts-anchor">In TS: .env + a config module — with layered overrides built in.</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= DIAGRAMS ================= -->
+<section id="diagrams">
+  <p class="hint">Draw these on the whiteboard. Read the "Say this" line out loud while drawing.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Your middleware pipeline (Program.cs order)</h3>
+    <svg viewBox="0 0 900 150" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7a86"/></marker></defs>
+      <rect x="10" y="45" width="120" height="52" rx="10" fill="#fbe4e8" stroke="#e06377"/>
+      <text x="70" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Exception</text>
+      <text x="70" y="82" text-anchor="middle" font-size="10" fill="#6b7a86">outermost try</text>
+      <rect x="160" y="45" width="120" height="52" rx="10" fill="#dbeafe" stroke="#4a7fb5"/>
+      <text x="220" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Serilog log</text>
+      <text x="220" y="82" text-anchor="middle" font-size="10" fill="#6b7a86">method, path, ms</text>
+      <rect x="310" y="45" width="110" height="52" rx="10" fill="#ffffff" stroke="#e6dfd2"/>
+      <text x="365" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">HTTPS</text>
+      <text x="365" y="82" text-anchor="middle" font-size="10" fill="#6b7a86">redirect</text>
+      <rect x="450" y="45" width="120" height="52" rx="10" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="510" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">AuthN</text>
+      <text x="510" y="82" text-anchor="middle" font-size="10" fill="#6b7a86">JWT → User</text>
+      <rect x="600" y="45" width="120" height="52" rx="10" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="660" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">AuthZ</text>
+      <text x="660" y="82" text-anchor="middle" font-size="10" fill="#6b7a86">[Authorize]</text>
+      <rect x="750" y="45" width="140" height="52" rx="10" fill="#e3f4ec" stroke="#3a9d6e"/>
+      <text x="820" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Controller</text>
+      <text x="820" y="82" text-anchor="middle" font-size="10" fill="#6b7a86">bind + validate first</text>
+      <line x1="130" y1="71" x2="158" y2="71" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="280" y1="71" x2="308" y2="71" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="420" y1="71" x2="448" y2="71" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="570" y1="71" x2="598" y2="71" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="720" y1="71" x2="748" y2="71" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="450" y="25" text-anchor="middle" font-size="11" fill="#6b7a86">request → · response returns back through the same chain ←</text>
+      <text x="450" y="130" text-anchor="middle" font-size="11" font-weight="700" fill="#e06377">First registered = outermost wrapper. Exception handler wraps everything.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The pipeline is an onion — the exception handler is registered first so its try block wraps everything after it, including the request logger. Authentication runs before authorization because [Authorize] reads the identity that authentication produced."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · POST /api/pengajuankredit — full lifecycle</h3>
+    <svg viewBox="0 0 900 210" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7a86"/></marker></defs>
+      <rect x="10" y="20" width="130" height="46" rx="10" fill="#dbeafe" stroke="#4a7fb5"/>
+      <text x="75" y="48" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Client + token</text>
+      <rect x="200" y="20" width="180" height="46" rx="10" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="290" y="40" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Pipeline</text>
+      <text x="290" y="56" text-anchor="middle" font-size="10" fill="#6b7a86">JWT ok · DTO bound · Range ok</text>
+      <rect x="440" y="20" width="180" height="46" rx="10" fill="#e3f4ec" stroke="#3a9d6e"/>
+      <text x="530" y="40" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Create(dto)</text>
+      <text x="530" y="56" text-anchor="middle" font-size="10" fill="#6b7a86">new entity · Add · Save</text>
+      <rect x="680" y="20" width="200" height="46" rx="10" fill="#ffffff" stroke="#e6dfd2"/>
+      <text x="780" y="40" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">PostgreSQL</text>
+      <text x="780" y="56" text-anchor="middle" font-size="10" fill="#6b7a86">INSERT pengajuan_kredit</text>
+      <line x1="140" y1="43" x2="198" y2="43" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar2)"/>
+      <line x1="380" y1="43" x2="438" y2="43" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar2)"/>
+      <line x1="620" y1="43" x2="678" y2="43" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar2)"/>
+      <rect x="200" y="120" width="420" height="46" rx="10" fill="#fbe4e8" stroke="#e06377"/>
+      <text x="410" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Short-circuits before the controller</text>
+      <text x="410" y="156" text-anchor="middle" font-size="10" fill="#6b7a86">no token → 401 · bad UUID → 400 · Range fails → 400 + field errors</text>
+      <line x1="290" y1="66" x2="290" y2="118" stroke="#e06377" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar2)"/>
+      <rect x="680" y="120" width="200" height="46" rx="10" fill="#e3f4ec" stroke="#3a9d6e"/>
+      <text x="780" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">201 Created</text>
+      <text x="780" y="156" text-anchor="middle" font-size="10" fill="#6b7a86">CreatedAtAction → Location header</text>
+      <line x1="780" y1="66" x2="780" y2="118" stroke="#3a9d6e" stroke-width="2" marker-end="url(#ar2)"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "By the time Create runs, the request is already authenticated, bound, and validated — invalid input never reaches my code. On success I return CreatedAtAction, which gives a REST-correct 201 with a Location header pointing at GetById."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · DI lifetimes</h3>
+    <svg viewBox="0 0 900 170" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="20" width="280" height="120" rx="12" fill="#dbeafe" stroke="#4a7fb5"/>
+      <text x="150" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a4c">Singleton</text>
+      <text x="150" y="70" text-anchor="middle" font-size="11" fill="#1e3a4c">one instance, whole app</text>
+      <text x="150" y="90" text-anchor="middle" font-size="11" fill="#6b7a86">config, caches, stateless helpers</text>
+      <text x="150" y="118" text-anchor="middle" font-size="10" font-weight="700" fill="#4a7fb5">TS: module-level import</text>
+      <rect x="310" y="20" width="280" height="120" rx="12" fill="#e3f4ec" stroke="#3a9d6e"/>
+      <text x="450" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a4c">Scoped ★</text>
+      <text x="450" y="70" text-anchor="middle" font-size="11" fill="#1e3a4c">one per HTTP request</text>
+      <text x="450" y="90" text-anchor="middle" font-size="11" fill="#6b7a86">DbContext — stateful, not thread-safe</text>
+      <text x="450" y="118" text-anchor="middle" font-size="10" font-weight="700" fill="#3a9d6e">TS: per-request context / res.locals</text>
+      <rect x="610" y="20" width="280" height="120" rx="12" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="750" y="48" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a4c">Transient</text>
+      <text x="750" y="70" text-anchor="middle" font-size="11" fill="#1e3a4c">new instance every resolve</text>
+      <text x="750" y="90" text-anchor="middle" font-size="11" fill="#6b7a86">tiny stateless services</text>
+      <text x="750" y="118" text-anchor="middle" font-size="10" font-weight="700" fill="#b8901f">TS: calling a factory each time</text>
+      <text x="450" y="162" text-anchor="middle" font-size="11" font-weight="700" fill="#e06377">Trap: a Singleton must never constructor-inject a Scoped service — captive dependency.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "AddDbContext registers Scoped — one DbContext per request is a clean unit of work. PrismaClient is the opposite, a singleton, because it holds no per-request state. Lifetime follows state."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · EF Core change tracking — your PUT endpoint</h3>
+    <svg viewBox="0 0 900 130" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="ar4" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7a86"/></marker></defs>
+      <rect x="10" y="30" width="190" height="60" rx="10" fill="#dbeafe" stroke="#4a7fb5"/>
+      <text x="105" y="55" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">FindAsync(id)</text>
+      <text x="105" y="74" text-anchor="middle" font-size="10" fill="#6b7a86">entity is now TRACKED</text>
+      <rect x="240" y="30" width="190" height="60" rx="10" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="335" y="55" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Mutate properties</text>
+      <text x="335" y="74" text-anchor="middle" font-size="10" fill="#6b7a86">entity.Plafon = dto.Plafon</text>
+      <rect x="470" y="30" width="190" height="60" rx="10" fill="#e3f4ec" stroke="#3a9d6e"/>
+      <text x="565" y="55" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">SaveChangesAsync</text>
+      <text x="565" y="74" text-anchor="middle" font-size="10" fill="#6b7a86">diffs vs original values</text>
+      <rect x="700" y="30" width="190" height="60" rx="10" fill="#ffffff" stroke="#e6dfd2"/>
+      <text x="795" y="55" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">UPDATE … SET</text>
+      <text x="795" y="74" text-anchor="middle" font-size="10" fill="#6b7a86">changed columns only</text>
+      <line x1="200" y1="60" x2="238" y2="60" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar4)"/>
+      <line x1="430" y1="60" x2="468" y2="60" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar4)"/>
+      <line x1="660" y1="60" x2="698" y2="60" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar4)"/>
+      <text x="450" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="#e06377">No update() call exists. Prisma is explicit; EF watches. Reads: add AsNoTracking.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "There's no update call in my PUT — EF tracks the entity from FindAsync, I mutate it, and SaveChangesAsync diffs and writes only the changed columns. Coming from Prisma, that implicit diffing was the biggest mental shift."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · JWT flow — AuthController to [Authorize]</h3>
+    <svg viewBox="0 0 900 190" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="ar5" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7a86"/></marker></defs>
+      <rect x="10" y="25" width="180" height="52" rx="10" fill="#dbeafe" stroke="#4a7fb5"/>
+      <text x="100" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">POST auth/login</text>
+      <text x="100" y="64" text-anchor="middle" font-size="10" fill="#6b7a86">credentials checked</text>
+      <rect x="240" y="25" width="200" height="52" rx="10" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="340" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Sign token, HS256</text>
+      <text x="340" y="64" text-anchor="middle" font-size="10" fill="#6b7a86">claims Sub + Jti · issuer · audience · expiry</text>
+      <rect x="490" y="25" width="180" height="52" rx="10" fill="#ffffff" stroke="#e6dfd2"/>
+      <text x="580" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Client stores token</text>
+      <text x="580" y="64" text-anchor="middle" font-size="10" fill="#6b7a86">sends Bearer header</text>
+      <rect x="720" y="25" width="170" height="52" rx="10" fill="#fdf3d0" stroke="#f5c542"/>
+      <text x="805" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">UseAuthentication</text>
+      <text x="805" y="64" text-anchor="middle" font-size="10" fill="#6b7a86">validates 4 things</text>
+      <line x1="190" y1="51" x2="238" y2="51" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar5)"/>
+      <line x1="440" y1="51" x2="488" y2="51" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar5)"/>
+      <line x1="670" y1="51" x2="718" y2="51" stroke="#6b7a86" stroke-width="2" marker-end="url(#ar5)"/>
+      <rect x="490" y="115" width="400" height="52" rx="10" fill="#e3f4ec" stroke="#3a9d6e"/>
+      <text x="690" y="136" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">HttpContext.User filled → [Authorize] passes</text>
+      <text x="690" y="154" text-anchor="middle" font-size="10" fill="#6b7a86">≈ req.user set by your Express auth middleware</text>
+      <line x1="805" y1="77" x2="805" y2="113" stroke="#3a9d6e" stroke-width="2" marker-end="url(#ar5)"/>
+      <rect x="10" y="115" width="400" height="52" rx="10" fill="#fbe4e8" stroke="#e06377"/>
+      <text x="210" y="136" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a4c">Validated: signature · lifetime · issuer · audience</text>
+      <text x="210" y="154" text-anchor="middle" font-size="10" fill="#6b7a86">secret in appsettings — production: env vars / secret manager</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "AddJwtBearer is the declarative jwt.verify — my TokenValidationParameters check signature, lifetime, issuer, and audience. UseAuthentication fills HttpContext.User, and [Authorize] on the controller returns 401 before any action runs."</div>
+  </div>
+</section>
+
+<!-- ================= CLI & NUMBERS ================= -->
+<section id="numbers">
+  <p class="hint">Commands and figures to have ready. Skim the "why it matters" column.</p>
+
+  <h2 class="block">dotnet CLI ↔ npm world</h2>
+  <table class="numbers">
+    <tr><th>Command</th><th>Does</th><th>npm equivalent</th></tr>
+    <tr><td class="val">dotnet new webapi</td><td>scaffold an API project</td><td class="why">npx create-*</td></tr>
+    <tr><td class="val">dotnet run</td><td>build + start</td><td class="why">npm start</td></tr>
+    <tr><td class="val">dotnet watch</td><td>hot reload on save</td><td class="why">nodemon / tsx watch</td></tr>
+    <tr><td class="val">dotnet test</td><td>run xUnit tests</td><td class="why">npx jest</td></tr>
+    <tr><td class="val">dotnet add package X</td><td>install a NuGet package</td><td class="why">npm i x</td></tr>
+    <tr><td class="val">dotnet ef migrations add X</td><td>generate a migration from model diff</td><td class="why">prisma migrate dev --name x</td></tr>
+    <tr><td class="val">dotnet ef database update</td><td>apply pending migrations</td><td class="why">apply pending migrations</td></tr>
+  </table>
+
+  <h2 class="block">Numbers that matter</h2>
+  <table class="numbers">
+    <tr><th>Number</th><th>What</th><th>Why it matters</th></tr>
+    <tr><td class="val">.NET 8 → Nov 10, 2026</td><td>end of support for your project's version</td><td class="why">Your test targets .NET 8 — still LTS-supported today; plan the .NET 10 upgrade</td></tr>
+    <tr><td class="val">.NET 10 · Nov 2025</td><td>current LTS, supported to Nov 2028</td><td class="why">Even releases = LTS 3 years; odd = 18 months. Knowing this is a currency signal</td></tr>
+    <tr><td class="val">3 lifetimes</td><td>Singleton / Scoped / Transient</td><td class="why">The guaranteed DI question — DbContext is Scoped, and you can say why</td></tr>
+    <tr><td class="val">6-step order</td><td>exception → log → HTTPS → authN → authZ → endpoints</td><td class="why">The guaranteed middleware question — recite it, then explain the onion</td></tr>
+    <tr><td class="val">28–29 digits</td><td>decimal precision, base-10</td><td class="why">vs double's ~15–17 binary digits; why money columns are decimal/numeric</td></tr>
+    <tr><td class="val">4 validations</td><td>JWT: signature, lifetime, issuer, audience</td><td class="why">Your TokenValidationParameters check all four — say them in one breath</td></tr>
+    <tr><td class="val">400 / 401 / 404 / 500</td><td>auto validation · [Authorize] · NotFound() · your middleware</td><td class="why">Each error layer in your app owns one status code</td></tr>
+    <tr><td class="val">201 + Location</td><td>CreatedAtAction(nameof(GetById), …)</td><td class="why">REST-correct create response with one line of code</td></tr>
+  </table>
+</section>
+
+<!-- ================= DECISIONS ================= -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict is what you say in the meeting.</p>
+
+  <div class="decision">
+    <div class="vs">decimal vs double <span class="badge">MONEY</span></div>
+    <div class="cols">
+      <div class="col a"><b>decimal</b>Exact base-10, 28–29 digits. Stored money, rates, anything a bank audits. Maps to Postgres numeric.</div>
+      <div class="col b"><b>double</b>Fast binary float ≈ JS number. Fine for math helpers like Math.Pow where sub-rupiah error is acceptable.</div>
+    </div>
+    <div class="verdict">Verdict: decimal for every stored money value (your entity does this). Double only inside the annuity formula, rounded to 2 decimals at the end — and say the production fix is a decimal pow + explicit MidpointRounding.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs">Scoped DbContext vs Singleton PrismaClient <span class="badge">LIFETIME</span></div>
+    <div class="cols">
+      <div class="col a"><b>DbContext → Scoped</b>Stateful change tracker, not thread-safe. One per request = clean unit of work, disposed automatically.</div>
+      <div class="col b"><b>PrismaClient → Singleton</b>Stateless query gateway with an internal connection pool. Safe to share app-wide.</div>
+    </div>
+    <div class="verdict">Verdict: not a contradiction — lifetime follows state. Saying this sentence proves you understand both ORMs.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs">Controllers vs Minimal APIs <span class="badge">STRUCTURE</span></div>
+    <div class="cols">
+      <div class="col a"><b>Controllers</b>Classes + attributes, conventional validation and filters. The enterprise standard; scales with many endpoints and devs.</div>
+      <div class="col b"><b>Minimal APIs</b>Express-style route handlers on app. Microsoft's 2025 default for new small services; .NET 10 added annotation validation.</div>
+    </div>
+    <div class="verdict">Verdict: you chose controllers — right for a CRUD API with auth + validation, and the style a banking codebase already uses.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs">Data annotations vs FluentValidation <span class="badge">VALIDATION</span></div>
+    <div class="cols">
+      <div class="col a"><b>Annotations</b>Zero setup, per-field rules on the DTO, automatic 400 via [ApiController]. Covered everything the spec asked.</div>
+      <div class="col b"><b>FluentValidation</b>Rules as testable code; cross-field and DB-aware checks — like zod .refine().</div>
+    </div>
+    <div class="verdict">Verdict: annotations first; add FluentValidation when a rule touches two fields — e.g. validating angsuran against plafon, bunga, and tenor.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs">await vs .Result <span class="badge">ASYNC</span></div>
+    <div class="cols">
+      <div class="col a"><b>await</b>Frees the thread back to the pool while waiting. Async all the way down — what your code does everywhere.</div>
+      <div class="col b"><b>.Result / .Wait()</b>Blocks a thread; can deadlock when the continuation needs that same thread; starves the pool under load.</div>
+    </div>
+    <div class="verdict">Verdict: never .Result in request code. Bonus line: "Node can't even express this mistake — the event loop has no blocking wait."</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs">InMemory unit tests vs WebApplicationFactory <span class="badge">TESTING</span></div>
+    <div class="cols">
+      <div class="col a"><b>InMemory + direct controller calls</b>Fast, isolated (fresh Guid-named DB per test), parallel-safe. But skips auth, validation, binding.</div>
+      <div class="col b"><b>WebApplicationFactory</b>Boots real Program.cs in memory ≈ supertest. Asserts 401 without token, 400 on bad Range. Add Testcontainers for real Postgres.</div>
+    </div>
+    <div class="verdict">Verdict: own the gap before they ask — "my unit tests don't exercise the pipeline; the upgrade is WebApplicationFactory plus Testcontainers."</div>
+  </div>
+</section>
+
+<!-- ================= CASES ================= -->
+<section id="cases">
+  <p class="hint">Name-drop with one sentence each. Real cases are a senior signal.</p>
+
+  <div class="case"><span class="topic">.NET AT SCALE</span><b>Stack Overflow</b>
+    <p>One of the busiest sites on the internet runs on ASP.NET Core on a famously small server count. The standard proof that .NET performance is real, not marketing.</p></div>
+
+  <div class="case"><span class="topic">NODE → .NET</span><b>Raygun</b>
+    <p>Publicly documented migrating an API from Node.js to .NET Core with roughly 20x throughput on the same hardware (Microsoft customer story). Perfect for you: a JS shop that chose .NET for the hot path.</p></div>
+
+  <div class="case"><span class="topic">PLATFORM INVESTMENT</span><b>Microsoft Bing</b>
+    <p>Bing's frontend upgrades to each new .NET release and Microsoft publishes the latency wins — evidence the platform is actively invested in, year after year.</p></div>
+
+  <div class="case"><span class="topic">BANKING DEFAULT</span><b>Skyworx and enterprise finance</b>
+    <p>.NET is the default stack in banking: 3-year LTS windows, native decimal for money, strong typing, vendor support. Skyworx's PRIMORDIUM and FINTEGRITY live exactly there — your take-home mirrors their product domain.</p></div>
+
+  <div class="case"><span class="topic">AUDIT LOGGING</span><b>Structured logging in regulated industries</b>
+    <p>Audit trails need "find every event for pengajuan X". Serilog message templates keep values queryable; string concatenation destroys that. Your {Method} {Path} template is the right habit.</p></div>
+</section>
+
+<!-- ================= HOOKS ================= -->
+<section id="hooks">
+  <p class="hint">Mnemonics — plain-words meaning included.</p>
+
+  <div class="hook"><b>Room service DI</b>
+    <p>The constructor is the order card; the container delivers to your room. You never go shopping (never call <code>new</code>) for dependencies yourself.</p></div>
+
+  <div class="hook"><b>Onion pipeline</b>
+    <p>First registered = outermost layer. The exception handler is the onion's skin. Express peels from the other end — its error handler goes last. Both mean: be outermost.</p></div>
+
+  <div class="hook"><b>EF is a proofreader, Prisma is dictation</b>
+    <p>EF keeps the original, you edit the draft, it finds the differences (change tracking). Prisma makes you spell out every change (explicit update).</p></div>
+
+  <div class="hook"><b>decimal counts on fingers, double rounds in binary</b>
+    <p>Base-10 vs base-2. Money always counts on fingers — that is why plafon, bunga, and angsuran are decimal.</p></div>
+
+  <div class="hook"><b>Scoped follows state</b>
+    <p>DbContext holds per-request state → per-request lifetime. PrismaClient holds none → singleton. Lifetime follows state.</p></div>
+
+  <div class="hook"><b>Builder, then pipeline</b>
+    <p>Program.cs in five words: builder → services → build → middleware → run. Registration is "what exists"; the pipeline is "what runs, in what order".</p></div>
+
+  <div class="hook"><b>Authentication asks who, authorization asks whether</b>
+    <p>AuthN parses the JWT and fills User; authZ checks [Authorize] against it. Who must come before whether — that is why the order is fixed.</p></div>
+</section>
+
+<script>
+  const STORAGE_KEY = "dotnet-ts-cheatsheet-known";
+
+  // Tabs
+  document.querySelectorAll("nav button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.tab).classList.add("active");
+      window.scrollTo({ top: 0 });
+    });
+  });
+
+  // Progress tracking
+  function loadKnown() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+    catch { return {}; }
+  }
+  function saveKnown(k) { localStorage.setItem(STORAGE_KEY, JSON.stringify(k)); }
+
+  const cards = document.querySelectorAll(".concept");
+  function refresh() {
+    const known = loadKnown();
+    let count = 0;
+    cards.forEach(c => {
+      const on = !!known[c.dataset.key];
+      c.classList.toggle("known", on);
+      if (on) count++;
+    });
+    const pct = cards.length ? Math.round(count / cards.length * 100) : 0;
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressLabel").textContent = count + " / " + cards.length + " concepts";
+  }
+  cards.forEach(c => {
+    c.querySelector(".got").addEventListener("click", () => {
+      const known = loadKnown();
+      known[c.dataset.key] = !known[c.dataset.key];
+      saveKnown(known);
+      refresh();
+    });
+  });
+  function resetProgress() { localStorage.removeItem(STORAGE_KEY); refresh(); }
+  refresh();
+</script>
+
+</body>
+</html>

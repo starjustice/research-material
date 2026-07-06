@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Load Balancers + Online Shop Microservices Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.5rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .8rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LOAD BALANCERS + ONLINE SHOP MICROSERVICES</h1>
+  <p class="sub">One entry point, stateless fleet, webhooks as the truth.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="code">💻 Code</button>
+  <button data-tab="cases">🏢 Real Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">The pictures to draw on the whiteboard. Practice sketching each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Where the load balancer sits</h3>
+    <svg viewBox="0 0 720 195" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box" x="10" y="75" width="80" height="44" rx="8"/><text class="lbl" x="50" y="101">Client</text>
+      <text class="lbl-s" x="115" y="70">DNS: shop.com</text>
+      <rect class="box box-blue" x="140" y="70" width="130" height="54" rx="8"/><text class="lbl" x="205" y="90">L7 LB</text><text class="lbl-s" x="205" y="104">TLS · health ·</text><text class="lbl-s" x="205" y="116">route</text>
+      <rect class="box" x="350" y="14" width="110" height="38" rx="8"/><text class="lbl" x="405" y="37">Node app 1</text>
+      <rect class="box" x="350" y="78" width="110" height="38" rx="8"/><text class="lbl" x="405" y="101">Node app 2</text>
+      <rect class="box" x="350" y="142" width="110" height="38" rx="8"/><text class="lbl" x="405" y="165">Node app 3</text>
+      <text class="lbl-s" x="405" y="68">stateless!</text>
+      <rect class="box box-pink" x="545" y="28" width="110" height="40" rx="8"/><text class="lbl" x="600" y="46">Redis</text><text class="lbl-s" x="600" y="60">sessions / cart</text>
+      <rect class="box box-green" x="545" y="118" width="110" height="40" rx="8"/><text class="lbl" x="600" y="142">Postgres</text>
+      <path class="arrow" d="M90,97 L138,97"/>
+      <path class="arrow" d="M270,84 L348,38"/><path class="arrow" d="M270,97 L348,97"/><path class="arrow" d="M270,110 L348,156"/>
+      <path class="arrow" d="M460,40 L543,48"/><path class="arrow" d="M460,152 L543,140"/>
+      <path class="arrow-dash" d="M240,68 C280,30 310,26 348,30"/><text class="lbl-s" x="286" y="18">GET /healthz every 10s</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Clients only ever see the LB. It terminates TLS, health-checks the fleet, and because the app tier is stateless — sessions in JWT or Redis — any instance can serve any request."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · L4 vs L7 — what each one sees</h3>
+    <svg viewBox="0 0 720 195" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl" x="180" y="20">L4 · TRANSPORT</text>
+      <rect class="box box-blue" x="120" y="34" width="120" height="40" rx="8"/><text class="lbl" x="180" y="52">TCP :443</text><text class="lbl-s" x="180" y="66">IP + port only</text>
+      <rect class="box" x="40" y="124" width="120" height="36" rx="8"/><text class="lbl" x="100" y="146">server A</text>
+      <rect class="box" x="200" y="124" width="120" height="36" rx="8"/><text class="lbl" x="260" y="146">server B</text>
+      <path class="arrow" d="M155,74 L105,122"/><path class="arrow" d="M205,74 L255,122"/>
+      <text class="lbl-s" x="180" y="182">no HTTP parsing · sub-ms · any protocol</text>
+      <line x1="365" y1="10" x2="365" y2="185" stroke="#e6dfd2" stroke-width="2"/>
+      <text class="lbl" x="545" y="20">L7 · APPLICATION</text>
+      <rect class="box box-yellow" x="485" y="34" width="120" height="40" rx="8"/><text class="lbl" x="545" y="52">GET /graphql</text><text class="lbl-s" x="545" y="66">reads the request</text>
+      <rect class="box" x="400" y="124" width="130" height="36" rx="8"/><text class="lbl" x="465" y="146">API pool</text>
+      <rect class="box" x="570" y="124" width="130" height="36" rx="8"/><text class="lbl" x="635" y="146">static pool</text>
+      <path class="arrow" d="M520,74 L470,122"/><text class="lbl-s" x="462" y="98">/graphql</text>
+      <path class="arrow" d="M570,74 L630,122"/><text class="lbl-s" x="640" y="98">/images</text>
+      <text class="lbl-s" x="545" y="182">path routing · auth · rate limit · retries</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "L4 forwards connections by IP and port — fast but content-blind. L7 terminates HTTP and routes on path or headers. Web apps default to L7; big systems chain L4 in front of L7, like GitHub's GLB."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Rolling deploy with connection draining</h3>
+    <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-green" x="10" y="35" width="150" height="52" rx="8"/><text class="lbl" x="85" y="57">1. Start v2</text><text class="lbl-s" x="85" y="73">container boots</text>
+      <rect class="box box-green" x="195" y="35" width="150" height="52" rx="8"/><text class="lbl" x="270" y="57">2. Health passes</text><text class="lbl-s" x="270" y="73">v2 gets traffic</text>
+      <rect class="box box-yellow" x="380" y="35" width="150" height="52" rx="8"/><text class="lbl" x="455" y="57">3. Drain v1</text><text class="lbl-s" x="455" y="73">no new reqs · 30–60s</text>
+      <rect class="box box-pink" x="565" y="35" width="145" height="52" rx="8"/><text class="lbl" x="637" y="57">4. Stop v1</text><text class="lbl-s" x="637" y="73">repeat per instance</text>
+      <path class="arrow" d="M160,61 L193,61"/><path class="arrow" d="M345,61 L378,61"/><path class="arrow" d="M530,61 L563,61"/>
+      <text class="lbl-s" x="360" y="112">skip step 3 → burst of 502s on every deploy</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "New instance only gets traffic after health checks pass; the old one drains — no new requests, in-flight ones finish. That's zero-downtime. ALB's default drain is 300 seconds; I'd set 30–60."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The online shop — modular monolith + extracted services</h3>
+    <svg viewBox="0 0 720 265" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="10" y="105" width="85" height="48" rx="8"/><text class="lbl" x="52" y="125">Web +</text><text class="lbl" x="52" y="141">RN app</text>
+      <rect class="box box-yellow" x="125" y="105" width="75" height="48" rx="8"/><text class="lbl" x="162" y="133">CDN</text>
+      <rect class="box box-blue" x="230" y="105" width="115" height="48" rx="8"/><text class="lbl" x="287" y="125">Gateway /</text><text class="lbl" x="287" y="141">L7 LB</text>
+      <rect class="box" x="385" y="15" width="140" height="62" rx="8"/><text class="lbl" x="455" y="35">Modular monolith</text><text class="lbl-s" x="455" y="51">catalog · cart · users</text><text class="lbl-s" x="455" y="65">orders · inventory</text>
+      <rect class="box box-pink" x="385" y="105" width="140" height="44" rx="8"/><text class="lbl" x="455" y="131">Payment svc</text>
+      <rect class="box box-yellow" x="385" y="200" width="140" height="44" rx="8"/><text class="lbl" x="455" y="226">Queue (BullMQ)</text>
+      <rect class="box box-green" x="580" y="15" width="125" height="40" rx="8"/><text class="lbl" x="642" y="33">Postgres core</text><text class="lbl-s" x="642" y="47">+ replica</text>
+      <rect class="box box-green" x="580" y="75" width="125" height="34" rx="8"/><text class="lbl-s" x="642" y="96">Postgres payments</text>
+      <rect class="box box-pink" x="580" y="130" width="125" height="40" rx="8"/><text class="lbl" x="642" y="148">Stripe</text><text class="lbl-s" x="642" y="162">webhooks ↩</text>
+      <rect class="box" x="580" y="200" width="125" height="48" rx="8"/><text class="lbl" x="642" y="220">Workers</text><text class="lbl-s" x="642" y="236">email · WA · courier</text>
+      <path class="arrow" d="M95,129 L123,129"/><path class="arrow" d="M200,129 L228,129"/>
+      <path class="arrow" d="M345,113 L383,55"/><path class="arrow" d="M345,129 L383,127"/>
+      <path class="arrow" d="M525,40 L578,37"/><path class="arrow" d="M525,127 L578,95"/>
+      <path class="arrow" d="M525,133 L578,148"/>
+      <path class="arrow" d="M455,77 L455,198"/><text class="lbl-s" x="418" y="180">outbox → events</text>
+      <path class="arrow" d="M525,222 L578,222"/>
+      <path class="arrow-dash" d="M600,172 C480,185 380,170 340,152"/><text class="lbl-s" x="470" y="192">webhook: payment succeeded</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "One modular monolith for catalog, cart, users, orders, inventory — real ACID on one Postgres. I extract only payments (isolation, PCI, third-party coupling) and async workers. Extract more when a boundary proves itself, not by default."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Payment webhook — the money flow</h3>
+    <svg viewBox="0 0 720 165" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-pink" x="10" y="45" width="105" height="48" rx="8"/><text class="lbl" x="62" y="65">Stripe</text><text class="lbl-s" x="62" y="81">event fires</text>
+      <rect class="box box-blue" x="165" y="35" width="170" height="68" rx="8"/><text class="lbl" x="250" y="55">Webhook handler</text><text class="lbl-s" x="250" y="71">verify signature (raw body)</text><text class="lbl-s" x="250" y="85">dedupe on event.id</text>
+      <rect class="box box-yellow" x="390" y="45" width="105" height="48" rx="8"/><text class="lbl" x="442" y="73">Queue</text>
+      <rect class="box box-green" x="550" y="35" width="160" height="68" rx="8"/><text class="lbl" x="630" y="55">Worker</text><text class="lbl-s" x="630" y="71">order → PAID</text><text class="lbl-s" x="630" y="85">notify + ship</text>
+      <path class="arrow" d="M115,69 L163,69"/><path class="arrow" d="M335,69 L388,69"/><path class="arrow" d="M495,69 L548,69"/>
+      <path class="arrow-dash" d="M200,103 C160,135 110,135 75,95"/><text class="lbl-s" x="145" y="150">200 OK fast — Stripe retries 3 days if not</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The webhook is the source of truth, not the client redirect. Verify, Dedupe, Queue, Ack — delivery is at-least-once, so processing must be idempotent."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">Calibrated numbers = instant senior signal. Memorize the pattern, not the decimals.</p>
+  <table class="numbers">
+    <tr><th>Figure</th><th>Ballpark</th><th>Why it matters</th></tr>
+    <tr><td>L4 LB latency</td><td class="val">sub-ms</td><td class="why">No HTTP parsing — why NLB handles millions of req/s.</td></tr>
+    <tr><td>L7 LB latency</td><td class="val">~ms level</td><td class="why">The price of reading the request — worth it for routing/auth.</td></tr>
+    <tr><td>ALB deregistration delay (default)</td><td class="val">300 s → set 30–60 s</td><td class="why">Default is too long; rule of thumb ≈ 3× your p99 latency.</td></tr>
+    <tr><td>Health check ejection</td><td class="val">2–3 fails ≈ 10–30 s</td><td class="why">How long a dead instance keeps eating traffic.</td></tr>
+    <tr><td>Stripe webhook ack window</td><td class="val">2xx fast, retries 3 days</td><td class="why">Why you ack first and process via queue — and must dedupe.</td></tr>
+    <tr><td>Microservices infra cost vs monolith</td><td class="val">~4–6×</td><td class="why">The number behind "extract when proven, not by default."</td></tr>
+    <tr><td>Orgs consolidating microservices (CNCF 2025)</td><td class="val">~42%</td><td class="why">The correction is real — modular monolith is a respected answer.</td></tr>
+    <tr><td>Inventory reservation TTL</td><td class="val">~15 min</td><td class="why">Prevents oversell; abandoned checkouts self-heal.</td></tr>
+    <tr><td>QUIC (HTTP/3) latency win</td><td class="val">up to ~30%</td><td class="why">Why edges (Cloudflare, CloudFront) speak HTTP/3; ALB doesn't yet.</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="code">
+  <p class="hint">One snippet to remember: the Stripe webhook handler. It encodes Verify → Dedupe → Queue → Ack.</p>
+<pre><code>app.post("/webhooks/stripe",
+  express.raw({ type: "application/json" }),        // raw body BEFORE json()
+  async (req, res) =&gt; {
+    const event = stripe.webhooks.constructEvent(   // 1. VERIFY signature
+      req.body, req.headers["stripe-signature"]!, WEBHOOK_SECRET
+    );
+    const seen = await prisma.processedEvent.findUnique({
+      where: { id: event.id },
+    });
+    if (!seen) {                                    // 2. DEDUPE (at-least-once!)
+      await prisma.processedEvent.create({ data: { id: event.id } });
+      await queue.add("stripe-event", event);       // 3. QUEUE the heavy work
+    }
+    res.sendStatus(200);                            // 4. ACK fast
+  });</code></pre>
+  <div class="code-note">
+    <b>How to talk about it:</b> "Signature verification needs the <b>raw body</b>, so <code>express.raw()</code> goes on this route only.
+    Stripe delivers <b>at-least-once</b> and retries for 3 days, so I dedupe on <code>event.id</code> and return 200 immediately —
+    the actual order update runs in a BullMQ worker with retries. The charge itself was created with an
+    <b>Idempotency-Key</b> derived from the order ID, so a double-click can't double-charge."
+  </div>
+</section>
+
+<!-- ============ REAL CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Load balancer", d: "One public address that spreads traffic across healthy, interchangeable instances. Also ejects dead nodes, terminates TLS, and enables autoscaling + zero-downtime deploys." },
+  { t: "L4 load balancer", d: "Balances TCP/UDP connections by IP + port; never reads the payload. Sub-ms fast, works for any protocol, but content-blind — no path routing, no cookies. (AWS NLB, HAProxy TCP mode.)" },
+  { t: "L7 load balancer", d: "Terminates HTTP and routes on path/host/headers: /graphql → API pool, /images → static. Enables auth, rate limits, retries. The default for web apps. (nginx, Traefik, ALB.)" },
+  { t: "Round robin vs least connections", d: "Round robin: rotate through instances — fine when requests are uniform. Least connections: pick the least busy — better when durations vary (slow queries, uploads, SSE). Weighted RR = canary deploys." },
+  { t: "Consistent hashing", d: "Hash a key onto a ring of nodes; adding/removing a node only remaps ~1/N keys. Use for cache locality and 'same key → same place'. GitHub's GLB routes connections with it." },
+  { t: "Health checks (active vs passive)", d: "Active: LB polls /healthz every few seconds; N fails → ejected, N passes → back in. Passive: LB watches real traffic for 5xx/timeouts. ALB is active; nginx OSS is passive." },
+  { t: "Connection draining", d: "When an instance leaves (deploy/scale-in), the LB stops sending it NEW requests but lets in-flight ones finish. AWS calls it deregistration delay: default 300s, set 30–60s." },
+  { t: "Sticky sessions", d: "LB pins a user to one instance because session state lives in process memory. Causes uneven load, lost sessions on deploy, broken autoscaling. Fix: stateless tier (JWT or Redis). Only WebSockets are legitimately pinned." },
+  { t: "TLS termination", d: "The LB holds the cert and decrypts HTTPS; backends get plain HTTP inside the private network. One place to rotate certs (Let's Encrypt on CapRover/Traefik). Compliance? Re-encrypt or L4 passthrough." },
+  { t: "LB as single point of failure", d: "Never deploy one LB alone: HA pairs with a floating IP (keepalived), managed LBs spanning AZs behind one DNS name, or anycast — the same IP announced worldwide, dead sites just stop announcing." },
+  { t: "GeoDNS vs anycast (global LB)", d: "GeoDNS: DNS answers differently by location — simple, but failover waits on TTL caching. Anycast: BGP routes one IP to the nearest edge — instant failover, rented from Cloudflare/CloudFront." },
+  { t: "API gateway", d: "An L7 LB with app-level duties: JWT verification, rate limiting, per-service path routing. The single front door for your Next.js web + React Native clients." },
+  { t: "Modular monolith + extracted services", d: "One codebase with clean module boundaries (catalog, cart, users, orders, inventory) on one Postgres — real ACID. Extract only proven boundaries: payments (PCI, isolation) and async workers. 2025–2026 consensus." },
+  { t: "Saga pattern", d: "Distributed transaction as a sequence of local transactions + compensating undos (payment fails → release stock, cancel order). Choreography = event-reactive, loose, hard to trace. Orchestration = coordinator, visible, retryable — pick for money flows." },
+  { t: "Outbox pattern", d: "Write the event into an outbox table in the SAME Postgres transaction as the business change; a relay publishes it to the queue. Kills the 'order saved but event lost' dual-write bug." },
+  { t: "Idempotency key", d: "Client-supplied dedupe token (e.g. derived from order ID) sent with a charge. Provider applies the operation once no matter how many retries. Stripe's Idempotency-Key header is the canonical example." },
+  { t: "Webhook rule (V-D-Q-A)", d: "Verify signature on the raw body, Dedupe on event ID (delivery is at-least-once), Queue the heavy work, Ack 200 fast. The webhook — not the client redirect — is the source of truth for payment." },
+  { t: "Circuit breaker + reservation TTL", d: "Provider down? Timeout + jittered backoff + circuit breaker (fail fast after N failures). Order stays PENDING — a state, not a crash. Inventory held by a 15-min reservation that self-releases." },
+];
+
+const decisions = [
+  { q: "L4 vs L7", a: "Pick L4 when", at: "Raw throughput, non-HTTP protocols, TLS passthrough, static IPs (NLB, HAProxy TCP).", b: "Pick L7 when", bt: "Web/API traffic needing path routing, auth, rate limits, retries (nginx, Traefik, ALB).", v: "L7 is the default for your Node/GraphQL apps; huge systems chain L4 in front of L7 (GitHub GLB)." },
+  { q: "ALB vs NLB", a: "Pick ALB when", at: "HTTP features: path/host routing, WebSockets, HTTP/2, OIDC/Cognito auth, Lambda targets.", b: "Pick NLB when", bt: "Sub-ms latency, millions of req/s, static IPs / IP allowlists, TCP/UDP, QUIC passthrough (2025).", v: "Default ALB. Say 'NLB if I need static IPs or non-HTTP' and you've covered the follow-up." },
+  { q: "Sticky sessions vs stateless tier", a: "Stickiness only when", at: "Live WebSocket connections — inherently pinned; bridge instances via Redis pub/sub.", b: "Stateless when", bt: "Everything else: session in JWT or Redis, any instance serves any request.", v: "Stateless is the senior answer — stickiness breaks scaling, deploys, and failover." },
+  { q: "JWT vs Redis sessions", a: "Pick JWT when", at: "No lookup wanted, many services verify the same token. Cost: revocation is hard — short expiry + refresh tokens.", b: "Pick Redis sessions when", bt: "Instant revocation matters; one sub-ms lookup is fine; small cookie.", v: "Hybrid is common: short-lived JWT for APIs, Redis-backed refresh/session for control." },
+  { q: "Managed LB vs self-hosted", a: "Managed (ALB/Cloudflare) when", at: "Zero ops, built-in multi-AZ HA, autoscaling — pay per hour.", b: "Self-hosted (nginx/Traefik/HAProxy) when", bt: "Full control, cheap, CapRover-style setups — but YOU own failover (keepalived pair).", v: "Small team → managed or CapRover's nginx; mention the HA pair if self-hosting comes up." },
+  { q: "Monolith vs microservices (the shop)", a: "Modular monolith when", at: "Catalog, cart, users, orders, inventory — one Postgres, real ACID, one deploy, max velocity.", b: "Extract a service when", bt: "Different guarantees (payments: PCI, idempotency), async fan-out (notifications), or a team owns it.", v: "Modular monolith + payment svc + queue workers. 42% of adopters are consolidating back (CNCF 2025); infra runs 4–6× otherwise." },
+  { q: "Sync vs async", a: "Sync (GraphQL/REST) when", at: "The user is waiting: checkout confirmation, login, cart update.", b: "Async (queue/events) when", bt: "They aren't: receipt email, shipment creation, analytics, webhook processing.", v: "'If the user is waiting, call it; if not, queue it.' Price of async: idempotent consumers." },
+  { q: "Choreography vs orchestration (saga)", a: "Choreography when", at: "Few steps, loose coupling — services just react to events.", b: "Orchestration when", bt: "Money flows, >3 steps, auditability — one coordinator retries, times out, compensates.", v: "Order + payment + inventory → orchestrate. And say first: 'inside the monolith it's just a Postgres transaction.'" },
+  { q: "Webhook: inline vs queued processing", a: "Inline when", at: "Truly trivial work (< a second) and you accept timeout risk.", b: "Queued when", bt: "Anything real: verify → dedupe → enqueue → 200. Provider timeouts and duplicate races disappear.", v: "Production answer: ack fast, process async. Stripe expects a quick 2xx and retries for 3 days." },
+];
+
+const cases = [
+  { topic: "Idempotency", b: "Stripe", p: "Every mutating API call takes an Idempotency-Key header — retried charges apply once. Webhooks are at-least-once with ~3 days of retries, so receivers must dedupe on event ID. Cite in any payment answer." },
+  { topic: "L4 + L7 chained", b: "GitHub — GLB", p: "Open-source LB: an L4 'director' tier using consistent hashing in front of L7 HAProxy proxies — connections survive director changes. The perfect 'chain L4 and L7' citation." },
+  { topic: "Anycast at the edge", b: "Cloudflare — Unimog", p: "Same IPs announced worldwide via BGP (anycast); Unimog, their eBPF L4 balancer (influenced by GitHub's GLB), spreads load inside each datacenter. Cite for global LB and LB-as-SPOF." },
+  { topic: "Don't split by default", b: "Amazon Prime Video", p: "2023: merged a microservices/serverless pipeline back into a monolith — ~90% cost cut for that workload. The strongest citation against premature service extraction." },
+  { topic: "Commerce on a monolith", b: "Shopify", p: "One of the world's largest shops runs a modular monolith sharded into per-shop 'pods', surviving Black Friday at millions of requests per minute. Proof your shop doesn't need 12 services." },
+  { topic: "Failure isolation", b: "Netflix", p: "Popularized circuit breakers (Hystrix) and chaos engineering; the Zuul gateway does L7 routing and resilience. Cite when asked 'what if the payment provider is down?'" },
+];
+
+const hooks = [
+  { b: "Algorithms", p: "Equal work → round robin. Unequal work → least connections. Same key, same place → hashing." },
+  { b: "Rolling deploy: \"Check in, drain out\"", p: "New instance checks in (health passes → traffic). Old instance drains out (no new requests, in-flight finish). Skip draining → 502s on every deploy." },
+  { b: "Sticky sessions", p: "Gum on the load balancer's shoe — works until you try to move (scale, deploy, fail over)." },
+  { b: "Webhooks: \"V-D-Q-A\"", p: "Verify signature → Dedupe on event ID → Queue the work → Ack 200 fast." },
+  { b: "Service extraction", p: "\"Extract when it hurts, not when it's cool.\" Payments and notifications hurt first; cart never does." },
+  { b: "Money rule", p: "\"The webhook is the truth; the redirect is a rumor.\" Never mark an order paid from the client redirect alone." },
+];
+
+// ---- concepts + progress ----
+const KEY = "lb-shop-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+generator client {
+  // Prisma 7 generator: pure TypeScript client, generated into your source tree.
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  // To switch to PostgreSQL, this is the one line to change:
+  // provider = "postgresql"
+  // (then set DATABASE_URL to a postgres:// url and use @prisma/adapter-pg in src/db.ts)
+  provider = "sqlite"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  // We store a HASH of the password, never the password itself.
+  passwordHash  String
+  name          String?
+  notes         Note[]
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  createdAt DateTime @default(now())
+
+  // Every ownership query filters by authorId — index it.
+  @@index([authorId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  // Hash of the token, not the token itself. If the DB leaks,
+  // the attacker cannot use the rows to log in.
+  tokenHash String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

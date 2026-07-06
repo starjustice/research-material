@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Express + GraphQL + Prisma Auth Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.5rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); margin-bottom: 22px; }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+  table.numbers td code { background: var(--code-bg); color: var(--code-ink); border-radius: 6px; padding: 2px 7px; font-size: .8rem; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .lbl-mono { font: 600 12px "SF Mono", ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EXPRESS + GRAPHQL + PRISMA AUTH</h1>
+  <p class="sub">One small app. Auth done properly. 2026-fresh.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers &amp; Run</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="code">💻 Code</button>
+  <button data-tab="cases">🏢 Real Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">The pictures to draw on the whiteboard. Practice sketching each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · One authenticated GraphQL request, end to end</h3>
+    <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box" x="8" y="60" width="82" height="46" rx="8"/><text class="lbl" x="49" y="80">Client</text><text class="lbl-s" x="49" y="96">Bearer JWT</text>
+      <rect class="box box-yellow" x="122" y="60" width="86" height="46" rx="8"/><text class="lbl" x="165" y="80">Express 5</text><text class="lbl-s" x="165" y="96">/graphql</text>
+      <rect class="box box-blue" x="240" y="60" width="120" height="46" rx="8"/><text class="lbl" x="300" y="80">Yoga context</text><text class="lbl-s" x="300" y="96">verify JWT → userId</text>
+      <rect class="box box-pink" x="392" y="60" width="112" height="46" rx="8"/><text class="lbl" x="448" y="80">Resolver</text><text class="lbl-s" x="448" y="96">requireUser + own</text>
+      <rect class="box" x="536" y="60" width="82" height="46" rx="8"/><text class="lbl" x="577" y="80">Prisma 7</text><text class="lbl-s" x="577" y="96">adapter</text>
+      <rect class="box box-green" x="646" y="60" width="66" height="46" rx="8"/><text class="lbl" x="679" y="88">SQLite</text>
+      <path class="arrow" d="M90,83 L120,83"/><path class="arrow" d="M208,83 L238,83"/><path class="arrow" d="M360,83 L390,83"/><path class="arrow" d="M504,83 L534,83"/><path class="arrow" d="M618,83 L644,83"/>
+      <text class="lbl-s" x="300" y="46">runs ONCE per request, before any resolver</text>
+      <text class="lbl-s" x="448" y="140">no userId → GraphQLError UNAUTHENTICATED 401</text>
+      <path class="arrow-dash" d="M448,110 L448,126"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "The context function is GraphQL's auth middleware. It verifies the JWT signature once per request — no DB read — and puts userId in context. Resolvers then decide access; ownership is enforced in the Prisma WHERE clause, never filtered afterwards in JS."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Login, then refresh with rotation</h3>
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="15" y="20" width="110" height="42" rx="8"/><text class="lbl" x="70" y="46">login</text>
+      <rect class="box" x="200" y="12" width="180" height="56" rx="8"/><text class="lbl" x="290" y="34">bcrypt.compare</text><text class="lbl-s" x="290" y="52">hash attempt vs stored hash</text>
+      <rect class="box box-green" x="450" y="12" width="250" height="56" rx="8"/><text class="lbl" x="575" y="34">issue both tokens</text><text class="lbl-s" x="575" y="52">access JWT 15m + refresh 7d in DB</text>
+      <path class="arrow" d="M125,41 L198,41"/><path class="arrow" d="M380,41 L448,41"/>
+      <rect class="box box-yellow" x="15" y="110" width="150" height="42" rx="8"/><text class="lbl" x="90" y="130">15 min later</text><text class="lbl-s" x="90" y="145">access token expired</text>
+      <rect class="box box-blue" x="220" y="110" width="160" height="42" rx="8"/><text class="lbl" x="300" y="136">refreshToken mutation</text>
+      <rect class="box box-pink" x="450" y="98" width="250" height="66" rx="8"/><text class="lbl" x="575" y="120">ROTATION</text><text class="lbl-s" x="575" y="137">find row by sha256 of token</text><text class="lbl-s" x="575" y="153">delete old row → issue new pair</text>
+      <path class="arrow" d="M165,131 L218,131"/><path class="arrow" d="M380,131 L448,131"/>
+      <rect class="box" x="220" y="196" width="300" height="42" rx="8"/><text class="lbl" x="370" y="216">replayed old token → no row found</text><text class="lbl-s" x="370" y="231">fails with UNAUTHENTICATED — theft contained</text>
+      <path class="arrow-dash" d="M560,164 C560,190 540,206 522,212"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "Refresh tokens are single-use. Each refresh deletes the old row and issues a new pair, so a stolen token that gets replayed finds nothing. RFC 9700, the 2025 OAuth security BCP, made rotation the standard."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · JWT anatomy — three parts, one dot between each</h3>
+    <svg viewBox="0 0 720 190" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="30" y="30" width="190" height="70" rx="8"/>
+      <text class="lbl" x="125" y="55">HEADER</text>
+      <text class="lbl-mono" x="125" y="75">alg HS256, typ JWT</text>
+      <rect class="box box-yellow" x="265" y="30" width="190" height="70" rx="8"/>
+      <text class="lbl" x="360" y="55">PAYLOAD</text>
+      <text class="lbl-mono" x="360" y="75">sub userId, exp, iat</text>
+      <rect class="box box-pink" x="500" y="30" width="190" height="70" rx="8"/>
+      <text class="lbl" x="595" y="55">SIGNATURE</text>
+      <text class="lbl-mono" x="595" y="75">HMAC of parts 1+2</text>
+      <text class="lbl" x="242" y="72">·</text><text class="lbl" x="477" y="72">·</text>
+      <text class="lbl-s" x="125" y="125">base64url — anyone can read</text>
+      <text class="lbl-s" x="360" y="125">base64url — anyone can read</text>
+      <text class="lbl-s" x="595" y="125">needs JWT_SECRET to forge</text>
+      <text class="lbl" x="360" y="165">Readable by anyone. Forgeable by no one. Revocable never — so keep it short-lived.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Base64 is encoding, not encryption — never put secrets in the payload. The signature only proves the server issued it and nobody edited it. Because I can't revoke it, I keep it at 15 minutes and pair it with a revocable refresh token."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · deleteNote — the two gates, in order</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="15" y="70" width="140" height="46" rx="8"/><text class="lbl" x="85" y="90">deleteNote id</text><text class="lbl-s" x="85" y="106">request arrives</text>
+      <rect class="box box-yellow" x="215" y="70" width="160" height="46" rx="8"/><text class="lbl" x="295" y="90">Gate 1 — WHO?</text><text class="lbl-s" x="295" y="106">requireUser ctx</text>
+      <rect class="box box-pink" x="435" y="70" width="170" height="46" rx="8"/><text class="lbl" x="520" y="90">Gate 2 — ALLOWED?</text><text class="lbl-s" x="520" y="106">note.authorId === userId</text>
+      <rect class="box box-green" x="640" y="70" width="70" height="46" rx="8"/><text class="lbl" x="675" y="97">delete</text>
+      <path class="arrow" d="M155,93 L213,93"/><path class="arrow" d="M375,93 L433,93"/><path class="arrow" d="M605,93 L638,93"/>
+      <text class="lbl" x="295" y="160">fail → 401 UNAUTHENTICATED</text>
+      <text class="lbl-s" x="295" y="176">"I don't know who you are"</text>
+      <path class="arrow-dash" d="M295,116 L295,146"/>
+      <text class="lbl" x="520" y="160">fail → 403 FORBIDDEN</text>
+      <text class="lbl-s" x="520" y="176">"I know you — the answer is no"</text>
+      <path class="arrow-dash" d="M520,116 L520,146"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "Authentication and authorization are two different questions with two different error codes. requireUser answers 'who are you' — 401. The ownership check answers 'may you' — 403. I keep them separate on purpose."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS & RUN ============ -->
+<section id="numbers">
+  <p class="hint">Calibrated numbers = instant senior signal. Then the exact commands to run the demo.</p>
+  <table class="numbers">
+    <tr><th>Thing</th><th>Value</th><th>Why it matters</th></tr>
+    <tr><td>bcrypt cost factor</td><td class="val">12 (2^12 rounds)</td><td class="why">~100–300ms per hash. Slow on purpose — prices out brute force. OWASP minimum is 10.</td></tr>
+    <tr><td>bcrypt input limit</td><td class="val">72 bytes</td><td class="why">Characters beyond 72 are ignored. A classic gotcha question.</td></tr>
+    <tr><td>argon2id (OWASP first choice)</td><td class="val">19 MiB · 2 iter · p1</td><td class="why">Memory-hard — resists GPU cracking. Pick for greenfield; bcrypt ≥10 still acceptable.</td></tr>
+    <tr><td>Access token lifetime</td><td class="val">15 min</td><td class="why">Small theft window; verified by signature only, zero DB reads on the hot path.</td></tr>
+    <tr><td>Refresh token lifetime</td><td class="val">7 days, single-use</td><td class="why">256 bits random, stored as SHA-256 hash. Delete row = instant revocation.</td></tr>
+    <tr><td>JWT parts</td><td class="val">3</td><td class="why">header.payload.signature — readable by anyone, forgeable by no one.</td></tr>
+    <tr><td>Express 5 default on npm</td><td class="val">Mar 31, 2025</td><td class="why">Async handler errors now auto-forward to the error handler.</td></tr>
+    <tr><td>Apollo Server 4 EOL</td><td class="val">Jan 26, 2026</td><td class="why">AS5 needs @as-integrations/express5. Yoga = one package. Know both.</td></tr>
+    <tr><td>Prisma 7 released</td><td class="val">Nov 19, 2025</td><td class="why">Rust-free TS client, driver adapters mandatory, prisma.config.ts, generate no longer auto-runs.</td></tr>
+  </table>
+
+  <h2 class="block">▶ Run the demo (examples/express-graphql-auth/)</h2>
+  <table class="numbers">
+    <tr><th>Step</th><th>Command</th><th>What it does</th></tr>
+    <tr><td>1</td><td class="val"><code>cp .env.example .env</code></td><td class="why">JWT secret + SQLite path. Prisma 7 doesn't auto-load .env — dotenv is explicit.</td></tr>
+    <tr><td>2</td><td class="val"><code>npm install</code></td><td class="why">Express 5, Yoga 5, Prisma 7, bcryptjs, jsonwebtoken.</td></tr>
+    <tr><td>3</td><td class="val"><code>npm run setup</code></td><td class="why">prisma migrate dev + prisma generate — v7 no longer chains them.</td></tr>
+    <tr><td>4</td><td class="val"><code>npm run dev</code></td><td class="why">GraphiQL at localhost:4000/graphql. Flow: register → login → set Bearer header → me → createNote → refreshToken twice (2nd fails = rotation).</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="code">
+  <p class="hint">The whole GraphQL auth pattern in ~12 lines. If you can write this from memory, you can rebuild the app.</p>
+<pre><code>// once per request — GraphQL's "auth middleware"
+const context = ({ request }) =&gt; {
+  const h = request.headers.get("authorization") ?? "";
+  const t = h.startsWith("Bearer ") ? h.slice(7) : null;
+  return { prisma, userId: t ? verifyAccessToken(t) : null }; // bad token → null, no throw
+};
+
+// the gate, called inside protected resolvers
+function requireUser(ctx) {
+  if (!ctx.userId) throw new GraphQLError("Not authenticated.", {
+    extensions: { code: "UNAUTHENTICATED", http: { status: 401 } },
+  });
+  return ctx.userId;
+}
+
+// ownership lives in the QUERY, never filtered afterwards in JS
+prisma.note.findMany({ where: { authorId: requireUser(ctx) } });</code></pre>
+  <div class="code-note">
+    <b>How to talk about it:</b> "Context identifies, resolvers authorize. Context never throws so login and register work anonymously.
+    Registration catches Prisma's <b>P2002</b> unique-constraint error instead of find-then-create — the DB constraint wins the race two
+    simultaneous signups would cause. And login returns one identical error for bad email and bad password, so nobody can enumerate accounts."
+  </div>
+</section>
+
+<!-- ============ REAL CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Context identifies. Resolvers authorize. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Resolver", d: "One function per schema field. The engine walks the query and calls the matching cook for each dish on the menu. Field resolvers run per object — that's where N+1 is born." },
+  { t: "Context function", d: "Runs once per request, BEFORE any resolver. Reads the Bearer header, verifies the JWT, returns { prisma, userId }. It's GraphQL's version of Express auth middleware — and it never throws, so login/register work anonymously." },
+  { t: "requireUser gate", d: "One helper called inside protected resolvers: userId missing → GraphQLError with code UNAUTHENTICATED and HTTP 401. Resolvers opt in to auth; public ones just don't call it." },
+  { t: "Hashing vs encryption", d: "Encryption is two-way — the key recovers the original (Adobe 2013's mistake). Hashing is one-way: you compare hash-of-attempt to stored hash. Passwords are hashed, never encrypted, never logged." },
+  { t: "Salt", d: "Random value mixed into each hash so identical passwords produce different hashes — kills precomputed rainbow tables. bcrypt embeds the salt inside the hash string automatically." },
+  { t: "bcrypt cost factor", d: "Cost 12 = 2^12 rounds ≈ 100–300ms. Slow on purpose: one login barely notices, a billion offline guesses become impossibly expensive. OWASP minimum 10; argon2id is the greenfield first choice." },
+  { t: "JWT anatomy", d: "header.payload.signature, each base64url. Payload carries claims: sub (whose token), exp (expiry). Base64 is encoding, not encryption — anyone can read it; only the secret can sign it." },
+  { t: "Access token", d: "15-minute JWT. Verified by signature alone — zero DB reads on the hot path. Cannot be revoked, which is exactly why it must be short-lived." },
+  { t: "Refresh token", d: "Opaque 256-bit random string, 7 days, stored as SHA-256 hash in the DB. Its power IS the DB row — delete the row and it's dead. That's the kill switch JWTs lack." },
+  { t: "Rotation", d: "Each refresh token works exactly once: using it deletes the row and issues a new pair. A replayed stolen token finds nothing. RFC 9700 (Jan 2025) made this the OAuth standard." },
+  { t: "Hash stored tokens too", d: "The DB stores sha256(refreshToken), never the token. If the DB leaks, rows are unusable. Plain SHA-256 is fine here (unlike passwords) because the token is pure randomness — nothing to guess." },
+  { t: "Authn vs authz", d: "Authentication = who are you → 401 UNAUTHENTICATED. Authorization = are you allowed → 403 FORBIDDEN. deleteNote runs both gates in order: requireUser, then note.authorId === userId." },
+  { t: "P2002 over find-then-create", d: "Unique email is enforced by catching Prisma's P2002 unique-constraint error on create. Check-then-insert has a race window between two simultaneous signups; the DB constraint is the source of truth." },
+  { t: "N+1 problem", d: "Query 50 notes with authors → 1 query for notes + 50 for authors, because Note.author runs per note. Fix at scale: DataLoader batches IDs from one event-loop tick into a single WHERE id IN query — created per request in context." },
+  { t: "Driver adapter (Prisma 7)", d: "Prisma 7 dropped the Rust engine; the client is pure TypeScript and a driver adapter (better-sqlite3, pg) does the actual DB I/O. Also new: prisma.config.ts, required output path, explicit dotenv, generate no longer auto-runs." },
+  { t: "Token storage on the client", d: "Access token in memory; refresh token in an httpOnly + Secure + SameSite cookie (JS can't read it, so XSS can't steal it). Never refresh tokens in localStorage. React Native: platform keychain, not AsyncStorage." },
+];
+
+const decisions = [
+  { q: "GraphQL Yoga vs Apollo Server 5", a: "Pick Yoga when", at: "Small-to-mid Express service. One package, faster benchmarks, GraphiQL + SSE + uploads built in.", b: "Pick Apollo 5 when", bt: "You need Federation, GraphOS metrics, or the enterprise ecosystem. Needs @as-integrations/express5 now.", v: "Apollo 4 died Jan 26, 2026. For one Express service, Yoga is the lighter mainstream pick — and the swap is ~10 lines, so it's a low-stakes decision. Say that." },
+  { q: "JWT vs server-side sessions", a: "Pick JWT when", at: "Stateless verification across services/mobile matters; no store lookup on every request.", b: "Pick sessions when", bt: "Instant revocation is the priority; state in Redis/Postgres, tiny cookie.", v: "Ship the hybrid: 15-min JWT access + revocable DB refresh token. Stateless hot path, kill switch on the slow path. Revocation requirements decide it." },
+  { q: "httpOnly cookie vs localStorage", a: "Pick httpOnly cookie when", at: "Storing the refresh token. JS can't read it → XSS can't exfiltrate it. Add SameSite for CSRF.", b: "Pick localStorage when", bt: "Honestly: almost never for tokens. Convenient, survives reload — and readable by any injected script.", v: "2026 default: access token in memory, refresh token in httpOnly + Secure + SameSite cookie. On React Native, the keychain (expo-secure-store)." },
+  { q: "bcrypt vs argon2id", a: "Pick bcrypt when", at: "Existing systems, zero-native-dep installs (bcryptjs), maximum ecosystem familiarity. Cost ≥ 10.", b: "Pick argon2id when", bt: "Greenfield. OWASP first choice: memory-hard (19 MiB, 2 iter), resists GPU farms.", v: "Both are fine answers if you name the cost/params. Bonus point: bcrypt ignores input past 72 bytes." },
+  { q: "Opaque refresh token vs JWT refresh token", a: "Pick opaque + DB when", at: "You want trivial revocation: delete row = dead token. One cheap DB hit per refresh (rare).", b: "Pick JWT refresh when", bt: "You truly can't touch a DB on refresh — but revocation then needs a denylist… which is a DB again.", v: "Opaque wins for most apps. The refresh path is cold; pay the DB read there and keep the kill switch." },
+  { q: "Auth in context vs auth in every resolver", a: "Identify in context when", at: "Always. Parse + verify the token once per request; put userId (and loaders) in context.", b: "Authorize in resolvers when", bt: "Always. Each field decides access; ownership goes into the Prisma WHERE clause.", v: "The senior one-liner: 'context identifies, resolvers authorize.' At scale, lift repeated checks into directives or graphql-shield — or Hasura row-level permissions." },
+  { q: "SQLite vs PostgreSQL for this app", a: "Pick SQLite when", at: "Demo, tests, embedded, zero setup — this repo runs with no services.", b: "Pick Postgres when", bt: "Production: real concurrency, row-level security, replicas.", v: "With Prisma it's one provider line + one adapter swap. Design so the DB choice is boring." },
+];
+
+const cases = [
+  { topic: "Salts + slow hashes", b: "LinkedIn (2012)", p: "6.5M unsalted SHA-1 password hashes leaked; rainbow tables cracked most within days. The canonical 'this is why bcrypt, not fast hashes' story." },
+  { topic: "Encryption ≠ hashing", b: "Adobe (2013)", p: "~150M passwords encrypted with one 3DES key, plus plaintext hints. One key decrypts everything — the textbook argument for one-way hashing." },
+  { topic: "Never log passwords", b: "Twitter & GitHub (2018)", p: "Both found internal logs recording plaintext passwords before hashing and forced mass resets. Cite when you explain redacting auth-mutation variables from request logs." },
+  { topic: "Never log passwords, at scale", b: "Facebook (2019)", p: "Hundreds of millions of plaintext passwords sat in internal logs, searchable by ~20k employees. Hashing was fine — logging was the failure." },
+  { topic: "Rotation + reuse detection", b: "Auth0", p: "Documented model: single-use refresh tokens; replay of an already-used token revokes the entire token family, assuming theft. Our rotateRefreshToken is the small version." },
+  { topic: "Token design", b: "GitHub (2021)", p: "Moved to prefixed identifiable tokens (ghp_…) so secret scanning can auto-detect leaks in public repos. Cite for 'design tokens so leaks are detectable.'" },
+];
+
+const hooks = [
+  { b: "Context is the front desk", p: "It checks your ID once and hands you a key card (userId). Every door (resolver) just checks the card. 'Context identifies, resolvers authorize.'" },
+  { b: "A JWT is a festival wristband", p: "Anyone can read it, nobody can forge it, and you can't take it back — so make it expire in 15 minutes." },
+  { b: "Refresh tokens are single-ride tickets", p: "Rotation punches the ticket on use. A thief replaying a punched ticket rides nowhere — the DB row is gone." },
+  { b: "Hash what you never need back", p: "Passwords and refresh tokens go in one-way. If YOU can decrypt it, so can the attacker who steals your key." },
+  { b: "401 vs 403", p: "401 UNAUTHENTICATED = 'who are you?' (unidentified). 403 FORBIDDEN = 'I know exactly who you are — no.' (identified, not allowed)." },
+  { b: "One error for login failures", p: "'Invalid email or password' for both cases — different messages let attackers enumerate which emails have accounts." },
+];
+
+// ---- concepts + progress ----
+const KEY = "ega-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>
