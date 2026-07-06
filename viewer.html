@@ -121,8 +121,16 @@
   const h1 = content.querySelector("h1");
   if (h1) document.title = h1.textContent + " — Study Hub";
 
-  mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
-  await mermaid.run({ querySelector: ".mermaid" });
+  // suppressErrors: one broken diagram must not stop the others from rendering.
+  // If the CDN failed and mermaid is missing, leave diagrams as readable text.
+  if (typeof mermaid !== "undefined") {
+    try {
+      mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+      await mermaid.run({ querySelector: ".mermaid", suppressErrors: true });
+    } catch (e) {
+      console.warn("Mermaid render issue:", e);
+    }
+  }
 })();
 </script>
 
