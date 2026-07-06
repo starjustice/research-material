@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hasura Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #ffffff; --ink: #1e3a4c; --muted: #6b7a86;
+    --accent: #f5c542; --accent-soft: #fdf3d0; --green: #3a9d6e; --green-soft: #e3f4ec;
+    --blue: #4a7fb5; --blue-soft: #dbeafe; --pink: #e06377; --pink-soft: #fbe4e8;
+    --border: #e6dfd2; --code-bg: #1e2a33; --code-ink: #d9e6ee; --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px 16px 80px; max-width: 1000px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: .02em; }
+  header p.sub { display: inline-block; margin-top: 6px; background: linear-gradient(transparent 60%, var(--accent) 60%); font-weight: 600; }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg); padding: 10px 0; z-index: 5; }
+  nav button { border: 2px solid var(--border); background: var(--card); color: var(--ink); padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600; cursor: pointer; }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .concept { position: relative; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 14px 52px; box-shadow: 0 2px 6px rgba(30,58,76,.06); }
+  .concept .num-chip { position: absolute; top: 14px; left: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--blue-soft); display: flex; align-items: center; justify-content: center; font-size: .82rem; font-weight: 700; }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; }
+  .concept code { background: #efe9db; border-radius: 4px; padding: 1px 4px; font-size: .78em; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .concept .got { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); background: var(--card); cursor: pointer; font-size: .9rem; line-height: 1; color: transparent; }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+  .diagram-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5; }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+  table.cmds { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.cmds th, table.cmds td { border: 1px solid var(--border); padding: 10px 12px; font-size: .85rem; text-align: left; }
+  table.cmds th { background: var(--blue-soft); }
+  table.cmds td code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+  .decision { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius); padding: 16px; overflow-x: auto; font-size: .8rem; line-height: 1.55; font-family: "SF Mono", ui-monospace, Menlo, monospace; margin-bottom: 12px; }
+  .hook { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--accent); }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--blue); }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HASURA CHEATSHEET</h1>
+  <p class="sub">Compiler, not resolver. Configure, don't code.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagram</button>
+  <button data-tab="commands">⌨️ Commands</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="cases">🏢 Cases &amp; Hooks</button>
+</nav>
+
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="diagrams">
+  <p class="hint">The one picture to draw. Practice it in under 20 seconds.</p>
+  <div class="diagram-card">
+    <h3>Where Hasura sits</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box" x="15" y="70" width="110" height="50" rx="10"/><text class="lbl" x="70" y="91">Client</text><text class="lbl-s" x="70" y="106">Next.js / RN</text>
+      <rect class="box box-yellow" x="235" y="60" width="150" height="70" rx="10"/><text class="lbl" x="310" y="88">HASURA</text><text class="lbl-s" x="310" y="104">GraphQL → 1 SQL</text><text class="lbl-s" x="310" y="118">permissions per role</text>
+      <rect class="box box-green" x="540" y="20" width="150" height="46" rx="10"/><text class="lbl" x="615" y="40">PostgreSQL</text><text class="lbl-s" x="615" y="55">the only DB it needs</text>
+      <rect class="box box-blue" x="540" y="90" width="150" height="46" rx="10"/><text class="lbl" x="615" y="110">Your Node service</text><text class="lbl-s" x="615" y="125">custom logic (Actions)</text>
+      <rect class="box box-pink" x="540" y="152" width="150" height="40" rx="10"/><text class="lbl-s" x="615" y="169">Webhooks / queue</text><text class="lbl-s" x="615" y="183">(event triggers)</text>
+      <path class="arrow" d="M125,95 L233,95"/><text class="lbl-s" x="180" y="85">GraphQL + JWT</text>
+      <path class="arrow" d="M385,75 L538,45"/><text class="lbl-s" x="463" y="45">compiled SQL</text>
+      <path class="arrow" d="M385,100 L538,110"/><text class="lbl-s" x="463" y="120">Actions</text>
+      <path class="arrow-dash" d="M385,120 L538,168"/><text class="lbl-s" x="455" y="160">row changed</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Hasura compiles GraphQL into one SQL query with the role's permissions baked in — CRUD needs no code. Anything custom goes out the side: Actions call my Node service, event triggers push row changes to webhooks."</div>
+  </div>
+</section>
+
+<section id="commands">
+  <p class="hint">The CLI keeps every console click in git. Dev = console via CLI; prod = apply only.</p>
+  <table class="cmds">
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>hasura init myapp</code></td><td>New project folder: metadata/ + migrations/</td></tr>
+    <tr><td><code>hasura console</code></td><td>Open the console THROUGH the CLI — clicks become local files you commit</td></tr>
+    <tr><td><code>hasura metadata export</code></td><td>Pull the server's config into local files</td></tr>
+    <tr><td><code>hasura metadata apply</code></td><td>Push local config to a server (CI/CD step)</td></tr>
+    <tr><td><code>hasura migrate create add_todos</code></td><td>New SQL migration</td></tr>
+    <tr><td><code>hasura migrate apply</code></td><td>Run migrations (CI/CD step)</td></tr>
+    <tr><td><code>hasura metadata diff</code></td><td>What differs between local files and the server — drift detector</td></tr>
+  </table>
+  <h2 class="block">The permission rule to memorize</h2>
+  <pre>{ "user_id": { "_eq": "X-Hasura-User-Id" } }
+
+→ role "user" can only ever touch rows where user_id = their session id.
+→ Compiled into the SQL WHERE clause. Impossible to forget.</pre>
+  <h2 class="block">The JWT claims Hasura reads</h2>
+  <pre>"https://hasura.io/jwt/claims": {
+  "x-hasura-default-role":  "user",
+  "x-hasura-allowed-roles": ["user"],
+  "x-hasura-user-id":       "42"
+}</pre>
+</section>
+
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Hasura", d: "A GraphQL engine on top of PostgreSQL: point it at your tables, get a full CRUD API — queries, mutations, filters, pagination, relationships — with zero resolver code." },
+  { t: "Compiler, not resolver", d: "One GraphQL query becomes ONE SQL statement (joins + json_agg). No per-field resolution → N+1 cannot happen. This is the whole architecture in three words." },
+  { t: "Track", d: "Publish a table into the API. Untracked tables are invisible. Track = publish." },
+  { t: "Relationships", d: "Derived from foreign keys. Object relationship = many-to-one (todo → its user). Array relationship = one-to-many (user → their todos)." },
+  { t: "Permission rule", d: "A per-role, per-operation WHERE clause in JSON: <code>{\"user_id\":{\"_eq\":\"X-Hasura-User-Id\"}}</code>. Compiled into every query — a check no developer can forget to write." },
+  { t: "Session variables", d: "<code>X-Hasura-Role</code>, <code>X-Hasura-User-Id</code>, … — set from verified JWT claims, consumed by permission rules. The bridge between auth and authorization." },
+  { t: "JWT mode", d: "Your auth service issues the token with a Hasura claims block; Hasura verifies the signature and trusts the claims. Hasura never does login — it consumes identity." },
+  { t: "Admin secret", d: "Root access for the console and server-to-server calls. Never in a client app. Console disabled or gated in production." },
+  { t: "Action", d: "A custom mutation/query whose implementation is YOUR HTTP handler. Hasura forwards input + session variables to your Node code. The escape hatch for business logic." },
+  { t: "Remote schema", d: "Stitch a whole GraphQL server you own into Hasura's graph. Use instead of many Actions when you own a full custom domain." },
+  { t: "Event trigger", d: "Row inserted/updated/deleted → Hasura POSTs to your webhook, with retries. A built-in table-change-to-queue bridge (outbox's cousin)." },
+  { t: "Subscription (live query)", d: "Client subscribes over WebSocket; Hasura re-runs the query on an interval and multiplexes: 10,000 subscribers to one query cost ~one re-run, not 10,000." },
+  { t: "Metadata", d: "Every console click (tracked tables, permissions, actions) as files. Lives in git via the CLI, or your API config exists only inside one running container." },
+  { t: "v2 vs DDN (v3)", d: "v2 = fully open source, self-hosted, stable — the 2026 self-hosting answer. DDN = new Rust engine, managed-first, CLI/console proprietary." },
+];
+
+const decisions = [
+  { q: "Hasura vs custom GraphQL server", a: "Pick Hasura when", at: "The API is mostly CRUD over Postgres; you want permissions, subscriptions, and speed-to-API for free.", b: "Pick custom (Prisma + Yoga) when", bt: "The domain is mostly business logic — an Action for everything is a custom server with extra steps.", v: "Not either/or: Hasura for the CRUD 80% + a small Node service for the logic 20% — the pattern I run in production (DBO)." },
+  { q: "Actions vs Remote schema", a: "Actions when", at: "A handful of custom operations. Simple: one HTTP handler per operation, session variables forwarded.", b: "Remote schema when", bt: "You own a whole GraphQL domain with many related operations — stitch the server in once.", v: "Start with Actions; graduate to a remote schema when the action list stops fitting on one screen." },
+  { q: "JWT mode vs webhook auth mode", a: "JWT when", at: "Standard setup — no extra hop; Hasura verifies the token locally and reads claims.", b: "Webhook when", bt: "You need per-request logic to decide the role — at the cost of +1 network call on every request.", v: "JWT is the default answer; webhook is the flexibility escape hatch." },
+  { q: "Console clicks vs CLI workflow", a: "Console (via CLI) when", at: "Developing — hasura console records every click as committed files.", b: "CLI apply-only when", bt: "Staging/production — CI runs migrate apply + metadata apply.", v: "Clicking directly on a production console is how config drift is born. Dev clicks, prod applies." },
+  { q: "Hasura v2 vs Hasura DDN", a: "v2 when", at: "Self-hosted, fully open source, Postgres-centric — stable and still supported (2026).", b: "DDN when", bt: "Managed cloud, multi-team supergraphs, many data sources — accepting proprietary CLI/console.", v: "For self-hosting in 2026: v2. Knowing WHY (open tooling) is the senior part of the answer." },
+];
+
+const cases = [
+  { b: "Airbus", p: "Public Hasura case study — internal apps over Postgres with permission-controlled access. Cite for 'is it enterprise-ready?'" },
+  { b: "Philips", p: "Healthcare platforms on Hasura — row/column permissions matter enormously with medical data. Cite when defending declarative permissions." },
+  { b: "Nhost", p: "An entire backend-as-a-service company (Firebase alternative) built on Hasura as its core engine — the engine can be the foundation, not just a helper." },
+  { b: "My DBO platform", p: "Hasura for CRUD + permissions; Node services for auth, queue, and custom logic via Actions/remote schema. My lived proof of the hybrid pattern." },
+];
+
+const hooks = [
+  { b: "\"Hasura is the waiter, your service is the kitchen.\"", p: "It serves the whole menu (CRUD) instantly; you only cook the special dishes (Actions)." },
+  { b: "\"Compiler, not resolver.\"", p: "One GraphQL query → one SQL statement → N+1 is impossible by construction." },
+  { b: "\"Permissions are WHERE clauses you can't forget to write.\"", p: "Declared once per role, enforced by the engine on every request." },
+  { b: "\"Track = publish.\"", p: "A table joins the API the moment you track it — and not a moment before." },
+  { b: "\"CRUD in Hasura; 'if money then' in an Action.\"", p: "The moment logic has consequences, it belongs in your own service." },
+  { b: "\"Metadata in git or it didn't happen.\"", p: "Console clicks must become committed files, or your API config dies with the container." },
+];
+
+const KEY = "hasura-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = '<span class="num-chip">' + (i + 1) + '</span><button class="got" title="I can explain this">✓</button><h3>' + c.t + '</h3><p>' + c.d + '</p>';
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  document.getElementById("progressFill").style.width = Math.round((known.size / concepts.length) * 100) + "%";
+  document.getElementById("progressLabel").textContent = known.size + " / " + concepts.length + " concepts mastered";
+}
+function resetProgress() {
+  known.clear(); localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = '<div class="vs"><span class="badge">VS</span> ' + d.q + '</div><div class="cols"><div class="col a"><b>' + d.a + '</b>' + d.at + '</div><div class="col b"><b>' + d.b + '</b>' + d.bt + '</div></div><div class="verdict"><b>Verdict:</b> ' + d.v + '</div>';
+  decisionList.appendChild(el);
+});
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = "<b>" + c.b + "</b><p>" + c.p + "</p>";
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = "<b>" + h.b + "</b><p>" + h.p + "</p>";
+  hookList.appendChild(el);
+});
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

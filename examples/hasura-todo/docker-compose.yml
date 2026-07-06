@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./seed.sql:/seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  hasura:
+    # v2 = the open-source, self-hosted line. Check Docker Hub for the newest v2 tag.
+    image: hasura/graphql-engine:v2.44.0
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_ADMIN_SECRET: myadminsecret
+      # Lets Hasura reach an Action handler running on your laptop (host machine).
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: ""
+
+volumes:
+  db_data:
