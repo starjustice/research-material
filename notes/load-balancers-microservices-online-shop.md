@@ -37,7 +37,7 @@ You already use one: on CapRover, **nginx** is the built-in load balancer that r
 The picture — one entry point, many identical instances. Notice: clients only ever talk to the LB, never to an app copy directly:
 
 ```mermaid
-flowchart LR
+graph LR
     U[Client] -->|DNS shop.com| LB["L7 Load Balancer<br/>TLS termination,<br/>health checks, routing"]
     LB --> A1[Node app 1]
     LB --> A2[Node app 2]
@@ -209,7 +209,7 @@ Two rules that make it work:
 The whole system in one picture. Notice three things: one gateway in front, each extracted service has its own database, and third parties are only touched through the payment service or the queue — never directly from a user request:
 
 ```mermaid
-flowchart LR
+graph LR
     subgraph Clients
         WEB[Next.js web]
         APP[React Native]

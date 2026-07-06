@@ -26,7 +26,7 @@
 Where it sits — one caption to remember: Hasura owns the CRUD path; your own code hangs off the side for the special cases:
 
 ```mermaid
-flowchart LR
+graph LR
     C["Client<br/>Next.js / React Native"] --> H["Hasura<br/>GraphQL engine"]
     H --> PG[("PostgreSQL")]
     H -->|Actions| N["Your Node service<br/>custom business logic"]

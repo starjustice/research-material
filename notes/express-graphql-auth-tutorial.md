@@ -20,7 +20,7 @@
 Notice: Yoga is just middleware inside a normal Express app, and the context step sits before every resolver.
 
 ```mermaid
-flowchart LR
+graph LR
     C[Client or GraphiQL] -->|POST /graphql| E[Express 5]
     E --> Y[GraphQL Yoga]
     Y --> X["Context function<br/>reads Bearer token<br/>verifies JWT → userId"]

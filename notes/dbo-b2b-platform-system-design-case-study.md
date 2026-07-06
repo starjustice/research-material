@@ -10,7 +10,7 @@
 Draw this in the first 2 minutes of the conversation. Three clients enter through one gateway; four backend services each own their job; every database has exactly one owner; third parties hang off the edge via webhooks.
 
 ```mermaid
-flowchart TB
+graph TB
     subgraph Clients
         APP["📱 Mobile app<br/>(store owners)"]
         CMS["🖥 CMS admin<br/>(content, brands, points)"]

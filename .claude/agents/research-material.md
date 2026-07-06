@@ -61,6 +61,7 @@ Required sections (from the template):
 2. **Key concepts** — explained simply, as if to an intelligent beginner. Include **Mermaid diagrams** (```mermaid code blocks — `flowchart` for architecture, `sequenceDiagram` for request/event flows) for the 2–3 most important flows — a picture beats a paragraph. **Never use ASCII line art** — it breaks in markdown viewers. Add a one-line caption above each diagram saying what to notice.
 
    **Mermaid compatibility rules (older renderers fail silently on newer syntax — the user hit this):**
+   - Use `graph LR` / `graph TB`, **never `flowchart`** — old Mermaid versions (like the user's editor plugin) don't know the `flowchart` keyword and render nothing.
    - Edge labels: only `-->|label|` (solid) and `-.->|label|` (dotted). Never `-. "label" .->` or `-- "label" -->`.
    - No colons inside edge labels (`|DNS: shop.com|` breaks — write `|DNS shop.com|`).
    - No bidirectional arrows (`<-->`) — draw two edges instead.

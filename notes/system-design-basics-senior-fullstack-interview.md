@@ -36,7 +36,7 @@ At senior level, silence and passivity are penalized. Propose, commit, and justi
 The picture to draw first in almost any design — stateless app tier behind a load balancer, cache and database behind that:
 
 ```mermaid
-flowchart LR
+graph LR
     C[Client] --> CDN["CDN<br/>(static, Next.js ISR)"]
     CDN --> LB[Load Balancer]
     LB --> A1["Node app 1"]
@@ -114,7 +114,7 @@ Escalation ladder — present it in this order:
 Anything slow or failure-prone that the user doesn't need synchronously goes to a **message queue** (SQS, BullMQ on Redis, Kafka for high-throughput streams). Web request → enqueue job → respond fast → worker processes it.
 
 ```mermaid
-flowchart LR
+graph LR
     API["API<br/>respond fast"] -->|enqueue| Q[Queue]
     Q --> W1[Worker 1]
     Q --> W2[Worker 2]

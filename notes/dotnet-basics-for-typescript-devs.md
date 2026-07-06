@@ -351,7 +351,7 @@ app.use((err, req, res, next) => {
 This caption goes with the diagram: your actual pipeline order from `Program.cs` — notice the exception handler wraps everything, and authentication runs before authorization.
 
 ```mermaid
-flowchart TD
+graph TD
     A[Request in] --> B["1 ExceptionHandlingMiddleware<br/>try wraps all steps below"]
     B --> C["2 Serilog request logging<br/>method, path, status, duration"]
     C --> D["3 HTTPS redirection"]
