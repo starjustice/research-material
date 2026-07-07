@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:16
+    container_name: pg-practice
+    environment:
+      POSTGRES_USER: practice
+      POSTGRES_PASSWORD: practice
+      POSTGRES_DB: practice
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql
+    command: postgres -c shared_preload_libraries=pg_stat_statements

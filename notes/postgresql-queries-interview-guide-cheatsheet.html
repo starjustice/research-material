@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PostgreSQL Queries Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --code-note: #f5c542;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept p code { background: var(--accent-soft); border-radius: 4px; padding: 0 4px; font-size: .82em; }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .78rem; line-height: 1.6;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace; margin-bottom: 14px;
+  }
+  pre .no { color: var(--code-note); }
+  pre .bad { color: #ef8f9f; }
+  pre .good { color: #7fd4a8; }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; margin-bottom: 16px; line-height: 1.55; }
+  .code-note b { display: block; margin-bottom: 4px; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .lbl-m { font: 600 11px ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-green { stroke: var(--green); stroke-width: 2; fill: none; marker-end: url(#arrg); }
+  .arrow-pink { stroke: var(--pink); stroke-width: 2; fill: none; marker-end: url(#arrp); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>POSTGRESQL QUERIES CHEATSHEET</h1>
+  <p class="sub">Joins · Indexes · EXPLAIN · Transactions · The advanced stuff that gets used</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="explain">🔍 Reading EXPLAIN</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="cases">🏢 Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">Pictures to draw on the whiteboard. Practice each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Composite index = phone book (the burn topic)</h3>
+    <svg viewBox="0 0 720 235" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker>
+        <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a9d6e"/></marker>
+        <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e06377"/></marker>
+      </defs>
+      <text class="lbl" x="360" y="18">ONE index on (tenor, plafon) — sorted by tenor, then plafon inside each tenor</text>
+      <rect class="box box-blue" x="30" y="35" width="200" height="120" rx="8"/>
+      <text class="lbl" x="130" y="56">tenor = 12</text>
+      <text class="lbl-m" x="130" y="80">plafon 50</text>
+      <text class="lbl-m" x="130" y="102">plafon 100</text>
+      <text class="lbl-m" x="130" y="124">plafon 200</text>
+      <rect class="box box-blue" x="260" y="35" width="200" height="120" rx="8"/>
+      <text class="lbl" x="360" y="56">tenor = 24</text>
+      <text class="lbl-m" x="360" y="80">plafon 80</text>
+      <text class="lbl-m" x="360" y="102">plafon 150</text>
+      <rect class="box box-yellow" x="490" y="35" width="200" height="120" rx="8"/>
+      <text class="lbl" x="590" y="56">tenor = 36</text>
+      <text class="lbl-m" x="590" y="80">plafon 120</text>
+      <text class="lbl-m" x="590" y="102">plafon 300 ★</text>
+      <text class="lbl-s" x="590" y="124">★ LIMIT 1 lands here</text>
+      <path class="arrow-green" d="M60,175 L660,175"/>
+      <text class="lbl-s" x="360" y="192" fill="#3a9d6e">forward scan → tenor ASC, plafon ASC</text>
+      <path class="arrow-pink" d="M660,208 L60,208"/>
+      <text class="lbl-s" x="360" y="228" fill="#e06377">backward scan → tenor DESC, plafon DESC — no DESC needed in the definition</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Two single-column indexes can never produce a two-column ordering — plafon isn't sorted inside each tenor. One composite index is; and a plain ASC one serves DESC-DESC via a backward scan. I verify with EXPLAIN ANALYZE: the Sort node must be gone."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · The slow-query workflow (recite it)</h3>
+    <svg viewBox="0 0 720 190" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="15" y="70" width="150" height="52" rx="8"/>
+      <text class="lbl" x="90" y="92">pg_stat_statements</text>
+      <text class="lbl-s" x="90" y="108">worst by total time</text>
+      <rect class="box box-yellow" x="205" y="70" width="150" height="52" rx="8"/>
+      <text class="lbl" x="280" y="92">EXPLAIN ANALYZE</text>
+      <text class="lbl-s" x="280" y="108">with BUFFERS</text>
+      <rect class="box" x="395" y="10" width="150" height="44" rx="8"/>
+      <text class="lbl" x="470" y="28">Add / fix index</text>
+      <text class="lbl-s" x="470" y="44">seq scan, rows removed</text>
+      <rect class="box" x="395" y="72" width="150" height="44" rx="8"/>
+      <text class="lbl" x="470" y="90">Run ANALYZE</text>
+      <text class="lbl-s" x="470" y="106">estimates far off</text>
+      <rect class="box" x="395" y="134" width="150" height="44" rx="8"/>
+      <text class="lbl" x="470" y="152">Rewrite query</text>
+      <text class="lbl-s" x="470" y="168">keyset, EXISTS, less</text>
+      <rect class="box box-green" x="585" y="70" width="120" height="52" rx="8"/>
+      <text class="lbl" x="645" y="92">Verify</text>
+      <text class="lbl-s" x="645" y="108">EXPLAIN again</text>
+      <path class="arrow" d="M165,96 L203,96"/>
+      <path class="arrow" d="M355,84 L393,36"/>
+      <path class="arrow" d="M355,96 L393,94"/>
+      <path class="arrow" d="M355,108 L393,152"/>
+      <path class="arrow" d="M545,32 L583,80"/>
+      <path class="arrow" d="M545,94 L583,96"/>
+      <path class="arrow" d="M545,156 L583,112"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "I never guess. pg_stat_statements tells me which query, EXPLAIN ANALYZE tells me why, then I index or rewrite, then I run EXPLAIN ANALYZE again to prove it — and I check the new index's write cost."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · OFFSET vs keyset pagination</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl" x="180" y="20">OFFSET 80000 LIMIT 20</text>
+      <rect class="box box-pink" x="30" y="34" width="300" height="40" rx="8"/>
+      <text class="lbl" x="180" y="52">80,000 rows read…</text>
+      <text class="lbl-s" x="180" y="67">…and thrown away</text>
+      <rect class="box box-green" x="120" y="94" width="120" height="36" rx="8"/>
+      <text class="lbl" x="180" y="116">20 rows kept</text>
+      <path class="arrow" d="M180,74 L180,92"/>
+      <text class="lbl-s" x="180" y="160">cost grows with page depth</text>
+      <text class="lbl-s" x="180" y="178">page 4000 ≫ page 1</text>
+      <line x1="365" y1="10" x2="365" y2="190" stroke="#e6dfd2" stroke-width="2"/>
+      <text class="lbl" x="545" y="20">Keyset — WHERE (created_at, id) &lt; cursor</text>
+      <rect class="box box-blue" x="430" y="34" width="230" height="40" rx="8"/>
+      <text class="lbl" x="545" y="52">index descent to cursor</text>
+      <text class="lbl-s" x="545" y="67">a few page reads</text>
+      <rect class="box box-green" x="485" y="94" width="120" height="36" rx="8"/>
+      <text class="lbl" x="545" y="116">20 rows kept</text>
+      <path class="arrow" d="M545,74 L545,92"/>
+      <text class="lbl-s" x="545" y="160">constant cost per page</text>
+      <text class="lbl-s" x="545" y="178">Prisma cursor / Relay after</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "OFFSET re-counts the line from the front on every page. Keyset leaves a bookmark — the last row's (created_at, id) — and the index resumes from there. Tradeoff: no jump-to-page-N, which feeds don't need."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · FOR UPDATE SKIP LOCKED — job queue in pure Postgres</h3>
+    <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl" x="150" y="20">jobs table (status = queued)</text>
+      <rect class="box box-pink" x="60" y="34" width="180" height="32" rx="8"/>
+      <text class="lbl-m" x="150" y="54">job 1 🔒 locked</text>
+      <rect class="box box-yellow" x="60" y="74" width="180" height="32" rx="8"/>
+      <text class="lbl-m" x="150" y="94">job 2 🔒 locked</text>
+      <rect class="box" x="60" y="114" width="180" height="32" rx="8"/>
+      <text class="lbl-m" x="150" y="134">job 3 — free</text>
+      <rect class="box box-blue" x="430" y="34" width="140" height="36" rx="8"/>
+      <text class="lbl" x="500" y="56">Worker A</text>
+      <rect class="box box-blue" x="430" y="94" width="140" height="36" rx="8"/>
+      <text class="lbl" x="500" y="116">Worker B</text>
+      <path class="arrow-green" d="M428,50 L242,50"/>
+      <path class="arrow-green" d="M428,110 L242,92"/>
+      <text class="lbl-s" x="335" y="40">claims job 1</text>
+      <text class="lbl-s" x="335" y="128">skips job 1, claims job 2 — no waiting</text>
+      <text class="lbl-s" x="360" y="168">UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Plain FOR UPDATE makes worker B wait behind worker A's row — serial processing. SKIP LOCKED means take the next open counter. It's how pg-boss and Graphile Worker do queues — the 'BullMQ without Redis' option for moderate volume."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · MVCC and VACUUM — why dead tuples exist</h3>
+    <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="50" width="170" height="60" rx="8"/>
+      <text class="lbl" x="105" y="75">UPDATE points</text>
+      <text class="lbl-s" x="105" y="95">never edits in place</text>
+      <rect class="box box-green" x="270" y="20" width="170" height="44" rx="8"/>
+      <text class="lbl" x="355" y="38">new row version</text>
+      <text class="lbl-s" x="355" y="54">what readers see</text>
+      <rect class="box box-pink" x="270" y="96" width="170" height="44" rx="8"/>
+      <text class="lbl" x="355" y="114">old version = dead</text>
+      <text class="lbl-s" x="355" y="130">bloat until cleaned</text>
+      <rect class="box box-yellow" x="520" y="96" width="170" height="44" rx="8"/>
+      <text class="lbl" x="605" y="114">VACUUM</text>
+      <text class="lbl-s" x="605" y="130">reclaims dead space</text>
+      <path class="arrow" d="M190,66 L268,42"/>
+      <path class="arrow" d="M190,94 L268,116"/>
+      <path class="arrow" d="M518,118 L442,118"/>
+      <text class="lbl-s" x="360" y="160">long-running transactions pin old snapshots → vacuum can't clean → bloat grows</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Postgres is MVCC — readers never block writers because updates write new versions. The price is dead tuples; autovacuum collects them at about 20% dead. The classic production issue is a long transaction silently blocking that cleanup."</div>
+  </div>
+</section>
+
+<!-- ============ READING EXPLAIN ============ -->
+<section id="explain">
+  <p class="hint">One annotated plan, before and after. Read inner-most node first.</p>
+
+<pre><code>EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM orders WHERE store_id = 42 ORDER BY created_at DESC LIMIT 10;
+
+<span class="bad">-- BEFORE (no useful index):</span>
+Limit (cost=2745.94..2745.96 rows=10) (actual time=21.343..21.345 rows=10 loops=1)
+  -&gt; Sort (...)                        <span class="no">← Sort node = index is NOT serving the ORDER BY</span>
+       Sort Key: created_at DESC
+       Sort Method: top-N heapsort  Memory: 26kB
+                                       <span class="no">← "external merge Disk" here = sort spilled past work_mem</span>
+       -&gt; Seq Scan on orders           <span class="no">← read the WHOLE table</span>
+            (cost=0.00..2743.00 rows=101)
+            (actual time=0.012..21.201 rows=98 loops=1)
+                                       <span class="no">← estimated 101 vs actual 98 = stats are healthy</span>
+            Filter: (store_id = 42)
+            Rows Removed by Filter: 99902   <span class="no">← 99,902 rows of pure waste = missing index</span>
+            Buffers: shared hit=1743        <span class="no">← 1743 pages touched (hit=cache, read=disk)</span>
+Execution Time: 21.371 ms
+
+CREATE INDEX idx_orders_store_created ON orders (store_id, created_at);
+
+<span class="good">-- AFTER:</span>
+Limit (actual time=0.030..0.056 rows=10 loops=1)
+  -&gt; Index Scan Backward using idx_orders_store_created on orders
+                                       <span class="no">← Backward = DESC served by a plain ASC index</span>
+       Index Cond: (store_id = 42)
+       Buffers: shared hit=13          <span class="no">← 1743 pages → 13 pages</span>
+Execution Time: 0.078 ms              <span class="no">← 21 ms → 0.08 ms</span></code></pre>
+
+  <div class="code-note">
+    <b>The 5 things to check, in order:</b>
+    1. <b>Scan type</b> — Seq Scan filtering to few rows = missing index. Index Only Scan = best case.<br>
+    2. <b>Sort nodes</b> — a Sort feeding a LIMIT means the index doesn't match the ORDER BY.<br>
+    3. <b>Estimated vs actual rows</b> — off by 10–100×? Run ANALYZE; stale stats cause bad join choices.<br>
+    4. <b>Rows Removed by Filter</b> — wasted work, the "why is this slow" number.<br>
+    5. <b>Buffers</b> — hit = cache, read = disk. Huge counts explain slowness even when the plan looks right. (PG18: shown by default.)
+  </div>
+
+  <div class="code-note">
+    <b>Join algorithms — one line each when they appear:</b>
+    <b>Nested Loop</b> — small outer side, indexed inner side. Fine. Scary only when both sides are big.<br>
+    <b>Hash Join</b> — builds a hash table on the smaller side; the workhorse for large equality joins.<br>
+    <b>Merge Join</b> — both inputs sorted (usually via indexes), zipped together; big sorted joins.
+  </div>
+
+  <div class="code-note">
+    <b>Careful:</b> EXPLAIN ANALYZE really runs the query. For UPDATE/DELETE wrap it: <code>BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;</code>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">All visible — memorize the pattern, not the decimals.</p>
+  <table class="numbers">
+    <tr><th>Thing</th><th>Number</th><th>Why it matters</th></tr>
+    <tr><td>Index earns its keep when query returns…</td><td class="val">&lt; ~5–10% of the table</td><td class="why">Below that, the planner rightly picks a seq scan — low selectivity is why "I added an index but nothing changed."</td></tr>
+    <tr><td>B-tree depth at 100M rows</td><td class="val">3–4 levels</td><td class="why">An indexed lookup is a handful of page reads regardless of table size.</td></tr>
+    <tr><td>Default isolation level</td><td class="val">READ COMMITTED</td><td class="why">Snapshot per statement — lost updates possible in read-modify-write code. FOR UPDATE or atomic statements for hot rows.</td></tr>
+    <tr><td>Autovacuum kicks in at</td><td class="val">~20% dead tuples</td><td class="why">Default scale factor 0.2. Long transactions block cleanup → bloat.</td></tr>
+    <tr><td>work_mem default</td><td class="val">4 MB</td><td class="why">Bigger sorts spill to disk — "Sort Method: external merge Disk" in EXPLAIN.</td></tr>
+    <tr><td>OFFSET 80000 LIMIT 20</td><td class="val">reads 80,020 rows</td><td class="why">Discards 80,000. Keyset reads ~20. Deep pagination is linear vs constant.</td></tr>
+    <tr><td>deadlock_timeout</td><td class="val">1 s</td><td class="why">Postgres detects the cycle and kills one transaction — treat it as a retry signal, and lock rows in consistent order.</td></tr>
+    <tr><td>default_statistics_target</td><td class="val">100</td><td class="why">Raise per-column for skewed data when estimates stay wrong after ANALYZE.</td></tr>
+    <tr><td>Composite (a, b) serves</td><td class="val">a · a+b · a = ? ORDER BY b</td><td class="why">Not b alone — leftmost prefix rule (PG18 skip scan softens it when a has few distinct values).</td></tr>
+    <tr><td>Every extra index costs</td><td class="val">work on EVERY write</td><td class="why">Indexes tax INSERT/UPDATE/DELETE and vacuum. Drop unused ones: pg_stat_user_indexes idx_scan = 0.</td></tr>
+    <tr><td>EXPLAIN ANALYZE buffers</td><td class="val">default since PG18 (2025)</td><td class="why">Before that, write EXPLAIN (ANALYZE, BUFFERS) — saying this shows you're current.</td></tr>
+    <tr><td>CTEs stopped being optimization fences in</td><td class="val">PG12 (2019)</td><td class="why">Single-use CTEs are inlined; force old behavior with AS MATERIALIZED.</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Index mengikuti query, bukan query mengikuti index. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "B-tree index", d: "A separate sorted tree over column values with pointers to rows — like a book's back index. Fast for equality, ranges, and ORDER BY. 3–4 levels deep even at 100M rows, and readable in BOTH directions." },
+  { t: "Composite index + leftmost prefix", d: "One index over (a, b): sorted by a, then b within equal a — a phone book (last, first). Serves a alone, a+b, and a = ? ORDER BY b. Does NOT serve b alone (PG18 skip scan softens this)." },
+  { t: "Backward index scan", d: "Postgres reads any B-tree forward or backward. A plain ASC index serves ORDER BY col DESC. A plain (a, b) serves ORDER BY a DESC, b DESC. DESC in the definition is only required for MIXED directions like (a DESC, b ASC)." },
+  { t: "THE BURN RULE", d: "Two single-column indexes can NEVER serve ORDER BY a DESC, b DESC — b is not ordered inside equal a, and two B-trees can't be stitched into one ordering. One composite (a, b) can, via backward scan. Proof: EXPLAIN ANALYZE shows the Sort node gone." },
+  { t: "Covering index (INCLUDE)", d: "Carry extra columns as payload so the query is answered from the index alone → Index Only Scan, zero heap visits. INCLUDE columns are returned, not searchable. Needs a fresh visibility map (vacuum) to shine." },
+  { t: "Partial index", d: "An index with a WHERE clause — only the hot slice (status = 'PENDING', deleted_at IS NULL). Fraction of the size, cheaper on every write. The query must repeat the WHERE to qualify." },
+  { t: "Expression index", d: "Index the RESULT of an expression: lower(email), created_at::date. Any function wrapped around a column disables plain indexes — this is the fix." },
+  { t: "When indexes DON'T help", d: "Low selectivity (matches a big fraction of rows), tiny tables, LIKE '%abc' (no prefix to descend with — use pg_trgm), wrapped columns. And every index taxes every write — unused indexes are pure cost." },
+  { t: "LEFT JOIN + WHERE trap", d: "WHERE right.col = x removes the NULL rows that made the join LEFT — it silently becomes an INNER JOIN. Put right-table filters in the ON clause instead." },
+  { t: "EXISTS / NOT EXISTS", d: "Semi-join / anti-join: 'has at least one match' without duplicate rows, stops at first hit, NULL-safe. Never use NOT IN with subqueries: one NULL and it returns zero rows, silently." },
+  { t: "Scan types", d: "Seq Scan = whole table (fine for big fractions). Index Scan = few rows via index + heap visits. Index Only Scan = answered from index alone. Bitmap Scan = medium selectivity; can AND/OR two indexes — for filtering, never for sorting." },
+  { t: "Join algorithms", d: "Nested Loop: probe inner per outer row — great with small outer + indexed inner. Hash Join: build table on smaller side — the big-equality-join workhorse. Merge Join: zip two sorted inputs. The planner picks based on row estimates." },
+  { t: "Estimated vs actual rows", d: "THE health check in EXPLAIN ANALYZE. Off by 10–100× = stale statistics = the planner picks wrong join strategies. Fix: ANALYZE the table; raise statistics target for skewed columns." },
+  { t: "Isolation levels", d: "READ COMMITTED (default): fresh snapshot per statement — lost updates possible. REPEATABLE READ: one snapshot per transaction — write skew still possible. SERIALIZABLE: as-if-sequential, aborts conflicts with 40001 — you must retry." },
+  { t: "SELECT … FOR UPDATE", d: "Locks the selected rows until commit; concurrent lockers wait, then see committed truth. Turns check-then-act into a safe sequence — the TADA double-refund fix. Avoid deadlocks by locking rows in a consistent order." },
+  { t: "ROW_NUMBER / RANK / DENSE_RANK", d: "All number rows within OVER (PARTITION BY … ORDER BY …). Ties: ROW_NUMBER 1,2,3 (unique) · RANK 1,1,3 (skips — Olympic medals) · DENSE_RANK 1,1,2 (no gaps — price tiers)." },
+  { t: "DISTINCT ON (Postgres specialty)", d: "SELECT DISTINCT ON (store_id) * … ORDER BY store_id, created_at DESC = first row per store = 'latest order per store' in one line. Shorter and often faster than ROW_NUMBER; mention it unprompted." },
+  { t: "UPSERT — ON CONFLICT", d: "INSERT … ON CONFLICT (key) DO NOTHING / DO UPDATE SET x = EXCLUDED.x. Atomic insert-or-else riding a unique constraint. With RETURNING: empty result = duplicate → skip. THE webhook-dedupe tool. PG19 adds DO SELECT (get-or-create)." },
+  { t: "Keyset pagination", d: "WHERE (created_at, id) < (cursor) ORDER BY created_at DESC, id DESC LIMIT 20 — constant cost at any depth, no skipped rows when data shifts. Needs a unique tiebreaker (id). Prisma cursor / Relay after do exactly this." },
+  { t: "FOR UPDATE SKIP LOCKED", d: "Claim the next UNLOCKED row instead of waiting — concurrent workers each grab a different job atomically. A job queue in pure Postgres (pg-boss, Graphile Worker). The 'one less system than Redis' answer." },
+  { t: "JSONB + GIN index", d: "-> returns jsonb (chainable), ->> returns text (comparable). Containment payload @> '{\"type\":\"refund\"}' is served by a GIN index — an inverted index over every key/value inside documents. Columns for what you query; JSONB for what you store." },
+  { t: "LATERAL join", d: "A subquery that can reference the row before it — a foreach in SQL. 'Top 3 orders per store' = JOIN LATERAL (… WHERE store_id = s.id ORDER BY … LIMIT 3). Also how Hasura compiles every nested GraphQL query." },
+  { t: "Recursive CTE", d: "WITH RECURSIVE: base rows UNION ALL a step that joins back to the CTE, repeated until empty. Trees and chains (categories, referrals). Always add a depth guard against cycles." },
+  { t: "VACUUM & dead tuples", d: "MVCC: UPDATE writes a NEW row version; the old one is a dead tuple. VACUUM reclaims them; autovacuum triggers at ~20% dead. Long-running transactions pin snapshots and block cleanup → bloat. Watch n_dead_tup." },
+  { t: "pg_stat_statements", d: "Extension aggregating every normalized query: calls, total/mean time, rows. The 'which query is slow' tool — ORDER BY total_exec_time DESC LIMIT 10 is step one of every performance investigation." },
+  { t: "Materialized view", d: "A query's result stored like a table — instant dashboard reads, stale until REFRESH. CONCURRENTLY avoids blocking reads but requires a unique index. Schedule refreshes (BullMQ repeatable job fits)." },
+  { t: "Partitioning by time", d: "Split orders / point_transactions into monthly child tables. Queries prune to relevant partitions; old data drops with DROP TABLE (instant). Cost: partition key must be in the PK; automate creation with pg_partman. Ladder step 4 — after indexes, pooling, replicas." },
+];
+
+const decisions = [
+  { q: "One composite index vs several single-column", a: "Pick composite when", at: "You know the hot query shape: multi-column filters AND multi-column sorts. Equality columns first, then the sort/range column.", b: "Pick singles when", bt: "Predicates vary a lot — the planner can bitmap-AND them for filtering. But they can NEVER serve a combined ORDER BY.", v: "Design the index from the hottest query. Two singles failing ORDER BY a DESC, b DESC is the mock-interview burn — one composite fixes it." },
+  { q: "EXISTS vs IN", a: "Pick EXISTS when", at: "\"Has at least one related row\" — no duplicates, stops at first match, NULL-safe. NOT EXISTS for anti-joins, always.", b: "Pick IN when", bt: "Small literal lists (status IN ('PAID','SHIPPED')) or simple subqueries — the planner treats them similarly anyway.", v: "The trap to name: NOT IN + one NULL in the subquery = zero rows, silently. That sentence alone scores points." },
+  { q: "OFFSET vs keyset pagination", a: "Pick OFFSET when", at: "Admin tables with page numbers, shallow depths, jump-to-page needed.", b: "Pick keyset when", bt: "Feeds, infinite scroll, APIs, anything deep — constant cost per page via the index.", v: "OFFSET reads-and-discards everything before the page. Keyset = Prisma cursor / Relay after. Feeds get keyset, full stop." },
+  { q: "JSONB vs real columns", a: "Pick columns when", at: "You filter, join, aggregate, or validate the field. The planner gets statistics; constraints protect you.", b: "Pick JSONB when", bt: "External payloads, rarely-queried metadata, shapes you don't control. GIN index rescues @> queries.", v: "Columns for data you query, JSONB for data you store. Promoting a hot JSONB key to a column later is a cheap migration." },
+  { q: "CTE vs subquery", a: "Pick CTE when", at: "Multi-step logic that should read top-to-bottom; recursion; reusing one expensive result (AS MATERIALIZED).", b: "Pick subquery when", bt: "One-off nesting where naming adds nothing.", v: "Since PG12 (2019) single-use CTEs are inlined — same performance. Saying 'CTEs are optimization fences' without the version caveat dates you." },
+  { q: "DISTINCT ON vs ROW_NUMBER", a: "Pick DISTINCT ON when", at: "Latest/first row per group in Postgres — one line, pairs with a (group, sort) composite index.", b: "Pick ROW_NUMBER when", bt: "Portable SQL, or you need rn = 2, 3… / top-N per group (or use LATERAL).", v: "Give both in interviews: ROW_NUMBER shows SQL fluency, DISTINCT ON shows Postgres fluency." },
+  { q: "FOR UPDATE vs SERIALIZABLE", a: "Pick FOR UPDATE when", at: "A known hot row and check-then-act logic — targeted, cheap, predictable (the TADA fix).", b: "Pick SERIALIZABLE when", bt: "Invariants span multiple rows/tables and locks are hard to place — the DB catches write skew for you.", v: "Locks are precise but you must remember them everywhere; SERIALIZABLE catches everything but demands retry logic on 40001." },
+  { q: "Materialized view vs live query vs Redis", a: "Pick matview when", at: "Heavy aggregates read often, freshness in minutes/hours is fine — stays inside Postgres, SQL-queryable.", b: "Pick live query / Redis when", bt: "Live: data must be fresh and the query is cheap after indexing. Redis: sub-ms reads, but a second system + invalidation.", v: "Order of escalation: index the live query → materialized view → Redis. Each step adds staleness or ops cost." },
+  { q: "Postgres queue (SKIP LOCKED) vs BullMQ (Redis)", a: "Pick Postgres queue when", at: "Moderate volume; you want transactional enqueue (job + business write commit together) and one less system.", b: "Pick BullMQ when", bt: "High throughput, delayed/repeatable jobs, rate-limited workers — the batteries are included.", v: "\"I'd start with SKIP LOCKED for moderate volume and move to BullMQ when throughput or scheduling demands it\" — knowing both is the senior answer." },
+];
+
+const cases = [
+  { topic: "Idempotency", b: "Stripe", p: "Every payment API call takes an Idempotency-Key — a retried charge applies exactly once. Cite next to ON CONFLICT DO NOTHING and unique-reference ledgers." },
+  { topic: "Scaling Postgres", b: "Figma", p: "Hit single-Postgres limits and partitioned, then sharded, IN PLACE (2023–2024) instead of migrating to NoSQL. The canonical 'exhaust Postgres first' story." },
+  { topic: "Sharding by tenant", b: "Notion", p: "Split one Postgres into 32 physical DBs / 480 logical shards by workspace ID (2021), then resharded live (2023). Cite for partition-by-tenant discussions." },
+  { topic: "Keyset + sortable IDs", b: "Instagram", p: "Generated time-ordered IDs inside Postgres so feeds paginate by cursor over an index — the ancestor of today's UUIDv7 argument (built into PG18)." },
+  { topic: "Performance culture", b: "GitLab", p: "Runs one of the biggest public Postgres installs; development docs enforce ~100ms query budgets and require EXPLAIN plans in merge requests. 'Performance as code review.'" },
+  { topic: "Your own war story", b: "TADA double refund (DBO platform)", p: "Duplicate webhook + check-then-act race → double points. Fix: FOR UPDATE inside the transaction; then layered idempotency — unique event ID + ON CONFLICT, guarded UPDATE, append-only ledger. Your strongest card: it really happened." },
+];
+
+const hooks = [
+  { b: "Index mengikuti query", p: "\"The index follows the query, not the query the index — and EXPLAIN ANALYZE is the proof.\" Your own line from the mock. Keep it." },
+  { b: "Phone book", p: "Composite (last, first): all Tans together, sorted by first name inside. Asking for every 'John' regardless of last name? The sorting can't help — leftmost prefix rule." },
+  { b: "The direction rule, 3 sentences", p: "One column? Any index — B-trees read both ways. Two columns, same direction? Plain composite, scanned backward. Mixed directions? Now, and only now, put DESC in the definition." },
+  { b: "EXPLAIN vs ANALYZE", p: "EXPLAIN is the plan on paper (an estimate). EXPLAIN ANALYZE is the security-camera footage — it actually ran, with real times and real row counts." },
+  { b: "OFFSET vs keyset", p: "OFFSET re-counts the whole line from the front on every request. Keyset leaves a bookmark — 'bookmark' means the last row's sort values — and resumes from it." },
+  { b: "RANK medals", p: "RANK = Olympic medals: two golds, no silver → 1,1,3. DENSE_RANK = price tiers → 1,1,2. ROW_NUMBER never ties → 1,2,3." },
+  { b: "Isolation = photos", p: "READ COMMITTED: a fresh photo per statement. REPEATABLE READ: one photo for the whole transaction. SERIALIZABLE: photos plus a referee who cancels conflicting plays (retry on 40001)." },
+  { b: "MVCC litter", p: "Postgres never overwrites a row — every UPDATE drops the old version as litter. VACUUM is the street cleaner, and a long transaction is a sign saying 'do not clean yet'." },
+  { b: "SKIP LOCKED", p: "Don't queue behind an occupied counter — take the next open one. Each worker claims a different row, nobody waits." },
+];
+
+// ---- concepts + progress ----
+const KEY = "pg-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>
