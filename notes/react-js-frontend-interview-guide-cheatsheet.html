@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>React &amp; JS Frontend Interview Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.5rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace; margin-bottom: 14px;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin: -4px 0 22px; line-height: 1.5; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>REACT &amp; JS FRONTEND CHEATSHEET</h1>
+  <p class="sub">From "I use it daily" to "I can explain the internals."</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="code">💻 Code</button>
+  <button data-tab="cases">🏢 Real Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">The pictures to draw on the whiteboard. Practice sketching each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The event loop (the answer that wins the JS round)</h3>
+    <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box box-blue" x="20" y="80" width="150" height="60" rx="8"/>
+      <text class="lbl" x="95" y="105">Call stack</text><text class="lbl-s" x="95" y="122">runs JS to completion</text>
+      <rect class="box box-pink" x="280" y="18" width="190" height="54" rx="8"/>
+      <text class="lbl" x="375" y="40">Microtask queue</text><text class="lbl-s" x="375" y="58">Promise .then, await</text>
+      <rect class="box box-yellow" x="550" y="80" width="150" height="60" rx="8"/>
+      <text class="lbl" x="625" y="105">Render</text><text class="lbl-s" x="625" y="122">browser may paint</text>
+      <rect class="box box-green" x="280" y="150" width="190" height="54" rx="8"/>
+      <text class="lbl" x="375" y="172">Macrotask queue</text><text class="lbl-s" x="375" y="190">setTimeout, clicks, network</text>
+      <path class="arrow" d="M170,90 C210,70 240,55 276,48"/><text class="lbl-s" x="205" y="48">stack empty</text>
+      <path class="arrow" d="M470,48 C520,55 550,70 588,78"/><text class="lbl-s" x="545" y="44">drain ALL of it</text>
+      <path class="arrow" d="M625,142 C600,175 520,180 474,178"/><text class="lbl-s" x="580" y="185">next turn</text>
+      <path class="arrow" d="M280,178 C210,180 130,175 100,142"/><text class="lbl-s" x="185" y="200">take ONE task</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "One macrotask runs, then the microtask queue drains completely, then the browser gets a chance to paint. That's why a JS task over 50ms blocks paint and hurts INP — I chunk work or move it to a Web Worker."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · React Server Components — who ships JS, who doesn't</h3>
+    <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="85" width="120" height="60" rx="8"/>
+      <text class="lbl" x="80" y="110">Browser</text><text class="lbl-s" x="80" y="127">hydrates client parts</text>
+      <rect class="box" x="230" y="85" width="140" height="60" rx="8"/>
+      <text class="lbl" x="300" y="110">Next.js server</text><text class="lbl-s" x="300" y="127">App Router</text>
+      <rect class="box box-green" x="470" y="15" width="220" height="64" rx="8"/>
+      <text class="lbl" x="580" y="38">Server Components</text><text class="lbl-s" x="580" y="55">async, Prisma, secrets</text><text class="lbl-s" x="580" y="69">ZERO JS shipped</text>
+      <rect class="box box-pink" x="470" y="150" width="220" height="64" rx="8"/>
+      <text class="lbl" x="580" y="173">Client Components</text><text class="lbl-s" x="580" y="190">"use client" — hooks, events</text><text class="lbl-s" x="580" y="204">JS bundle + hydration</text>
+      <path class="arrow" d="M140,105 L227,105"/><text class="lbl-s" x="184" y="97">request</text>
+      <path class="arrow" d="M370,95 C410,75 430,60 466,50"/>
+      <path class="arrow" d="M370,135 C410,155 430,170 466,180"/>
+      <path class="arrow-dash" d="M470,60 C300,40 160,60 110,82"/><text class="lbl-s" x="255" y="38">RSC payload — serialized UI, no JS</text>
+      <path class="arrow-dash" d="M470,200 C300,225 150,190 95,148"/><text class="lbl-s" x="280" y="223">HTML + JS chunk — becomes interactive</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "In the App Router everything is a Server Component by default — it can query Prisma directly and ships zero JS. I mark only interactive leaves with 'use client', because that directive pulls its whole import tree into the browser bundle."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Virtualization — 10,000 rows, ~25 DOM nodes</h3>
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect x="110" y="12" width="170" height="186" rx="8" fill="#f1ece0" stroke="#e6dfd2" stroke-width="1.5"/>
+      <text class="lbl-s" x="195" y="32">10,000-row list — virtual</text>
+      <text class="lbl-s" x="195" y="188">tall spacer keeps scrollbar honest</text>
+      <rect class="box box-yellow" x="110" y="72" width="170" height="70" rx="8"/>
+      <text class="lbl" x="195" y="100">Visible window</text><text class="lbl-s" x="195" y="118">+ small buffer</text>
+      <rect class="box box-green" x="450" y="62" width="230" height="90" rx="8"/>
+      <text class="lbl" x="565" y="92">Real DOM</text>
+      <text class="lbl-s" x="565" y="112">only ~20–30 nodes exist</text>
+      <text class="lbl-s" x="565" y="130">recycled + repositioned on scroll</text>
+      <path class="arrow" d="M280,107 L446,107"/><text class="lbl-s" x="363" y="98">render only these</text>
+      <path class="arrow-dash" d="M60,60 C75,80 75,120 60,145"/><text class="lbl-s" x="45" y="105">scroll</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "I never render 10,000 rows — react-window or TanStack Virtual renders only the visible window inside a tall spacer. The DOM stays at ~25 nodes no matter how long the list is. Costs: find-in-page and variable heights need care."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · URL → pixels (the critical rendering path)</h3>
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="10" y="30" width="120" height="52" rx="8"/>
+      <text class="lbl" x="70" y="52">DNS · TCP · TLS</text><text class="lbl-s" x="70" y="69">find + connect</text>
+      <rect class="box box-yellow" x="160" y="30" width="110" height="52" rx="8"/>
+      <text class="lbl" x="215" y="52">HTTP</text><text class="lbl-s" x="215" y="69">CDN → server</text>
+      <rect class="box" x="300" y="30" width="130" height="52" rx="8"/>
+      <text class="lbl" x="365" y="52">DOM + CSSOM</text><text class="lbl-s" x="365" y="69">parse HTML, CSS</text>
+      <rect class="box" x="460" y="30" width="110" height="52" rx="8"/>
+      <text class="lbl" x="515" y="52">Layout</text><text class="lbl-s" x="515" y="69">size + position</text>
+      <rect class="box box-green" x="600" y="30" width="110" height="52" rx="8"/>
+      <text class="lbl" x="655" y="52">Paint</text><text class="lbl-s" x="655" y="69">+ composite</text>
+      <path class="arrow" d="M130,56 L157,56"/><path class="arrow" d="M270,56 L297,56"/><path class="arrow" d="M430,56 L457,56"/><path class="arrow" d="M570,56 L597,56"/>
+      <text class="lbl-s" x="70" y="110">affects TTFB</text>
+      <text class="lbl-s" x="365" y="110">script blocks parsing — use defer</text>
+      <text class="lbl-s" x="620" y="110">affects LCP · long JS tasks hurt INP</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "DNS resolves the name, TCP+TLS open a secure connection, the request usually hits a CDN or load balancer first. The browser then builds DOM and CSSOM, merges them into a render tree, does layout, then paint. I tie each stage to a metric: connection → TTFB, rendering → LCP, JS tasks → INP."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">All visible — quote these and you sound calibrated, not vague.</p>
+  <table class="numbers">
+    <tr><th>Thing</th><th>Number</th><th>Why it matters</th></tr>
+    <tr><td>LCP — Largest Contentful Paint</td><td class="val">≤ 2.5 s</td><td class="why">Loading. Usually the hero image — optimize, preload, never lazy-load it.</td></tr>
+    <tr><td>INP — Interaction to Next Paint</td><td class="val">≤ 200 ms</td><td class="why">Responsiveness. Replaced FID in March 2024. Fixed by shipping less JS + breaking long tasks.</td></tr>
+    <tr><td>CLS — Cumulative Layout Shift</td><td class="val">≤ 0.1</td><td class="why">Stability. Fixed by explicit image dimensions + reserved space.</td></tr>
+    <tr><td>CWV measurement</td><td class="val">p75, field data</td><td class="why">Real users, 75th percentile — not your dev machine's Lighthouse run.</td></tr>
+    <tr><td>Long task threshold</td><td class="val">50 ms</td><td class="why">JS tasks longer than this block paint and input — the event-loop → INP link.</td></tr>
+    <tr><td>Frame budget at 60fps</td><td class="val">~16.7 ms</td><td class="why">Why you throttle high-frequency updates — the screen can't show more anyway.</td></tr>
+    <tr><td>Search debounce</td><td class="val">~300 ms</td><td class="why">The standard "user stopped typing" wait for live search.</td></tr>
+    <tr><td>Initial route JS budget</td><td class="val">~200 KB gz</td><td class="why">Rule of thumb — split the rest by route and interaction.</td></tr>
+    <tr><td>Virtualized list DOM nodes</td><td class="val">~20–30</td><td class="why">Constant, whether the list has 100 or 100,000 items.</td></tr>
+    <tr><td>localStorage vs cookie size</td><td class="val">~5 MB vs ~4 KB</td><td class="why">Cookies ride on EVERY request — keep them to a session id / JWT.</td></tr>
+    <tr><td>Zustand usage (State of React 2025)</td><td class="val">~50%</td><td class="why">Passed Redux in downloads — cite it when asked "why not Redux?"</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="code">
+  <p class="hint">Three snippets that come up again and again. Practice writing them cold.</p>
+
+<pre><code>// 1 · Debounce — the closure story in 5 lines (live search box)
+function debounce&lt;T extends (...a: any[]) =&gt; void&gt;(fn: T, ms: number) {
+  let timer: ReturnType&lt;typeof setTimeout&gt;;   // lives in the closure
+  return (...a: Parameters&lt;T&gt;) =&gt; {
+    clearTimeout(timer);                       // each keystroke resets the wait
+    timer = setTimeout(() =&gt; fn(...a), ms);
+  };
+}</code></pre>
+  <div class="code-note"><b>Say:</b> "Debounce for search — I want the final query. Throttle for scroll and resize — regular updates while events keep firing. The timer lives in a closure, which is my go-to practical closure example."</div>
+
+<pre><code>// 2 · The stale closure bug — and the fix
+useEffect(() =&gt; {
+  const id = setInterval(() =&gt; {
+    setCount(count + 1);        // BUG: closes over first render's count (0)
+    setCount(c =&gt; c + 1);       // FIX: functional update reads latest value
+  }, 1000);
+  return () =&gt; clearInterval(id);
+}, []);                          // empty deps = the closure never refreshes</code></pre>
+  <div class="code-note"><b>Say:</b> "Every render's functions close over that render's values. An effect with empty deps keeps the first render's backpack forever. Fixes: functional updates, correct deps, or useEffectEvent in React 19.2."</div>
+
+<pre><code>// 3 · useFetch — loading / error / abort, in one hook
+function useFetch&lt;T&gt;(url: string) {
+  const [data, setData] = useState&lt;T | null&gt;(null);
+  const [error, setError] = useState&lt;Error | null&gt;(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() =&gt; {
+    const controller = new AbortController();
+    setLoading(true); setError(null);
+    fetch(url, { signal: controller.signal })
+      .then(res =&gt; {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); // fetch won't reject on 500!
+        return res.json() as Promise&lt;T&gt;;
+      })
+      .then(json =&gt; { setData(json); setLoading(false); })
+      .catch(err =&gt; {
+        if (err.name === "AbortError") return;  // cancelled, not an error
+        setError(err); setLoading(false);
+      });
+    return () =&gt; controller.abort();  // fixes race on fast url changes + unmount
+  }, [url]);
+
+  return { data, error, loading };
+}</code></pre>
+  <div class="code-note"><b>Close with:</b> "In production I use React Query — it adds caching, deduplication, retries, and stale-while-revalidate. This hook is what it does at its core."</div>
+</section>
+
+<!-- ============ REAL CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Event loop", d: "One macrotask runs → the microtask queue (Promises, await) drains COMPLETELY → the browser may paint → next macrotask. Classic log order: sync, sync, microtask, setTimeout." },
+  { t: "Why the loop = performance", d: "Paint only happens between tasks. A JS task over 50ms blocks paint and input → bad INP. Fix: chunk the work, scheduler.yield, or a Web Worker (separate thread, no DOM)." },
+  { t: "Closure", d: "A function keeps the variables of the scope it was created in — a 'backpack'. Powers debounce's timer, module factories, and every React render's handlers." },
+  { t: "Hoisting + TDZ", d: "Declarations register before code runs. var → initialized undefined (silent bugs). let/const → exist but throw until their line: the Temporal Dead Zone (loud bugs)." },
+  { t: "== vs ===", d: "== coerces types first (0 == '' is true). === compares type and value. Always ===; only defensible == is x == null to match null OR undefined." },
+  { t: "Debounce vs throttle", d: "Debounce = run once after events STOP (search box, ~300ms). Throttle = at most once per interval WHILE they fire (scroll, resize, cursor)." },
+  { t: "Event delegation", d: "Events bubble up, so one listener on the container handles 1,000 rows — read e.target. React does this at the root since v17. Capture phase = run first, top-down." },
+  { t: "Promise combinators", d: "all = need everything, fails fast. allSettled = independent jobs, never rejects. race = first to settle (timeouts). any = first success (redundant sources)." },
+  { t: "Virtual DOM — honestly", d: "Not 'fast'. A strategy: describe UI as f(state), diff two JS trees, apply the minimal batched real-DOM changes. The price of declarative code. Svelte/Solid skip it via compilation." },
+  { t: "Reconciliation", d: "Diff heuristics: different element type → tear down subtree (state lost). Same type → patch props. Lists → match by key. Render phase is interruptible (Fiber); commit is sync." },
+  { t: "Keys", d: "Name tags, not seat numbers. Index keys + delete → state and input values attach to the WRONG rows. Use stable ids. Changing a key on purpose = idiomatic state reset." },
+  { t: "Stale closure", d: "An effect/handler sees the render it was created in. setInterval + setCount(count+1) + [] sticks at 1 forever. Fix: setCount(c => c+1), real deps, or useEffectEvent." },
+  { t: "useEffect — 3 mistakes", d: "1) Derived state in an effect — compute during render instead. 2) Object/function deps → new reference each render → loops. 3) No cleanup → fetch races and leaks (AbortController)." },
+  { t: "useEffect vs useLayoutEffect", d: "useEffect runs after paint (default). useLayoutEffect runs before paint, synchronously — only for measuring DOM to avoid a one-frame flicker. It blocks the frame." },
+  { t: "Controlled vs uncontrolled", d: "Controlled: React state owns the input — live validation, render per keystroke. Uncontrolled: DOM owns it, read on submit — React Hook Form and React 19 Actions lean this way." },
+  { t: "Memoization rule", d: "Re-renders aren't the problem; slow re-renders are. Profile first. memo/useMemo/useCallback cost comparisons and readability, and one unstable prop defeats them. Compiler 1.0 automates it." },
+  { t: "React Server Components", d: "Run only on the server: async, direct Prisma/DB, secrets, ZERO JS shipped. 'use client' marks the interactive boundary — keep it at the leaves. Default in the Next.js App Router." },
+  { t: "Hydration", d: "Attaching JS behavior (listeners, state) to server-rendered HTML so it becomes interactive. With RSC, only client components pay this cost." },
+  { t: "Virtualization", d: "Render only the visible window (~25 nodes) of a long list inside a tall spacer. react-window / TanStack Virtual. The answer to 'render 10,000 items'." },
+  { t: "Stale-while-revalidate", d: "Show cached data instantly, refetch in the background, update if changed. React Query / SWR core idea. Knobs: staleTime (trust window) vs gcTime (cache retention)." },
+  { t: "State strategy 2026", d: "Split first: server state → React Query. URL state → searchParams. Local → useState. What's left (little) → Zustand or Context. Redux Toolkit only for complex, structured domains." },
+  { t: "Core Web Vitals", d: "LCP ≤ 2.5s (loading), INP ≤ 200ms (responsiveness, replaced FID in 2024), CLS ≤ 0.1 (stability). Real-user data at the 75th percentile." },
+  { t: "Storage picks", d: "Auth token → HttpOnly + Secure + SameSite cookie (XSS can't read it). Theme flag → localStorage. Per-tab draft → sessionStorage. Big offline data → IndexedDB (async)." },
+  { t: "CORS", d: "The browser blocks cross-origin reads unless the SERVER opts in via Access-Control-Allow-Origin; JSON requests trigger an OPTIONS preflight. Fix server-side or proxy via Next.js rewrites. Not API security." },
+];
+
+const decisions = [
+  { q: "useState vs useReducer", a: "useState when", at: "Independent, simple values. The default.", b: "useReducer when", bt: "3+ fields that change together or depend on previous state — wizards, forms, fetch state machines.", v: "Reducer = all transitions in one pure, testable function; dispatch is stable so it passes down without useCallback." },
+  { q: "Memoize or not?", a: "Memoize when", at: "Profiler shows a slow re-render: expensive compute, heavy subtree, or reference stability for a memo child.", b: "Skip when", bt: "By default. Comparisons + memory + readability cost more than cheap re-renders.", v: "\"I profile first, then memoize the measured hot path — and the React Compiler now does this automatically at build time.\"" },
+  { q: "Zustand vs Context (vs Redux)", a: "Context when", at: "Low-frequency globals: theme, locale, auth user. Every consumer re-renders on change.", b: "Zustand when", bt: "Shared client state that changes: selector subscriptions, no providers, ~1KB, works outside React.", v: "Ask first: is it server state? Then React Query, not either. Redux Toolkit only for complex domains needing enforced structure — Zustand passed Redux in downloads (2025)." },
+  { q: "JWT in localStorage vs HttpOnly cookie", a: "localStorage when", at: "Simple SPA + explicit Authorization header… but any XSS can read the token.", b: "HttpOnly cookie when", bt: "Default. JS can't read it → XSS can't steal it. SameSite blunts CSRF.", v: "Senior default: HttpOnly + Secure + SameSite cookie. Keep cookies tiny — they ride on every request." },
+  { q: "CSR vs SSR/ISR vs RSC", a: "Client-heavy (CSR) when", at: "Logged-in tools, editors, dashboards behind auth — SEO and first paint matter less.", b: "Server-first (SSR/ISR/RSC) when", bt: "Content, commerce, feeds: fast first paint, SEO, less JS. ISR for shareable pages, RSC + streaming for personalized ones.", v: "The senior line: \"I pick per PAGE TYPE, not per app.\" Marketing → ISR, feed → RSC streaming, editor → CSR." },
+  { q: "WebSockets vs SSE vs polling", a: "WebSockets when", at: "Bidirectional: chat, collaboration, games. (Hasura subscriptions = managed WS.)", b: "SSE / polling when", bt: "Server-push only (notifications, LLM streams) → SSE. 'Fresh enough' → React Query refetch.", v: "Pick the least powerful tool that meets the requirement — and batch/throttle renders regardless of transport." },
+  { q: "Virtualization vs pagination", a: "Virtualize when", at: "Feed-style continuous browsing; DOM must stay constant.", b: "Paginate when", bt: "Admin tables, search results — jumpable, SEO-able, simpler, accessible.", v: "Infinite scroll = IntersectionObserver + keyset pagination API + virtualization. All three, or it falls over at page 50." },
+  { q: "Composition vs Context for prop drilling", a: "Composition first", at: "Pass components as children — the middle layers never see the data. Free, no re-render cost.", b: "Context / store after", bt: "Context for stable globals; Zustand when it changes often.", v: "Saying \"composition first\" before reaching for Context is the senior tell in this question." },
+];
+
+const cases = [
+  { topic: "Ship less JS", b: "Netflix", p: "Removed client-side React from the logged-out landing page (kept server-rendered React) — ~50% faster interactivity. Cite as the ancestor of the RSC idea: the fastest JS is the JS you don't send." },
+  { topic: "Code splitting", b: "Facebook (2020 rebuild)", p: "Split JS into three tiers — skeleton first, above-the-fold next, the rest later — plus data-driven dependency loading. Cite when asked about bundle strategy beyond React.lazy." },
+  { topic: "Feeds + virtualization", b: "Twitter/X", p: "Virtualized timeline rendering plus hybrid push/pull fan-out for celebrity accounts; Twitter Lite's perf work showed direct engagement wins. Cite for infinite scroll design." },
+  { topic: "Real-time rendering", b: "Discord", p: "Millions of concurrent WebSocket connections; on the client they virtualize message lists and batch updates so chat stays smooth. Cite for 'real-time without perf issues'." },
+  { topic: "INP = money", b: "The Economic Times", p: "web.dev case study: improved INP ~4x and bounce rate dropped ~50%. Cite to tie Core Web Vitals to business results, not just SEO." },
+  { topic: "Rendering per page", b: "Shopify", p: "Hydrogen + edge rendering for storefronts: cached/static where possible, streamed SSR for personalized parts. Cite for 'pick rendering strategy per page type'." },
+];
+
+const hooks = [
+  { b: "Event loop", p: "\"One task, ALL microtasks, maybe paint.\" (Plain words: each turn runs one macrotask, then fully empties the microtask queue, then the browser may draw.)" },
+  { b: "Debounce vs throttle", p: "Debounce = elevator door — keeps waiting while people keep coming. Throttle = camera limited to one photo per second." },
+  { b: "Closure", p: "A backpack the function packed at birth and carries everywhere." },
+  { b: "Keys", p: "Name tags, not seat numbers — identify people by seat and everyone 'becomes' someone else when a row leaves." },
+  { b: "Virtual DOM", p: "Blueprint diff before renovating — the builders get a change list, not a demolition order." },
+  { b: "RSC", p: "Restaurant kitchen: you get the finished plate (no recipe, no chef shipped). Client components = the table-side burner — equipment must be at your table to interact with." },
+  { b: "Core Web Vitals", p: "\"Load, Respond, Stay put\" → LCP, INP, CLS." },
+  { b: "State management", p: "\"Fetch it? React Query. Own it? Zustand. Share rarely? Context.\"" },
+  { b: "Memoization", p: "Memo is a paid feature, not a default — profile first, then buy it where it's worth it." },
+];
+
+// ---- concepts + progress ----
+const KEY = "react-js-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>
