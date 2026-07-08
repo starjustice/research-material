@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Models &amp; Serverless Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px; max-width: 1000px; margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%); font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600; cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px; box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink); display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card); cursor: pointer; font-size: .9rem; line-height: 1; color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CLOUD MODELS &amp; SERVERLESS</h1>
+  <p class="sub">IaaS → PaaS → SaaS → FaaS, and serverless in depth.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="code">💻 Code</button>
+  <button data-tab="cases">🏢 Cases &amp; Hooks</button>
+</nav>
+
+<!-- CONCEPTS -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- DIAGRAMS -->
+<section id="diagrams">
+  <p class="hint">Draw these on the whiteboard. Practice each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The "who manages what" ladder</h3>
+    <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box" x="20" y="20" width="150" height="180" rx="8"/><text class="lbl" x="95" y="40">On-prem</text><text class="lbl-s" x="95" y="58">you manage</text><text class="lbl-s" x="95" y="74">EVERYTHING</text><text class="lbl-s" x="95" y="110">building, power,</text><text class="lbl-s" x="95" y="126">servers, OS, code</text>
+      <rect class="box box-blue" x="185" y="20" width="150" height="180" rx="8"/><text class="lbl" x="260" y="40">IaaS</text><text class="lbl-s" x="260" y="58">you manage</text><text class="lbl-s" x="260" y="74">OS upward</text><text class="lbl-s" x="260" y="110">EC2, droplet</text><text class="lbl-s" x="260" y="126">your VPS</text>
+      <rect class="box box-green" x="350" y="20" width="150" height="180" rx="8"/><text class="lbl" x="425" y="40">PaaS</text><text class="lbl-s" x="425" y="58">you manage</text><text class="lbl-s" x="425" y="74">code + data</text><text class="lbl-s" x="425" y="110">Vercel, Heroku</text><text class="lbl-s" x="425" y="126">CapRover</text>
+      <rect class="box box-yellow" x="515" y="20" width="185" height="180" rx="8"/><text class="lbl" x="607" y="40">SaaS / FaaS</text><text class="lbl-s" x="607" y="58">you manage</text><text class="lbl-s" x="607" y="74">data / function only</text><text class="lbl-s" x="607" y="110">Gmail, Hasura Cloud</text><text class="lbl-s" x="607" y="126">Lambda, Workers</text>
+      <text class="lbl-s" x="360" y="180">your work shrinks →</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "It's a ladder of who manages what. IaaS I own the OS up; PaaS I push code; SaaS I just log in; FaaS I ship one function. My CapRover-on-a-VPS is IaaS with a self-hosted PaaS layer on top."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · FaaS anatomy — trigger, instance, response</h3>
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="15" y="18" width="150" height="34" rx="8"/><text class="lbl" x="90" y="40">HTTP via gateway</text>
+      <rect class="box box-blue" x="15" y="66" width="150" height="34" rx="8"/><text class="lbl" x="90" y="88">Queue message</text>
+      <rect class="box box-blue" x="15" y="114" width="150" height="34" rx="8"/><text class="lbl" x="90" y="136">File upload (S3)</text>
+      <rect class="box box-blue" x="15" y="162" width="150" height="34" rx="8"/><text class="lbl" x="90" y="184">Timer / cron</text>
+      <rect class="box box-yellow" x="290" y="78" width="150" height="60" rx="8"/><text class="lbl" x="365" y="103">Function instance</text><text class="lbl-s" x="365" y="122">runs, then dies</text>
+      <rect class="box box-green" x="560" y="78" width="145" height="60" rx="8"/><text class="lbl" x="632" y="103">Response /</text><text class="lbl" x="632" y="119">side effect</text>
+      <path class="arrow" d="M165,35 L288,90"/><path class="arrow" d="M165,83 L288,100"/><path class="arrow" d="M165,131 L288,116"/><path class="arrow" d="M165,179 L288,126"/>
+      <path class="arrow" d="M440,108 L558,108"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "A function is triggered by an event — a request, a queue message, an S3 upload, or a timer. It runs, returns, and dies. It keeps no memory between calls, so I never store sessions or files in it."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · The Postgres connection explosion (and the fix)</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-yellow" x="20" y="20" width="120" height="30" rx="8"/><text class="lbl-s" x="80" y="39">function inst 1</text>
+      <rect class="box box-yellow" x="20" y="60" width="120" height="30" rx="8"/><text class="lbl-s" x="80" y="79">function inst 2</text>
+      <rect class="box box-yellow" x="20" y="100" width="120" height="30" rx="8"/><text class="lbl-s" x="80" y="119">function inst 3</text>
+      <rect class="box box-yellow" x="20" y="140" width="120" height="30" rx="8"/><text class="lbl-s" x="80" y="159">... 500 more</text>
+      <rect class="box box-pink" x="300" y="70" width="140" height="60" rx="8"/><text class="lbl" x="370" y="95">Pooler</text><text class="lbl-s" x="370" y="113">PgBouncer / RDS Proxy</text>
+      <rect class="box box-green" x="580" y="70" width="120" height="60" rx="8"/><text class="lbl" x="640" y="95">Postgres</text><text class="lbl-s" x="640" y="113">~100 conns max</text>
+      <path class="arrow" d="M140,35 L298,88"/><path class="arrow" d="M140,75 L298,96"/><path class="arrow" d="M140,115 L298,104"/><path class="arrow" d="M140,155 L298,112"/>
+      <path class="arrow" d="M440,100 L578,100"/><text class="lbl-s" x="509" y="90">few real conns</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Each function instance opens its own DB connection, so a spike exhausts Postgres. I put a pooler — PgBouncer or RDS Proxy — in front, or use a serverless driver like Neon's. Same reason I pool connections in my container setup, just more urgent."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Image-resize (event-driven serverless job)</h3>
+    <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="15" y="45" width="130" height="44" rx="8"/><text class="lbl" x="80" y="72">User upload</text>
+      <rect class="box box-green" x="200" y="45" width="140" height="44" rx="8"/><text class="lbl" x="270" y="65">S3 originals</text><text class="lbl-s" x="270" y="80">fires event</text>
+      <rect class="box box-yellow" x="400" y="45" width="140" height="44" rx="8"/><text class="lbl" x="470" y="65">Lambda</text><text class="lbl-s" x="470" y="80">resize</text>
+      <rect class="box box-green" x="595" y="45" width="115" height="44" rx="8"/><text class="lbl" x="652" y="72">S3 thumbs</text>
+      <path class="arrow" d="M145,67 L198,67"/><path class="arrow" d="M340,67 L398,67"/><path class="arrow" d="M540,67 L593,67"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "Upload lands in S3, the upload event triggers a Lambda that resizes and writes to a second bucket. No always-on worker — it runs only when an image arrives. In my DBO system I'd do this with a BullMQ worker instead; the tradeoff is I pay for that worker even when idle."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Isolate vs container startup (why Workers have no cold start)</h3>
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl" x="180" y="20">Lambda (container)</text>
+      <rect class="box box-pink" x="40" y="40" width="90" height="34" rx="8"/><text class="lbl-s" x="85" y="61">find server</text>
+      <rect class="box box-pink" x="145" y="40" width="90" height="34" rx="8"/><text class="lbl-s" x="190" y="61">boot runtime</text>
+      <rect class="box box-pink" x="250" y="40" width="80" height="34" rx="8"/><text class="lbl-s" x="290" y="61">load code</text>
+      <text class="lbl-s" x="185" y="95">~100–500ms first request</text>
+      <line x1="360" y1="10" x2="360" y2="140" stroke="#e6dfd2" stroke-width="2"/>
+      <text class="lbl" x="545" y="20">Workers (V8 isolate)</text>
+      <rect class="box box-green" x="450" y="40" width="185" height="34" rx="8"/><text class="lbl-s" x="542" y="61">open a sandbox (like a tab)</text>
+      <text class="lbl-s" x="542" y="95">~0–5ms — no cold start</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Lambda boots a mini-machine per instance, so the first request waits. Workers use V8 isolates — starting one is like opening a browser tab, so cold starts basically disappear."</div>
+  </div>
+</section>
+
+<!-- NUMBERS -->
+<section id="numbers">
+  <p class="hint">Calibrated numbers = senior signal. Memorize the pattern, not the decimals.</p>
+  <table class="numbers">
+    <tr><th>Figure</th><th>Ballpark</th><th>Why it matters</th></tr>
+    <tr><td>Lambda cold start (Node.js)</td><td class="val">~100–500 ms</td><td class="why">Lands in p99 latency. Worse inside a VPC.</td></tr>
+    <tr><td>Cloudflare Workers start</td><td class="val">~0–5 ms</td><td class="why">V8 isolates, not containers — no real cold start.</td></tr>
+    <tr><td>Vercel Edge / Node function</td><td class="val">~50–250 / 200–800 ms</td><td class="why">Edge runtime is much faster than Node functions.</td></tr>
+    <tr><td>Lambda max run time</td><td class="val">15 min</td><td class="why">Hard limit — long jobs need a container/worker.</td></tr>
+    <tr><td>Postgres default max connections</td><td class="val">~100</td><td class="why">Why a spike of instances needs a pooler.</td></tr>
+    <tr><td>Neon scale-to-zero resume</td><td class="val">~300–500 ms</td><td class="why">Serverless Postgres wakes fast; Aurora v2 takes ~15s.</td></tr>
+    <tr><td>Serverless cost-flip threshold</td><td class="val">~50k invocations/day</td><td class="why">Above this, containers often get cheaper.</td></tr>
+    <tr><td>Lambda cost at scale (real case)</td><td class="val">compute ~20% of bill</td><td class="why">Rest = data transfer, NAT, logs, provisioned concurrency.</td></tr>
+  </table>
+</section>
+
+<!-- DECISIONS -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- CODE -->
+<section id="code">
+  <p class="hint">The serverless handler shape: one function per event, no persistent process.</p>
+<pre><code>// One handler per event. Nothing stays alive between requests.
+export async function POST(req: Request): Promise&lt;Response&gt; {
+  const body = await req.json();
+  // Keep business logic provider-agnostic (portable, avoids lock-in):
+  await handleWebhook(body);        // dedupe on idempotency key inside
+  return new Response("ok", { status: 200 }); // answer fast, enqueue heavy work
+}</code></pre>
+  <div class="code-note">
+    <b>How to talk about it:</b> "The handler is a thin wrapper around plain functions — that keeps me portable and dodges vendor lock-in.
+    For the database I'd front Postgres with a pooler (RDS Proxy / PgBouncer) or a serverless driver (Neon), because each
+    instance opens its own connection. Heavy work goes on a queue so I return 200 fast."
+  </div>
+</section>
+
+<!-- CASES + HOOKS -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "IaaS", d: "Rent a raw machine (VM); you manage the OS, runtime, app, scaling. Examples: EC2, DigitalOcean droplet, GCE. Your VPS is this." },
+  { t: "PaaS", d: "Push code, they build + run it; you never touch the OS. Examples: Heroku, Vercel, Railway, App Runner. CapRover is a self-hosted PaaS layer." },
+  { t: "SaaS", d: "Finished software you log into; you manage only your data. Examples: Gmail, Notion, Stripe, Hasura Cloud, Auth0." },
+  { t: "FaaS / serverless", d: "Upload one function; it runs only on an event and scales to zero. Examples: Lambda, Cloudflare Workers, Vercel Functions." },
+  { t: "CaaS", d: "Give them a Docker container, they run + scale it — the middle ground between PaaS and serverless. Examples: Cloud Run, ECS/Fargate." },
+  { t: "DBaaS", d: "Managed database — backups, patching, failover handled for you. Examples: RDS, Neon, Supabase, PlanetScale." },
+  { t: "Shared responsibility model", d: "The provider's split of who secures/manages each layer. One rule holds everywhere: securing your own data + access rules is always YOUR job." },
+  { t: "Serverless (real meaning)", d: "Servers still exist — you just never see, patch, or scale one. Traits: scale-to-zero, pay-per-invocation, event-driven." },
+  { t: "Scale-to-zero", d: "No traffic → no running instances → no cost. The reason serverless is near-free at low/spiky volume." },
+  { t: "Cold start", d: "The delay to boot a brand-new instance (find server, load code, start runtime). Node Lambda ~100–500ms; worse in a VPC." },
+  { t: "V8 isolate", d: "A lightweight sandbox inside one shared JS engine — like a browser tab. Starts in ~ms, which is why Cloudflare Workers have no cold start." },
+  { t: "Connection explosion", d: "Each function instance opens its own DB connection; a spike of 500 instances = 500 connections and Postgres falls over." },
+  { t: "Pooler (PgBouncer / RDS Proxy)", d: "Multiplexes many client connections onto a few real Postgres ones — the fix for connection explosion. Same idea you use in containers." },
+  { t: "Statelessness rules", d: "No in-memory sessions (use JWT/Redis), no persistent local files (use S3), and a max run time (Lambda = 15 min)." },
+  { t: "Provisioned concurrency", d: "Pay to keep N Lambda instances always warm — kills cold starts but costs money even when idle." },
+  { t: "SnapStart", d: "Snapshot-restore to cut Lambda cold starts. Big 2025 catch: NOT supported for Node.js (only Java, Python 3.12+, .NET 8)." },
+  { t: "Serverless-containers convergence", d: "Run a portable Docker container with scale-to-zero on Cloud Run / Fargate / App Runner — serverless behavior, no lock-in to a function format." },
+  { t: "Cost-flip", d: "Serverless is cheapest at low/spiky volume; above ~50k invocations/day hidden costs (data transfer, NAT, logs) make containers cheaper." },
+  { t: "Vendor lock-in", d: "Event formats, IAM, and Step Functions tie you to one cloud. Mitigate with hexagonal boundaries + containers-on-serverless." },
+  { t: "Serverless Postgres", d: "Neon / Aurora Serverless v2 scale to zero and have built-in pooling. Neon resumes in ~300–500ms; Aurora v2 in ~15s." },
+];
+
+const decisions = [
+  { q: "Serverless vs Containers", a: "Pick serverless when", at: "Spiky/low traffic, event glue (S3/queue/cron), zero-ops appetite, per-request billing wins.", b: "Pick containers when", bt: "Long-lived connections (WebSockets), p99-sensitive latency, tight DB connection control, steady high load.", v: "Traffic shape decides. Spiky → serverless; steady high → container (cost flips ~50k calls/day). With serverless + Postgres, always mention a pooler." },
+  { q: "Lambda vs Cloudflare Workers", a: "Pick Lambda when", at: "Full Node runtime, big ecosystem, heavy deps, deep AWS integration, jobs up to 15 min.", b: "Pick Workers when", bt: "Near-zero cold start (V8 isolates), global edge, cheap high volume, simple JS logic.", v: "Cold-start-sensitive or edge → Workers. Heavy Node runtime or AWS-native → Lambda." },
+  { q: "Managed PaaS (Vercel/Heroku) vs own CapRover", a: "Pick managed PaaS when", at: "You want zero ops, fast setup, autoscaling, and can accept a higher bill + some lock-in.", b: "Pick own CapRover when", bt: "You want IaaS cost + full OS control and can patch/monitor the box yourself.", v: "Small team, speed first → managed. Cost-sensitive with ops skill → CapRover ('my own mini-Heroku')." },
+  { q: "DBaaS (Neon/RDS) vs self-hosted Postgres", a: "Pick DBaaS when", at: "You want backups, failover, scaling, and serverless-friendly pooling handled for you.", b: "Pick self-hosted when", bt: "You want the cheapest option and full control, and can own backups + uptime.", v: "Serverless app → DBaaS with pooling (Neon). Container app on your VPS → self-hosted Postgres is fine." },
+  { q: "Aurora Serverless v2 vs Neon", a: "Pick Aurora v2 when", at: "You're AWS-native and want it inside your VPC/ecosystem.", b: "Pick Neon when", bt: "Bursty/idle workloads — resumes in ~300–500ms and is cheaper when idle.", v: "Both scale to zero; Neon wakes far faster (~0.4s vs ~15s). Neon for bursty, Aurora for AWS-native." },
+];
+
+const cases = [
+  { topic: "Serverless everywhere", b: "Vercel / Next.js", p: "Every Next.js API route and server render on Vercel is a serverless function that scales to zero. Cite it: you already ship serverless without labeling it." },
+  { topic: "No cold start", b: "Cloudflare Workers", p: "Proved global edge code with sub-5ms starts by using V8 isolates instead of containers. The canonical 'why no cold start' example." },
+  { topic: "Serverless Postgres", b: "Neon", p: "Serverless Postgres that truly scales to zero (resumes ~300–500ms) and cut storage ~80% in late 2025. Cite for serverless + relational DB." },
+  { topic: "Event-driven FaaS", b: "AWS Lambda image resize", p: "S3 upload event triggers a resize function writing to a second bucket — the 'hello world' of event-driven serverless." },
+  { topic: "Self-hosted platform", b: "Your CapRover on a VPS", p: "IaaS machine + a self-hosted PaaS layer = your own mini-Heroku. Shows you understand the control-vs-ops tradeoff." },
+  { topic: "Cost-flip evidence", b: "Lambda at scale (2025)", p: "Documented cases where Lambda compute was ~20% of the bill; the rest was data transfer, NAT, logs, provisioned concurrency. Backs 'serverless gets pricey at scale'." },
+];
+
+const hooks = [
+  { b: "Pizza ladder", p: "On-prem = cook at home; IaaS = take-and-bake; PaaS = delivery; SaaS = dining out. Plain: the more they cook, the higher the model." },
+  { b: "\"Serverless has servers\"", p: "You just never meet them. Like a hotel — rooms exist, you don't own or clean one; you pay by the night." },
+  { b: "Cold start = cold car", p: "First key-turn on a freezing morning is slow; the next ones are instant. Warm instance = engine already running." },
+  { b: "Connection explosion = 500 private pipes into one tank", p: "Fix with a shared tap — PgBouncer or RDS Proxy in front of Postgres." },
+  { b: "Cost-flip: cheap when quiet, pricey when busy", p: "Serverless below ~50k calls/day; container above. Decide by traffic shape, not fashion." },
+  { b: "Isolate = browser tab, container = booting a PC", p: "Why Workers start in ~ms and Lambda takes ~100–500ms." },
+];
+
+const KEY = "cloud-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

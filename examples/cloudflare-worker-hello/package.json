@@ -1,0 +1,13 @@
+{
+  "name": "cloudflare-worker-hello",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal Cloudflare Worker that runs locally to show edge serverless with no cold start.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

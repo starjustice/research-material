@@ -352,14 +352,14 @@ This caption goes with the diagram: your actual pipeline order from `Program.cs`
 
 ```mermaid
 graph TD
-    A[Request in] --> B["1 ExceptionHandlingMiddleware<br/>try wraps all steps below"]
-    B --> C["2 Serilog request logging<br/>method, path, status, duration"]
+    A["Request in"] --> B["1 ExceptionHandlingMiddleware - wraps all steps below"]
+    B --> C["2 Serilog request logging - method, path, status, duration"]
     C --> D["3 HTTPS redirection"]
-    D --> E["4 UseAuthentication<br/>validates JWT, fills HttpContext.User"]
-    E --> F["5 UseAuthorization<br/>enforces the Authorize attribute"]
-    F --> G["6 Model binding and validation<br/>automatic 400 on bad input"]
+    D --> E["4 UseAuthentication - validates JWT, fills HttpContext User"]
+    E --> F["5 UseAuthorization - enforces the Authorize attribute"]
+    F --> G["6 Model binding and validation - automatic 400 on bad input"]
     G --> H["7 Controller action runs"]
-    H --> I[Response returns back up through 2 and 1]
+    H --> I["Response returns back up through 2 and 1"]
 ```
 
 The standard order to recite: **exception → logging → HTTPS → authentication → authorization → endpoints.** Authentication (who are you — parses the JWT) must come before authorization (are you allowed — checks `[Authorize]`), because authorization reads the identity authentication produced.

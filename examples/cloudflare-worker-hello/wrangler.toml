@@ -1,0 +1,10 @@
+# Wrangler is Cloudflare's CLI. This file configures the Worker.
+# Verified against Wrangler major version 4 (2026).
+
+name = "cloudflare-worker-hello"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Environment variables available as `env.GREETING_NAME` inside the Worker.
+[vars]
+GREETING_NAME = "full-stack dev"
