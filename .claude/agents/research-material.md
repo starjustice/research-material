@@ -65,7 +65,8 @@ Required sections (from the template):
    - Edge labels: only `-->|label|` (solid) and `-.->|label|` (dotted). Never `-. "label" .->` or `-- "label" -->`.
    - No colons inside edge labels (`|DNS: shop.com|` breaks — write `|DNS shop.com|`).
    - No bidirectional arrows (`<-->`) — draw two edges instead.
-   - Avoid parentheses in node labels; use commas or dashes. Quoted node labels `["..."]` with `<br/>` are fine.
+   - Avoid parentheses in node labels; use commas or dashes. Quoted node labels `["..."]` with `<br/>` or commas are fine.
+   - **No commas inside `-->|edge label|` text** — commas are fine inside node labels but break in pipe-delimited edge labels on some renderers. Use dashes: `-->|RSC payload - serialized UI|` not `-->|RSC payload, serialized UI|`.
 3. **What's current** — trends, tool changes, deprecations, with the year stated.
 4. **Likely interview questions + model answer outlines** — answers framed in the user's stack.
 5. **Tradeoffs to be ready to discuss** — senior-level interviews are won on tradeoffs.

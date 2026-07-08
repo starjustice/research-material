@@ -450,7 +450,7 @@ graph LR
   A[Browser request] --> B["Next.js server"]
   B --> C["Server Components - async, Prisma or fetch, secrets OK"]
   B --> D["Client Components - marked use client"]
-  C -->|RSC payload - serialized UI, zero JS| E[Browser]
+  C -->|RSC payload - serialized UI - zero JS| E[Browser]
   D -->|HTML plus JS bundle| E
   E --> F["Hydration - only client components become interactive"]
 ```
