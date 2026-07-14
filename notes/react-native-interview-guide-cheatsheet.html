@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>React Native Interview Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  /* Concept cards — everything visible */
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* Diagram cards */
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  /* Numbers table */
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  /* Decision cards — both sides visible */
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  /* Hooks + real cases */
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  /* SVG shared */
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>REACT NATIVE INTERVIEW CHEATSHEET</h1>
+  <p class="sub">The delta from React web — architecture, lists, native modules, release process.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="code">💻 Code</button>
+  <button data-tab="cases">🏢 Real Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible — read, then tick ✓ once you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">The pictures to draw on the whiteboard. Practice sketching each in under 30 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Old bridge vs New Architecture — JSI</h3>
+    <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <text class="lbl" x="180" y="18">OLD — removed in RN 0.82</text>
+      <rect class="box box-blue" x="15" y="34" width="110" height="42" rx="8"/><text class="lbl" x="70" y="60">JS thread</text>
+      <rect class="box box-yellow" x="160" y="34" width="130" height="42" rx="8"/><text class="lbl" x="225" y="52">The bridge</text><text class="lbl-s" x="225" y="66">async + JSON</text>
+      <rect class="box box-green" x="330" y="34" width="120" height="42" rx="8"/><text class="lbl" x="390" y="60">Native UI</text>
+      <path class="arrow" d="M125,48 L158,48"/><text class="lbl-s" x="141" y="40">serialize</text>
+      <path class="arrow" d="M290,48 L328,48"/><text class="lbl-s" x="309" y="40">parse</text>
+      <path class="arrow" d="M328,66 L292,66"/><text class="lbl-s" x="309" y="80">serialize</text>
+      <path class="arrow" d="M158,66 L127,66"/><text class="lbl-s" x="141" y="80">parse</text>
+      <text class="lbl-s" x="225" y="94">every message round-trips through JSON</text>
+
+      <text class="lbl" x="180" y="140">NEW — only option since RN 0.82</text>
+      <rect class="box box-blue" x="15" y="156" width="110" height="42" rx="8"/><text class="lbl" x="70" y="182">JS thread</text>
+      <rect class="box box-pink" x="160" y="156" width="130" height="42" rx="8"/><text class="lbl" x="225" y="174">JSI</text><text class="lbl-s" x="225" y="188">C++, sync, no queue</text>
+      <rect class="box box-green" x="330" y="156" width="120" height="42" rx="8"/><text class="lbl" x="390" y="174">Fabric +</text><text class="lbl-s" x="390" y="188">TurboModules</text>
+      <path class="arrow" d="M125,177 L158,177"/>
+      <path class="arrow" d="M290,177 L328,177"/>
+      <text class="lbl-s" x="225" y="216">one direct, synchronous call — no serialization</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The bridge was async and JSON-serialized, so scroll events queued up under load. JSI lets JS call native code directly and synchronously — that's the concrete reason the New Architecture is faster, not just marketing."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Release process — store path vs OTA path</h3>
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="10" y="20" width="110" height="42" rx="8"/><text class="lbl" x="65" y="42">Xcode archive</text><text class="lbl-s" x="65" y="56">or Gradle build</text>
+      <rect class="box box-yellow" x="170" y="20" width="120" height="42" rx="8"/><text class="lbl" x="230" y="42">TestFlight /</text><text class="lbl-s" x="230" y="56">Play internal</text>
+      <rect class="box box-pink" x="340" y="20" width="120" height="42" rx="8"/><text class="lbl" x="400" y="42">App store</text><text class="lbl-s" x="400" y="56">review — days</text>
+      <rect class="box box-green" x="510" y="20" width="120" height="42" rx="8"/><text class="lbl" x="570" y="42">User's phone</text>
+      <path class="arrow" d="M120,41 L168,41"/>
+      <path class="arrow" d="M290,41 L338,41"/>
+      <path class="arrow" d="M460,41 L508,41"/>
+      <text class="lbl-s" x="340" y="90">Native change — new module, permission, RN version bump</text>
+
+      <rect class="box box-blue" x="10" y="130" width="110" height="42" rx="8"/><text class="lbl" x="65" y="152">JS bundle fix</text><text class="lbl-s" x="65" y="166">no native change</text>
+      <rect class="box box-yellow" x="220" y="130" width="150" height="42" rx="8"/><text class="lbl" x="295" y="152">EAS Update /</text><text class="lbl-s" x="295" y="166">Expo Updates</text>
+      <rect class="box box-green" x="510" y="130" width="120" height="42" rx="8"/><text class="lbl" x="570" y="152">User's phone</text>
+      <path class="arrow" d="M120,151 L218,151"/>
+      <path class="arrow" d="M370,151 L508,151"/>
+      <text class="lbl-s" x="345" y="185">skips app review entirely — live in minutes, JS and assets only</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Anything native has to go through a build and a store review, which can take days. A pure JS fix can ship over the air in minutes — but OTA can never touch native code, that's the hard limit."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · FlatList — render only the visible window</h3>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="20" y="20" width="140" height="160" rx="10"/>
+      <text class="lbl-s" x="90" y="14">The full data set — 10,000 rows</text>
+      <rect class="box-pink" x="30" y="30" width="120" height="16" rx="3" style="fill:#fbe4e8;stroke:none"/>
+      <rect class="box-pink" x="30" y="50" width="120" height="16" rx="3" style="fill:#fbe4e8;stroke:none"/>
+      <rect class="box-green" x="30" y="70" width="120" height="16" rx="3" style="fill:#e3f4ec;stroke:none"/>
+      <rect class="box-green" x="30" y="90" width="120" height="16" rx="3" style="fill:#e3f4ec;stroke:none"/>
+      <rect class="box-green" x="30" y="110" width="120" height="16" rx="3" style="fill:#e3f4ec;stroke:none"/>
+      <rect class="box-pink" x="30" y="130" width="120" height="16" rx="3" style="fill:#fbe4e8;stroke:none"/>
+      <rect class="box-pink" x="30" y="150" width="120" height="16" rx="3" style="fill:#fbe4e8;stroke:none"/>
+      <rect x="26" y="66" width="128" height="64" rx="6" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="4 3"/>
+      <text class="lbl-s" x="90" y="196">dashed box = rendered — the rest recycled</text>
+      <path class="arrow" d="M165,98 L340,98"/>
+      <rect class="box box-blue" x="350" y="60" width="150" height="76" rx="8"/>
+      <text class="lbl" x="425" y="90">3 real native</text>
+      <text class="lbl" x="425" y="108">views on screen</text>
+      <text class="lbl-s" x="425" y="124">reused as you scroll</text>
+      <text class="lbl-s" x="590" y="90">keyExtractor —</text>
+      <text class="lbl-s" x="590" y="104">identity per row</text>
+      <text class="lbl-s" x="590" y="122">getItemLayout —</text>
+      <text class="lbl-s" x="590" y="136">skip measuring</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "FlatList only keeps a small window of real native views on screen and recycles them as you scroll — same idea as react-window on web, just built in by default here."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">Calibrated numbers = instant senior signal. All visible — memorize the pattern, not the decimals.</p>
+  <table class="numbers">
+    <tr><th>Figure</th><th>Ballpark</th><th>Why it matters</th></tr>
+    <tr><td>Frame budget at 60fps</td><td class="val">16.6 ms</td><td class="why">Same "long task" idea as the web event loop — blow it and frames drop.</td></tr>
+    <tr><td>Old bridge round trip per call</td><td class="val">~5–100+ ms</td><td class="why">Async JSON serialize + parse, both directions — why scroll events queued up.</td></tr>
+    <tr><td>JSI direct call</td><td class="val">sub-1 ms typical</td><td class="why">Synchronous, no serialization — the concrete "why New Arch is faster."</td></tr>
+    <tr><td>MMKV vs AsyncStorage</td><td class="val">~30x faster</td><td class="why">Sync, memory-mapped vs async bridge calls. Use for hot-path state, not secrets.</td></tr>
+    <tr><td>FlashList v2 frame drops vs FlatList</td><td class="val">~95% fewer</td><td class="why">Shopify's own benchmark on heavy production lists.</td></tr>
+    <tr><td>Apple App Store review</td><td class="val">~24–48 hrs</td><td class="why">Why OTA exists — you can't wait this long for a copy fix.</td></tr>
+    <tr><td>Google Play review</td><td class="val">hours, usually</td><td class="why">Faster than Apple typically, but not instant — same OTA logic applies.</td></tr>
+    <tr><td>FlatList default windowSize</td><td class="val">21</td><td class="why">~10 screens above/below rendered. Lower it to save memory on heavy rows.</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="code">
+  <p class="hint">One snippet to remember: a resilient FlatList configuration. Expand to FlashList verbally for the heavy-list case.</p>
+<pre><code>&lt;FlatList
+  data={items}
+  keyExtractor={(item) =&gt; item.id}
+  renderItem={({ item }) =&gt; &lt;Row item={item} /&gt;}
+  getItemLayout={(_, i) =&gt; ({
+    length: ROW_HEIGHT, offset: ROW_HEIGHT * i, index: i,
+  })}
+  initialNumToRender={10}
+  windowSize={5}
+  removeClippedSubviews
+/&gt;</code></pre>
+  <div class="code-note">
+    <b>How to talk about it:</b> "<code>keyExtractor</code> gives each row a stable identity for recycling —
+    same idea as React's <code>key</code>. <code>getItemLayout</code> skips a measurement pass because I know every
+    row's height up front, which also makes <code>scrollToIndex</code> instant instead of estimated.
+    For anything heavier — a feed, a chat, a catalog — I'd reach for FlashList v2 instead, which
+    auto-measures items and is built for the New Architecture."
+  </div>
+</section>
+
+<!-- ============ REAL CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Bridge (old, removed in RN 0.82)", d: "The async, JSON-serialized channel between the JS thread and native code. Every message was stringified, sent, and parsed — real cost on hot paths like scroll." },
+  { t: "JSI — JavaScript Interface", d: "A C++ layer letting JS hold a direct reference to a native object and call it synchronously. No JSON, no queue, no round trip." },
+  { t: "Fabric", d: "The New Architecture's UI renderer, built on JSI. Can talk to native UI synchronously and supports concurrent React properly." },
+  { t: "TurboModules", d: "The New Architecture's native modules: lazily loaded (only when first used) and called through JSI instead of the old bridge." },
+  { t: "Hermes", d: "Meta's JS engine for React Native. Pre-compiles JS to bytecode at build time for faster startup and lower memory. Sole engine since RN 0.84 (2026) — JavaScriptCore is gone." },
+  { t: "FlatList", d: "Virtualized list: only renders rows near the viewport and recycles views as you scroll. The built-in default for anything longer than a fixed short list." },
+  { t: "FlashList v2 (Shopify)", d: "Near drop-in FlatList replacement, auto-measures item sizes, built for the New Architecture only. The 2025–2026 default recommendation for heavy lists." },
+  { t: "Flexbox-only layout, default column", d: "No CSS, no cascade beyond nested Text. Every View is a flex container, but default flexDirection is column — opposite of web's row default." },
+  { t: "Native module", d: "Swift/Kotlin (or Obj-C/Java) code exposed to JS for anything JS can't reach alone — camera, Bluetooth, battery. Most are installed as packages, not hand-written." },
+  { t: "Deep linking", d: "A URL (custom scheme or universal link) that opens the app directly to a specific screen with params, even from a cold start — mobile's answer to a web route." },
+  { t: "MMKV", d: "Synchronous, memory-mapped key-value storage, ~30x faster than AsyncStorage. Use for app state and caches, never for secrets — no built-in encryption." },
+  { t: "SecureStore / Keychain", d: "OS-level encrypted storage (iOS Keychain, Android Keystore). The only correct place for tokens on mobile — never AsyncStorage or MMKV." },
+  { t: "OTA update (Expo Updates / EAS Update)", d: "Ships a new JS bundle + assets straight to installed apps, no store review. Cannot touch native code — that always needs a new build and submission." },
+  { t: "Expo prebuild", d: "Generates native ios/android folders from your Expo config on demand — the modern, reversible replacement for the old one-way 'eject' command." },
+  { t: "InteractionManager", d: "Lets you defer non-urgent JS work until any running animation or gesture finishes, so it doesn't compete for the JS thread and cause a stutter." },
+  { t: "React Native DevTools", d: "Flipper's replacement, built into Metro since RN 0.76 (press j). Talks to Hermes directly via the Chrome DevTools protocol — no behavior change while attached." },
+];
+
+const decisions = [
+  { q: "Expo (with prebuild) vs bare React Native", a: "Pick Expo when", at: "You want velocity: pre-built native modules, EAS Build/Submit/Update, no local Xcode/Android Studio setup.", b: "Pick bare RN when", bt: "You need a native SDK Expo doesn't wrap, or deep custom native code Expo's plugins can't express.", v: "Default to Expo with prebuild in 2026 — it's not a one-way choice anymore, native folders are one command away." },
+  { q: "FlatList vs FlashList", a: "Pick FlatList when", at: "The list is small-to-medium and you want zero extra dependencies.", b: "Pick FlashList v2 when", bt: "The list is heavy — feeds, chat, catalogs — and you're on the New Architecture (required for v2).", v: "For anything list-heavy in a New Architecture app, default to FlashList — it's Shopify's own production answer to FlatList's weak points." },
+  { q: "AsyncStorage vs MMKV vs SecureStore", a: "AsyncStorage /  MMKV when", at: "Async + simple (AsyncStorage) or fast + sync (MMKV) for app state, prefs, feature flags, caches.", b: "SecureStore / Keychain when", bt: "Anything sensitive — access tokens, refresh tokens, API keys. Always, no exceptions.", v: "MMKV for speed, SecureStore for secrets, AsyncStorage only if you're not sure yet or need Expo Go compatibility." },
+  { q: "OTA update vs full store submission", a: "OTA (Expo Updates) when", at: "The change is JS/assets only — bug fix, copy change, style tweak. Live in minutes, no review wait.", b: "Store submission when", bt: "Anything native changed — new module, permission, RN version bump. Always required, no way around it.", v: "State the hard limit unprompted: OTA can never ship native code. That's the answer interviewers are checking for." },
+  { q: "React Navigation vs Expo Router", a: "React Navigation when", at: "Bare RN project, or you need very custom low-level navigation control.", b: "Expo Router when", bt: "New Expo project — file-based routing, near-automatic deep linking, built on top of React Navigation.", v: "Default to Expo Router for new Expo projects in 2026; it doesn't give up React Navigation's power, it wraps it." },
+];
+
+const cases = [
+  { topic: "Code sharing at scale", b: "Discord", p: "iOS and Android apps share about 98% of their code through React Native. Cite when asked how much you can realistically share across platforms." },
+  { topic: "List performance", b: "Shopify", p: "Runs all mobile apps on React Native (about 80% shared code) and built FlashList itself because FlatList wasn't fast enough for their commerce lists at scale." },
+  { topic: "Moving TO React Native", b: "Coinbase (2021)", p: "Switched from separate native iOS/Android codebases to React Native so one team could ship both platforms together — the counterpoint to Airbnb." },
+  { topic: "Early large-scale adoption", b: "Instagram (2016)", p: "One of the earliest big adopters, integrating React Native to ship features faster across platforms without doubling engineering effort." },
+  { topic: "Moving AWAY from React Native", b: "Airbnb (2018)", p: "Sunset React Native after 2 years, citing effectively maintaining three platforms plus their own RN fork. Cite for balance — then note tooling has matured a lot since 2018." },
+  { topic: "OTA infrastructure risk", b: "Microsoft App Center / CodePush", p: "Retired entirely on March 31, 2025 — a real example of why teams now default to Expo Updates or a self-hosted alternative instead of one vendor's hosted OTA service." },
+];
+
+const hooks = [
+  { b: "Bridge vs JSI: \"mail slot vs face to face\"", p: "Old: write it down, fold it, post it, unfold it — every message. New: JS and native just talk directly, synchronously." },
+  { b: "Flexbox default axis: \"web starts with a row of chairs, RN starts with a stack of pancakes\"", p: "Web's default flex-direction is row; React Native's is column. Say it once out loud and you won't mix it up in the interview." },
+  { b: "OTA: \"JS can travel without a passport, native code can't\"", p: "JS bundle and asset changes skip app review. Anything touching native code always needs a new build and a fresh submission." },
+  { b: "Storage: \"MMKV for speed, Keychain for secrets, AsyncStorage if you're not sure yet\"", p: "Three tools, three different jobs — don't reach for one to do all three." },
+  { b: "60fps = 16.6ms per frame", p: "Same 'long task' idea as the web event loop (>50ms blocks paint there) — just applied to native frames instead of browser paints." },
+  { b: "Airbnb vs Coinbase = same framework, opposite calls", p: "The lesson isn't 'RN is good' or 'RN is bad' — it's that the right call depends on your team and product. Saying that out loud is the senior answer." },
+];
+
+// ---- concepts + progress ----
+const KEY = "rn-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>
