@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PayPay Frontend Interview Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.55rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  header p.meta { margin-top: 8px; font-size: .78rem; color: var(--muted); }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .86rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  /* Concept cards — everything visible */
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .86rem; line-height: 1.5; color: var(--ink); }
+  .concept p.recog { margin-bottom: 6px; }
+  .concept p.jstip { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 6px; padding: 6px 9px; font-size: .81rem; }
+  .concept .tier { display: inline-block; font-size: .65rem; font-weight: 700; letter-spacing: .04em; padding: 2px 8px; border-radius: 6px; margin-bottom: 6px; }
+  .tier-1 { background: var(--pink-soft); color: #a33049; }
+  .tier-2 { background: var(--blue-soft); color: #2f5b85; }
+  .tier-3 { background: var(--green-soft); color: #26714d; }
+  .tier-js { background: #ece4f7; color: #5b3f8c; }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* Diagram cards */
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  /* Tables */
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .86rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .81rem; }
+  table.numbers tr.sep td { background: var(--ink); color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .04em; }
+
+  /* Decision cards */
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .8rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .86rem; margin-top: 12px; line-height: 1.5; }
+
+  /* Hooks + cases */
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .87rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .87rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+  .callout { background: var(--pink-soft); border-left: 5px solid var(--pink); border-radius: var(--radius); padding: 14px 16px; font-size: .88rem; line-height: 1.55; margin-bottom: 16px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+
+  /* SVG shared */
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .lbl-b { font: 700 12px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PAYPAY FRONTEND INTERVIEW</h1>
+  <p class="sub">The online test decides everything. Everything else is behind it.</p>
+  <p class="meta">Researched 2026-07-27 · 4 problems / 70 minutes / partial credit · CodeSignal</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="patterns">🧩 Patterns</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="plan">🗓️ 6-Week Plan</button>
+  <button data-tab="cases">🏢 Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ PATTERNS ============ -->
+<section id="patterns" class="active">
+  <p class="hint">Every card is fully visible. Read it, then tick ✓ once you can spot the pattern in 90 seconds.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">Five pictures. Sketch each one in under 30 seconds, and say the line underneath while you draw.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The 70-minute schedule</h3>
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <text class="lbl-b" x="25" y="30">Scan</text>
+      <text class="lbl-b" x="95" y="30">Easy #1</text>
+      <text class="lbl-b" x="220" y="30">Easy #2</text>
+      <text class="lbl-b" x="400" y="30">Medium A</text>
+      <text class="lbl-b" x="580" y="30">Medium B</text>
+      <text class="lbl-b" x="680" y="30">Sweep</text>
+
+      <rect class="box box-yellow" x="10" y="38" width="30" height="44" rx="6"/>
+      <rect class="box box-green" x="40" y="38" width="110" height="44" rx="6"/>
+      <rect class="box box-green" x="150" y="38" width="140" height="44" rx="6"/>
+      <rect class="box box-blue" x="290" y="38" width="220" height="44" rx="6"/>
+      <rect class="box box-pink" x="510" y="38" width="140" height="44" rx="6"/>
+      <rect class="box box-yellow" x="650" y="38" width="60" height="44" rx="6"/>
+
+      <text class="lbl-s" x="25" y="65">0–3</text>
+      <text class="lbl-s" x="95" y="65">3–14</text>
+      <text class="lbl-s" x="220" y="65">14–28</text>
+      <text class="lbl-s" x="400" y="65">28–50</text>
+      <text class="lbl-s" x="580" y="65">50–64</text>
+      <text class="lbl-s" x="680" y="65">64–70</text>
+
+      <text class="lbl-s" x="25" y="98">rank all 4</text>
+      <text class="lbl-s" x="95" y="98">bank points</text>
+      <text class="lbl-s" x="220" y="98">bank points</text>
+      <text class="lbl-s" x="400" y="98">brute force → submit → optimize</text>
+      <text class="lbl-s" x="580" y="98">partial credit is fine</text>
+      <text class="lbl-s" x="680" y="98">edge cases</text>
+
+      <line x1="10" y1="118" x2="290" y2="118" stroke="#3a9d6e" stroke-width="3"/>
+      <text class="lbl-s" x="150" y="136">guaranteed points — 28 minutes</text>
+      <line x1="290" y1="118" x2="710" y2="118" stroke="#4a7fb5" stroke-width="3"/>
+      <text class="lbl-s" x="500" y="136">score-maximising zone — 42 minutes</text>
+    </svg>
+    <div class="say"><b>Say this while drawing:</b> "One clock, four problems. First three minutes I read all four and rank them by pattern recognition. Two easy ones banked by minute 28. Everything after that is partial credit hunting."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Brute force first — the loop that scores</h3>
+    <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="15" y="50" width="120" height="50" rx="8"/><text class="lbl" x="75" y="72">Read twice</text><text class="lbl-s" x="75" y="88">restate in 1 line</text>
+      <rect class="box box-blue" x="160" y="50" width="120" height="50" rx="8"/><text class="lbl" x="220" y="72">Pattern fires?</text><text class="lbl-s" x="220" y="88">90 seconds max</text>
+      <rect class="box box-yellow" x="305" y="50" width="120" height="50" rx="8"/><text class="lbl" x="365" y="72">Brute force</text><text class="lbl-s" x="365" y="88">just make it run</text>
+      <rect class="box box-green" x="450" y="50" width="120" height="50" rx="8"/><text class="lbl" x="510" y="72">SUBMIT</text><text class="lbl-s" x="510" y="88">points banked</text>
+      <rect class="box box-pink" x="595" y="50" width="115" height="50" rx="8"/><text class="lbl" x="652" y="72">Optimize</text><text class="lbl-s" x="652" y="88">only if time</text>
+
+      <path class="arrow" d="M135,75 L158,75"/>
+      <path class="arrow" d="M280,75 L303,75"/>
+      <path class="arrow" d="M425,75 L448,75"/>
+      <path class="arrow" d="M570,75 L593,75"/>
+      <path class="arrow-dash" d="M220,100 L220,132 L652,132 L652,102"/>
+      <text class="lbl-s" x="430" y="148">nothing fires — skip it and come back later</text>
+    </svg>
+    <div class="say"><b>Say this while drawing:</b> "A submitted brute force scores. An unfinished optimal solution scores zero. So the submit button comes before the clever idea, always."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Sliding window — the mechanic to have in muscle memory</h3>
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-yellow" x="175" y="35" width="185" height="54" rx="8"/>
+      <rect class="box" x="60" y="40" width="58" height="44" rx="6"/><text class="lbl" x="89" y="68">a</text>
+      <rect class="box" x="118" y="40" width="58" height="44" rx="6"/><text class="lbl" x="147" y="68">b</text>
+      <rect class="box box-blue" x="176" y="40" width="58" height="44" rx="6"/><text class="lbl" x="205" y="68">c</text>
+      <rect class="box box-blue" x="234" y="40" width="58" height="44" rx="6"/><text class="lbl" x="263" y="68">a</text>
+      <rect class="box box-blue" x="292" y="40" width="58" height="44" rx="6"/><text class="lbl" x="321" y="68">d</text>
+      <rect class="box" x="350" y="40" width="58" height="44" rx="6"/><text class="lbl" x="379" y="68">c</text>
+      <rect class="box" x="408" y="40" width="58" height="44" rx="6"/><text class="lbl" x="437" y="68">b</text>
+      <rect class="box" x="466" y="40" width="58" height="44" rx="6"/><text class="lbl" x="495" y="68">e</text>
+
+      <text class="lbl-b" x="205" y="108">L</text>
+      <text class="lbl-b" x="321" y="108">R</text>
+      <path class="arrow" d="M205,96 L205,86"/>
+      <path class="arrow" d="M321,96 L321,86"/>
+      <path class="arrow" d="M330,116 L470,116"/><text class="lbl-s" x="400" y="132">R always moves forward — grow</text>
+      <path class="arrow" d="M196,116 L120,116"/><text class="lbl-s" x="150" y="132">L moves only while invalid — shrink</text>
+      <rect class="box box-green" x="555" y="35" width="155" height="54" rx="8"/>
+      <text class="lbl-s" x="632" y="55">counts live in a Map</text>
+      <text class="lbl-s" x="632" y="70">answer = max(R − L + 1)</text>
+      <text class="lbl-s" x="632" y="83">total work O(n)</text>
+    </svg>
+    <div class="say"><b>Say this while drawing:</b> "Right pointer always grows the window. Left pointer only moves while the window breaks the rule. Each index enters and leaves once, so the whole thing is O(n)."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The hiring pipeline — where the test sits</h3>
+    <svg viewBox="0 0 720 175" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="15" y="18" width="150" height="46" rx="8"/><text class="lbl" x="90" y="39">Apply</text><text class="lbl-s" x="90" y="55">Greenhouse</text>
+      <rect class="box box-pink" x="195" y="18" width="150" height="46" rx="8"/><text class="lbl" x="270" y="39">ONLINE TEST</text><text class="lbl-s" x="270" y="55">4 problems / 70 min</text>
+      <rect class="box box-blue" x="375" y="18" width="150" height="46" rx="8"/><text class="lbl" x="450" y="39">Recruiter call</text><text class="lbl-s" x="450" y="55">about 30 min</text>
+      <rect class="box box-blue" x="555" y="18" width="150" height="46" rx="8"/><text class="lbl" x="630" y="39">Loop 1</text><text class="lbl-s" x="630" y="55">live coding + project</text>
+
+      <rect class="box box-blue" x="15" y="108" width="150" height="46" rx="8"/><text class="lbl" x="90" y="129">Loop 2</text><text class="lbl-s" x="90" y="145">frontend domain</text>
+      <rect class="box box-blue" x="195" y="108" width="150" height="46" rx="8"/><text class="lbl" x="270" y="129">Loop 3</text><text class="lbl-s" x="270" y="145">system design</text>
+      <rect class="box box-yellow" x="375" y="108" width="150" height="46" rx="8"/><text class="lbl" x="450" y="129">Hiring manager</text><text class="lbl-s" x="450" y="145">behavioral</text>
+      <rect class="box box-green" x="555" y="108" width="150" height="46" rx="8"/><text class="lbl" x="630" y="129">Offer</text><text class="lbl-s" x="630" y="145">visa + relocation</text>
+
+      <path class="arrow" d="M165,41 L193,41"/>
+      <path class="arrow" d="M345,41 L373,41"/>
+      <path class="arrow" d="M525,41 L553,41"/>
+      <path class="arrow" d="M630,64 L630,86 L90,86 L90,106"/>
+      <path class="arrow" d="M165,131 L193,131"/>
+      <path class="arrow" d="M345,131 L373,131"/>
+      <path class="arrow" d="M525,131 L553,131"/>
+      <text class="lbl-s" x="360" y="100">about 28 days end to end on average</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Stage two is a filter, not an interview. Nobody watches me, nobody gives hints. Passing it is purely a preparation problem — which means it is solvable."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Checkout state machine — the design-round answer</h3>
+    <svg viewBox="0 0 720 195" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="15" y="75" width="120" height="46" rx="8"/><text class="lbl" x="75" y="103">idle</text>
+      <rect class="box box-blue" x="180" y="75" width="130" height="46" rx="8"/><text class="lbl" x="245" y="96">submitting</text><text class="lbl-s" x="245" y="112">button disabled</text>
+      <rect class="box box-green" x="380" y="12" width="140" height="42" rx="8"/><text class="lbl" x="450" y="38">confirmed</text>
+      <rect class="box box-pink" x="380" y="75" width="140" height="42" rx="8"/><text class="lbl" x="450" y="94">failed</text><text class="lbl-s" x="450" y="109">clear reason shown</text>
+      <rect class="box box-yellow" x="380" y="138" width="140" height="46" rx="8"/><text class="lbl" x="450" y="158">timeout</text><text class="lbl-s" x="450" y="174">result unknown</text>
+      <rect class="box box-blue" x="560" y="138" width="145" height="46" rx="8"/><text class="lbl" x="632" y="158">poll status</text><text class="lbl-s" x="632" y="174">never re-charge</text>
+
+      <path class="arrow" d="M135,98 L178,98"/>
+      <path class="arrow" d="M310,88 L378,40"/>
+      <path class="arrow" d="M310,98 L378,96"/>
+      <path class="arrow" d="M310,108 L378,155"/>
+      <path class="arrow" d="M520,161 L558,161"/>
+      <path class="arrow" d="M632,136 L632,33 L524,33"/>
+      <text class="lbl-s" x="157" y="88">tap Pay</text>
+      <text class="lbl-s" x="600" y="27">resolved</text>
+    </svg>
+    <div class="say"><b>Say this while drawing:</b> "One state variable, not four booleans — booleans allow impossible states. The request carries a client-generated idempotency key, so a timeout is answered by polling status, never by charging again."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">Every figure visible. These are the numbers to have in your head the morning of the test.</p>
+  <table class="numbers">
+    <tr><th>Item</th><th>Number</th><th>Why it matters</th></tr>
+    <tr class="sep"><td colspan="3">THE ONLINE TEST</td></tr>
+    <tr><td>Problems</td><td class="val">4</td><td class="why">Ranked easy to hard. Solve by confidence, not by numbering.</td></tr>
+    <tr><td>Total time</td><td class="val">70 min</td><td class="why">One shared clock. A single hard problem can eat everything.</td></tr>
+    <tr><td>Average per problem</td><td class="val">17.5 min</td><td class="why">Average, not budget. Easy ones should take 11–14, not 17.</td></tr>
+    <tr><td>Scan budget before coding</td><td class="val">3 min</td><td class="why">The cheapest 3 minutes you will ever spend.</td></tr>
+    <tr><td>Two easy problems banked by</td><td class="val">minute 28</td><td class="why">If you are past this, you are behind — switch to partial-credit mode.</td></tr>
+    <tr><td>Final edge-case sweep</td><td class="val">last 6 min</td><td class="why">Hidden tests punish empty input and single-element cases.</td></tr>
+    <tr><td>Score you need</td><td class="val">not 4/4</td><td class="why">Partial credit is real credit. Candidates pass without solving all four.</td></tr>
+    <tr class="sep"><td colspan="3">THE PLATFORM (CODESIGNAL, 2026)</td></tr>
+    <tr><td>Score range</td><td class="val">200–600</td><td class="why">Current scale. Older articles say 300–850 — that scale is retired.</td></tr>
+    <tr><td>Retake limit</td><td class="val">2 / 30 days</td><td class="why">Also 3 per 6 months. Do not burn an attempt unprepared.</td></tr>
+    <tr><td>Fraud attempt rate</td><td class="val">16% → 35%</td><td class="why">2024 → 2025. Proctoring now watches keystroke rhythm and tab switching.</td></tr>
+    <tr class="sep"><td colspan="3">YOUR PREPARATION</td></tr>
+    <tr><td>Runway before applying</td><td class="val">5–6 weeks</td><td class="why">Enough for pattern coverage plus 6 timed simulations.</td></tr>
+    <tr><td>Daily practice</td><td class="val">90 min</td><td class="why">More burns you out before week 4.</td></tr>
+    <tr><td>Cap per practice problem</td><td class="val">25 min</td><td class="why">Then read the editorial and re-solve from memory 3 days later.</td></tr>
+    <tr><td>Full 70-min simulations</td><td class="val">6</td><td class="why">The step almost everyone skips. It is why almost everyone fails.</td></tr>
+    <tr><td>Problems total</td><td class="val">~100</td><td class="why">NeetCode 150 grouped by pattern, or Blind 75 if short on time.</td></tr>
+    <tr class="sep"><td colspan="3">JAVASCRIPT LIMITS</td></tr>
+    <tr><td>Max safe integer</td><td class="val">9,007,199,254,740,991</td><td class="why">2⁵³−1. Above this, precision silently breaks. Use BigInt.</td></tr>
+    <tr><td>Recursion depth</td><td class="val">~10,000 frames</td><td class="why">DFS over 100k nodes crashes. Convert to an explicit stack.</td></tr>
+    <tr><td>Set.has vs Array.includes</td><td class="val">O(1) vs O(n)</td><td class="why">One swap turns a timeout into a pass.</td></tr>
+    <tr class="sep"><td colspan="3">THE ROLE</td></tr>
+    <tr><td>Experience required</td><td class="val">5+ years</td><td class="why">Frontend in JavaScript or a compile-to-JS language.</td></tr>
+    <tr><td>Framework requirement</td><td class="val">1+ yr Vue or React</td><td class="why">"Vue preferred OR React" — React qualifies. Vue is an edge, not a gate.</td></tr>
+    <tr><td>Language</td><td class="val">business English</td><td class="why">Japanese not required. You choose the interview language.</td></tr>
+    <tr><td>Process length</td><td class="val">~28 days</td><td class="why">Glassdoor average for Frontend Engineer. Some report 1–3 months.</td></tr>
+    <tr><td>Salary band (public listings)</td><td class="val">¥6.5M–14M</td><td class="why">FE ¥6.5M–13M, Senior FE ¥9M–14M. Anchor your recruiter call.</td></tr>
+    <tr class="sep"><td colspan="3">THE COMPANY</td></tr>
+    <tr><td>Registered users</td><td class="val">70M+</td><td class="why">July 2025 press release. ~72M and ~40M monthly transacting by Dec 2025.</td></tr>
+    <tr><td>Share of Japan QR payments</td><td class="val">~2/3</td><td class="why">Small frontend regressions are multiplied by tens of millions of sessions.</td></tr>
+    <tr><td>Nationalities on staff</td><td class="val">50+</td><td class="why">English is a working language. You will not be the only foreigner.</td></tr>
+    <tr><td>Relocation support</td><td class="val">~1.5 months housing</td><td class="why">Plus one-way flight, moving allowance, visa paperwork help.</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is what you actually say out loud.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ PLAN ============ -->
+<section id="plan">
+  <p class="hint">Weekdays build patterns. Weekends build nerve. Do not skip the weekends.</p>
+
+  <div class="callout">
+    <b>The rule that matters most:</b> every weekend, pick 4 unseen problems (2 easy + 2 medium), set one 70-minute timer, and stop mid-line when it rings. No editorial, no AI, no phone. Do this six times before you apply.
+  </div>
+
+  <table class="numbers">
+    <tr><th>Week</th><th>Patterns</th><th>Volume</th><th>Weekend simulation</th></tr>
+    <tr><td class="val">1</td><td>Arrays · hash maps · <code>Set</code> · two pointers</td><td>20 easy</td><td class="why">4 easy in 70 min</td></tr>
+    <tr><td class="val">2</td><td>Strings · sliding window · stack · queue</td><td>12 easy + 6 medium</td><td class="why">3 easy + 1 medium</td></tr>
+    <tr><td class="val">3</td><td>Comparator sorting · intervals · binary search · prefix sums</td><td>8 easy + 8 medium</td><td class="why">2 easy + 2 medium</td></tr>
+    <tr><td class="val">4</td><td>Matrix traversal · BFS/DFS on grids and trees</td><td>6 easy + 10 medium</td><td class="why">2 easy + 2 medium</td></tr>
+    <tr><td class="val">5</td><td>1D dynamic programming · greedy · long simulation problems</td><td>4 easy + 10 medium</td><td class="why">2 full sets, different days</td></tr>
+    <tr><td class="val">6</td><td>Only your weak patterns — re-solve what you failed</td><td>redo 15</td><td class="why">3 sets, then apply</td></tr>
+  </table>
+
+  <h2 class="block">Where to practise</h2>
+  <table class="numbers">
+    <tr><th>Resource</th><th>Use it for</th></tr>
+    <tr><td class="val">NeetCode 150</td><td class="why">Main list. Grouped by pattern with video walkthroughs. Best coverage per hour.</td></tr>
+    <tr><td class="val">Blind 75</td><td class="why">If short on time. Subset of NeetCode 150. Full coverage of 75 beats half of 150.</td></tr>
+    <tr><td class="val">CodeSignal practice mode</td><td class="why">Get used to the actual editor and hidden-test feedback. At least 3 sessions.</td></tr>
+    <tr><td class="val">LeetCode by tag, random</td><td class="why">Source your simulation sets so the problems are genuinely unseen.</td></tr>
+  </table>
+
+  <h2 class="block">The JavaScript traps that cost points</h2>
+  <pre>// 1 — sort without a comparator sorts as TEXT
+[10, 9, 1].sort();               // [1, 10, 9]  wrong
+[10, 9, 1].sort((a, b) =&gt; a - b); // [1, 9, 10] right
+
+// 2 — includes() inside a loop is a hidden O(n^2)
+const bSet = new Set(b);
+for (const x of a) if (bSet.has(x)) out.push(x);
+
+// 3 — the 2D array reference trap
+const bad  = Array(3).fill(Array(3).fill(0));                 // 3 refs to ONE row
+const good = Array.from({ length: 3 }, () =&gt; new Array(3).fill(0));
+
+// 4 — shift() is O(n). BFS queue with an index pointer:
+const q = [start]; let head = 0;
+while (head &lt; q.length) { const cur = q[head++]; /* push neighbours */ }
+
+// 5 — strings are immutable. Build with an array.
+const parts = []; for (const c of s) parts.push(f(c));
+const out = parts.join("");
+
+// 6 — map(Number), never map(parseInt)
+["1","2","3"].map(parseInt); // [1, NaN, NaN]
+["1","2","3"].map(Number);   // [1, 2, 3]
+
+// 7 — reading stdin, if the platform is Codevue / HackerRank style
+const input = require("fs").readFileSync(0, "utf8").trim().split("\n");
+const nums  = input[1].split(" ").map(Number);</pre>
+
+  <div class="code-note"><b>EDSON — run this in your head before every submit (30 seconds):</b><br>
+  <b>E</b>mpty input · <b>D</b>uplicates (all identical) · <b>S</b>ingle element · <b>O</b>rder extremes (already sorted, reversed) · <b>N</b>egatives and zero.</div>
+
+  <h2 class="block">Why people fail — and the counter</h2>
+  <table class="numbers">
+    <tr><th>Failure</th><th>Counter</th></tr>
+    <tr><td class="val">Ran out of time</td><td class="why">Fixed schedule. Hard cap per problem. Solve by confidence, not by number.</td></tr>
+    <tr><td class="val">Optimal or nothing</td><td class="why">Brute force → submit → optimize. Never the other order.</td></tr>
+    <tr><td class="val">Froze on an unknown pattern</td><td class="why">Drill recognition, not solutions. 90 seconds, then skip and return.</td></tr>
+    <tr><td class="val">Untested edge cases</td><td class="why">EDSON checklist before every submit.</td></tr>
+    <tr><td class="val">Slow in the editor</td><td class="why">3 practice sessions inside CodeSignal itself.</td></tr>
+    <tr><td class="val">Misread the problem</td><td class="why">Read twice. Restate the requirement in one comment line before coding.</td></tr>
+    <tr><td class="val">Nerves</td><td class="why">Six full simulations. Familiarity is the only cure that works.</td></tr>
+  </table>
+</section>
+
+<!-- ============ CASES + HOOKS ============ -->
+<section id="cases">
+  <p class="hint">Name real companies — it is a senior signal. Then the memory hooks for the last 10 minutes.</p>
+  <h2 class="block">Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>PayPay Frontend Interview Cheatsheet · researched 2026-07-27 · progress saved in this browser only</footer>
+
+<script>
+const concepts = [
+  { tier: 1, t: `Hash map counting`, r: `<b>Recognize:</b> duplicate, count, frequency, "seen before", pair that sums to X, anagram, first unique.`, j: `<code>Map.get()</code> and <code>Set.has()</code> are O(1). <code>array.includes()</code> is O(n). Swapping one for the other is the most common speedup in these tests.` },
+  { tier: 1, t: `Two pointers`, r: `<b>Recognize:</b> the array is already sorted, or the problem is about palindromes, pairs, in-place removal, or merging two sorted lists.`, j: `Use <code>while (left &lt; right)</code>. Never call <code>splice</code> inside the loop — it is O(n) per call and destroys your complexity.` },
+  { tier: 1, t: `Sliding window`, r: `<b>Recognize:</b> longest or shortest <i>contiguous</i> subarray or substring satisfying a rule, or max sum of k consecutive items.`, j: `Keep counts in a <code>Map</code>. Shrink from the left with a <code>while</code>, not an <code>if</code>. Each index enters and leaves once, so total work is O(n).` },
+  { tier: 1, t: `String building and parsing`, r: `<b>Recognize:</b> input is text — a sentence, CSV-like data, a version number, a log line, a file path.`, j: `Strings are immutable. <code>out += c</code> in a long loop degrades. Push into an array and <code>join("")</code> at the end.` },
+  { tier: 1, t: `Sorting with a comparator`, r: `<b>Recognize:</b> "sort by frequency then alphabetically", kth largest, meeting rooms, merge intervals.`, j: `<code>[10,9,1].sort()</code> gives <code>[1,10,9]</code> — the default sorts as text. Always <code>(a,b) =&gt; a - b</code> for numbers. <code>sort</code> also mutates.` },
+  { tier: 1, t: `Stack`, r: `<b>Recognize:</b> matching brackets, undo, "next greater element", nested structures, evaluating an expression, simplifying a path.`, j: `Just an array with <code>push</code>/<code>pop</code> — both O(1). Never <code>shift</code>/<code>unshift</code>, which are O(n).` },
+  { tier: 2, t: `Matrix / grid traversal`, r: `<b>Recognize:</b> the input is a 2D array — islands, flood fill, spiral order, rotate an image, shortest path in a grid.`, j: `<code>Array(3).fill(Array(3).fill(0))</code> makes three references to ONE row. Use <code>Array.from({length:n}, () =&gt; new Array(m).fill(0))</code>.` },
+  { tier: 2, t: `BFS — breadth first search`, r: `<b>Recognize:</b> "fewest steps", "shortest path", level-by-level traversal of a tree.`, j: `Do not use <code>shift()</code> for the queue. Use an index pointer: <code>let head = 0; while (head &lt; q.length) { const cur = q[head++]; }</code>` },
+  { tier: 2, t: `DFS — depth first search`, r: `<b>Recognize:</b> explore a whole region, count connected components, most tree problems, backtracking.`, j: `Recursion is clearest, but Node's stack is roughly 10,000 frames. Above ~100k nodes, rewrite with an explicit stack array.` },
+  { tier: 2, t: `Binary search`, r: `<b>Recognize:</b> the data is sorted, OR the answer itself is a number in a range you can test — "smallest capacity such that…".`, j: `<code>Math.floor((low + high) / 2)</code> is fine in JS. Overflow is not a concern at test sizes. The bug is always the loop boundary — write it once and reuse it.` },
+  { tier: 2, t: `Intervals`, r: `<b>Recognize:</b> pairs of <code>[start, end]</code> — merging bookings, overlapping meetings, inserting a range.`, j: `Recipe: sort by start, walk once, merge when <code>current[0] &lt;= prev[1]</code>. Remember the comparator or the sort is wrong.` },
+  { tier: 2, t: `Prefix sums`, r: `<b>Recognize:</b> many "sum between index i and j" questions, or "how many subarrays sum to k".`, j: `Build once in O(n), then every range query is one subtraction. Combine with a <code>Map</code> of seen prefix sums for the "sums to k" variant.` },
+  { tier: 3, t: `1D dynamic programming`, r: `<b>Recognize:</b> "how many ways", "minimum cost to reach", and each step's choice depends on earlier steps.`, j: `In a 70-minute screen you see easy DP at most. Learn four: climbing stairs, house robber, coin change, max subarray. Do not learn forty.` },
+  { tier: 3, t: `Simulation / implementation-heavy`, r: `<b>Recognize:</b> the statement is four paragraphs of numbered rules with no obvious trick.`, j: `CodeSignal loves these. Careful beats clever here. Read the rules twice, write one helper function per rule, and test each rule separately.` },
+  { tier: `js`, t: `Map vs plain object`, r: `<b>Use Map by default.</b> Object keys are coerced to strings, inherited keys like <code>toString</code> can collide, and integer-like keys jump to the front of iteration order.`, j: `<code>map.size</code> is O(1); <code>Object.keys(o).length</code> is O(n). Objects are fine only for tiny fixed string-keyed lookups.` },
+  { tier: `js`, t: `Precision, not overflow`, r: `<b>JavaScript has no integer overflow</b> at normal test sizes, but it loses precision above 2⁵³−1 and floats do not compare exactly.`, j: `<code>0.1 + 0.2 !== 0.3</code>. For money-like problems, work in integer cents or compare with a tolerance. Use <code>BigInt</code> only if the problem says so.` },
+  { tier: `js`, t: `Array method costs`, r: `<b>Know which ones are O(n).</b> Complexity bugs hide inside innocent-looking one-liners.`, j: `O(1): <code>push</code>, <code>pop</code>. O(n): <code>shift</code>, <code>unshift</code>, <code>splice</code>, <code>slice</code>, <code>[...arr]</code>, <code>includes</code>, <code>indexOf</code>. None of the O(n) ones belong inside a loop.` },
+  { tier: `js`, t: `Reading standard input`, r: `<b>Some platforms hand you raw text</b> instead of function arguments — Codevue and HackerRank do this. PayPay's older backend reports mention Codevue.`, j: `<code>const input = require("fs").readFileSync(0, "utf8").trim().split("\\n");</code> Practise it once so it never costs you five minutes.` },
+];
+
+const decisions = [
+  { q: `Brute force vs optimal — in the ONLINE TEST`, a: `Brute force first`, at: `Always. Write it, run the samples, submit it. Then optimize only if you still have time or it clearly times out.`, b: `Optimal first`, bt: `Only when the pattern fires instantly and you have written it ten times before.`, v: `Partial credit is real credit. A submitted brute force scores; an unfinished optimal solution scores zero.` },
+  { q: `Brute force vs optimal — in LIVE CODING`, a: `Mention brute force`, at: `One sentence: "the naive version is O(n²) because…". Then move on.`, b: `Code the optimal`, bt: `Yes — this round scores your reasoning, not your throughput.`, v: `Inverted from the online test. Say the naive idea, name its cost, then code the good one while narrating.` },
+  { q: `Solve in order vs solve by confidence`, a: `In order 1→4`, at: `Never. Problem 3 is often the longest to implement and will eat your clock.`, b: `By confidence`, bt: `Always. Three minutes of scanning tells you which two you can bank fast.`, v: `Rank first, code second. This is the single highest-value habit for this test format.` },
+  { q: `Map vs plain object`, a: `Map`, at: `Real key types, O(1) size, guaranteed insertion order, no prototype key collisions. Default choice under time pressure.`, b: `Object literal`, bt: `Tiny fixed string-keyed lookups where readability wins and the key set is known.`, v: `In a timed test, reach for Map without thinking. One less category of bug.` },
+  { q: `Recursion vs iteration`, a: `Recursion`, at: `Trees, backtracking, anything naturally nested. Shorter and clearer.`, b: `Explicit stack loop`, bt: `Input can exceed roughly 10,000 depth, or the problem mentions 10⁵+ nodes.`, v: `Say which you chose and why. "I went recursive for clarity; at this input size the stack is safe."` },
+  { q: `NeetCode 150 vs Blind 75`, a: `NeetCode 150`, at: `You have 5–6 weeks. Grouped by pattern, video walkthroughs, fills gaps like intervals and tries.`, b: `Blind 75`, bt: `You have under 3 weeks. It is a subset of NeetCode 150.`, v: `Complete coverage of a smaller list beats half of a bigger one. Finish 75 before starting 150.` },
+  { q: `Vue vs React — how to answer`, a: `Vue`, at: `Proxy-based reactivity tracks dependencies at read time, so updates are precise and computed values need no dependency array.`, b: `React`, bt: `Re-runs the component and diffs the output. Bigger ecosystem, JSX is plain JavaScript, React Native for mobile.`, v: `The posting says "Vue preferred OR React" — React qualifies. Learn enough Vue 3 to compare reactivity honestly, and build one small Vue app so you can say "I built" not "I read".` },
+  { q: `English vs Japanese interview`, a: `English`, at: `Pick this unless your Japanese is business level. PayPay runs both as working languages and staff come from 50+ countries.`, b: `Japanese`, bt: `Only if you can defend a technical tradeoff in it under pressure.`, v: `A slow, clear English answer beats a shaky Japanese one. You are scored on the idea, not the grammar.` },
+  { q: `Optimistic UI vs blocking confirmation`, a: `Optimistic`, at: `Likes, drafts, reordering, anything reversible and low-stakes.`, b: `Blocking`, bt: `Money. Disable the button, show a determinate state, only show success on server confirmation.`, v: `Saying this distinction unprompted in a payments interview is a strong senior signal.` },
+  { q: `Micro-frontends vs one SPA`, a: `Micro-frontends`, at: `Many teams shipping independently. PayPay uses single-spa to run React and Vue apps in one page.`, b: `One SPA`, bt: `One or two teams. Shared state is simpler, first load is smaller, no duplicated dependencies.`, v: `The cost of micro-frontends is duplicated deps, harder shared state, slower first load. Only an org-scale problem justifies it.` },
+];
+
+const cases = [
+  { topic: `Micro-frontends`, b: `PayPay — single-spa`, p: `Their public stack lists single-spa, which lets independently built React and Vue apps share one page. Cite it when asked why the job posting names two frameworks, or in any "split a frontend across teams" question.` },
+  { topic: `Idempotency`, b: `Stripe — Idempotency-Key`, p: `Every payment API call accepts an Idempotency-Key header, so a retried charge applies exactly once. Cite it in any checkout or payment-flow design.` },
+  { topic: `Checkout performance`, b: `Shopify — checkout as a revenue metric`, p: `Shopify rebuilt checkout as a single-page flow with strict performance budgets, treating checkout speed as directly tied to revenue. Cite it to argue the payment route should carry the smallest bundle in the app.` },
+  { topic: `Bundle size`, b: `Netflix — less JavaScript on the landing page`, p: `Netflix cut client-side JavaScript on its signup landing page and reported time-to-interactive improving by roughly half. Cite it when arguing "does this route need a framework at all".` },
+  { topic: `Low-end devices`, b: `Pinterest — PWA rebuild`, p: `Rebuilding mobile web as a lightweight progressive web app produced large gains in engagement and signups. Cite it for low-end Android and poor-network performance, which is exactly PayPay's user base.` },
+  { topic: `Vue at scale`, b: `GitLab — large open-source Vue codebase`, p: `GitLab runs one of the biggest public Vue codebases and has published on migrating from jQuery to Vue and on their component library. Cite it if asked whether Vue holds up in large applications.` },
+];
+
+const hooks = [
+  { b: `"Scan, Bank, Attack, Sweep"`, p: `Your whole 70 minutes in four words. Scan all four problems, bank the two easy ones, attack the mediums, sweep for edge cases. "Bank" means submit and lock in points.` },
+  { b: `"Banked beats brilliant"`, p: `"Banked" means already submitted and scoring. A submitted brute force outscores an unfinished optimal solution. Every single time.` },
+  { b: `"Sort numbers, or sort strings"`, p: `Forget the comparator and JavaScript sorts your numbers as text. [10, 9].sort() stays [10, 9] and you never notice until the hidden tests fail.` },
+  { b: `"Set beats includes"`, p: `Any includes() or indexOf() inside a loop is a hidden O(n²). Build a Set first.` },
+  { b: `EDSON`, p: `Empty · Duplicates · Single element · Order extremes · Negatives. The 30-second edge-case checklist to run before every submit.` },
+  { b: `"Vue mutates, React replaces"`, p: `The one-line reactivity difference. Vue lets you write count.value++; React makes you call setCount. Vue tracks what you read, React re-runs and diffs.` },
+  { b: `"Money never goes optimistic"`, p: `Optimistic UI is for likes and drafts, not for payments. In a payment flow, block the button and wait for server confirmation.` },
+  { b: `"Ninety seconds, then move"`, p: `If no pattern fires within ninety seconds of reading a problem, skip it and come back. Staring is the most expensive activity available in a timed test.` },
+];
+
+// ---- concepts + progress ----
+const KEY = "paypay-fe-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+const tierLabel = { 1: "TIER 1 · DRILL DAILY", 2: "TIER 2 · LIKELY Q3/Q4", 3: "TIER 3 · KNOW THE SHAPE", js: "JS GOTCHA" };
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <span class="tier tier-${c.tier}">${tierLabel[c.tier]}</span>
+    <h3>${c.t}</h3>
+    <p class="recog">${c.r}</p>
+    <p class="jstip"><b>JS:</b> ${c.j}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} patterns I can spot in 90 seconds`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+</script>
+</body>
+</html>
