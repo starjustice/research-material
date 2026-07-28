@@ -343,7 +343,7 @@ npm run dev     # GraphiQL at http://localhost:4000/graphql
 ## Related notes
 
 - [system-design-basics-senior-fullstack-interview.md](system-design-basics-senior-fullstack-interview.md) — the JWT vs session tradeoff in system-design context, caching, scaling Postgres.
-- [skyworx-backend-interview-prep.md](skyworx-backend-interview-prep.md) — backend prep where this auth story plugs in.
+- [skyworx-backend-interview-prep.md](skyworx/skyworx-backend-interview-prep.md) — backend prep where this auth story plugs in.
 - [dotnet-basics-for-typescript-devs.md](dotnet-basics-for-typescript-devs.md) — the .NET contrast (ASP.NET Core middleware pipeline vs GraphQL context).
 
 ## Sources

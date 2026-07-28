@@ -81,8 +81,9 @@
   const content = document.getElementById("content");
   const slug = new URLSearchParams(location.search).get("note") || "";
 
-  // Only allow simple note filenames — no paths, no tricks.
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+  // Allow an optional company folder (e.g. skyworx/skyworx-backend-interview-prep).
+  // Dots are still excluded, so ".." traversal is impossible.
+  if (!/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(slug)) {
     content.innerHTML = '<div class="error">No note selected. Go back to the Study Hub and pick one.</div>';
     return;
   }
@@ -110,11 +111,34 @@
     el.closest("pre").replaceWith(div);
   });
 
-  // Make relative note links (e.g. other-note.md) work inside the viewer.
+  // Resolve a relative link against the folder the current note lives in,
+  // collapsing "." and ".." segments. Returns a path relative to notes/.
+  const baseDir = slug.includes("/") ? slug.slice(0, slug.lastIndexOf("/")) : "";
+  function resolveFromNote(href) {
+    const parts = baseDir.split("/").filter(Boolean)
+      .concat(href.replace(/^notes\//, "").split("/"));
+    const out = [];
+    for (const seg of parts) {
+      if (seg === "" || seg === ".") continue;
+      if (seg === "..") out.pop();
+      else out.push(seg);
+    }
+    return out.join("/");
+  }
+
+  // Make relative note links (e.g. other-note.md, ../skyworx/note.md) work inside the viewer.
   content.querySelectorAll('a[href$=".md"]').forEach(a => {
     const href = a.getAttribute("href");
     if (!/^https?:\/\//.test(href)) {
-      a.href = "viewer.html?note=" + href.replace(/\.md$/, "").replace(/^notes\//, "");
+      a.href = "viewer.html?note=" + resolveFromNote(href.replace(/\.md$/, ""));
+    }
+  });
+
+  // Cheatsheet links are plain pages — point them at the real file under notes/.
+  content.querySelectorAll('a[href$=".html"]').forEach(a => {
+    const href = a.getAttribute("href");
+    if (!/^https?:\/\//.test(href)) {
+      a.href = "notes/" + resolveFromNote(href);
     }
   });
 

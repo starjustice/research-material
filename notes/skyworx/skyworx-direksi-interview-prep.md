@@ -22,7 +22,7 @@ Do NOT re-prepare deep answers like the technical mock sessions. Prepare a **60-
 
 One sentence of pride to have ready if they ask about strengths: mention you **learned .NET/EF Core from scratch for this test and still handled auth, validation, testing, and system design questions well** — that story shows adaptability, which is exactly what a company hiring you into a different stack (.NET) wants to hear.
 
-If they go deeper anyway, you have the full library: [skyworx-backend-interview-prep.md](skyworx-backend-interview-prep.md) and the three mock interview reports in `notes/mock-interviews/`. Skim the top takeaways of those, don't re-study them cold.
+If they go deeper anyway, you have the full library: [skyworx-backend-interview-prep.md](skyworx-backend-interview-prep.md) and the three mock interview reports in this same `notes/skyworx/` folder. Skim the top takeaways of those, don't re-study them cold.
 
 ## 3. Banking & home loan basics — from zero
 

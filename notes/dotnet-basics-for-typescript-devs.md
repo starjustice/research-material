@@ -4,7 +4,7 @@
 - **Target:** Backend Developer review meeting at PT Skyworx Indonesia (banking software) — and any future .NET-adjacent interview
 - **Sources freshness:** 2025–2026
 - **Running example:** your own submission at `/Users/wing/Desktop/skyworkx/` (Skyworx.Kredit.Api, .NET 8 + EF Core + PostgreSQL)
-- **Companion note:** [skyworx-backend-interview-prep.md](skyworx-backend-interview-prep.md) — the meeting script, per-soal questions, and weaknesses to own. This note goes deeper on the .NET fundamentals behind that code.
+- **Companion note:** [skyworx-backend-interview-prep.md](skyworx/skyworx-backend-interview-prep.md) — the meeting script, per-soal questions, and weaknesses to own. This note goes deeper on the .NET fundamentals behind that code.
 
 ## TL;DR
 

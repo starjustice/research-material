@@ -73,6 +73,9 @@ Examples:
 ## Folder Structure
 
 - `notes/` — Learning notes and research (interview topics, AI tools and agents).
+  - `notes/<company>/` — everything for one company in one folder: prep notes, its cheatsheet, and its mock interview reports (e.g. `notes/bank-mandiri/`, `notes/skyworx/`, `notes/paypay/`). Keep the company prefix in filenames so they stay unique.
+  - `notes/mock-interviews/` — mock reports for general topics only (system design, javascript, behavioral). Company mocks go in the company folder.
+  - Topic study notes stay directly in `notes/` (e.g. `react-native-interview-guide.md`).
 - `examples/` — Practical, beginner-friendly example projects and scripts.
 - `templates/` — Reusable templates and frameworks (answer frameworks, study plans, mock interview scripts).
 
@@ -93,8 +96,8 @@ This applies to all agents and workflows in this workspace (including `research-
 ## Workflows in this workspace
 
 - **`research-material` agent** (`.claude/agents/research-material.md`) — background research runs. Produces a dated study note + visual HTML cheatsheet in `notes/`. Runs only when I name a topic.
-- **`/mock-interview` skill** (`.claude/skills/mock-interview/SKILL.md`) — interactive mock interviews in the main chat. One question at a time, honest scorecard at the end, session reports saved to `notes/mock-interviews/`.
-- **`mock-interviewer` agent** (`.claude/agents/mock-interviewer.md`) — written practice rounds in the background: `prepare` generates an exam paper (+ separate answer key) in `notes/mock-interviews/`, I answer in the file at my own pace, then `grade` scores my answers with an honest scorecard and tracks progress across sessions.
+- **`/mock-interview` skill** (`.claude/skills/mock-interview/SKILL.md`) — interactive mock interviews in the main chat. One question at a time, honest scorecard at the end. Reports save to the company folder for company mocks, or `notes/mock-interviews/` for general topics.
+- **`mock-interviewer` agent** (`.claude/agents/mock-interviewer.md`) — written practice rounds in the background: `prepare` generates an exam paper (+ separate answer key) in the company folder or `notes/mock-interviews/`, I answer in the file at my own pace, then `grade` scores my answers with an honest scorecard and tracks progress across sessions.
 
 Never prioritize speed over quality.
 
