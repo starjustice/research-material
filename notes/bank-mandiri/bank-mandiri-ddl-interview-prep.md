@@ -10,6 +10,8 @@
 
 > **Honest caveat:** I initially read DDL as "Digital Development Leadership" based on a recruitment blog about Mandiri's ODP program. That was an assumption, not verified. If HR's email or the job posting says otherwise, trust that over this note. A safe opening move tonight: *"Boleh saya konfirmasi dulu, Pak/Bu — divisi Digital Channel Delivery ini fokusnya di channel apa saja?"* Asking is not weakness; it shows you want to understand the actual scope.
 
+> **Update — 2026-07-28, post-mock-interview:** You asked whether DDL might be a separate subsidiary ("anak perusahaan") of Mandiri rather than an internal department. Checked directly — it is **not** a subsidiary. Two direct proof points: (1) a Kalibrr job posting titled **"DDL - 07 - Web Developer"** lists the employer as **"PT Bank Mandiri (Persero) Tbk"** itself, the parent bank — not a separately incorporated company; (2) a real employee's listed title is **"IT Digital Channel Delivery Solution Analyst at Bank Mandiri"** (ZoomInfo), again under Bank Mandiri directly. Bank Mandiri does have real subsidiaries (Mandiri Sekuritas, AXA Mandiri, Mandiri Tunas Finance, Bank Mandiri Taspen, Mandiri Capital Indonesia, etc.) — DDL is not one of them. This confirms the original "Digital Channel Delivery = internal IT department" reading with direct evidence, not just inference.
+
 ### What "digital channel" means in banking
 
 A **channel** is any touchpoint where a customer interacts with the bank. Bank Mandiri's channels:
@@ -165,6 +167,25 @@ That last one is strong — it signals you're thinking about how to succeed, not
 
 ---
 
+## 7. Interview stages — where tonight's round fits, and what may come next
+
+Bank Mandiri's hiring process commonly includes a stage literally called **"User Interview"** — conducted by the hiring manager or department head, not HR. Tonight's Department Head round on Teams almost certainly **is** that stage. It matches how candidates describe it: CV and experience review, culture/team fit, and how you'd contribute day to day — exactly the ground your mock interview just covered.
+
+If a separate **"Technical Discussion"** round follows (common in Indonesian corporate/BUMN hiring — usually run by a senior engineer or tech lead rather than the department head), expect it to go noticeably deeper than tonight:
+
+- **JS/TS fundamentals:** closures, event loop, async/promises, generics — the standard senior JS set.
+- **React / React Native internals:** rendering behavior, hooks pitfalls, performance — relevant since DDL owns Livin', a mobile channel.
+- **API design:** REST vs GraphQL tradeoffs, N+1 problems, auth patterns (JWT vs sessions) — you have real answers from your GraphQL/Prisma work.
+- **Database:** PostgreSQL indexing, transactions, migrations — pull from DBO and Unloan.
+- **Small-scope system design:** e.g. "design an OTP verification flow" or "make a payment endpoint idempotent" — you already have the right answer for this (Service Bus dedup, DB unique constraint, idempotency key from Unloan). Lead with the mechanism immediately, don't wait to be asked three times.
+- **Code walkthrough:** be ready to screen-share and explain a piece of your own code — DBO or Unloan are your strongest, most relevant choices.
+
+➡️ **Full question bank with model answers:** [bank-mandiri-ddl-technical-user-interview-questions.md](bank-mandiri-ddl-technical-user-interview-questions.md) — includes the DDL job-code stack breakdown (Java/Spring + native mobile), the honest stack-gap answer, SNAP and OJK talking points, and June 2026 Livin' figures.
+
+**Confidence note:** no Bank Mandiri-specific reports confirm a separate live-coding/LeetCode-style test for this track — accounts describe the process as CV- and experience-focused rather than algorithmic. Don't over-invest in grinding algorithm problems; invest in explaining your real systems clearly, which is where you're strongest.
+
+---
+
 ## Sources
 
 - [Bank Mandiri IT organization — The Org](https://theorg.com/org/bank-mandiri-persero-tbk-pt/teams/information-technology) — digital channel delivery listed as a core IT function
@@ -175,4 +196,8 @@ That last one is strong — it signals you're thinking about how to succeed, not
 - [Pengalaman Rekrutmen ODP IT Bank Mandiri — ohyouka](https://www.ohyouka.com/2019/10/pengalaman-rekrutmen-odp-it-bank-mandiri.html) — candidate report: business idea requirement, Indonesian + English interview
 - [Nilai-nilai Budaya Perusahaan — Bank Mandiri (official PDF)](https://www.bankmandiri.co.id/documents/20143/357655335/Nilai-nilai+Budaya+Perusahaan.pdf/a57a3977-dfd9-6598-e825-0ec8d1c7d355) — official AKHLAK implementation
 - [AKHLAK BUMN: Pengertian dan Contoh — Glints](https://glints.com/id/lowongan/akhlak-bumn/) — AKHLAK definitions, SE-7/MBU/07/2020
-- Personal experience notes: [dbo-b2b-platform-system-design-case-study.md](dbo-b2b-platform-system-design-case-study.md) (TADA incident, architecture), [skyworx-backend-interview-prep.md](skyworx-backend-interview-prep.md) (.NET learning story)
+- Personal experience notes: [dbo-b2b-platform-system-design-case-study.md](../dbo-b2b-platform-system-design-case-study.md) (TADA incident, architecture), [skyworx-backend-interview-prep.md](../skyworx/skyworx-backend-interview-prep.md) (.NET learning story)
+- [DDL - 07 - Web Developer — Kalibrr job posting](https://www.kalibrr.com/c/pt-bank-mandiri-persero-tbk/jobs/170215/ddl-07-web-developer) — confirms DDL is a job code/department under "PT Bank Mandiri (Persero) Tbk" directly, not a subsidiary
+- [Kristian Ndapamerang — IT Digital Channel Delivery Solution Analyst at Bank Mandiri (ZoomInfo)](https://www.zoominfo.com/p/Kristian-Ndapamerang/10014052839) — real employee title confirming department name and parent-company employment
+- [Bank Mandiri Interview Experience & Questions — Glassdoor](https://www.glassdoor.com/Interview/Bank-Mandiri-Interview-Questions-E40419.htm) — candidate reports on process stages, difficulty, and focus areas
+- [FAQ Mandiri Karir](https://www.bankmandiri.co.id/en/faq-mandiri-karir) — official recruitment process reference

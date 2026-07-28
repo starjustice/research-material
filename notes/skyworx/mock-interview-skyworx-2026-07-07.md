@@ -38,7 +38,7 @@
 
 ## To review before the real meeting
 
-- `notes/skyworx-backend-interview-prep.md` — walkthrough script + "weaknesses to own proactively" (the real meeting will mirror this session)
+- `notes/skyworx/skyworx-backend-interview-prep.md` — walkthrough script + "weaknesses to own proactively" (the real meeting will mirror this session)
 - `notes/dotnet-basics-for-typescript-devs.md` — middleware pipeline + testing sections
 - `notes/system-design-basics-senior-fullstack-interview.md` — indexing/EXPLAIN context
 

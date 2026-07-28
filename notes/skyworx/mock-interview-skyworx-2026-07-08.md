@@ -42,7 +42,7 @@
 
 ## To review before the real meeting
 
-- Same as last time: `notes/skyworx-backend-interview-prep.md`, `notes/dotnet-basics-for-typescript-devs.md`, `notes/system-design-basics-senior-fullstack-interview.md`
+- Same as last time: `notes/skyworx/skyworx-backend-interview-prep.md`, `notes/dotnet-basics-for-typescript-devs.md`, `notes/system-design-basics-senior-fullstack-interview.md`
 - New: `notes/postgresql-queries-interview-guide.md` — has the exact composite-index/EXPLAIN ANALYZE material Q4 needs
 
 ## Next session

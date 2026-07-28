@@ -7,9 +7,9 @@
 
 **Related notes — linked, not repeated here:**
 
-- JavaScript internals, React internals, Core Web Vitals, frontend system design → [react-js-frontend-interview-guide.md](react-js-frontend-interview-guide.md)
-- Hands-on hooks and data-fetching exercises → [react-hooks-fetching-practice.md](react-hooks-fetching-practice.md)
-- Caching, scaling, load balancers, backend design → [system-design-basics-senior-fullstack-interview.md](system-design-basics-senior-fullstack-interview.md)
+- JavaScript internals, React internals, Core Web Vitals, frontend system design → [react-js-frontend-interview-guide.md](../react-js-frontend-interview-guide.md)
+- Hands-on hooks and data-fetching exercises → [react-hooks-fetching-practice.md](../react-hooks-fetching-practice.md)
+- Caching, scaling, load balancers, backend design → [system-design-basics-senior-fullstack-interview.md](../system-design-basics-senior-fullstack-interview.md)
 
 ---
 
@@ -368,7 +368,7 @@ Lighter treatment, because you have to pass Part 1 first.
 | Online coding test | 70 min | Can you produce working code under a clock | Part 1 |
 | Recruiter call | ~30 min | Motivation, visa status, salary expectation, English level, language preference for interviews | Have a 90-second "why PayPay, why Japan" answer and a salary range ready |
 | Loop 1 — live coding | 45–60 min | One medium DSA problem, plus a deep dive into a project on your CV, plus CS fundamentals | Practice **talking while coding** |
-| Loop 2 — frontend domain | 60 min | JavaScript internals, SPA routing, React vs Vue reactivity, performance, CSS | Your [react-js-frontend-interview-guide.md](react-js-frontend-interview-guide.md) covers most of this |
+| Loop 2 — frontend domain | 60 min | JavaScript internals, SPA routing, React vs Vue reactivity, performance, CSS | Your [react-js-frontend-interview-guide.md](../react-js-frontend-interview-guide.md) covers most of this |
 | Loop 3 — system design / wireframe | 45–60 min | Given a wireframe or a product, design the frontend: components, state, API contract, responsiveness | Section 2.3 below |
 | Hiring manager / behavioral | 45 min | Impact, conflict, ownership, why you are leaving | STAR stories, 4 of them, rehearsed |
 
@@ -395,7 +395,7 @@ Reported prompts from candidates are practical, not abstract: implement or desig
 
 **The structure to use every time:** requirements (functional + non-functional) → component tree → state ownership → API contract → edge and error states → performance → accessibility → observability.
 
-Full detail lives in [react-js-frontend-interview-guide.md](react-js-frontend-interview-guide.md) and [system-design-basics-senior-fullstack-interview.md](system-design-basics-senior-fullstack-interview.md).
+Full detail lives in [react-js-frontend-interview-guide.md](../react-js-frontend-interview-guide.md) and [system-design-basics-senior-fullstack-interview.md](../system-design-basics-senior-fullstack-interview.md).
 
 ## 2.4 The domain knowledge round — what has actually been asked
 
@@ -597,7 +597,7 @@ Practise one of each, timed:
 - `defer` executes after parsing, in document order. Use for app code that depends on the DOM or on other scripts.
 - Neither helps if the script is huge — that is a bundle problem, not a loading-attribute problem.
 
-More frontend answers: [react-js-frontend-interview-guide.md](react-js-frontend-interview-guide.md).
+More frontend answers: [react-js-frontend-interview-guide.md](../react-js-frontend-interview-guide.md).
 
 ### Round: Frontend system design
 
