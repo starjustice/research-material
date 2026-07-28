@@ -129,6 +129,25 @@ Why this works:
 
 **If there's a big gap between their offer and your number** — don't reject on the spot. Say: *"Saya perlu waktu sebentar untuk pertimbangkan, boleh saya diskusikan lagi dalam 1-2 hari?"* Never commit under pressure in the room.
 
+### A question to avoid — and why
+
+A tempting move is to ask direksi directly: *"Bagaimana budget untuk menghire, apakah penentuan salary karena budget atau skill?"* **Avoid this exact phrasing.** It implicitly asks "is your number arbitrary/cheap, or based on merit" — in front of a board, that reads as challenging their judgment or fairness, not as negotiating. Direksi are the ones deciding your outcome in this room; putting them on the defensive rarely gets you a better number, and Indonesian corporate culture in a board setting generally rewards a collaborative tone over an interrogative one.
+
+**The safer version that gets the same information:** *"Untuk range gaji di posisi ini, apakah ada fleksibilitas berdasarkan pengalaman dan skill yang saya bawa, atau ini sudah standar yang sama untuk semua kandidat di level ini?"* This asks the same underlying question (fixed budget vs. negotiable-on-merit) but frames it as curiosity about the *process*, not a challenge to their integrity.
+
+### Script: they name a number (e.g. "15") — how to push it up
+
+Don't accept silently, and don't repeat your open-ended range again — negotiate the specific gap:
+
+1. **Acknowledge, don't react negatively.** *"Terima kasih atas tawarannya."* Never show disappointment on your face or in your tone — a flat, professional reaction preserves your negotiating position.
+2. **State your reasoning directly, anchored to evidence, not opinion.** *"Berdasarkan riset pasar untuk role backend engineer dengan pengalaman saya, dan mengingat kompleksitas domain fintech yang membutuhkan presisi ekstra pada data uang dan compliance, saya melihat angka yang lebih sesuai ada di kisaran 18 sampai 20 juta. Apakah ada ruang untuk itu?"* — notice this names a **specific number close to your real target**, not just "higher." Vague asks get vague answers; specific asks get specific answers.
+3. **If they hold firm on 15 as a hard ceiling** — don't just accept or walk away. Negotiate the **total package** instead of only the base number:
+   - *"Kalau base salary di angka itu yang paling maksimal saat ini, apakah ada ruang di komponen lain — misalnya bonus performance, atau review gaji dipercepat setelah 3-6 bulan berdasarkan performance, bukan menunggu 1 tahun?"*
+   - This reframes the conversation from "can you move this one number" (a yes/no they might just say no to) to "can we solve this together across several levers" (harder to flatly refuse, and shows you're solution-oriented, which boards like).
+4. **If they still hold firm on everything** — you now have real information, not a guess. Decide calmly, and if you need time: *"Saya hargai penjelasannya. Boleh saya pertimbangkan dulu 1-2 hari sebelum memberi keputusan final?"* Never accept or reject in the exact moment you feel pressured.
+
+**The core negotiation principle underneath all of this:** you get better outcomes by naming your own specific number backed by a reason, not by questioning their reasoning. Let evidence do the pushing, not confrontation.
+
 ## 7. Benefits checklist — ask about these, don't wait to be told
 
 Total compensation in Indonesia is more than base salary. If they don't cover these, ask:
@@ -143,12 +162,32 @@ Total compensation in Indonesia is more than base salary. If they don't cover th
 - **Career path / jenjang karir** — is there a defined path from Backend Engineer → Senior → Lead? Ask this directly; it signals you're thinking long-term, which boards like to hear.
 - **Probation terms** — length of probation and what changes after (often salary or status).
 
-## 8. Questions to ask them (bring 2-3)
+## 8. Questions to ask them — categorized, pick 4-5
 
-- "Untuk role backend engineer ini, seperti apa tim yang akan saya join — berapa orang, dan bagaimana pembagian kerjanya?"
-- "Bagaimana jenjang karir untuk posisi ini dalam 1-2 tahun ke depan?"
+**Why this matters more than it seems:** the questions you ask are themselves being evaluated. In a room with direksi specifically, questions about business direction and growth land better than narrow technical questions (save those for a future manager/peer round). Pick a mix across categories — don't ask everything, 4-5 well-chosen questions beats 10.
+
+### A. Role & team clarity (practical, always safe to open with)
+- "Untuk role backend engineer ini, apa prioritas utama dalam 3-6 bulan pertama?"
+- "Saya akan masuk ke tim yang menangani produk apa — apakah langsung ke PRIMORDIUM, atau ada kemungkinan produk/proyek lain?"
+- "Siapa yang akan menjadi atasan langsung saya, dan bagaimana struktur tim engineering-nya?"
+- ⭐ **"Menurut Bapak/Ibu, ekspektasi seperti apa yang diharapkan dari saya di posisi ini, supaya saya bisa berkontribusi secara maksimal dan berkembang dengan baik di Skyworx?"** — one of the strongest questions available to you here. It signals growth mindset and alignment-seeking rather than "what do I get," which lands especially well right after a benefits conversation — it shows you're already thinking past the offer toward performing well. **If the answer is vague** ("yang penting kerja keras, tanggung jawab"), a good follow-up: *"Apakah ada tolok ukur atau ekspektasi spesifik yang biasanya dipakai untuk menilai itu di tahun pertama?"* — asking for something measurable shows analytical thinking, not just politeness. Whatever they answer, briefly reflect it back with one sentence on how you'd approach meeting it — that turns the question into a small demonstration of value, not just information-gathering.
+
+### B. Company direction & strategy (the strongest category for a direksi audience — shows business thinking, not just code thinking)
+- "Bagaimana Bapak/Ibu melihat arah pengembangan produk Skyworx dalam 1-2 tahun ke depan, terutama dengan tren AI yang mulai masuk ke industri fintech?"
+- "Apakah ada rencana ekspansi produk atau segmen pasar baru yang sedang dipersiapkan saat ini?"
+- "Dengan semakin ketatnya requirement compliance di industri perbankan, bagaimana Skyworx memastikan tim engineering tetap mengikuti standar tersebut?"
+
+### C. Growth & career path
+- "Bagaimana jenjang karir untuk posisi backend engineer di Skyworx dalam 1-2 tahun ke depan?"
 - "Selain benefit standar, apakah ada program pengembangan seperti training atau sertifikasi yang didukung perusahaan?"
-- "PRIMORDIUM sudah dipakai 80+ institusi keuangan — untuk role ini, apakah saya akan kerja di produk yang sudah production seperti PRIMORDIUM, atau ada inisiatif/produk baru yang sedang dikembangkan?" (shows you did research on their actual product)
+
+### D. Product-specific (shows you actually researched them, not generic prep)
+- "PRIMORDIUM sudah dipakai 80+ institusi keuangan — apakah role ini akan lebih banyak maintain produk yang sudah production, atau ada inisiatif/fitur baru yang sedang dikembangkan?"
+
+### E. Process (good closer — always appropriate, shows organization)
+- "Setelah sesi ini, bagaimana proses dan timeline selanjutnya?"
+
+**Suggested picks for this specific meeting:** the ⭐ expectations question from A (a near-must-ask — it's the single best growth/alignment signal you can send), one from B (this is the category that will impress direksi specifically), one from C (career path — you're already planning to ask this per the HR framing), and always close with E. Skip D unless the conversation naturally opens toward product/technical direction.
 
 ## 9. Mindset going in
 
