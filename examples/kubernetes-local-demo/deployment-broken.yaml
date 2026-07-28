@@ -1,0 +1,68 @@
+# VERSION 3 — a DELIBERATELY BROKEN release.
+#
+# The only real change: the readiness probe points at a path nginx does not serve.
+# nginx answers 404, so the probe never passes, so the new pods never become Ready.
+#
+# What you should observe:
+#   * new pods sit at READY 0/1 forever
+#   * `kubectl rollout status` hangs (it is waiting, correctly)
+#   * your curl loop KEEPS SERVING VERSION 2 with no errors
+#
+# That last point is the lesson: maxUnavailable=0 plus a readiness probe means a
+# bad release stalls instead of taking the site down. Then you roll back.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: web
+        version: v3-broken
+    spec:
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: nginx
+          image: nginx:1.29-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /this-path-does-not-exist   # <-- the break: nginx returns 404
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: site
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: site
+          configMap:
+            name: site-v2

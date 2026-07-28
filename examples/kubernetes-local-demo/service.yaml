@@ -1,0 +1,26 @@
+# A Service gives a STABLE name and virtual IP in front of pods that come and go.
+#
+# Pods are disposable and get a new IP every time they are replaced. Nothing may
+# address a pod directly. Everything addresses the Service.
+#
+# selector: app=web  -> the Service tracks every READY pod with that label.
+#                       Not-ready pods are automatically excluded. That is the
+#                       whole mechanism behind zero-downtime rollouts.
+#
+# type NodePort: opens port 30080 on EVERY node. Combined with the port mapping in
+# kind-config.yaml, that makes the app reachable at http://localhost:8080.
+# In a real cloud cluster you would use type: LoadBalancer, or an Ingress /
+# Gateway API route in front of a ClusterIP Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 80          # the Service's own port (used by other pods: http://web-svc)
+      targetPort: 80    # the container port it forwards to
+      nodePort: 30080   # the port opened on every node (must be 30000-32767)

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Container Orchestration &amp; Kubernetes Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px; max-width: 1040px; margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.55rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%); font-weight: 600;
+  }
+  header p.meta { font-size: .78rem; color: var(--muted); margin-top: 6px; }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600; cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px; box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink); display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .equiv {
+    display: block; margin-top: 8px; font-size: .8rem; line-height: 1.45;
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 6px 9px; color: var(--ink);
+  }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card); cursor: pointer; font-size: .9rem; line-height: 1; color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+  table.numbers td code { background: var(--code-bg); color: var(--code-ink); padding: 2px 6px; border-radius: 5px; font-size: .82rem; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; font-size: .82rem; line-height: 1.55; margin-bottom: 14px; }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .dash { stroke-dasharray: 6 4; }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .lbl-l { font: 700 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: start; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CONTAINER ORCHESTRATION &amp; KUBERNETES</h1>
+  <p class="sub">From <code>docker run</code> and CapRover/Swarm to Kubernetes.</p>
+  <p class="meta">Researched 2026-07-28 · every card has the CapRover/Swarm equivalent · nothing hidden, everything readable</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="kubectl">⌨️ kubectl</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="cases">🏢 Cases &amp; Hooks</button>
+</nav>
+
+<!-- CONCEPTS -->
+<section id="concepts" class="active">
+  <p class="hint">Read the definition, read the yellow line (what it is in your world), then tick ✓ when you can say it out loud.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- DIAGRAMS -->
+<section id="diagrams">
+  <p class="hint">Draw these on a whiteboard. Each should take under 40 seconds.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The ladder you are already on</h3>
+    <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+      <rect class="box" x="15" y="45" width="160" height="110" rx="8"/>
+      <text class="lbl" x="95" y="70">docker run</text>
+      <text class="lbl-s" x="95" y="92">1 container</text>
+      <text class="lbl-s" x="95" y="108">1 machine</text>
+      <text class="lbl-s" x="95" y="132">nothing restarts it</text>
+
+      <rect class="box box-blue" x="205" y="45" width="160" height="110" rx="8"/>
+      <text class="lbl" x="285" y="70">Docker Compose</text>
+      <text class="lbl-s" x="285" y="92">many containers</text>
+      <text class="lbl-s" x="285" y="108">still 1 machine</text>
+      <text class="lbl-s" x="285" y="132">dev + CI</text>
+
+      <rect class="box box-green" x="395" y="45" width="160" height="110" rx="8"/>
+      <text class="lbl" x="475" y="70">Docker Swarm</text>
+      <text class="lbl-s" x="475" y="92">many machines</text>
+      <text class="lbl-s" x="475" y="108">self-heal + rolling</text>
+      <text class="lbl-s" x="475" y="132">CapRover is this</text>
+
+      <rect class="box box-yellow" x="585" y="45" width="160" height="110" rx="8"/>
+      <text class="lbl" x="665" y="70">Kubernetes</text>
+      <text class="lbl-s" x="665" y="92">declarative API</text>
+      <text class="lbl-s" x="665" y="108">autoscale + policy</text>
+      <text class="lbl-s" x="665" y="132">big ecosystem</text>
+
+      <path class="arrow" d="M175,100 L203,100"/><path class="arrow" d="M365,100 L393,100"/><path class="arrow" d="M555,100 L583,100"/>
+      <text class="lbl-s" x="380" y="25">more machines, more control, more complexity →</text>
+      <text class="lbl-s" x="380" y="180">each rung solves what the one before it could not</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Compose is many containers on one machine. Swarm is many machines with self-healing and rolling deploys — that is what CapRover runs under the hood, so I already operate an orchestrator. Kubernetes is the same job with a declarative API, autoscaling, and policy, at a much higher operational cost."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Cluster anatomy and the path of one request</h3>
+    <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-yellow" x="15" y="15" width="215" height="105" rx="8"/>
+      <text class="lbl-l" x="30" y="38">CONTROL PLANE — the brain</text>
+      <text class="lbl-s" x="122" y="60">API server · scheduler</text>
+      <text class="lbl-s" x="122" y="78">controllers · etcd</text>
+      <text class="lbl-s" x="122" y="100">decides + remembers, serves no traffic</text>
+
+      <rect class="box box-blue" x="15" y="150" width="120" height="42" rx="8"/><text class="lbl" x="75" y="176">User</text>
+      <rect class="box box-blue" x="160" y="150" width="150" height="42" rx="8"/><text class="lbl" x="235" y="169">Cloud LB</text><text class="lbl-s" x="235" y="185">outside cluster</text>
+      <rect class="box box-pink" x="335" y="150" width="150" height="42" rx="8"/><text class="lbl" x="410" y="169">Ingress controller</text><text class="lbl-s" x="410" y="185">host + path rules</text>
+      <rect class="box box-green" x="510" y="150" width="150" height="42" rx="8"/><text class="lbl" x="585" y="169">Service</text><text class="lbl-s" x="585" y="185">stable name + IP</text>
+
+      <path class="arrow" d="M135,171 L158,171"/><path class="arrow" d="M310,171 L333,171"/><path class="arrow" d="M485,171 L508,171"/>
+
+      <rect class="box" x="335" y="225" width="150" height="60" rx="8"/>
+      <text class="lbl" x="410" y="248">Node A</text><text class="lbl-s" x="410" y="268">pod · pod</text>
+      <rect class="box" x="510" y="225" width="150" height="60" rx="8"/>
+      <text class="lbl" x="585" y="248">Node B</text><text class="lbl-s" x="585" y="268">pod</text>
+
+      <path class="arrow" d="M575,192 L500,223"/><path class="arrow" d="M595,192 L595,223"/>
+      <path class="arrow-dash" d="M180,120 L400,222"/><path class="arrow-dash" d="M200,120 L575,222"/>
+      <text class="lbl-s" x="250" y="140">schedules + watches</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Request path: DNS to a cloud load balancer, into the ingress controller pods, which apply host and path rules and hand off to a Service. The Service is a stable name in front of pods that keep changing. The control plane never touches a request — it only decides what runs where and keeps reality matching the spec."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Declarative — the reconciliation loop</h3>
+    <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="65" width="160" height="60" rx="8"/>
+      <text class="lbl" x="100" y="90">Desired state</text><text class="lbl-s" x="100" y="110">YAML: replicas 3</text>
+      <rect class="box box-yellow" x="290" y="65" width="180" height="60" rx="8"/>
+      <text class="lbl" x="380" y="90">Controller</text><text class="lbl-s" x="380" y="110">compares, forever</text>
+      <rect class="box box-green" x="580" y="65" width="160" height="60" rx="8"/>
+      <text class="lbl" x="660" y="90">Actual state</text><text class="lbl-s" x="660" y="110">2 pods running</text>
+
+      <path class="arrow" d="M180,88 L288,88"/><text class="lbl-s" x="234" y="78">you write it once</text>
+      <path class="arrow" d="M578,110 L472,110"/><text class="lbl-s" x="525" y="128">observes</text>
+      <path class="arrow" d="M470,80 L578,80"/><text class="lbl-s" x="524" y="70">creates pod 3</text>
+      <text class="lbl-s" x="380" y="165">a pod dies at 3am → the loop notices → it makes another. Nobody is paged.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The mental shift from <code>docker run</code> is declarative. I do not issue commands that happen once. I record the end state and a control loop keeps reality matching it forever. That is why the same file applied twice changes nothing, and why infrastructure can live in Git."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Rolling update with maxSurge 1 and maxUnavailable 0</h3>
+    <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl-l" x="20" y="26">step 1 — steady state</text>
+      <rect class="box box-green" x="230" y="10" width="90" height="30" rx="6"/><text class="lbl-s" x="275" y="30">old · ready</text>
+      <rect class="box box-green" x="330" y="10" width="90" height="30" rx="6"/><text class="lbl-s" x="375" y="30">old · ready</text>
+
+      <text class="lbl-l" x="20" y="80">step 2 — add one new pod</text>
+      <rect class="box box-green" x="230" y="64" width="90" height="30" rx="6"/><text class="lbl-s" x="275" y="84">old · ready</text>
+      <rect class="box box-green" x="330" y="64" width="90" height="30" rx="6"/><text class="lbl-s" x="375" y="84">old · ready</text>
+      <rect class="box box-yellow" x="430" y="64" width="130" height="30" rx="6"/><text class="lbl-s" x="495" y="84">new · NOT ready yet</text>
+      <text class="lbl-s" x="650" y="84">no traffic to it</text>
+
+      <text class="lbl-l" x="20" y="134">step 3 — readiness probe passes</text>
+      <rect class="box box-green" x="230" y="118" width="90" height="30" rx="6"/><text class="lbl-s" x="275" y="138">old · ready</text>
+      <rect class="box box-pink" x="330" y="118" width="90" height="30" rx="6"/><text class="lbl-s" x="375" y="138">old · draining</text>
+      <rect class="box box-green" x="430" y="118" width="130" height="30" rx="6"/><text class="lbl-s" x="495" y="138">new · ready · serving</text>
+      <text class="lbl-s" x="650" y="138">removed from Service first</text>
+
+      <text class="lbl-l" x="20" y="188">step 4 — repeat, then done</text>
+      <rect class="box box-green" x="230" y="172" width="130" height="30" rx="6"/><text class="lbl-s" x="295" y="192">new · ready</text>
+      <rect class="box box-green" x="370" y="172" width="130" height="30" rx="6"/><text class="lbl-s" x="435" y="192">new · ready</text>
+      <text class="lbl-s" x="620" y="192">rollback = kubectl rollout undo</text>
+
+      <text class="lbl-s" x="380" y="220">capacity never drops below 2 → zero downtime</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "maxSurge 1 means one extra pod may exist; maxUnavailable 0 means I never drop below full capacity. A new pod only receives traffic after its readiness probe passes, and an old pod leaves the Service endpoint list before it is stopped, so in-flight requests finish. Rollback is instant because the old ReplicaSet is still there."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Liveness vs readiness — different failures, different actions</h3>
+    <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-pink" x="30" y="20" width="200" height="50" rx="8"/>
+      <text class="lbl" x="130" y="42">LIVENESS fails</text><text class="lbl-s" x="130" y="60">"am I broken?"</text>
+      <path class="arrow" d="M230,45 L330,45"/>
+      <rect class="box" x="335" y="20" width="230" height="50" rx="8"/>
+      <text class="lbl" x="450" y="42">kill + restart the container</text><text class="lbl-s" x="450" y="60">RESTARTS count goes up</text>
+      <text class="lbl-s" x="655" y="48">check the process only</text>
+
+      <rect class="box box-blue" x="30" y="100" width="200" height="50" rx="8"/>
+      <text class="lbl" x="130" y="122">READINESS fails</text><text class="lbl-s" x="130" y="140">"can I serve now?"</text>
+      <path class="arrow" d="M230,125 L330,125"/>
+      <rect class="box" x="335" y="100" width="230" height="50" rx="8"/>
+      <text class="lbl" x="450" y="122">removed from Service</text><text class="lbl-s" x="450" y="140">no traffic · no restart</text>
+      <text class="lbl-s" x="655" y="128">check DB + Redis here</text>
+
+      <rect class="box box-yellow" x="30" y="175" width="700" height="34" rx="8"/>
+      <text class="lbl-s" x="380" y="196">classic bug: a database check in the LIVENESS probe restarts every pod at once and turns a blip into an outage</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Liveness means restart me — so it checks only the process. Readiness means stop sending me traffic — so it checks dependencies like Postgres and Redis. Putting the database check in liveness is the classic mistake: one database blip restarts every pod simultaneously."</div>
+  </div>
+</section>
+
+<!-- KUBECTL -->
+<section id="kubectl">
+  <p class="hint">The ~16 commands worth knowing. The debugging order at the bottom is what interviewers listen for.</p>
+  <table class="numbers">
+    <tr><th>Command</th><th>What it does</th><th>When you reach for it</th></tr>
+    <tr><td><code>kubectl get pods -o wide</code></td><td class="val">what is running</td><td class="why">Adds the NODE and IP columns. First command of every debugging session.</td></tr>
+    <tr><td><code>kubectl get pods -w</code></td><td class="val">watch changes live</td><td class="why">During a rollout or while testing self-healing.</td></tr>
+    <tr><td><code>kubectl describe pod &lt;name&gt;</code></td><td class="val">why it is not working</td><td class="why">The Events list at the bottom explains Pending, ImagePullBackOff, and probe failures.</td></tr>
+    <tr><td><code>kubectl logs &lt;pod&gt; -f</code></td><td class="val">stream logs</td><td class="why">Normal log reading. Add <code>-c &lt;container&gt;</code> for multi-container pods.</td></tr>
+    <tr><td><code>kubectl logs &lt;pod&gt; --previous</code></td><td class="val">logs of the dead container</td><td class="why">The one command people forget. Essential for CrashLoopBackOff.</td></tr>
+    <tr><td><code>kubectl exec -it &lt;pod&gt; -- sh</code></td><td class="val">shell inside</td><td class="why">Check env vars, DNS, mounted files. Read-only debugging, never fixes.</td></tr>
+    <tr><td><code>kubectl apply -f ./k8s</code></td><td class="val">declare desired state</td><td class="why">The normal way to deploy. Idempotent — running it twice changes nothing.</td></tr>
+    <tr><td><code>kubectl diff -f ./k8s</code></td><td class="val">preview the change</td><td class="why">Shows what apply would do. Good habit before touching production.</td></tr>
+    <tr><td><code>kubectl rollout status deploy/api</code></td><td class="val">is the deploy done?</td><td class="why">Exits non-zero on failure, so CI pipelines use it as the gate.</td></tr>
+    <tr><td><code>kubectl rollout undo deploy/api</code></td><td class="val">rollback</td><td class="why">Seconds, because the previous ReplicaSet still exists.</td></tr>
+    <tr><td><code>kubectl rollout restart deploy/api</code></td><td class="val">restart all pods</td><td class="why">After a ConfigMap or Secret change — those do not restart pods by themselves.</td></tr>
+    <tr><td><code>kubectl scale deploy/api --replicas=5</code></td><td class="val">manual scale</td><td class="why">Quick capacity change. Gets overwritten by the next apply — put it in the file.</td></tr>
+    <tr><td><code>kubectl port-forward svc/api 8080:80</code></td><td class="val">reach it from your laptop</td><td class="why">Works with no ingress and no public IP. Your everyday debugging tunnel.</td></tr>
+    <tr><td><code>kubectl get events --sort-by=.lastTimestamp</code></td><td class="val">what just happened</td><td class="why">Cluster-level view: evictions, scheduling failures, OOM kills.</td></tr>
+    <tr><td><code>kubectl top pods</code></td><td class="val">live CPU and memory</td><td class="why">Right-sizing requests and limits. Needs metrics-server installed.</td></tr>
+    <tr><td><code>kubectl get all -n &lt;ns&gt;</code></td><td class="val">everything in a namespace</td><td class="why">Orientation in an unfamiliar cluster.</td></tr>
+  </table>
+  <div class="code-note">
+    <b>Debugging order to say out loud:</b> <code>get pods</code> (what state?) → <code>describe pod</code> (events explain Pending / ImagePull / probe failure) → <code>logs --previous</code> (why it crashed) → <code>get events</code> (cluster-level cause) → <code>top</code> (resource pressure).
+    <br><br>
+    <b>Exit codes:</b> <code>137</code> = OOMKilled, memory limit exceeded. <code>1</code> = the app threw on startup. <code>143</code> = stopped by SIGTERM, which is normal during a rollout.
+  </div>
+  <pre><code># The five lines that make a Deployment production-grade
+strategy: { type: RollingUpdate, rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } }
+readinessProbe: { httpGet: { path: /ready, port: 3000 } }   # checks DB + Redis
+livenessProbe:  { httpGet: { path: /healthz, port: 3000 } } # process only
+resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 512Mi } }
+terminationGracePeriodSeconds: 30   # + handle SIGTERM in Express and BullMQ</code></pre>
+</section>
+
+<!-- NUMBERS -->
+<section id="numbers">
+  <p class="hint">Say a number and the room believes the rest of the answer. Memorize the pattern, not the decimals.</p>
+  <table class="numbers">
+    <tr><th>Figure</th><th>Value</th><th>Why it matters</th></tr>
+    <tr><td>Current Kubernetes version</td><td class="val">v1.36 (June 2026)</td><td class="why">v1.34–v1.36 supported. Knowing the current version signals you follow the project.</td></tr>
+    <tr><td>Release cadence</td><td class="val">3 per year, ~15 weeks</td><td class="why">Only the 3 newest minors are supported, about 14 months. A cluster left alone for a year is unsupported.</td></tr>
+    <tr><td>Managed control plane price</td><td class="val">~$0.10/hour ≈ $73/month</td><td class="why">EKS and GKE Standard, per cluster. Cheap next to nodes — the cluster fee is not the real cost.</td></tr>
+    <tr><td>EKS extended support</td><td class="val">~$0.60/hour ≈ $438/month</td><td class="why">The price of not upgrading. A concrete argument for upgrade discipline.</td></tr>
+    <tr><td>Default rolling update</td><td class="val">25% surge / 25% unavailable</td><td class="why">Production APIs should set 1 and 0 instead — never lose capacity.</td></tr>
+    <tr><td>NodePort range</td><td class="val">30000–32767</td><td class="why">Why a NodePort is never 80. Comes up in local and bare-metal setups.</td></tr>
+    <tr><td>terminationGracePeriodSeconds</td><td class="val">30s default</td><td class="why">The window your app has to finish in-flight work after SIGTERM. Connection draining.</td></tr>
+    <tr><td>OOMKilled exit code</td><td class="val">137</td><td class="why">Memory over the limit is killed instantly. CPU over the limit is only throttled.</td></tr>
+    <tr><td>Deployment revision history</td><td class="val">10 by default</td><td class="why">How many versions you can <code>rollout undo</code> back to.</td></tr>
+    <tr><td>Pod scale-up vs node scale-up</td><td class="val">seconds vs minutes</td><td class="why">Under a spike you wait on new machines, not on the HPA. Keep headroom.</td></tr>
+    <tr><td>HPA scale-down stabilization</td><td class="val">5 minutes default</td><td class="why">Scale-down is deliberately slow to avoid flapping. Scale-up is immediate.</td></tr>
+    <tr><td>Kubernetes production use</td><td class="val">82% of container users</td><td class="why">CNCF Annual Survey published Jan 2026. The reason banks and fintechs standardise on it.</td></tr>
+    <tr><td>Docker Swarm support</td><td class="val">through 2030 (Mirantis)</td><td class="why">Your platform is supported but not evolving. Say exactly that — it is honest and current.</td></tr>
+    <tr><td>ingress-nginx retirement</td><td class="val">31 March 2026</td><td class="why">No more security patches. Gateway API is the replacement. The best "what's new" fact to raise.</td></tr>
+    <tr><td>Helm 4</td><td class="val">Nov 2025</td><td class="why">First major release in six years. Helm 3 charts still work.</td></tr>
+    <tr><td>kind (local clusters)</td><td class="val">v0.32.0</td><td class="why">Ships node images for Kubernetes v1.33–v1.36. Free way to get real hands-on practice.</td></tr>
+  </table>
+</section>
+
+<!-- DECISIONS -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is the sentence to say in the interview.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- CASES + HOOKS -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these = senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🗣 How to describe your own experience — honestly</h2>
+  <div class="code-note">
+    "I run production containers on <b>Docker Swarm through CapRover</b> — a self-hosted PaaS layer over Swarm. I own the deploys: multi-service builds, rolling updates with health checks, env and secret config, nginx routing with Let's Encrypt TLS, and rollbacks.
+    <b>I have not operated a Kubernetes cluster in production.</b> I have run clusters locally with kind and the concepts map closely: my Swarm services are Deployments plus Services, CapRover's nginx is an Ingress, my env vars are ConfigMaps and Secrets, my health check splits into readiness and liveness probes, and my Cron service becomes a CronJob.
+    What I would learn on the job is the operational side — RBAC, upgrades, and storage."
+    <br><br>
+    <b>Why this wins:</b> overclaiming Kubernetes is exposed by one follow-up question. Honest framing plus demonstrated concept mastery makes everything else you say believable.
+  </div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Preparation today, confidence tomorrow. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "Container orchestration", d: "Software that runs containers across a pool of machines: schedules them, restarts what dies, routes traffic to healthy ones, and rolls out new versions.", e: "You already run one — CapRover on Docker Swarm." },
+  { t: "Cluster", d: "A group of machines treated as one pool of CPU and memory. You stop asking 'which server' and start asking 'how much capacity'.", e: "Your Swarm — usually a single VPS acting as both manager and worker." },
+  { t: "Node", d: "One machine in the cluster. Runs kubelet (the agent), a container runtime (containerd), and kube-proxy (networking rules).", e: "Your VPS. Swarm calls them manager and worker nodes too." },
+  { t: "Control plane", d: "The brain: API server (the only door in), scheduler (which node?), controllers (reconcile loops), etcd (the state database).", e: "A Swarm manager node does the same job with far fewer parts." },
+  { t: "etcd", d: "The key-value database holding all cluster state. Lose it without a backup and the cluster forgets everything it was supposed to run.", e: "Swarm's Raft store on the manager node." },
+  { t: "kubelet", d: "The agent on every node. Starts containers, runs the probes, reports status back to the API server.", e: "The Docker daemon plus Swarm's task logic." },
+  { t: "Declarative + reconciliation", d: "You write the END STATE in YAML. A controller compares desired vs actual state forever and closes the gap. Applying twice changes nothing.", e: "THE mental shift from docker run. CapRover's replica count is a small version of the same idea." },
+  { t: "Pod", d: "The smallest deployable unit: one or more containers that share an IP address and volumes and are always placed together. Normally one container.", e: "A Swarm task — roughly a pod with exactly one container." },
+  { t: "Pods are ephemeral", d: "A pod is never repaired. It is replaced by a new pod with a new name and a new IP. That is why nothing may address a pod directly.", e: "Same in Swarm — never hard-code a container IP." },
+  { t: "Sidecar / init container", d: "Sidecar = a helper container in the same pod (log shipper, proxy). Init container = runs to completion before the app starts (wait for DB, run a migration).", e: "No direct equivalent — in Swarm you would run a separate service or a start script." },
+  { t: "ReplicaSet", d: "A controller with one job: keep exactly N identical pods alive. Delete one and it creates another within seconds.", e: "docker service --replicas 3." },
+  { t: "Deployment", d: "What you actually write. Owns ReplicaSets and manages version changes: creates a new ReplicaSet, shifts pods over gradually, keeps the old one for rollback.", e: "A CapRover app plus its deploy history." },
+  { t: "StatefulSet", d: "For pods that need a stable name and their own storage that follows them: db-0, db-1. Ordered start and stop. Used for databases and queues.", e: "No real equivalent — this is why stateful things are painful on Swarm too." },
+  { t: "DaemonSet", d: "Exactly one pod on every node. Used for log collectors, metrics agents, and networking components.", e: "Swarm global mode services." },
+  { t: "Job / CronJob", d: "Job runs a pod until it succeeds. CronJob runs a Job on a schedule, in ONE place — not once per replica.", e: "Replaces your separate Cron service container. Fixes the 'runs twice if scaled' risk." },
+  { t: "Service", d: "A stable DNS name and virtual IP in front of the current set of READY pods matching a label. Pods come and go; the name does not.", e: "Swarm's internal DNS name and virtual IP for a service." },
+  { t: "ClusterIP", d: "The default Service type: reachable only inside the cluster. Used for service-to-service calls.", e: "Your API calling Auth over the Swarm overlay network." },
+  { t: "NodePort", d: "Opens the same high port (30000–32767) on every node. Used for local clusters, demos, and bare metal without a cloud load balancer.", e: "Publishing a container port on the host in Swarm." },
+  { t: "LoadBalancer", d: "Asks the cloud to create a real load balancer with a public IP pointing at the Service. The normal public entry point on EKS/GKE/AKS.", e: "Your VPS public IP plus CapRover's nginx." },
+  { t: "Ingress", d: "HTTP routing RULES: host api.shop.com and path / go to Service api-svc. On its own it does nothing.", e: "The domain settings on a CapRover app." },
+  { t: "Ingress controller", d: "The proxy that actually reads the Ingress rules and routes traffic. Runs as pods. Examples: Traefik, HAProxy, Envoy-based controllers.", e: "CapRover's bundled nginx container. Same job, one component instead of two." },
+  { t: "Gateway API (2026)", d: "The modern replacement for Ingress: richer routing, clear split between platform owners and app teams. ingress-nginx was RETIRED on 31 March 2026, so this is the direction.", e: "None yet — mention it to show you follow the ecosystem." },
+  { t: "ConfigMap", d: "Non-sensitive configuration as key-value pairs or files, injected as env vars or mounted into the pod. Keeps one image usable in every environment.", e: "CapRover per-app environment variables." },
+  { t: "Secret", d: "Same as ConfigMap but for passwords, tokens, and keys. WARNING: base64-encoded, not encrypted, by default — you also need encryption at rest, RBAC, or an external vault.", e: "CapRover env vars again — but CapRover does not separate sensitive from non-sensitive." },
+  { t: "ConfigMap change ≠ restart", d: "Editing a ConfigMap or Secret does NOT restart your pods. Env vars are read once at process start. Fix: kubectl rollout restart.", e: "In CapRover, saving env vars does redeploy the app — a real difference to remember." },
+  { t: "Namespace", d: "A named section of the cluster. Names must be unique inside it, not across the cluster. Attach RBAC, resource quotas, and network policies to it.", e: "No equivalent — CapRover has one flat app list." },
+  { t: "RBAC", d: "Role-based access control: who may do what, where. 'The payments team can deploy only in the payments namespace.' Central to any bank's cluster.", e: "CapRover has a single admin login. This is a real gap to acknowledge." },
+  { t: "NetworkPolicy", d: "A firewall between pods: which pods may talk to which. Without one, every pod can reach every other pod.", e: "Swarm overlay networks give coarse separation only." },
+  { t: "PersistentVolume / PVC", d: "PV = a real piece of storage. PVC = a workload's request for storage ('20Gi, fast'). StorageClass = the rule that creates disks on demand.", e: "A CapRover persistent directory mapped to the host." },
+  { t: "Liveness probe", d: "Answers 'is this container broken beyond recovery?' On failure the container is KILLED and restarted. Check only the process — never the database.", e: "Your container health check, half of it." },
+  { t: "Readiness probe", d: "Answers 'can this pod serve traffic right now?' On failure the pod is removed from the Service endpoints. No restart. This is what makes rollouts zero-downtime.", e: "The other half — Swarm has one health check doing both jobs less precisely." },
+  { t: "Startup probe", d: "For slow-booting apps. While it runs, liveness and readiness are paused, so a slow start is not mistaken for a crash.", e: "Roughly Swarm's health-check start period." },
+  { t: "Graceful shutdown", d: "terminationGracePeriodSeconds (default 30) is the time to finish in-flight work after SIGTERM. A preStop sleep avoids the race where traffic arrives at a pod that is already stopping.", e: "The same connection-draining idea you use for zero-downtime Swarm deploys." },
+  { t: "Requests vs limits", d: "Request = what the scheduler reserves to pick a node. Limit = the hard ceiling. Memory over the limit → OOMKilled. CPU over the limit → throttled, not killed.", e: "CapRover's per-app CPU and memory caps, but Kubernetes also uses requests for placement." },
+  { t: "OOMKilled / CrashLoopBackOff", d: "OOMKilled = the kernel killed the container for exceeding its memory limit, exit code 137. CrashLoopBackOff = Kubernetes restarting a failing container with growing delays.", e: "The Swarm version is a container that keeps restarting with no clear reason." },
+  { t: "HPA", d: "HorizontalPodAutoscaler: adds and removes PODS based on CPU, memory, or custom metrics. Needs metrics-server. API autoscaling/v2.", e: "Swarm has no metric-based autoscaling. A genuine Kubernetes advantage." },
+  { t: "Cluster Autoscaler / Karpenter", d: "Adds and removes NODES when pods cannot be scheduled. Karpenter is the modern AWS option and is good at using spot instances.", e: "You resize the VPS by hand." },
+  { t: "KEDA", d: "Event-driven autoscaling: scale on queue depth, Kafka lag, or a database query — including down to zero.", e: "The right answer for your BullMQ workers: scale on Redis queue length, not CPU." },
+  { t: "Rolling update", d: "Replace pods gradually. maxSurge = extra pods allowed; maxUnavailable = missing pods allowed. Production API: surge 1, unavailable 0.", e: "CapRover's rolling deploy, but you control the pace exactly." },
+  { t: "Rollback", d: "kubectl rollout undo switches back to the previous ReplicaSet in seconds, because it still exists with zero pods.", e: "CapRover's 'revert to previous version' button." },
+  { t: "Helm chart", d: "A package of Kubernetes YAML templates plus a values file. One chart, many environments. Helm 4 shipped November 2025.", e: "No equivalent — CapRover one-click apps are the closest idea." },
+  { t: "Kustomize", d: "The no-templating alternative: a base of plain YAML plus per-environment patches. Built into kubectl as apply -k.", e: "None. Common answer: Helm for third-party software, Kustomize for your own manifests." },
+  { t: "GitOps (Argo CD / Flux)", d: "Git holds the desired state. An agent inside the cluster continuously makes the cluster match it, and puts back anything changed by hand. Rollback = git revert.", e: "Your CapRover deploys are push-based from CI. GitOps is pull-based, so CI never holds cluster credentials." },
+  { t: "Managed Kubernetes", d: "EKS, GKE, or AKS run the control plane for about $73/month per cluster. You bring nodes and workloads. Almost everyone picks managed unless on-premises rules apply.", e: "CapRover is your self-managed platform. Banks often self-manage on-prem for data residency." },
+  { t: "kind", d: "Kubernetes IN Docker: a real cluster made of Docker containers, on your laptop, free. The honest way to get hands-on practice.", e: "See examples/kubernetes-local-demo in this workspace." },
+];
+
+const decisions = [
+  { q: "Docker Compose vs Docker Swarm", a: "Pick Compose when", at: "Local development, CI, or a single machine. It is the standard dev tool even at companies running Kubernetes in production.", b: "Pick Swarm when", bt: "You have more than one machine, or want self-healing and rolling updates with almost no learning cost.", v: "Compose has no idea other machines exist. The moment you need a second machine or automatic restarts, you are on Swarm — which is what CapRover set up for you." },
+  { q: "Swarm / PaaS vs Kubernetes", a: "Pick Swarm or a PaaS when", at: "Small team, under ~10 services, one deploy cadence, no platform engineer, speed to market matters most.", b: "Pick Kubernetes when", bt: "Multiple teams deploying independently, many services, autoscaling that saves real money, or compliance needing one standard policy layer.", v: "Kubernetes is an operating system for a fleet. It pays off when you have a fleet and people to run it. Below that you pay the complexity and do not use it." },
+  { q: "Managed K8s vs self-managed", a: "Pick managed (EKS/GKE/AKS) when", at: "You want the control plane, etcd backups, and upgrades handled for ~$73/month per cluster. This is almost always the answer.", b: "Pick self-managed when", bt: "Data must stay on-premises or in-country, or you need full control of the control plane. Common in banking, often via OpenShift or Rancher.", v: "Nobody should self-manage etcd by choice. Self-managed is a compliance decision, not a technical preference — good question to ask a bank interviewer." },
+  { q: "Kubernetes vs serverless containers", a: "Pick Kubernetes when", at: "Many services, multi-cloud or on-prem portability, fine-grained networking and policy, GPU or batch workloads.", b: "Pick Cloud Run / Fargate / Container Apps when", bt: "You want no cluster at all, scale to zero, spiky traffic, and a single cloud. Usually right below ~15 services.", v: "2026 consensus: start with serverless containers or a PaaS, move to Kubernetes when a specific constraint demands it. Saying this shows judgement, not fear of Kubernetes." },
+  { q: "Liveness probe vs readiness probe", a: "Liveness", at: "Answers 'am I broken?'. Failure restarts the container. Must check ONLY the process — no database, no Redis.", b: "Readiness", bt: "Answers 'can I serve now?'. Failure removes the pod from the Service. No restart. This is where dependency checks belong.", v: "Restart me vs stop sending me traffic. The classic bug is a database check in liveness: one blip restarts every pod at once and turns a small incident into an outage." },
+  { q: "maxSurge 1 / maxUnavailable 0 vs 0 / 1", a: "surge 1, unavailable 0", at: "Never lose capacity. Needs room for one extra pod. The safe default for a production API.", b: "surge 0, unavailable 1", bt: "Never exceed capacity. Used when licences, database connections, or node room are strictly limited.", v: "Default to surge 1 / unavailable 0 for user-facing services. Kubernetes' own default is 25%/25%, which is usually not what you want." },
+  { q: "Helm vs Kustomize", a: "Pick Helm when", at: "You need packaging, versioning, a rollback command, and installing third-party software. Helm 4 shipped Nov 2025.", b: "Pick Kustomize when", bt: "You want plain YAML with per-environment patches and no templating language. Built into kubectl as apply -k.", v: "They are not enemies. Common real answer: Helm for other people's charts, Kustomize for your own manifests." },
+  { q: "Ingress vs Gateway API", a: "Ingress", at: "Familiar, everywhere, simple host and path rules. But ingress-nginx retired 31 March 2026 — no more security patches.", b: "Gateway API", bt: "Richer routing, traffic splitting for canaries, and a clean split between platform and app teams. v1.5 shipped early 2026.", v: "New clusters should start on Gateway API. Existing Ingress can be converted with ingress2gateway 1.0. Raising this unprompted is a strong freshness signal." },
+  { q: "Postgres in Kubernetes vs managed database", a: "In-cluster (StatefulSet + operator)", at: "One control plane for everything, portability across clouds and on-prem. Needs a real specialist.", b: "Managed (RDS / Cloud SQL)", bt: "Backups, failover, and patching handled. Keep only stateless workloads in the cluster.", v: "Default to managed Postgres and keep Kubernetes stateless — including during a migration. Move compute first, data later, never both at once." },
+  { q: "HPA on CPU vs KEDA on queue depth", a: "HPA on CPU", at: "Simple, built in, fine for request-serving APIs where CPU tracks load.", b: "KEDA on queue depth", bt: "Scales on what users actually wait for: BullMQ or Kafka backlog. Can scale to zero when the queue is empty.", v: "For your worker services, queue depth is the correct signal. CPU can look calm while the backlog grows for an hour." },
+];
+
+const cases = [
+  { topic: "Incremental migration", b: "Spotify", p: "Migrated services onto Kubernetes gradually, not all at once. Their largest Kubernetes service handles over 10 million requests per second in aggregate, and bin-packing improved CPU utilisation two- to threefold. Cite for: orchestration is a cost-efficiency story, and migration can be incremental." },
+  { topic: "Many teams, many deploys", b: "Airbnb", p: "Grew to thousands of nodes across dozens of clusters, with hundreds of services and roughly 500 deploys per day. Cite for: Kubernetes pays off when many teams must deploy independently." },
+  { topic: "Delivery speed", b: "adidas", p: "Release frequency went from every 4–6 weeks to 3–4 times a day after moving to a Kubernetes platform, running about 4,000 pods on 200 nodes. Cite for: the benefit shows up as delivery speed, not just infrastructure." },
+  { topic: "Isolation strategy", b: "Zalando", p: "Runs dozens of clusters rather than one huge one, giving teams isolation and blast-radius limits. Cite for: cluster-per-team or per-environment is a legitimate design, especially where compliance matters." },
+  { topic: "The counter-case", b: "37signals (Basecamp, HEY)", p: "Left the cloud and Kubernetes, and built Kamal — deploys containers over SSH with zero-downtime switching. Cite when arguing AGAINST Kubernetes: for a stable, known workload, simpler tooling can be the correct engineering choice." },
+  { topic: "Supply-chain risk", b: "ingress-nginx retirement (Mar 2026)", p: "The most widely used ingress controller was retired with a security warning and a recommended migration to Gateway API. Cite for: depending on one community component is a risk, and upgrade planning is part of running a platform." },
+];
+
+const hooks = [
+  { b: "Shift manager", p: "An orchestrator is the shift manager of a kitchen: decides who works where, replaces no-shows, handles the rush. You only say how many cooks you need." },
+  { b: "Sat-nav, not turn-by-turn", p: "Declarative = type the destination; the system recalculates after a wrong turn. Imperative = shouting every turn. Plain meaning: you record the end state, a loop keeps reality matching it." },
+  { b: "Lunchbox", p: "A pod is a lunchbox — usually one sandwich, sometimes a sauce pot that must travel with it. You throw the whole box away, never repair it." },
+  { b: "Phone extension", p: "A Service is a company phone extension. Staff move desks and phones; the number never changes. That is why you address the Service, never a pod." },
+  { b: "Power on vs open for business", p: "Liveness = 'is the power on?' — if not, reset the breaker (restart). Readiness = 'is the shop open?' — flip the sign, do not demolish the shop (no traffic, no restart)." },
+  { b: "Hotel booking", p: "PVC = the booking request ('one room, two nights'). PV = the actual room. StorageClass = the hotel's policy for allocating rooms." },
+  { b: "Thermostat", p: "GitOps is a thermostat: set the target in one place, the system works continuously to reach it and corrects anything changed by hand." },
+  { b: "Reserved seat vs conductor", p: "Request = the seat you reserved (used for scheduling). Limit = where the conductor removes you. Memory removal = OOMKilled, exit 137. CPU just gets slowed down." },
+  { b: "137 = memory", p: "Idiom-style rhyme: 'one-three-seven, out of memory heaven'. Plain meaning: exit code 137 means the kernel killed the container for exceeding its memory limit." },
+  { b: "Ingress = the sign, controller = the receptionist", p: "The Ingress object lists which company is on which floor. The ingress controller is the person who reads it and actually directs you." },
+];
+
+const KEY = "orchestration-cheatsheet-known";
+let known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>
+    <span class="equiv"><b>In your world:</b> ${c.e}</span>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    localStorage.setItem(KEY, JSON.stringify([...known]));
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  localStorage.removeItem(KEY);
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

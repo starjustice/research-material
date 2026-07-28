@@ -1,0 +1,31 @@
+# Two ConfigMaps = the "content" of two app versions.
+#
+# A ConfigMap holds non-sensitive configuration or files. Here each one holds a
+# single index.html. We mount it into the nginx container, so swapping which
+# ConfigMap the Deployment mounts is a visible "new version" without building
+# any image.
+#
+# For real credentials you would use a Secret instead of a ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: site-v1
+data:
+  index.html: |
+    <!doctype html>
+    <html><body style="font-family: sans-serif; background:#dbeafe">
+      <h1>VERSION 1</h1>
+      <p>served by nginx in a Kubernetes pod</p>
+    </body></html>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: site-v2
+data:
+  index.html: |
+    <!doctype html>
+    <html><body style="font-family: sans-serif; background:#e3f4ec">
+      <h1>VERSION 2</h1>
+      <p>rolled out with zero downtime</p>
+    </body></html>
