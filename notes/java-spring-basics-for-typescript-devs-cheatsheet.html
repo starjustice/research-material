@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java &amp; Spring for a TypeScript Dev — Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept p code, td code, .decision code, .qa code, .hook code {
+    background: #eef3f7; border-radius: 4px; padding: 1px 5px;
+    font-size: .82em; font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .concept .ts-anchor {
+    display: block; margin-top: 8px; background: var(--green-soft);
+    border-left: 3px solid var(--green); border-radius: 6px;
+    padding: 6px 9px; font-size: .8rem; line-height: 1.45;
+  }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* side-by-side code */
+  .pair { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+          padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .pair h3 { font-size: .98rem; margin-bottom: 10px; }
+  .pair .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pair .lang { font-size: .7rem; font-weight: 700; letter-spacing: .05em;
+                text-transform: uppercase; margin-bottom: 4px; color: var(--muted); }
+  .pair pre { background: var(--code-bg); color: var(--code-ink); border-radius: 8px;
+              padding: 10px 12px; overflow-x: auto; font-size: .78rem; line-height: 1.5;
+              font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .pair .note { margin-top: 9px; font-size: .82rem; background: var(--accent-soft);
+                border-left: 4px solid var(--accent); border-radius: 8px; padding: 7px 11px; line-height: 1.45; }
+  @media (max-width: 620px) { .pair .cols { grid-template-columns: 1fr; } }
+
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); margin-bottom: 22px; }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+  .table-scroll { overflow-x: auto; }
+
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  .qa {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .qa b.q { display: block; margin-bottom: 6px; font-size: .92rem; }
+  .qa p { font-size: .86rem; line-height: 1.55; }
+
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .warn { border-left-color: var(--pink) !important; }
+  .warn b { color: var(--pink); }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Java &amp; Spring for a TypeScript Dev</h1>
+  <p class="sub">Everything mapped back to what you already know</p>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-label"><span id="progressLabel">0 / 0 concepts</span> · <button class="reset-btn" onclick="resetProgress()">reset</button></div>
+</div>
+
+<nav>
+  <button class="active" data-tab="concepts">Concepts</button>
+  <button data-tab="syntax">Syntax Map</button>
+  <button data-tab="spring">Spring</button>
+  <button data-tab="gotchas">Gotchas</button>
+  <button data-tab="interview">Interview Q</button>
+  <button data-tab="hooks">Memory Hooks</button>
+</nav>
+
+<!-- ================= CONCEPTS ================= -->
+<section id="concepts" class="active">
+  <p class="hint">Every card is a Java ↔ TypeScript pair. Tick the circle when you can explain it out loud.</p>
+  <div class="grid" id="conceptGrid">
+
+    <div class="concept" data-key="j1">
+      <span class="num-chip">1</span><button class="got">✓</button>
+      <h3>JVM = the runtime</h3>
+      <p>You write <code>.java</code>, it compiles to <b>bytecode</b>, the JVM runs it. Types are real at runtime — that's why annotations can do so much magic.</p>
+      <span class="ts-anchor">In TS: types are erased when compiled to JS. In Java they survive.</span>
+    </div>
+
+    <div class="concept" data-key="j2">
+      <span class="num-chip">2</span><button class="got">✓</button>
+      <h3>Maven / Gradle = npm</h3>
+      <p><code>pom.xml</code> (Maven) or <code>build.gradle</code> lists dependencies. Packages land in a shared <code>~/.m2</code>, not per-project.</p>
+      <span class="ts-anchor">In TS: package.json + node_modules — but node_modules is per project.</span>
+    </div>
+
+    <div class="concept" data-key="j3">
+      <span class="num-chip">3</span><button class="got">✓</button>
+      <h3>Type comes first</h3>
+      <p><code>String name = "x";</code> not <code>let name: string</code>. <code>final</code> means <code>const</code>. <code>var</code> infers, but only for local variables.</p>
+      <span class="ts-anchor">In TS: name: string = "x". Same idea, reversed order.</span>
+    </div>
+
+    <div class="concept" data-key="j4">
+      <span class="num-chip">4</span><button class="got">✓</button>
+      <h3>Numbers are not one type</h3>
+      <p><code>int</code>, <code>long</code>, <code>double</code>, <code>BigDecimal</code>. <b>Money always uses BigDecimal</b> — double is binary floating point and drifts.</p>
+      <span class="ts-anchor">In TS: one number type for everything. In C# you met decimal — BigDecimal is its twin.</span>
+    </div>
+
+    <div class="concept" data-key="j5">
+      <span class="num-chip">5</span><button class="got">✓</button>
+      <h3>== vs .equals()</h3>
+      <p><code>==</code> compares <b>references</b> for objects. <code>.equals()</code> compares content. Use <code>Objects.equals(a,b)</code> for null safety.</p>
+      <span class="ts-anchor">In TS: === just works on strings. In Java it silently returns false.</span>
+    </div>
+
+    <div class="concept" data-key="j6">
+      <span class="num-chip">6</span><button class="got">✓</button>
+      <h3>Everything is in a class</h3>
+      <p>No top-level functions. A standalone helper becomes a <code>static</code> method on a class.</p>
+      <span class="ts-anchor">In TS: export function foo() at file top level is normal. Not allowed here.</span>
+    </div>
+
+    <div class="concept" data-key="j7">
+      <span class="num-chip">7</span><button class="got">✓</button>
+      <h3>record = data holder</h3>
+      <p><code>record Account(String number, BigDecimal balance) {}</code> auto-generates constructor, getters, equals, hashCode, toString. Use for DTOs.</p>
+      <span class="ts-anchor">In TS: type Account = &#123; number: string; balance: number &#125;.</span>
+    </div>
+
+    <div class="concept" data-key="j8">
+      <span class="num-chip">8</span><button class="got">✓</button>
+      <h3>No union types</h3>
+      <p>There is no <code>string | number</code>. Use an <b>enum</b> for fixed values, a <b>sealed interface</b> for one-of-these-shapes, or method overloading.</p>
+      <span class="ts-anchor">In TS: unions are everywhere. This is the feature you will miss most.</span>
+    </div>
+
+    <div class="concept" data-key="j9">
+      <span class="num-chip">9</span><button class="got">✓</button>
+      <h3>Streams = array methods</h3>
+      <p><code>list.stream().filter(x -&gt; ...).map(...).toList()</code>. Arrow syntax is identical. <code>Order::getAmount</code> is a method reference.</p>
+      <span class="ts-anchor">In TS: arr.filter(...).map(...) — same shape, extra .stream() and .toList().</span>
+    </div>
+
+    <div class="concept" data-key="j10">
+      <span class="num-chip">10</span><button class="got">✓</button>
+      <h3>null only, plus Optional</h3>
+      <p>No <code>undefined</code>. <code>Optional&lt;T&gt;</code> makes absence explicit: <code>.map()</code>, <code>.orElse()</code>, <code>.orElseThrow()</code>.</p>
+      <span class="ts-anchor">In TS: null | undefined and optional chaining ?. — Java has neither.</span>
+    </div>
+
+    <div class="concept" data-key="j11">
+      <span class="num-chip">11</span><button class="got">✓</button>
+      <h3>Checked exceptions</h3>
+      <p>The compiler <b>forces</b> you to catch or declare <code>throws</code> for checked ones (IOException). Unchecked (RuntimeException) behave like JS errors.</p>
+      <span class="ts-anchor">In TS: no equivalent at all. Every error is unchecked.</span>
+    </div>
+
+    <div class="concept" data-key="j12">
+      <span class="num-chip">12</span><button class="got">✓</button>
+      <h3>Spring Boot ≈ NestJS</h3>
+      <p>Decorators become annotations. <code>@RestController</code>, <code>@Service</code>, <code>@Repository</code>. Dependency injection works almost the same.</p>
+      <span class="ts-anchor">In TS: @Controller(), @Injectable() in Nest. You already know this model.</span>
+    </div>
+
+    <div class="concept" data-key="j13">
+      <span class="num-chip">13</span><button class="got">✓</button>
+      <h3>JPA ≈ Prisma, different philosophy</h3>
+      <p>JPA <b>tracks</b> loaded entities. Change a field inside <code>@Transactional</code> and it saves on commit — no explicit update call. Called dirty checking.</p>
+      <span class="ts-anchor">In TS: Prisma makes you call update() explicitly. JPA is implicit.</span>
+    </div>
+
+    <div class="concept" data-key="j14">
+      <span class="num-chip">14</span><button class="got">✓</button>
+      <h3>Repository from method names</h3>
+      <p><code>findByStatusAndAmountGreaterThan(...)</code> — Spring generates the SQL from the method name. No body needed.</p>
+      <span class="ts-anchor">In TS: you write the Prisma where clause yourself.</span>
+    </div>
+
+    <div class="concept" data-key="j15">
+      <span class="num-chip">15</span><button class="got">✓</button>
+      <h3>@Transactional</h3>
+      <p>Wraps the method in a DB transaction. Rolls back on unchecked exceptions by default. <b>Skipped if you call the method from inside the same class.</b></p>
+      <span class="ts-anchor">In TS: prisma.$transaction(...) — explicit rather than annotation-driven.</span>
+    </div>
+
+    <div class="concept" data-key="j16">
+      <span class="num-chip">16</span><button class="got">✓</button>
+      <h3>Virtual threads</h3>
+      <p>Since Java 21: write simple blocking code that scales to millions of tasks. The JVM's answer to async, without colouring every function.</p>
+      <span class="ts-anchor">In TS: async/await everywhere. Java gets the scalability without the syntax.</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= SYNTAX MAP ================= -->
+<section id="syntax">
+  <p class="hint">Left is what you know. Right is the same thing in Java.</p>
+
+  <div class="pair">
+    <h3>Variables &amp; types</h3>
+    <div class="cols">
+      <div><div class="lang">TypeScript</div><pre>let name: string = "Stephen";
+const age: number = 30;
+const inferred = 42;
+let items: string[] = ["a","b"];</pre></div>
+      <div><div class="lang">Java</div><pre>String name = "Stephen";
+final int age = 30;
+var inferred = 42;   // local only
+String[] items = {"a","b"};</pre></div>
+    </div>
+    <div class="note">Type goes <b>before</b> the name. <code>final</code> = <code>const</code>. Money → <code>BigDecimal</code>, never <code>double</code>.</div>
+  </div>
+
+  <div class="pair">
+    <h3>Data shapes</h3>
+    <div class="cols">
+      <div><div class="lang">TypeScript</div><pre>interface Customer {
+  id: string;
+  name: string;
+}
+
+type Account = {
+  number: string;
+  balance: number;
+};</pre></div>
+      <div><div class="lang">Java</div><pre>public interface Customer {
+    String getId();
+    String getName();
+}
+
+public record Account(
+    String number,
+    BigDecimal balance
+) {}</pre></div>
+    </div>
+    <div class="note"><code>record</code> is the closest thing to a TS type alias for plain data — and it's what you use for API request/response objects.</div>
+  </div>
+
+  <div class="pair">
+    <h3>Unions — the one that has no equivalent</h3>
+    <div class="cols">
+      <div><div class="lang">TypeScript</div><pre>type Status =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";</pre></div>
+      <div><div class="lang">Java</div><pre>public enum Status {
+    PENDING, APPROVED, REJECTED
+}
+
+// for "one of these shapes":
+sealed interface Result
+    permits Success, Failure {}</pre></div>
+    </div>
+    <div class="note">Java enums are far more powerful than TS ones — they can hold fields and methods (e.g. each loan type carrying its own interest rate).</div>
+  </div>
+
+  <div class="pair">
+    <h3>Array methods → Streams</h3>
+    <div class="cols">
+      <div><div class="lang">TypeScript</div><pre>const names = users
+  .filter(u =&gt; u.active)
+  .map(u =&gt; u.name);
+
+const total = orders
+  .reduce((s,o) =&gt; s + o.amount, 0);</pre></div>
+      <div><div class="lang">Java</div><pre>List&lt;String&gt; names = users.stream()
+    .filter(u -&gt; u.isActive())
+    .map(u -&gt; u.getName())
+    .toList();
+
+BigDecimal total = orders.stream()
+    .map(Order::getAmount)
+    .reduce(BigDecimal.ZERO, BigDecimal::add);</pre></div>
+    </div>
+    <div class="note">Arrow syntax is the same. <code>Order::getAmount</code> is a method reference — shorthand for <code>o -&gt; o.getAmount()</code>.</div>
+  </div>
+
+  <div class="pair">
+    <h3>Collections</h3>
+    <div class="cols">
+      <div><div class="lang">TypeScript</div><pre>const items: string[] = [];
+items.push("a");
+items[0];
+items.length;
+
+const m = new Map&lt;string, number&gt;();
+m.set("a", 1);
+m.get("a");</pre></div>
+      <div><div class="lang">Java</div><pre>List&lt;String&gt; items = new ArrayList&lt;&gt;();
+items.add("a");
+items.get(0);     // no [0]
+items.size();     // no .length
+
+Map&lt;String,Integer&gt; m = new HashMap&lt;&gt;();
+m.put("a", 1);
+m.get("a");
+m.getOrDefault("b", 0);</pre></div>
+    </div>
+    <div class="note">You declare the <b>interface</b> (<code>List</code>) and instantiate an <b>implementation</b> (<code>ArrayList</code>).</div>
+  </div>
+
+  <div class="pair">
+    <h3>Absent values</h3>
+    <div class="cols">
+      <div><div class="lang">TypeScript</div><pre>const name = user?.name ?? "Unknown";
+
+if (user) { ... }</pre></div>
+      <div><div class="lang">Java</div><pre>String name = maybeUser
+    .map(User::getName)
+    .orElse("Unknown");
+
+maybeUser.orElseThrow(
+    () -&gt; new NotFoundException("no user"));</pre></div>
+    </div>
+    <div class="note">No optional chaining. <code>NullPointerException</code> is Java's "cannot read property of undefined".</div>
+  </div>
+
+  <div class="pair">
+    <h3>Testing</h3>
+    <div class="cols">
+      <div><div class="lang">Jest</div><pre>describe("LoanService", () =&gt; {
+  it("approves loan", () =&gt; {
+    expect(service.approve(1)).toBe(true);
+  });
+});</pre></div>
+      <div><div class="lang">JUnit 5 + Mockito</div><pre>@ExtendWith(MockitoExtension.class)
+class LoanServiceTest {
+  @Mock LoanRepository repo;
+  @InjectMocks LoanService service;
+
+  @Test
+  void approvesLoan() {
+    when(repo.findById(1L))
+        .thenReturn(Optional.of(new Loan()));
+    service.approve(1L);
+    verify(repo).save(any(Loan.class));
+  }
+}</pre></div>
+    </div>
+    <div class="note"><code>describe/it</code> → class + <code>@Test</code>. <code>jest.mock()</code> → <code>@Mock</code>. <code>expect(x).toBe(y)</code> → <code>assertEquals(y, x)</code>.</div>
+  </div>
+
+  <h2 class="block">One-line lookup</h2>
+  <div class="table-scroll">
+  <table class="numbers">
+    <tr><th>TypeScript</th><th>Java</th></tr>
+    <tr><td class="val">const x = 5</td><td>final int x = 5;</td></tr>
+    <tr><td class="val">string | number</td><td>❌ none — enum, sealed interface, or overloading</td></tr>
+    <tr><td class="val">null / undefined</td><td>null only (+ Optional&lt;T&gt;)</td></tr>
+    <tr><td class="val">arr.map(f)</td><td>list.stream().map(f).toList()</td></tr>
+    <tr><td class="val">arr.length</td><td>list.size() / array.length</td></tr>
+    <tr><td class="val">arr[0]</td><td>list.get(0)</td></tr>
+    <tr><td class="val">a === b</td><td>a.equals(b)</td></tr>
+    <tr><td class="val">type Foo = {...}</td><td>record Foo(...) {}</td></tr>
+    <tr><td class="val">async / await</td><td>virtual threads / CompletableFuture</td></tr>
+    <tr><td class="val">package.json</td><td>pom.xml (Maven)</td></tr>
+    <tr><td class="val">Express / NestJS</td><td>Spring Boot</td></tr>
+    <tr><td class="val">Prisma</td><td>JPA / Hibernate</td></tr>
+    <tr><td class="val">Zod / class-validator</td><td>Bean Validation (@NotNull, @Size)</td></tr>
+    <tr><td class="val">Jest</td><td>JUnit 5 + Mockito</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ================= SPRING ================= -->
+<section id="spring">
+  <p class="hint">Spring Boot is NestJS with annotations instead of decorators.</p>
+
+  <div class="diagram-card">
+    <h3>The three layers</h3>
+    <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="35" width="150" height="58" rx="10" fill="#dbeafe" stroke="#4a7fb5" stroke-width="2"/>
+      <text x="83" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a4c">@RestController</text>
+      <text x="83" y="78" text-anchor="middle" font-size="11" fill="#6b7a86">HTTP in / JSON out</text>
+
+      <rect x="195" y="35" width="150" height="58" rx="10" fill="#e3f4ec" stroke="#3a9d6e" stroke-width="2"/>
+      <text x="270" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a4c">@Service</text>
+      <text x="270" y="78" text-anchor="middle" font-size="11" fill="#6b7a86">business logic</text>
+
+      <rect x="382" y="35" width="150" height="58" rx="10" fill="#fdf3d0" stroke="#f5c542" stroke-width="2"/>
+      <text x="457" y="60" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a4c">@Repository</text>
+      <text x="457" y="78" text-anchor="middle" font-size="11" fill="#6b7a86">database access</text>
+
+      <rect x="569" y="35" width="140" height="58" rx="10" fill="#fbe4e8" stroke="#e06377" stroke-width="2"/>
+      <text x="639" y="67" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a4c">Database</text>
+
+      <line x1="158" y1="64" x2="192" y2="64" stroke="#1e3a4c" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="345" y1="64" x2="379" y2="64" stroke="#1e3a4c" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="532" y1="64" x2="566" y2="64" stroke="#1e3a4c" stroke-width="2" marker-end="url(#ar)"/>
+      <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#1e3a4c"/></marker></defs>
+    </svg>
+    <div class="say"><b>Say this:</b> "Business logic saya taruh di Service, bukan di Controller. Controller cuma menerjemahkan HTTP ke objek dan sebaliknya." Interviewers check for exactly this.</div>
+  </div>
+
+  <div class="pair">
+    <h3>An endpoint, side by side</h3>
+    <div class="cols">
+      <div><div class="lang">Express</div><pre>app.get("/api/loans/:id",
+  async (req, res) =&gt; {
+    const loan = await svc
+      .findById(req.params.id);
+    if (!loan)
+      return res.status(404).json(...);
+    res.json(loan);
+});</pre></div>
+      <div><div class="lang">Spring Boot</div><pre>@RestController
+@RequestMapping("/api/loans")
+public class LoanController {
+
+  private final LoanService svc;
+
+  public LoanController(LoanService svc) {
+    this.svc = svc;   // constructor injection
+  }
+
+  @GetMapping("/{id}")
+  public ResponseEntity&lt;LoanResponse&gt; get(
+      @PathVariable Long id) {
+    return svc.findById(id)
+      .map(ResponseEntity::ok)
+      .orElse(ResponseEntity.notFound().build());
+  }
+}</pre></div>
+    </div>
+  </div>
+
+  <h2 class="block">Annotation lookup</h2>
+  <div class="table-scroll">
+  <table class="numbers">
+    <tr><th>Spring</th><th>NestJS equivalent</th><th class="why">What it does</th></tr>
+    <tr><td class="val">@RestController</td><td>@Controller()</td><td class="why">HTTP handler returning JSON</td></tr>
+    <tr><td class="val">@RequestMapping("/x")</td><td>@Controller('x')</td><td class="why">Base route for the class</td></tr>
+    <tr><td class="val">@GetMapping / @PostMapping</td><td>@Get() / @Post()</td><td class="why">Verb + path</td></tr>
+    <tr><td class="val">@PathVariable</td><td>@Param()</td><td class="why">URL parameter</td></tr>
+    <tr><td class="val">@RequestParam</td><td>@Query()</td><td class="why">Query string value</td></tr>
+    <tr><td class="val">@RequestBody</td><td>@Body()</td><td class="why">Body → object</td></tr>
+    <tr><td class="val">@Valid</td><td>ValidationPipe</td><td class="why">Run bean validation, 400 on failure</td></tr>
+    <tr><td class="val">@Service</td><td>@Injectable()</td><td class="why">Business logic bean</td></tr>
+    <tr><td class="val">@Repository</td><td>—</td><td class="why">Data access bean</td></tr>
+    <tr><td class="val">@Transactional</td><td>prisma.$transaction</td><td class="why">Wrap method in a DB transaction</td></tr>
+    <tr><td class="val">@Entity / @Table / @Id</td><td>Prisma schema model</td><td class="why">Map class to table</td></tr>
+    <tr><td class="val">@Autowired</td><td>constructor param</td><td class="why">Inject — legacy style, prefer constructor</td></tr>
+  </table>
+  </div>
+
+  <div class="hook warn">
+    <b>⚠️ Bank Mandiri may run old Spring</b>
+    <p>Their job posting says <b>Spring 4.x</b> — much older than today's Spring Boot 4. Expect <code>javax.*</code> imports (not <code>jakarta.*</code>), field injection with <code>@Autowired</code>, and possibly XML config. <b>If you see <code>javax.persistence</code>, you're in a pre-Spring-Boot-3 codebase</b> — saying that out loud shows you know the ecosystem's history.</p>
+  </div>
+</section>
+
+<!-- ================= GOTCHAS ================= -->
+<section id="gotchas">
+  <p class="hint">The tradeoffs and traps that separate a mid answer from a senior one.</p>
+
+  <div class="decision">
+    <div class="vs"><span class="badge">MONEY</span> BigDecimal vs double</div>
+    <div class="cols">
+      <div class="col a"><b>BigDecimal</b>Exact decimal arithmetic. Verbose: <code>a.add(b)</code>, not <code>a + b</code>.</div>
+      <div class="col b"><b>double</b>Fast, simple syntax. Binary floating point — 0.1 + 0.2 ≠ 0.3.</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> money is always BigDecimal. In a bank, a fraction of a cent of drift breaks reconciliation. Same instinct as <code>decimal</code> in C#.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs"><span class="badge">NULLS</span> int vs Integer</div>
+    <div class="cols">
+      <div class="col a"><b>int</b>Primitive. Cannot be null. Use when the value always exists.</div>
+      <div class="col b"><b>Integer</b>Object wrapper. Can be null — needed for nullable DB columns.</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> a nullable column maps to <code>Integer</code>, not <code>int</code>. And <code>==</code> on two Integers compares references — use <code>.equals()</code>.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs"><span class="badge">ERRORS</span> Checked vs unchecked exceptions</div>
+    <div class="cols">
+      <div class="col a"><b>Checked</b>Compiler forces catch or <code>throws</code>. IOException, SQLException.</div>
+      <div class="col b"><b>Unchecked</b>No obligation. Extends RuntimeException. Like all JS errors.</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> modern teams prefer unchecked for business errors — checked clutters every signature and encourages empty catch blocks. Spring's DataAccessException is unchecked for exactly this reason.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs"><span class="badge">JPA</span> LAZY vs EAGER fetching</div>
+    <div class="cols">
+      <div class="col a"><b>LAZY</b>Loads related data on first access. Default and usually right.</div>
+      <div class="col b"><b>EAGER</b>Always loads relations. Over-fetches on every query.</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> keep LAZY, but watch for <b>N+1</b> — 100 loans + reading each customer = 101 queries. Fix with <code>JOIN FETCH</code> or <code>@EntityGraph</code>. Same problem you solved with DataLoader in GraphQL.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs"><span class="badge">DI</span> Constructor vs field injection</div>
+    <div class="cols">
+      <div class="col a"><b>Constructor</b>Explicit, can be <code>final</code>, trivially testable with mocks.</div>
+      <div class="col b"><b>Field @Autowired</b>Less code. Hides dependencies, hard to test.</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> constructor, always. This is a common interview question — the answer is testability and immutability.</div>
+  </div>
+
+  <div class="decision">
+    <div class="vs"><span class="badge">CONCURRENCY</span> Virtual threads vs reactive</div>
+    <div class="cols">
+      <div class="col a"><b>Virtual threads</b>Write simple blocking code, scale to millions of tasks. Java 21+.</div>
+      <div class="col b"><b>Reactive (WebFlux)</b>Non-blocking throughout. Powerful but hard to read and debug.</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> virtual threads for most new work — same scalability, far simpler code. Say: "kode blocking sederhana bisa scale seperti async."</div>
+  </div>
+</section>
+
+<!-- ================= INTERVIEW ================= -->
+<section id="interview">
+  <p class="hint">The Java questions most likely to come up, with the answer shape.</p>
+
+  <div class="qa">
+    <b class="q">Apa bedanya <code>==</code> dan <code>equals()</code>?</b>
+    <p><code>==</code> compares references for objects and values for primitives; <code>equals()</code> compares content. Always <code>equals()</code> for objects. Follow-up they love: if you override <code>equals()</code> you must override <code>hashCode()</code>, or the object misbehaves in a HashMap or HashSet.</p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Kenapa BigDecimal untuk uang, bukan double?</b>
+    <p>double is binary floating point, so decimal fractions like 0.1 aren't exact and errors accumulate. BigDecimal is exact decimal arithmetic. In banking, drift of a fraction of a cent breaks reconciliation.</p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Checked vs unchecked exception?</b>
+    <p>Checked must be caught or declared — compiler-enforced. Unchecked extends RuntimeException, no obligation. Modern practice leans unchecked for business errors because checked clutters signatures. Spring made DataAccessException unchecked for this reason.</p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Kenapa constructor injection, bukan field injection?</b>
+    <p>Dependencies become explicit and can be <code>final</code>. Testing is far easier — pass mocks straight into the constructor, no reflection. Field injection hides dependencies and makes the class hard to instantiate in a test.</p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Apa itu N+1 di JPA, dan solusinya?</b>
+    <p>With LAZY fetching, relations load on first access — 100 loans then reading each customer produces 101 queries. Fix with <code>JOIN FETCH</code> in a <code>@Query</code> or an <code>@EntityGraph</code> so it becomes one query. Same class of problem as GraphQL N+1, solved by batching.</p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Apa itu <code>@Transactional</code>?</b>
+    <p>Wraps the method in a DB transaction — all writes commit or roll back together. Two details worth adding: it only rolls back on unchecked exceptions by default, and because it works via a proxy, calling the method <b>from inside the same class</b> silently bypasses it.</p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Bagaimana menangani race condition?</b>
+    <p>Use your real story: two concurrent requests both passed the "already processed?" check before either committed → double points. Fixed with row-level locking (<code>SELECT ... FOR UPDATE</code>) so check and write are atomic. Then the senior line: <b>"lock di JVM cuma berlaku di satu instance — untuk sistem multi-instance, lock di database atau distributed lock yang tepat."</b></p>
+  </div>
+
+  <div class="qa">
+    <b class="q">Anda dari Node/TypeScript — apa yang paling berbeda?</b>
+    <p>Different: checked exceptions, no union types, everything inside a class. Similar: OOP, generics, and dependency injection — Spring is very close to NestJS. And you already learned C# from zero for an assessment, so the jump is a short one.</p>
+  </div>
+</section>
+
+<!-- ================= HOOKS ================= -->
+<section id="hooks">
+  <p class="hint">Small things that stop you looking like a beginner.</p>
+
+  <div class="hook warn">
+    <b>Seven things that will bite you</b>
+    <p>1. <code>==</code> on objects → use <code>.equals()</code> &nbsp;·&nbsp; 2. <code>double</code> for money → use <code>BigDecimal</code> &nbsp;·&nbsp; 3. NullPointerException — no <code>?.</code> &nbsp;·&nbsp; 4. JPA lazy loading → N+1 &nbsp;·&nbsp; 5. <code>@Transactional</code> skipped on self-invocation &nbsp;·&nbsp; 6. checked exceptions force <code>throws</code> up the stack &nbsp;·&nbsp; 7. <code>javax.*</code> vs <code>jakarta.*</code> marks old vs new Spring</p>
+  </div>
+
+  <div class="hook">
+    <b>"Type first, then name"</b>
+    <p>The single syntax habit to rewire: <code>String name</code>, not <code>name: string</code>. Everything else follows from reading a few files.</p>
+  </div>
+
+  <div class="hook">
+    <b>"Controller thin, Service fat"</b>
+    <p>Controllers translate HTTP. Services hold business logic. Repositories touch the database. If logic creeps into a controller, an interviewer notices.</p>
+  </div>
+
+  <div class="hook">
+    <b>"JPA saves without save()"</b>
+    <p>Inside <code>@Transactional</code>, changing a loaded entity writes on commit — dirty checking. This surprises every Prisma developer exactly once.</p>
+  </div>
+
+  <div class="hook">
+    <b>Your honest opener, memorized</b>
+    <p>"Pengalaman produksi backend saya di Node dan TypeScript, bukan Java. Yang saya bawa konsep arsitekturnya — microservices, message queue, caching, idempotency. Dan saya sudah pernah pindah ekosistem: belajar .NET dan C# dari nol untuk satu assessment dan lolos tahap teknisnya. Jadi yang perlu saya kejar sintaks dan tooling-nya, bukan cara berpikir backend-nya."</p>
+  </div>
+
+  <div class="hook">
+    <b>3-hour plan — if you only have one hour, do hour 2</b>
+    <p><b>Hour 1:</b> syntax — types, classes, record, collections, streams. <b>Hour 2:</b> Spring Boot — generate at start.spring.io, build one @RestController + one @Service. <b>Hour 3:</b> a JPA @Entity + JpaRepository, then read about @Transactional and N+1.</p>
+  </div>
+
+  <div class="hook">
+    <b>Reality check on versions</b>
+    <p>Java 25 is the current LTS (Sept 2025) and Spring Boot 4 went GA Nov 2025 — but <b>banks lag</b>. Expect Java 17 or 21 and Spring Boot 2.x/3.x. Know the modern features, don't assume they're in use.</p>
+  </div>
+</section>
+
+<script>
+  // ---- tabs ----
+  document.querySelectorAll('nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // ---- progress tracking ----
+  const STORE = 'java-ts-cheatsheet-progress';
+  const cards = Array.from(document.querySelectorAll('.concept'));
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE)) || {}; }
+    catch (e) { return {}; }
+  }
+  function save(state) {
+    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {}
+  }
+  function render() {
+    const state = load();
+    let done = 0;
+    cards.forEach(card => {
+      const on = !!state[card.dataset.key];
+      card.classList.toggle('known', on);
+      if (on) done++;
+    });
+    const pct = cards.length ? Math.round(done / cards.length * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent =
+      done + ' / ' + cards.length + ' concepts';
+  }
+  cards.forEach(card => {
+    card.querySelector('.got').addEventListener('click', () => {
+      const state = load();
+      const k = card.dataset.key;
+      if (state[k]) { delete state[k]; } else { state[k] = true; }
+      save(state);
+      render();
+    });
+  });
+  function resetProgress() { save({}); render(); }
+  render();
+</script>
+
+</body>
+</html>
