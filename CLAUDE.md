@@ -120,3 +120,8 @@ A successful output should be:
 
 - **Do not ask for plan approval on every prompt.** Clear requests (research runs, notes, cheatsheets, edits) execute immediately.
 - **Present a written plan and wait for approval only when the task is large, ambiguous, or hard to undo** (e.g., restructuring the workspace, deleting content, building a new multi-file system).
+
+## Git Workflow
+
+- **Work directly on `main`.** Do not create a new branch or worktree for changes in this workspace — commit straight to `main`.
+- If a session was started inside an auto-created worktree, merge that work into `main` when it is done instead of leaving it on a side branch.
