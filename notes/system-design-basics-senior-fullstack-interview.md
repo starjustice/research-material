@@ -4,6 +4,8 @@
 - **Target:** Senior Software Engineer (general readiness, no specific company)
 - **Sources freshness:** mostly 2025–2026
 
+> **Step-by-step companion:** this note covers the *concepts*. For the *execution* — what happens at each minute of the round, plus two designs carried start to finish — see [system-design-step-by-step-walkthrough.md](system-design-step-by-step-walkthrough.md).
+
 ## TL;DR
 
 - Senior system design interviews are 45–60 min collaborative conversations. You are expected to **drive**: clarify requirements, propose a design, and go deep where it matters — the interviewer follows you, not the reverse.
