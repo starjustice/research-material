@@ -280,7 +280,7 @@ From your database mock on 2026-09-18 ([report](../advanced-interview/advanced-i
 2. **Index mechanism and composite index column order** — you'll need it for the `(wound_id, captured_at DESC)` answer above.
 3. **Audit logging / append-only tables** — new territory for you, and it's the most likely healthcare-specific technical question. §B above is your script; make sure you can say it in your own words.
 
-**Tools depth — likely the biggest chunk of this interview.** You don't have Go, C++, or ML, so expect them to probe what you *have* run in production. Depth on Docker and CapRover is now written up in [docker-caprover-internals.md](../docker-caprover-internals.md) — namespaces vs cgroups, image layers, `docker run` internals, the PID 1 / SIGTERM deploy trap, exit code 137, and the seven steps of a CapRover deploy.
+**Tools depth — likely the biggest chunk of this interview.** You don't have Go, C++, or ML, so expect them to probe what you *have* run in production. Depth on Docker and CapRover is now written up in [docker-caprover-internals.md](../advanced-interview/docker-caprover-internals.md) — namespaces vs cgroups, image layers, `docker run` internals, the PID 1 / SIGTERM deploy trap, exit code 137, and the seven steps of a CapRover deploy.
 
 Also worth doing: **read their App Store listing and, if you can, install the app.** Walking into the interview having used the product and saying "I tried the capture flow, here's what I noticed" is the single highest-leverage 20 minutes of preparation available for a company this size.
 

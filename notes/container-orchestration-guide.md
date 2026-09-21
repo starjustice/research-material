@@ -12,7 +12,7 @@
   - [`system-design-basics-senior-fullstack-interview.md`](system-design-basics-senior-fullstack-interview.md) — the wider system design frame.
 - **Hands-on lab:** [`../examples/kubernetes-local-demo/`](../examples/kubernetes-local-demo/) — a real Kubernetes cluster on your laptop in about 15 minutes, free.
 
-> **Internals companion:** this note covers the *ladder* (Docker → Compose → Swarm → CapRover → Kubernetes) and how to talk about K8s honestly. For the *mechanisms* one layer down — namespaces, cgroups, OverlayFS layers, what `docker run` really does, and how a CapRover deploy works step by step — see [docker-caprover-internals.md](docker-caprover-internals.md).
+> **Internals companion:** this note covers the *ladder* (Docker → Compose → Swarm → CapRover → Kubernetes) and how to talk about K8s honestly. For the *mechanisms* one layer down — namespaces, cgroups, OverlayFS layers, what `docker run` really does, and how a CapRover deploy works step by step — see [docker-caprover-internals.md](advanced-interview/docker-caprover-internals.md).
 
 ## TL;DR
 

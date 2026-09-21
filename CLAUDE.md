@@ -74,8 +74,9 @@ Examples:
 
 - `notes/` — Learning notes and research (interview topics, AI tools and agents).
   - `notes/<company>/` — everything for one company in one folder: prep notes, its cheatsheet, and its mock interview reports (e.g. `notes/bank-mandiri/`, `notes/skyworx/`, `notes/paypay/`). Keep the company prefix in filenames so they stay unique.
+  - `notes/advanced-interview/` — the advanced (international-bar) learning track, all in one folder: deep study notes (system design step by step, Docker/CapRover internals, networking) plus their `/advanced-interview` session reports. New advanced study notes go here.
   - `notes/mock-interviews/` — mock reports for general topics only (system design, javascript, behavioral). Company mocks go in the company folder.
-  - Topic study notes stay directly in `notes/` (e.g. `react-native-interview-guide.md`).
+  - Other topic study notes stay directly in `notes/` (e.g. `react-native-interview-guide.md`).
 - `examples/` — Practical, beginner-friendly example projects and scripts.
 - `templates/` — Reusable templates and frameworks (answer frameworks, study plans, mock interview scripts).
 

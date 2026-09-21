@@ -4,7 +4,7 @@
 - **Target:** Senior Software Engineer (general readiness, no specific company)
 - **Sources freshness:** mostly 2025–2026
 
-> **Step-by-step companion:** this note covers the *concepts*. For the *execution* — what happens at each minute of the round, plus two designs carried start to finish — see [system-design-step-by-step-walkthrough.md](system-design-step-by-step-walkthrough.md).
+> **Step-by-step companion:** this note covers the *concepts*. For the *execution* — what happens at each minute of the round, plus two designs carried start to finish — see [system-design-step-by-step-walkthrough.md](advanced-interview/system-design-step-by-step-walkthrough.md).
 
 ## TL;DR
 

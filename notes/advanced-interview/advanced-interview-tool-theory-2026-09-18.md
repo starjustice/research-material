@@ -5,7 +5,7 @@
 **Mode:** teach (model answer given after every answer)
 **Topic:** tool-theory, scoped to Docker and CapRover
 **Why this topic:** prep for [Parable Health](../parable-health/parable-health-interview-prep.md). No Go/C++/ML background, so depth on tools actually run in production is the main lever.
-**Source material:** [docker-caprover-internals.md](../docker-caprover-internals.md)
+**Source material:** [docker-caprover-internals.md](docker-caprover-internals.md)
 **Previous report:** [database internals, same day](advanced-interview-database-2026-09-18.md)
 
 ## Depth map
@@ -66,9 +66,9 @@ The container's writable layer is created empty when the container starts and **
 
 ## Study list
 
-- [docker-caprover-internals.md](../docker-caprover-internals.md) Part 1 (namespaces and cgroups), Part 3 (PID 1 and SIGTERM), Part 4 (networking), Part 6 (exit 137 and the two memory limits)
+- [docker-caprover-internals.md](docker-caprover-internals.md) Part 1 (namespaces and cgroups), Part 3 (PID 1 and SIGTERM), Part 4 (networking), Part 6 (exit 137 and the two memory limits)
 - `.claude/skills/advanced-interview/references/tool-theory.md` §7 (containers)
-- [system-design-step-by-step-walkthrough.md](../system-design-step-by-step-walkthrough.md) step 7 (failure and operations)
+- [system-design-step-by-step-walkthrough.md](system-design-step-by-step-walkthrough.md) step 7 (failure and operations)
 
 ## Re-test next session
 

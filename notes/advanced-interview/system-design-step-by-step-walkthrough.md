@@ -3,7 +3,7 @@
 - **Researched:** 2026-09-18
 - **Target:** Senior Software Engineer at international companies (US/EU/SG/JP loops)
 - **Sources freshness:** 2025–2026
-- **Companion note:** [system-design-basics-senior-fullstack-interview.md](system-design-basics-senior-fullstack-interview.md) covers the *concepts* (load balancers, caching, sharding). **This note covers the *execution*** — exactly what happens at each minute, in order, until the design is complete.
+- **Companion note:** [system-design-basics-senior-fullstack-interview.md](../system-design-basics-senior-fullstack-interview.md) covers the *concepts* (load balancers, caching, sharding). **This note covers the *execution*** — exactly what happens at each minute, in order, until the design is complete.
 
 ## TL;DR
 
@@ -178,16 +178,16 @@ CREATE INDEX idx_urls_user_created ON urls (user_id, created_at DESC);
 Draw the boxes, then **trace one request out loud from click to response**. The narration is what's scored, not the drawing.
 
 ```mermaid
-flowchart LR
-    U[Client] --> CDN[CDN / edge]
-    CDN --> LB[L7 Load Balancer]
-    LB --> A1[Node app 1]
-    LB --> A2[Node app 2]
-    A1 --> R[("Redis<br/>code → long_url")]
+graph LR
+    U["Client"] --> CDN["CDN or edge"]
+    CDN --> LB["L7 Load Balancer"]
+    LB --> A1["Node app 1"]
+    LB --> A2["Node app 2"]
+    A1 --> R[("Redis<br/>code to long_url")]
     A2 --> R
     A1 --> PG[("Postgres<br/>primary")]
     A2 --> PG
-    PG -. async replication .-> RR[("read replica")]
+    PG -.->|async replication| RR[("read replica")]
 ```
 
 > "A redirect comes in, hits the load balancer, goes to any app instance — they're stateless, so any instance can serve any request. The app checks Redis for the code. On a hit, it returns a 302 immediately. On a miss, it reads Postgres, writes the value back into Redis, then returns. Creation goes to the primary; redirects never touch the primary at all."
@@ -340,18 +340,19 @@ The **unique constraint on `idempotency_key`** is the entire duplicate-preventio
 ### Step 5 — High-level
 
 ```mermaid
-flowchart LR
-    API[API] -->|one transaction| DB[("Postgres<br/>notification + outbox")]
-    DB --> REL[Outbox relay]
-    REL --> QH{{"queue: transactional<br/>high priority"}}
-    REL --> QL{{"queue: bulk<br/>low priority"}}
-    QH --> WH[Workers: transactional]
-    QL --> WL[Workers: bulk]
-    WH --> P[Provider APIs<br/>APNs / SES / Twilio]
+graph LR
+    API["API"] -->|one transaction| DB[("Postgres<br/>notification and outbox")]
+    DB --> REL["Outbox relay"]
+    REL --> QH["Transactional queue<br/>high priority"]
+    REL --> QL["Bulk queue<br/>low priority"]
+    QH --> WH["Transactional workers"]
+    QL --> WL["Bulk workers"]
+    WH --> P["Provider APIs<br/>APNs and SES and Twilio"]
     WL --> P
-    P -. delivery webhook .-> ST[Status updater] --> DB
-    WH -.->|exhausted retries| DLQ[(Dead letter queue)]
-    WL -.-> DLQ
+    P -.->|delivery webhook| ST["Status updater"]
+    ST --> DB
+    WH -.->|exhausted retries| DLQ[("Dead letter queue")]
+    WL -.->|exhausted retries| DLQ
 ```
 
 ### Step 6 — Deep dives

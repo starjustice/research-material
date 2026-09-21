@@ -44,7 +44,7 @@ System design rounds at global companies now routinely include **AI/ML infrastru
    - `teach` — after each answer, immediately give the complete model answer with the mechanism explained. Slower, and the fastest way to actually learn the internals.
 3. **Length:** `system-design` = one problem, 45 minutes of depth. Other topics = 5–7 questions, each drilled down the ladder.
 4. **Open** in one or two lines: who you are, what the round covers. Then question one.
-5. **Read prior reports** in `notes/advanced-interview/` or `notes/<company>/` and re-test past gaps.
+5. **Read prior reports** in `notes/advanced-interview/` or `notes/<company>/` and re-test past gaps. That folder also holds the advanced study notes, so point the candidate there in the study list.
 
 ## Interviewer rules
 

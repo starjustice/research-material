@@ -3,7 +3,7 @@
 - **Researched:** 2026-09-18
 - **Target:** Software Engineer — depth questions on tools you have really used
 - **Sources freshness:** 2025–2026 (CapRover architecture verified live)
-- **Companion:** [container-orchestration-guide.md](container-orchestration-guide.md) covers the *ladder* (Docker → Compose → Swarm → CapRover → Kubernetes) and how to talk about K8s honestly. **This note goes one layer down: the mechanisms.**
+- **Companion:** [container-orchestration-guide.md](../container-orchestration-guide.md) covers the *ladder* (Docker → Compose → Swarm → CapRover → Kubernetes) and how to talk about K8s honestly. **This note goes one layer down: the mechanisms.**
 
 ## TL;DR
 
@@ -154,12 +154,12 @@ Result: compilers, dev dependencies, and source never reach production. Smaller 
 # Part 3 — What `docker run` actually does
 
 ```mermaid
-flowchart LR
-    CLI["docker CLI"] -->|REST over unix socket| D["dockerd<br/>(daemon)"]
-    D --> C["containerd<br/>(lifecycle, images)"]
-    C --> S["containerd-shim<br/>(per container)"]
-    S --> R["runc<br/>(OCI runtime)"]
-    R --> K["Linux kernel:<br/>clone() + namespaces<br/>cgroups + pivot_root<br/>exec your process"]
+graph LR
+    CLI["docker CLI"] -->|REST over unix socket| D["dockerd - the daemon"]
+    D --> C["containerd - lifecycle and images"]
+    C --> S["containerd-shim - one per container"]
+    S --> R["runc - the OCI runtime"]
+    R --> K["Linux kernel - clone with namespaces, cgroups, pivot_root, then exec your process"]
 ```
 
 Step by step:
@@ -285,14 +285,14 @@ That sentence is the whole answer to "what is CapRover?" and it's accurate.
 ## What happens when you deploy
 
 ```mermaid
-flowchart TD
-    A["You: git push / caprover deploy / image name"] --> B["captain-captain receives it<br/>(reads captain-definition)"]
-    B --> C["Builds the Docker image<br/>(your Dockerfile)"]
+graph TD
+    A["You push code or an image"] --> B["captain-captain receives it - reads captain-definition"]
+    B --> C["Builds the Docker image from your Dockerfile"]
     C --> D["Pushes to the registry"]
-    D --> E["docker service update<br/>on the Swarm service"]
-    E --> F["Swarm rolling update:<br/>start new task → health check → stop old"]
-    F --> G["nginx config regenerated<br/>for the app's domain"]
-    G --> H["Let's Encrypt issues / renews cert"]
+    D --> E["docker service update on the Swarm service"]
+    E --> F["Swarm rolling update - start new task, health check, stop old"]
+    F --> G["nginx config regenerated for the app domain"]
+    G --> H["Let's Encrypt issues or renews the certificate"]
     H --> I["Traffic flows to the new version"]
 ```
 
@@ -416,10 +416,10 @@ You mentioned system design and database logic alongside these tools — both al
 | Topic | Where |
 |---|---|
 | **System design, step by step** | [system-design-step-by-step-walkthrough.md](system-design-step-by-step-walkthrough.md) — the 7 steps, plus two designs carried start to finish |
-| **System design concepts** | [system-design-basics-senior-fullstack-interview.md](system-design-basics-senior-fullstack-interview.md) |
+| **System design concepts** | [system-design-basics-senior-fullstack-interview.md](../system-design-basics-senior-fullstack-interview.md) |
 | **Database internals** (B+trees, MVCC, WAL, planner, joins) | `.claude/skills/advanced-interview/references/database-internals.md` |
-| **Postgres query practice** | [postgresql-queries-interview-guide.md](postgresql-queries-interview-guide.md) |
-| **Your DB gaps from the 2026-09-18 mock** | [advanced-interview-database-2026-09-18.md](advanced-interview/advanced-interview-database-2026-09-18.md) |
+| **Postgres query practice** | [postgresql-queries-interview-guide.md](../postgresql-queries-interview-guide.md) |
+| **Your DB gaps from the 2026-09-18 mock** | [advanced-interview-database-2026-09-18.md](advanced-interview-database-2026-09-18.md) |
 
 ---
 
