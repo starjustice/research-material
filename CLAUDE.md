@@ -97,6 +97,8 @@ This applies to all agents and workflows in this workspace (including `research-
 
 - **`research-material` agent** (`.claude/agents/research-material.md`) — background research runs. Produces a dated study note + visual HTML cheatsheet in `notes/`. Runs only when I name a topic.
 - **`/mock-interview` skill** (`.claude/skills/mock-interview/SKILL.md`) — interactive mock interviews in the main chat. One question at a time, honest scorecard at the end. Reports save to the company folder for company mocks, or `notes/mock-interviews/` for general topics.
+- **`/live-coding` skill** (`.claude/skills/live-coding/SKILL.md`) — live coding practice in the main chat. I write the code; Claude probes complexity, breaks my solution with a bigger input, and pushes me to produce other solutions and defend which one I'd ship. Reports save to the company folder or `notes/live-coding/`.
+- **`/advanced-interview` skill** (`.claude/skills/advanced-interview/SKILL.md`) — hard, international-bar rounds (senior/staff) for applying outside Indonesia. Pushes every topic down a five-layer depth ladder into internals: DB algorithms, networking to the packet, distributed systems theory, and the theory behind my tools. Reports save to `notes/advanced-interview/` or the company folder.
 - **`mock-interviewer` agent** (`.claude/agents/mock-interviewer.md`) — written practice rounds in the background: `prepare` generates an exam paper (+ separate answer key) in the company folder or `notes/mock-interviews/`, I answer in the file at my own pace, then `grade` scores my answers with an honest scorecard and tracks progress across sessions.
 
 Never prioritize speed over quality.
