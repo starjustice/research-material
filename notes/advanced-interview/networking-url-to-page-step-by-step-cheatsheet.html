@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL to Page Networking Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub {
+    display: inline-block; margin-top: 6px;
+    background: linear-gradient(transparent 60%, var(--accent) 60%);
+    font-weight: 600;
+  }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg);
+    padding: 10px 0; z-index: 5;
+  }
+  nav button {
+    border: 2px solid var(--border); background: var(--card); color: var(--ink);
+    padding: 8px 15px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  /* Concept cards — everything visible */
+  .concept {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 16px 14px 52px;
+    box-shadow: 0 2px 6px rgba(30,58,76,.06);
+  }
+  .concept .num-chip {
+    position: absolute; top: 14px; left: 14px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-soft); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700;
+  }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; line-height: 1.5; color: var(--ink); }
+  .concept .got {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    color: transparent;
+  }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* Diagram cards */
+  .diagram-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .say {
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; font-size: .84rem; margin-top: 10px; line-height: 1.5;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+
+  /* Numbers table */
+  table.numbers { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.numbers th, table.numbers td { border: 1px solid var(--border); padding: 10px 12px; font-size: .87rem; text-align: left; vertical-align: top; }
+  table.numbers th { background: var(--blue-soft); }
+  table.numbers td.val { font-weight: 700; white-space: nowrap; background: var(--accent-soft); }
+  table.numbers td.why { color: var(--muted); font-size: .82rem; }
+
+  /* Decision cards — both sides visible */
+  .decision {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+  }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; line-height: 1.45; }
+  .decision .col.a { background: var(--blue-soft); }
+  .decision .col.b { background: var(--green-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .82rem; }
+  .decision .verdict { margin-top: 10px; font-size: .84rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; line-height: 1.45; }
+  @media (max-width: 520px) { .decision .cols { grid-template-columns: 1fr; } }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius);
+    padding: 18px; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .code-note { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: .87rem; margin-top: 12px; line-height: 1.5; }
+
+  /* Hooks + real cases */
+  .hook {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--accent);
+  }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; line-height: 1.5; }
+  .case {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05);
+    border-left: 5px solid var(--blue);
+  }
+  .case b { display: block; margin-bottom: 3px; }
+  .case p { font-size: .88rem; line-height: 1.5; }
+  .case .topic { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; margin-bottom: 6px; }
+  h2.block { font-size: 1.1rem; margin: 22px 0 10px; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  footer .heart { color: var(--pink); }
+
+  /* SVG shared */
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; rx: 8; }
+  .box-blue { fill: var(--blue-soft); }
+  .box-green { fill: var(--green-soft); }
+  .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+
+  .say b, .code-note b { color: var(--ink); }
+  .lbl-l { font: 600 12px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: start; }
+  .lbl-sl { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: start; }
+  .lifeline { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .band1 { fill: var(--accent-soft); opacity: .7; }
+  .band2 { fill: var(--blue-soft); opacity: .6; }
+  .band3 { fill: var(--green-soft); opacity: .8; }
+  table.numbers + h2.block { margin-top: 26px; }
+  .halo { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+  .sub2 { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker></defs>
+</svg>
+
+<header>
+  <h1>URL TO PAGE NETWORKING CHEATSHEET</h1>
+  <p class="sub">13 steps. 3 round trips. Know what breaks at each one.</p>
+  <p class="sub2">Researched 2026-09-21 &middot; companion to networking-url-to-page-step-by-step.md</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="concepts">📌 Concepts</button>
+  <button data-tab="diagrams">📊 Diagrams</button>
+  <button data-tab="numbers">🔢 Numbers</button>
+  <button data-tab="decisions">⚖️ Decisions</button>
+  <button data-tab="commands">💻 Commands &amp; Errors</button>
+  <button data-tab="cases">🏢 Real Cases &amp; Hooks</button>
+</nav>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" class="active">
+  <p class="hint">Everything visible. Read a card, then tick ✓ once you can explain it out loud in one breath.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<!-- ============ DIAGRAMS ============ -->
+<section id="diagrams">
+  <p class="hint">The five pictures to draw. Practice each in under 30 seconds while saying the line under it.</p>
+
+  <div class="diagram-card">
+    <h3>1 &middot; The whole journey in 13 steps</h3>
+    <svg viewBox="0 0 720 186" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-yellow" x="10" y="14" width="130" height="56" rx="8"/><text class="lbl" x="75" y="37">1-2 Type + parse</text><text class="lbl-s" x="75" y="55">no network</text>
+      <rect class="box box-yellow" x="150" y="14" width="130" height="56" rx="8"/><text class="lbl" x="215" y="37">3 Local checks</text><text class="lbl-s" x="215" y="55">HSTS, worker, cache</text>
+      <rect class="box box-blue" x="290" y="14" width="130" height="56" rx="8"/><text class="lbl" x="355" y="37">4 DNS lookup</text><text class="lbl-s" x="355" y="55">0 ms to 100s of ms</text>
+      <rect class="box box-blue" x="430" y="14" width="130" height="56" rx="8"/><text class="lbl" x="495" y="37">5 Route packets</text><text class="lbl-s" x="495" y="55">inside every RTT</text>
+      <rect class="box box-blue" x="570" y="14" width="130" height="56" rx="8"/><text class="lbl" x="635" y="37">6 TCP handshake</text><text class="lbl-s" x="635" y="55">1 round trip</text>
+      <rect class="box box-blue" x="10" y="106" width="130" height="56" rx="8"/><text class="lbl" x="75" y="129">7 TLS 1.3</text><text class="lbl-s" x="75" y="147">1 round trip</text>
+      <rect class="box box-blue" x="150" y="106" width="130" height="56" rx="8"/><text class="lbl" x="215" y="129">8-9 HTTP request</text><text class="lbl-s" x="215" y="147">1 round trip</text>
+      <rect class="box box-green" x="290" y="106" width="130" height="56" rx="8"/><text class="lbl" x="355" y="129">10 CDN + server</text><text class="lbl-s" x="355" y="147">server time</text>
+      <rect class="box box-green" x="430" y="106" width="130" height="56" rx="8"/><text class="lbl" x="495" y="129">11 Response</text><text class="lbl-s" x="495" y="147">streams in, commit</text>
+      <rect class="box box-pink" x="570" y="106" width="130" height="56" rx="8"/><text class="lbl" x="635" y="129">12-13 Render</text><text class="lbl-s" x="635" y="147">paint, then reuse</text>
+      <path class="arrow" d="M140,42 L148,42"/><path class="arrow" d="M280,42 L288,42"/><path class="arrow" d="M420,42 L428,42"/><path class="arrow" d="M560,42 L568,42"/>
+      <path class="arrow" d="M635,70 L635,88 L75,88 L75,104"/>
+      <path class="arrow" d="M140,134 L148,134"/><path class="arrow" d="M280,134 L288,134"/><path class="arrow" d="M420,134 L428,134"/><path class="arrow" d="M560,134 L568,134"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "Parse, check local caches, DNS, then TCP, TLS and HTTP. On a cold connection that is about three round trips plus DNS, then the server works, then the browser renders."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 &middot; The DNS walk</h3>
+    <svg viewBox="0 0 760 286" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="20" y="6" width="120" height="34" rx="8"/><text class="lbl" x="80" y="28">Browser + OS</text>
+      <rect class="box box-blue" x="170" y="6" width="120" height="34" rx="8"/><text class="lbl" x="230" y="28">Resolver</text>
+      <rect class="box box-yellow" x="320" y="6" width="120" height="34" rx="8"/><text class="lbl" x="380" y="28">Root</text>
+      <rect class="box box-yellow" x="470" y="6" width="120" height="34" rx="8"/><text class="lbl" x="530" y="28">.com TLD</text>
+      <rect class="box box-green" x="620" y="6" width="120" height="34" rx="8"/><text class="lbl" x="680" y="28">Authoritative</text>
+      <line class="lifeline" x1="80" y1="40" x2="80" y2="276"/><line class="lifeline" x1="230" y1="40" x2="230" y2="276"/><line class="lifeline" x1="380" y1="40" x2="380" y2="276"/><line class="lifeline" x1="530" y1="40" x2="530" y2="276"/><line class="lifeline" x1="680" y1="40" x2="680" y2="276"/>
+      <path class="arrow" d="M80,78 L228,78"/><text class="lbl-s halo" x="155" y="71">1 shop.example.com ?</text>
+      <path class="arrow" d="M230,108 L378,108"/><text class="lbl-s halo" x="305" y="101">2 who runs .com ?</text>
+      <path class="arrow-dash" d="M380,130 L232,130"/><text class="lbl-s halo" x="305" y="123">3 ask .com servers</text>
+      <path class="arrow" d="M230,158 L528,158"/><text class="lbl-s halo" x="380" y="151">4 who runs example.com ?</text>
+      <path class="arrow-dash" d="M530,180 L232,180"/><text class="lbl-s halo" x="380" y="173">5 ask these nameservers</text>
+      <path class="arrow" d="M230,208 L678,208"/><text class="lbl-s halo" x="455" y="201">6 shop.example.com ?</text>
+      <path class="arrow-dash" d="M680,230 L232,230"/><text class="lbl-s halo" x="455" y="223">7 IP address + TTL</text>
+      <path class="arrow-dash" d="M230,258 L82,258"/><text class="lbl-s halo" x="155" y="251">8 answer, cached for TTL</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The browser asks its resolver once. On a cache miss the resolver walks root, then .com, then the authoritative server, and caches the answer for the TTL. There are 13 root names but 2,045 instances worldwide, thanks to anycast."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 &middot; Three round trips: TCP, TLS 1.3, HTTP</h3>
+    <svg viewBox="0 0 720 312" xmlns="http://www.w3.org/2000/svg">
+      <rect class="band1" x="108" y="40" width="494" height="70"/><rect class="band2" x="108" y="110" width="494" height="70"/><rect class="band3" x="108" y="180" width="494" height="70"/>
+      <rect class="box" x="105" y="4" width="90" height="30" rx="8"/><text class="lbl" x="150" y="24">Browser</text>
+      <rect class="box box-green" x="515" y="4" width="90" height="30" rx="8"/><text class="lbl" x="560" y="24">Server</text>
+      <line class="lifeline" x1="150" y1="34" x2="150" y2="262"/><line class="lifeline" x1="560" y1="34" x2="560" y2="262"/>
+      <text class="lbl-l" x="6" y="80">RTT 1</text><text class="lbl-sl" x="6" y="94">TCP</text>
+      <text class="lbl-l" x="6" y="150">RTT 2</text><text class="lbl-sl" x="6" y="164">TLS 1.3</text>
+      <text class="lbl-l" x="6" y="220">RTT 3</text><text class="lbl-sl" x="6" y="234">HTTP</text>
+      <path class="arrow" d="M150,42 L558,75"/><text class="lbl-s" x="345" y="52">SYN</text>
+      <path class="arrow-dash" d="M560,75 L152,110"/><text class="lbl-s" x="356" y="86">SYN-ACK</text>
+      <path class="arrow" d="M150,110 L558,145"/><text class="lbl-s" x="360" y="114">ACK + ClientHello (SNI, key share, ALPN)</text>
+      <path class="arrow-dash" d="M560,145 L152,180"/><text class="lbl-s" x="356" y="150">ServerHello + cert + Finished</text>
+      <path class="arrow" d="M150,180 L558,215"/><text class="lbl-s" x="345" y="186">Finished + HTTP request</text>
+      <path class="arrow-dash" d="M560,215 L152,250"/><text class="lbl-s" x="356" y="221">HTTP response (first byte)</text>
+      <text class="lbl-s" x="360" y="282">HTTP/3 over QUIC merges TCP and TLS into one step: 2 round trips, and 1 on resumption</text>
+      <text class="lbl-s" x="360" y="300">Add DNS before this, and server time inside RTT 3</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "TCP is one round trip. TLS 1.3 is one more. The first byte of the response arrives after the third. At 180 ms that is over half a second, so I cut round trips with reuse, TLS 1.3, HTTP/3, and a CDN close to the user."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 &middot; Inside the server side</h3>
+    <svg viewBox="0 0 720 196" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="10" y="82" width="80" height="44" rx="8"/><text class="lbl" x="50" y="109">Browser</text>
+      <rect class="box box-yellow" x="125" y="82" width="95" height="44" rx="8"/><text class="lbl" x="172" y="101">CDN edge</text><text class="lbl-s" x="172" y="116">nearby cache</text>
+      <rect class="box box-blue" x="262" y="82" width="105" height="44" rx="8"/><text class="lbl" x="314" y="101">Load balancer</text><text class="lbl-s" x="314" y="116">often ends TLS</text>
+      <rect class="box" x="412" y="30" width="105" height="40" rx="8"/><text class="lbl" x="464" y="55">Node app 1</text>
+      <rect class="box" x="412" y="138" width="105" height="40" rx="8"/><text class="lbl" x="464" y="163">Node app 2</text>
+      <rect class="box box-pink" x="572" y="18" width="90" height="40" rx="8"/><text class="lbl" x="617" y="43">Redis</text>
+      <rect class="box box-green" x="572" y="104" width="100" height="44" rx="8"/><text class="lbl" x="622" y="131">Postgres</text>
+      <path class="arrow" d="M90,104 L123,104"/><path class="arrow" d="M220,104 L260,104"/><text class="lbl-s" x="240" y="97">miss</text>
+      <path class="arrow" d="M367,96 L410,60"/><path class="arrow" d="M367,112 L410,150"/>
+      <path class="arrow" d="M517,46 L570,40"/><path class="arrow" d="M517,64 L578,108"/><path class="arrow" d="M517,152 L578,138"/>
+      <path class="arrow-dash" d="M172,82 C172,30 50,30 50,80"/><text class="lbl-s" x="112" y="30">hit - answer stops here</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "A cache hit at the edge never reaches my servers. A miss goes through the load balancer, which usually ends TLS, to a stateless app that reads Redis or Postgres. A 502 means a backend broke the connection. A 504 means it was too slow."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 &middot; From HTML bytes to pixels</h3>
+    <svg viewBox="0 0 720 212" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl-sl" x="10" y="16">MAIN THREAD - JavaScript can block it</text>
+      <rect class="box box-blue" x="10" y="26" width="160" height="50" rx="8"/><text class="lbl" x="90" y="48">HTML → DOM</text><text class="lbl-s" x="90" y="65">preload scanner reads ahead</text>
+      <rect class="box box-blue" x="190" y="26" width="160" height="50" rx="8"/><text class="lbl" x="270" y="48">CSS → styles</text><text class="lbl-s" x="270" y="65">CSS blocks painting</text>
+      <rect class="box box-blue" x="370" y="26" width="160" height="50" rx="8"/><text class="lbl" x="450" y="48">Layout</text><text class="lbl-s" x="450" y="65">sizes and positions</text>
+      <rect class="box box-blue" x="550" y="26" width="160" height="50" rx="8"/><text class="lbl" x="630" y="48">Paint records</text><text class="lbl-s" x="630" y="65">draw steps in order</text>
+      <rect class="box box-green" x="10" y="122" width="160" height="50" rx="8"/><text class="lbl" x="90" y="144">Layers</text><text class="lbl-s" x="90" y="161">parts that move alone</text>
+      <rect class="box box-green" x="190" y="122" width="160" height="50" rx="8"/><text class="lbl" x="270" y="144">Raster</text><text class="lbl-s" x="270" y="161">tiles to bitmaps</text>
+      <rect class="box box-green" x="370" y="122" width="160" height="50" rx="8"/><text class="lbl" x="450" y="144">Compositor frame</text><text class="lbl-s" x="450" y="161">assembles the layers</text>
+      <rect class="box box-pink" x="550" y="122" width="160" height="50" rx="8"/><text class="lbl" x="630" y="144">GPU + screen</text><text class="lbl-s" x="630" y="161">pixels appear</text>
+      <path class="arrow" d="M170,51 L188,51"/><path class="arrow" d="M350,51 L368,51"/><path class="arrow" d="M530,51 L548,51"/>
+      <path class="arrow" d="M630,76 L630,99 L90,99 L90,120"/>
+      <path class="arrow" d="M170,147 L188,147"/><path class="arrow" d="M350,147 L368,147"/><path class="arrow" d="M530,147 L548,147"/>
+      <text class="lbl-sl" x="10" y="196">OTHER THREADS - scrolling and CSS animation stay smooth even if JavaScript is busy</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The main thread builds the DOM, styles, layout and paint records. Other threads raster and composite. CSS blocks painting and plain scripts block parsing, so I use defer, keep critical CSS small, and preload the LCP image."</div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS ============ -->
+<section id="numbers">
+  <p class="hint">All visible. RTT = round trip time. 20 ms is a CDN in your city. 180 ms is a far origin, such as Jakarta to the US East Coast.</p>
+  <h2 class="block">⏱ Time before the first response byte</h2>
+  <table class="numbers">
+    <tr><th>Scenario</th><th>Round trips</th><th>At 20 ms</th><th>At 180 ms</th></tr>
+    <tr><td>Cold, TLS 1.2 over TCP</td><td class="val">4</td><td class="val">80 ms</td><td class="val">720 ms</td></tr>
+    <tr><td>Cold, TLS 1.3 over TCP</td><td class="val">3</td><td class="val">60 ms</td><td class="val">540 ms</td></tr>
+    <tr><td>Cold, HTTP/3 (QUIC)</td><td class="val">2</td><td class="val">40 ms</td><td class="val">360 ms</td></tr>
+    <tr><td>Warm, connection reused</td><td class="val">1</td><td class="val">20 ms</td><td class="val">180 ms</td></tr>
+    <tr><td>HTTP/3 with 0-RTT resumption</td><td class="val">1</td><td class="val">20 ms</td><td class="val">180 ms</td></tr>
+  </table>
+  <p class="hint" style="margin-top:8px">Add DNS (0 ms if cached, tens to hundreds of ms if not) and the server's own time to every row.</p>
+
+  <h2 class="block">🔢 Numbers to know</h2>
+  <table class="numbers">
+    <tr><th>Fact</th><th>Value</th><th>Why it matters</th></tr>
+    <tr><td>Light in fiber</td><td class="val">~200 km per ms</td><td class="why">Sets a floor under every long-distance round trip.</td></tr>
+    <tr><td>Jakarta to New York</td><td class="val">~16,000 km, 160 ms+ RTT</td><td class="why">Real routes are longer: expect 180-250 ms. Only a closer server helps.</td></tr>
+    <tr><td>TCP initial window</td><td class="val">10 segments, ~14,600 B</td><td class="why">Slow start doubles each RTT, so a 200 KB file needs about 4 RTTs.</td></tr>
+    <tr><td>Ethernet MTU / typical MSS</td><td class="val">1500 B / ~1460 B</td><td class="why">Largest packet. Bigger payloads are split.</td></tr>
+    <tr><td>Root DNS servers</td><td class="val">13 names, 2,045 instances</td><td class="why">Anycast puts a copy near everyone. 12 operators. (root-servers.org, 2026-09-21)</td></tr>
+    <tr><td>Happy Eyeballs v2 delays</td><td class="val">50 ms and 250 ms</td><td class="why">Wait 50 ms for IPv6 DNS. Start IPv4 after 250 ms if IPv6 has not connected. (RFC 8305)</td></tr>
+    <tr><td>TLS 1.3 handshake</td><td class="val">1 RTT</td><td class="why">TLS 1.2 needed 2. 0-RTT is replayable, so use it only for safe requests.</td></tr>
+    <tr><td>Post-quantum TLS default</td><td class="val">X25519MLKEM768</td><td class="why">Chrome 131+, Firefox 132+, Safari 26+. Stops harvest-now-decrypt-later.</td></tr>
+    <tr><td>Chrome HTTPS by default</td><td class="val">v147 Apr 2026, v154 Oct 2026</td><td class="why">Warns before opening public sites that lack HTTPS.</td></tr>
+    <tr><td>HTTP/3, share of sites</td><td class="val">40.7%</td><td class="why">W3Techs, September 2026. Counts sites that offer it.</td></tr>
+    <tr><td>HTTP/3, share of requests</td><td class="val">~20%</td><td class="why">One analysis of Cloudflare Radar, July 2026. Estimate only.</td></tr>
+    <tr><td>TIME_WAIT on Linux</td><td class="val">~60 s</td><td class="why">Many short outgoing connections can exhaust ports. Reuse connections.</td></tr>
+    <tr><td>Core Web Vitals "good"</td><td class="val">LCP 2.5 s, INP 200 ms, CLS 0.1</td><td class="why">Measured at the 75th percentile of real users.</td></tr>
+    <tr><td>Let's Encrypt OCSP ended</td><td class="val">6 Aug 2025</td><td class="why">Chrome uses CRLSets and Firefox uses CRLite instead of live checks.</td></tr>
+  </table>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<section id="decisions">
+  <p class="hint">Both sides visible. The verdict line is your interview answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ COMMANDS ============ -->
+<section id="commands">
+  <p class="hint">Do not guess. Find which step failed, then run the matching command.</p>
+<pre><code># 1. DNS - the full walk from the root down
+dig +trace shop.example.com
+
+# 2. Does the site advertise HTTP/3 in DNS?
+dig HTTPS example.com
+
+# 3. Time of every stage in one line
+curl -o /dev/null -s -w 'dns:%{time_namelookup} tcp:%{time_connect} tls:%{time_appconnect} ttfb:%{time_starttransfer} total:%{time_total}\n' https://example.com
+
+# 4. Which protocol? Is HTTP/3 advertised?
+curl -sI --http2 https://example.com | grep -iE '^(HTTP|alt-svc)'
+
+# 5. TLS version, certificate chain, cipher
+openssl s_client -connect example.com:443 -servername example.com -tls1_3 -showcerts &lt;/dev/null
+
+# 6. The route packets take
+mtr -rw example.com
+
+# 7. Watch handshake packets (needs sudo)
+sudo tcpdump -i any -n 'tcp port 443 and host example.com'</code></pre>
+  <div class="code-note">
+    <b>How to read the curl line:</b> every value is <b>cumulative</b> from the start.
+    <b>tcp − dns</b> is the TCP handshake. <b>tls − tcp</b> is the TLS handshake.
+    <b>ttfb − tls</b> is the request plus the server's own time. The biggest gap is your problem.
+    Chrome DevTools, Network tab, Timing panel shows the same breakdown per request.
+  </div>
+
+  <h2 class="block">🚨 When each step breaks</h2>
+  <table class="numbers">
+    <tr><th>Step</th><th>Node error</th><th>Chrome error</th><th>Usual cause</th></tr>
+    <tr><td>DNS</td><td class="val">ENOTFOUND, EAI_AGAIN</td><td class="val">ERR_NAME_NOT_RESOLVED</td><td class="why">Wrong name, resolver down, record not created yet</td></tr>
+    <tr><td>TCP refused</td><td class="val">ECONNREFUSED</td><td class="val">ERR_CONNECTION_REFUSED</td><td class="why">Nothing listening on that port</td></tr>
+    <tr><td>TCP no answer</td><td class="val">ETIMEDOUT</td><td class="val">ERR_CONNECTION_TIMED_OUT</td><td class="why">Firewall or security group drops packets</td></tr>
+    <tr><td>Connection cut</td><td class="val">ECONNRESET</td><td class="val">ERR_CONNECTION_RESET</td><td class="why">Idle timeout mismatch, crash, proxy closed it</td></tr>
+    <tr><td>TLS</td><td class="val">CERT_HAS_EXPIRED, UNABLE_TO_VERIFY_LEAF_SIGNATURE</td><td class="val">ERR_CERT_DATE_INVALID</td><td class="why">Expired cert, or the server did not send its intermediate</td></tr>
+    <tr><td>Gateway 502</td><td class="val">HTTP 502</td><td class="val">error page</td><td class="why">Backend crashed, restarting, or closed a kept-alive connection</td></tr>
+    <tr><td>Gateway 503</td><td class="val">HTTP 503</td><td class="val">error page</td><td class="why">No healthy backend, or overloaded</td></tr>
+    <tr><td>Gateway 504</td><td class="val">HTTP 504</td><td class="val">error page</td><td class="why">App or database too slow, proxy gave up</td></tr>
+  </table>
+</section>
+
+<!-- ============ REAL CASES + HOOKS ============ -->
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite (naming these is a senior signal)</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Fewer round trips, shorter round trips. <span class="heart">♥</span></footer>
+
+<script>
+const concepts = [
+  { t: "DNS", d: "Turns a name into an IP address. Answers are cached in the browser, the OS, and the resolver until the TTL ends." },
+  { t: "Recursive resolver", d: "The server (router, ISP, 1.1.1.1, 8.8.8.8) that does the DNS walk for you: root, then TLD, then authoritative. It caches the result for everyone." },
+  { t: "TTL", d: "Seconds a DNS answer may be cached. Short means fast changes and more lookups. Long means fewer lookups and slow failover. Lower it before a planned move." },
+  { t: "Anycast", d: "One IP address announced from many places at once. BGP sends each user to the nearest one. Used by root DNS, 1.1.1.1, and CDNs." },
+  { t: "BGP", d: "How independent networks tell each other which addresses they can reach. One wrong announcement can take a whole company offline, as Facebook found in 2021." },
+  { t: "NAT and ARP", d: "NAT swaps your private address for the router's public one. ARP asks 'who has this IP?' on the local network to learn the router's MAC address." },
+  { t: "TCP handshake", d: "SYN, SYN-ACK, ACK. One round trip before your first byte. Gives ordered, reliable delivery, with retransmission of lost data." },
+  { t: "Slow start", d: "A new TCP connection begins with about 14 KB (10 segments) in flight and doubles each round trip. This is why a 200 KB page needs about 4 round trips whatever the bandwidth." },
+  { t: "TLS 1.3", d: "Encryption set up in 1 round trip (TLS 1.2 needed 2). Both sides compute the same secret from key shares, without ever sending it." },
+  { t: "Forward secrecy", d: "Fresh temporary keys for every connection. If the server's key is stolen later, old recorded traffic still cannot be decrypted." },
+  { t: "Certificate chain", d: "Site certificate, then an intermediate, then a trusted root. Hostname, dates, and Certificate Transparency are checked. A missing intermediate works in Chrome but fails in Node and curl." },
+  { t: "SNI and ECH", d: "SNI sends the hostname in plain text in the ClientHello. ECH encrypts it, but needs encrypted DNS and a published HTTPS record. Rare in 2026, mostly Cloudflare." },
+  { t: "Post-quantum key exchange", d: "The hybrid X25519MLKEM768 combines classic and post-quantum methods. Default in Chrome 131+, Firefox 132+, Safari 26+. Protects against harvest now, decrypt later." },
+  { t: "ALPN", d: "Inside the TLS handshake, browser and server agree on h2 or http/1.1 with no extra round trip." },
+  { t: "HTTP/2 multiplexing", d: "Many requests as streams on one connection, with compressed headers. One lost TCP packet still stalls every stream." },
+  { t: "QUIC and HTTP/3", d: "TCP-like reliability plus TLS 1.3 built on UDP. 1 round trip setup. A lost packet only stalls its own stream. Found through the HTTPS DNS record or the Alt-Svc header." },
+  { t: "HSTS", d: "'Only use HTTPS for this site.' Preloaded in browsers, so the upgrade from http to https happens inside the browser with no packet sent." },
+  { t: "TTFB", d: "Time to first byte: network round trips plus server time. Split it with curl timing to see which part is slow." },
+  { t: "Render blocking", d: "CSS blocks painting. Normal scripts block HTML parsing. Use defer or async, keep critical CSS small, preload the LCP image." },
+  { t: "Preload scanner", d: "A helper that reads ahead in the HTML and starts image, CSS, and script downloads early. It only sees what is in the HTML text." },
+  { t: "Connection reuse", d: "Repeat requests skip DNS, TCP, and TLS and cost about 1 round trip. In Node, reuse connections too. Keep-alive is the default agent since Node 19." },
+  { t: "502 vs 504", d: "502: a backend broke the connection or sent a bad reply. 504: the proxy waited too long. Look at the proxy log first, then the app log." },
+];
+
+const decisions = [
+  { q: "HTTP/2 vs HTTP/3", a: "Pick HTTP/2 when", at: "UDP is blocked on the path, or you want the lowest server CPU cost.", b: "Pick HTTP/3 when", bt: "Users are on mobile or lossy networks, or far away. It saves a round trip and avoids TCP head-of-line blocking.", v: "Serve both. Browsers try HTTP/3 and fall back to TCP." },
+  { q: "TLS ends at the edge vs at the origin", a: "End at the edge when", at: "You want the fastest handshake near users and simple certificate management.", b: "Re-encrypt to the origin when", bt: "Data is regulated (health, banking) or you do not trust the network behind the edge.", v: "Health data such as wound photos: encrypt end to end, or at least re-encrypt to the origin." },
+  { q: "Short vs long DNS TTL", a: "Short (60 s) when", at: "You need fast failover or are about to move an address.", b: "Long (hours) when", bt: "The address is stable and you want fewer lookups and less resolver dependence.", v: "Lower the TTL before a planned change, then raise it once stable." },
+  { q: "0-RTT resumption", a: "Use it when", at: "The request is safe to repeat, such as a GET for public content.", b: "Avoid it when", bt: "The request changes state, such as a payment. An attacker can replay 0-RTT data, and it is not forward secret.", v: "Fastest possible start, but only for idempotent requests." },
+  { q: "Cache more at the CDN vs freshness", a: "Cache long when", at: "Files are hashed or immutable. Use max-age one year plus immutable.", b: "Revalidate when", bt: "HTML or personal data changes. Use no-cache with an ETag so a stale copy costs only a 304.", v: "Split by file type: immutable assets cached for ever, HTML always revalidated." },
+  { q: "Encrypted DNS (DoH) vs plain DNS", a: "Use DoH when", at: "You want lookups hidden from the local network. Chrome upgrades automatically if your provider supports it.", b: "Plain DNS when", bt: "A company must filter or log DNS on its own network.", v: "Privacy from the network versus visibility for the network owner. Say who you are protecting." },
+  { q: "Long-lived connections vs even load", a: "Reuse connections when", at: "You want to save 2 round trips per request, especially across regions.", b: "Balance per request when", bt: "One backend gets all traffic because an HTTP/2 connection stays pinned to it.", v: "Use a layer-7 balancer that splits requests, and rebalance after a deploy." },
+  { q: "Preconnect and prefetch", a: "Use them when", at: "You are sure the next host is needed, such as a font or API host on every page.", b: "Skip them when", bt: "The guess is often wrong. Unused sockets and bandwidth are wasted.", v: "Preconnect only to hosts the page will certainly use, and only a few." },
+];
+
+const cases = [
+  { topic: "DNS", b: "AWS us-east-1, 19-20 October 2025", p: "A race between two automation systems left an empty DNS record for the DynamoDB regional endpoint. Services could not find it and the failure spread across AWS. The DNS fault was fixed in about 3 hours, but full recovery took about 15. Lesson: DNS is a dependency of everything." },
+  { topic: "BGP and anycast", b: "Cloudflare 1.1.1.1, 14 July 2025", p: "A configuration error in a test service linked the 1.1.1.1 address ranges to it. A later refresh withdrew those routes from every data center for 62 minutes. The resolvers were healthy, but nothing could reach them. Lesson: the network can fail while the servers are fine." },
+  { topic: "BGP and DNS", b: "Facebook, 4 October 2021", p: "A maintenance command cut the backbone. Facebook's DNS servers withdrew their own BGP routes when they lost the data centers, so the internet lost the way to their name servers for over 7 hours. Lesson: a health check that removes DNS turns a partial failure into a total one." },
+  { topic: "Certificates", b: "Let's Encrypt ends OCSP, 6 August 2025", p: "The largest certificate authority stopped live revocation checks. Browsers had already moved to CRLSets (Chrome) and CRLite (Firefox), so live OCSP was no longer on the critical path." },
+  { topic: "Post-quantum TLS", b: "Cloudflare and the major browsers", p: "X25519MLKEM768 became the default in Chrome, Firefox, and Safari. Over two-thirds of human traffic to Cloudflare used it by April 2026. 'Harvest now, decrypt later' drove the rollout years before quantum computers exist." },
+];
+
+const hooks = [
+  { b: "\"Distance is the tax\"", p: "Bandwidth is what you choose to pay. Distance is a fee you cannot avoid. Only moving the server closer lowers it. (An idiom: a 'tax' is a cost you cannot skip.)" },
+  { b: "\"Three round trips to say hello\"", p: "TCP + TLS + first request. Every speed trick for a first visit removes one of them." },
+  { b: "\"The cheapest request never leaves the browser\"", p: "A cache hit or an HSTS upgrade uses no network at all." },
+  { b: "\"CSS blocks paint, JS blocks parse\"", p: "The two render blockers to name in any performance answer." },
+  { b: "\"502 broke, 504 slow\"", p: "The backend broke the connection, or it took too long. Read the proxy log first." },
+];
+
+// ---- concepts + progress ----
+const KEY = "net-url-cheatsheet-known";
+let known = new Set();
+try { known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify([...known])); } catch (e) {} }
+const conceptGrid = document.getElementById("conceptGrid");
+concepts.forEach((c, i) => {
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(i) ? " known" : "");
+  el.innerHTML = `
+    <span class="num-chip">${i + 1}</span>
+    <button class="got" title="I can explain this">✓</button>
+    <h3>${c.t}</h3>
+    <p>${c.d}</p>`;
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(i) ? known.delete(i) : known.add(i);
+    save();
+    el.classList.toggle("known", known.has(i));
+    updateProgress();
+  });
+  conceptGrid.appendChild(el);
+});
+function updateProgress() {
+  const pct = Math.round((known.size / concepts.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = `${known.size} / ${concepts.length} concepts mastered`;
+}
+function resetProgress() {
+  known.clear();
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known"));
+  updateProgress();
+}
+updateProgress();
+
+// ---- decisions ----
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div");
+  el.className = "decision";
+  el.innerHTML = `
+    <div class="vs"><span class="badge">VS</span> ${d.q}</div>
+    <div class="cols">
+      <div class="col a"><b>${d.a}</b>${d.at}</div>
+      <div class="col b"><b>${d.b}</b>${d.bt}</div>
+    </div>
+    <div class="verdict"><b>Verdict:</b> ${d.v}</div>`;
+  decisionList.appendChild(el);
+});
+
+// ---- cases + hooks ----
+const caseList = document.getElementById("caseList");
+cases.forEach(c => {
+  const el = document.createElement("div");
+  el.className = "case";
+  el.innerHTML = `<span class="topic">${c.topic}</span><b>${c.b}</b><p>${c.p}</p>`;
+  caseList.appendChild(el);
+});
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div");
+  el.className = "hook";
+  el.innerHTML = `<b>${h.b}</b><p>${h.p}</p>`;
+  hookList.appendChild(el);
+});
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+</script>
+</body>
+</html>
