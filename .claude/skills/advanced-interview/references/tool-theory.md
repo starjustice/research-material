@@ -13,6 +13,20 @@ The candidate's own stack, one layer down. This is where a strong practitioner e
 - One thread runs **your JavaScript**. I/O is not done on that thread — it's handed to the OS (epoll/kqueue) or to **libuv's thread pool**, and a callback is queued when it completes. Concurrency comes from never blocking while waiting.
 - **libuv's thread pool defaults to 4 threads** (`UV_THREADPOOL_SIZE`) and serves filesystem, DNS (`dns.lookup`), `zlib` and `crypto` work — **not** network sockets, which are handled by the OS event notification mechanism directly. "Why did 5 concurrent `bcrypt` calls get slow?" lands here.
 - **Event loop phases**, in order: timers (`setTimeout`) → pending callbacks → poll (I/O) → check (`setImmediate`) → close. **Microtasks (promises, `queueMicrotask`) drain completely between every phase and after every callback** — which is why `Promise.resolve().then()` runs before `setTimeout(…, 0)`, and why an infinite microtask chain starves the loop entirely.
+
+```mermaid
+graph LR
+    T["Timers<br/>setTimeout, setInterval"] --> PC["Pending callbacks<br/>some system errors"]
+    PC --> POLL["Poll<br/>I-O callbacks fire here"]
+    POLL --> CHK["Check<br/>setImmediate"]
+    CHK --> CL["Close callbacks"]
+    CL -.->|next tick of the loop| T
+    T -.->|microtasks drain first| MT1["Promise and queueMicrotask queue"]
+    POLL -.->|microtasks drain first| MT2["Promise and queueMicrotask queue"]
+    CHK -.->|microtasks drain first| MT3["Promise and queueMicrotask queue"]
+```
+
+Caption: the microtask queue empties completely after every single callback, in every phase — not just once per loop. That is why a chain of `.then()` calls can starve timers and I/O forever.
 - **`process.nextTick` runs before other microtasks** — a Node-specific queue, and how DataLoader-style batching gets its "end of tick" hook.
 - **CPU-bound work blocks everything.** A 200ms synchronous loop adds 200ms to every other in-flight request. Fixes: `worker_threads` (real threads, message passing), a separate service, or chunking the work. `cluster`/multiple processes scale across cores but don't help one slow request.
 - **V8 specifics worth one sentence each:** JIT compilation with hidden classes (why objects with a consistent shape are faster, and why mutating shapes deoptimizes); generational GC — a cheap scavenge for the young generation, expensive mark-sweep-compact for the old one, so **allocation churn shows up as GC pauses in p99**, not p50.
@@ -37,6 +51,26 @@ The candidate's own stack, one layer down. This is where a strong practitioner e
 **L3** "What's physically different about a server component?"
 
 - **It never ships to the browser.** It runs on the server, and its output is serialized into a special stream (not HTML) that the client React runtime merges into the tree. So a server component can query the database directly, and its dependencies stay out of the bundle — that's the actual win, alongside data-fetching-without-a-waterfall.
+
+```mermaid
+graph TB
+    subgraph SRV["Server - never sent to the browser"]
+        RSC["Server component<br/>can query Postgres directly<br/>its imports never enter the bundle"]
+    end
+    subgraph CROSS["Serialization boundary"]
+        P["Props crossing over must be serializable -<br/>strings, numbers, plain objects, JSX<br/>NOT functions, class instances, event handlers"]
+    end
+    subgraph CLI["Client - hydrates in the browser"]
+        CC["Client component<br/>'use client' - state, effects, handlers"]
+    end
+    RSC -->|renders and passes props through| CROSS
+    CROSS --> CC
+    RSC -.->|a server component CAN be passed as children| CC
+    CC -.->|a client component can NEVER import a server one| RSC
+```
+
+Caption: the arrow only goes one way in imports. A client component can receive a server component as `children`, but it can never import one directly — that import boundary is where most "why won't this compile" RSC errors come from.
+
 - The **serialization boundary** is the thing to reason about: props crossing server → client must be serializable. Functions, class instances and event handlers can't cross. Client components can be imported by server ones, not the reverse (though a server component can be passed as `children`).
 - **Hydration** is React attaching listeners and rebuilding state on top of server-rendered HTML. A mismatch (`Date.now()`, `window`, locale formatting, random ids) means React discards and re-renders — the cause of most hydration errors.
 - **Streaming SSR + Suspense:** the shell is flushed immediately and slow parts arrive later, so time-to-first-byte stops being gated by the slowest query.
@@ -47,6 +81,30 @@ The candidate's own stack, one layer down. This is where a strong practitioner e
 ## 4. GraphQL execution
 
 - The server parses the query, validates it against the schema, and **executes the resolver tree**, breadth-first per level. That execution model is precisely why the **N+1** problem exists: `posts` returns 100 items and the `author` resolver fires 100 times.
+
+```mermaid
+graph TB
+    subgraph N1["Without DataLoader - N+1"]
+        Q1["posts resolver - 1 query"] --> A1["author for post 1"]
+        Q1 --> A2["author for post 2"]
+        Q1 --> A3["... 98 more"]
+        A1 --> D1[("Postgres<br/>100 separate queries")]
+        A2 --> D1
+        A3 --> D1
+    end
+    subgraph N2["With DataLoader - batched"]
+        Q2["posts resolver - 1 query"] --> B1["author for post 1"]
+        Q2 --> B2["author for post 2"]
+        Q2 --> B3["... 98 more"]
+        B1 --> BATCH["DataLoader collects all keys<br/>requested in this tick"]
+        B2 --> BATCH
+        B3 --> BATCH
+        BATCH -->|flushes once - end of tick| D2[("Postgres<br/>WHERE id = ANY - one query")]
+    end
+```
+
+Caption: same 100 resolver calls either way — the difference is whether they turn into 100 round trips or 1. DataLoader works because Node's microtask queue drains fully before the batch fires (see the event loop diagram above).
+
 - **DataLoader** collects the keys requested during one tick, then flushes them on the microtask/next-tick boundary as a single batched call (`WHERE id = ANY($1)`). Two requirements people get wrong: the batch function must **return results in the same order as the keys** (with `null` for misses), and the cache must be **per request** — a process-wide loader cache serves stale and cross-user data.
 - **Why GraphQL is hard to cache at the edge:** one POST endpoint, body-dependent responses. Mitigations: persisted queries (hash → server-side query, GET-able, cacheable), or response caching keyed by query hash + variables + auth scope.
 - **Security/perf controls a senior mentions unprompted:** query depth and complexity limits, disabling introspection in production, pagination caps, and timeouts. Without them, one nested query is a denial of service.

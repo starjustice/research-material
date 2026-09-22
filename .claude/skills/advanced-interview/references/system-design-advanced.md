@@ -48,6 +48,21 @@ Each: the prompt, the deep dive that matters, and what separates a good answer f
 ### News feed / timeline
 *Deep dive:* **fan-out on write** (precompute each follower's feed — fast reads, but a celebrity with 10M followers is a write storm) vs **fan-out on read** (assemble at request time — cheap writes, slow reads) vs the real answer: **hybrid** — fan out for normal users, pull at read time for celebrities, merge. Then ranking, pagination stability while new items arrive (cursor on a snapshot), and cache invalidation.
 
+```mermaid
+graph TB
+    subgraph W["Normal user posts - fan out on write"]
+        P1["New post"] --> F1["Push to every follower's<br/>precomputed feed - fast writes if follower count is small"]
+    end
+    subgraph R["Celebrity posts - fan out on read"]
+        P2["New post - 10M followers"] --> F2["Written once, NOT pushed -<br/>would be a 10M-write storm"]
+    end
+    F1 --> M["Merge at read time:<br/>this user's precomputed feed<br/>plus any celebrities they follow"]
+    F2 --> M
+    M --> OUT["Feed shown to the user"]
+```
+
+Caption: the hybrid is the answer that survives follow-up questions. Pure fan-out-on-write dies on one celebrity; pure fan-out-on-read makes every read expensive for everyone.
+
 ### Chat / messaging
 *Deep dive:* connection routing — a user's socket lives on one instance; how does a message find it? (registry in Redis + pub/sub, or a session-aware gateway layer). Then: delivery semantics and dedupe, ordering per conversation (monotonic sequence per room, not wall-clock timestamps), offline delivery and read receipts, and message storage keyed by `(conversation_id, seq)`.
 
@@ -74,6 +89,20 @@ Embedding model choice and cost per document · where vectors live (`pgvector` i
 
 **"Put an LLM feature behind a 2-second latency budget."**
 Streaming tokens so time-to-first-token is what the user feels · caching (exact-match, semantic, and prompt-prefix caching) · **model versioning and A/B testing at the inference layer** · graceful degradation when GPU capacity is short — queue, shed, or fall back to a smaller model · timeouts and the fact that a partial stream is still a usable answer · cost per request as a first-class design constraint, because inference is orders of magnitude more expensive per call than a DB query · evaluation and guardrails in the request path, and what they add to latency.
+
+```mermaid
+graph LR
+    U["User request"] --> C{"Cache hit -<br/>exact or semantic?"}
+    C -->|yes - fast| OUT1["Return cached answer -<br/>milliseconds"]
+    C -->|no| GPU{"GPU capacity<br/>available?"}
+    GPU -->|yes| INF["Run inference -<br/>stream tokens as they generate"]
+    GPU -->|short| DEG["Degrade - queue briefly,<br/>or fall back to a smaller model"]
+    INF --> TTFT["Time to first token is what<br/>the user actually feels"]
+    TTFT --> OUT2["Stream continues -<br/>a partial answer at timeout is still usable"]
+    DEG --> INF
+```
+
+Caption: the 2-second budget is spent mostly on the cache check and the wait for GPU capacity — not on the model itself. A senior answer treats each of these boxes as a place cost and latency can be traded against each other.
 
 **"Design a RAG pipeline."**
 Ingestion and chunking strategy (chunk size vs retrieval quality) · incremental re-indexing when a document changes · retrieval + rerank · context window budgeting · **citation and traceability** · staleness (the index is a cache of the source of truth) · what happens when retrieval returns nothing relevant.

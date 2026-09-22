@@ -11,6 +11,20 @@ The JS/TS path into engineering usually skips this. It is the most common reason
 
 - CAP says: **when a network partition happens**, you must choose between consistency and availability. That's it. It says nothing about the 99.9% of the time when the network is fine, so "we chose AP" as a general design statement is a buzzword, not an answer.
 - **PACELC** is the version seniors should use: *if* **P**artition, choose **A** or **C**; **E**lse (normal operation), choose **L**atency or **C**onsistency. This is the real daily tradeoff — a synchronous replica in another region costs you an RTT on **every** commit, partition or not.
+
+```mermaid
+graph TB
+    Q{"Is there a network<br/>partition right now?"}
+    Q -->|yes - the P in PACELC| PC{"Pick one"}
+    Q -->|no - the E in PACELC - this is 99.9% of the time| EC{"Pick one"}
+    PC --> A["Availability<br/>keep serving, maybe stale"]
+    PC --> C1["Consistency<br/>refuse writes until healed"]
+    EC --> L["Latency<br/>answer fast, async replicas"]
+    EC --> C2["Consistency<br/>wait for a synchronous ack"]
+```
+
+Caption: "we chose AP" only answers the top branch. The E branch is the one you actually pay every single day, partition or not.
+
 - Concretely: Postgres with `synchronous_commit = remote_apply` to a second region = strong consistency, and every write pays cross-region latency. Async replication = fast writes, and a failover can lose the last few seconds of commits. **Ask what they'd pick for a payments ledger vs a "last seen" timestamp** — the point is that different data in the same product deserves different answers.
 
 ---
@@ -44,6 +58,27 @@ Ordered from strongest:
 **L3** "How does a cluster agree on a leader without a central coordinator?"
 
 - **Raft:** nodes are follower/candidate/leader. A follower that hears nothing for a randomized election timeout becomes a candidate and requests votes; a candidate with a **majority** wins for that **term**. All writes go to the leader, which appends to its log and replicates; an entry is **committed once a majority has it**.
+
+```mermaid
+sequenceDiagram
+    participant N1 as Node 1 - follower
+    participant N2 as Node 2 - was leader, now silent
+    participant N3 as Node 3 - follower
+
+    Note over N1,N3: N2 stops responding - crashed or network partition
+    Note over N1: election timeout fires first
+    N1->>N1: become candidate - term plus 1, vote for self
+    N1->>N2: RequestVote - term 5
+    N1->>N3: RequestVote - term 5
+    N3-->>N1: vote granted
+    Note over N1,N3: 2 of 3 is a majority - N1 wins, becomes leader
+    N1->>N2: AppendEntries - heartbeat, I am leader now
+    N1->>N3: AppendEntries - heartbeat
+    Note over N1,N3: an entry is committed once a<br/>majority of nodes have appended it
+```
+
+Caption: two disjoint majorities cannot exist in the same term, so two nodes can never both believe they are leader and commit conflicting entries.
+
 - **Why a majority?** Two disjoint majorities cannot exist, so two leaders in the same term cannot both commit — that's the whole mechanism against split brain.
 - **Why an odd number of nodes?** 3 tolerates 1 failure, 4 also tolerates only 1 — the extra node adds cost and no fault tolerance.
 - **Fencing tokens:** a paused-then-resumed old leader may still think it's leader. Every request carries a monotonically increasing token and storage rejects stale ones. This is also **the flaw in naive Redis locks** — a lock that expires while the holder is in a GC pause is no lock at all unless something fences it.
@@ -65,6 +100,26 @@ Ordered from strongest:
 ## 6. The patterns that come up in every design round
 
 - **Outbox pattern.** You can't atomically write to Postgres and publish to Kafka — two systems, no shared transaction. Instead write the event to an `outbox` table **in the same transaction** as the business change, then a relay (poller or CDC from the WAL) publishes it. Solves the dual-write problem; the answer interviewers are listening for when they ask "what if the DB commit succeeds but the publish fails?"
+
+```mermaid
+sequenceDiagram
+    participant App as App
+    participant DB as Postgres
+    participant R as Relay - polls the table or reads the WAL
+    participant K as Kafka
+
+    App->>DB: BEGIN
+    App->>DB: UPDATE order - business change
+    App->>DB: INSERT INTO outbox - the event, same transaction
+    App->>DB: COMMIT
+    Note over DB: both rows commit together or not at all -<br/>no way to save the order but lose the event
+    R->>DB: poll or read from WAL
+    R->>K: publish the event
+    R->>DB: mark outbox row as published
+```
+
+Caption: the risky "what if Kafka is down right after the DB commits" moment disappears — the event is already durably stored, and the relay just keeps retrying until it publishes.
+
 - **Saga.** A long-running transaction across services as a sequence of local transactions, each with a **compensating action** (refund, release inventory) rather than a rollback. Choreography (events) vs orchestration (a coordinator) — orchestration is easier to debug at scale.
 - **2PC.** Prepare then commit across participants. Correct, but **blocking**: if the coordinator dies after prepare, participants hold locks indefinitely. Why most internet-scale systems chose sagas and idempotency instead.
 - **Circuit breaker.** After N failures, stop calling and fail fast; probe occasionally (half-open). Protects you *and* the struggling dependency.

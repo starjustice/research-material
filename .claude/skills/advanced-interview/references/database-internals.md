@@ -17,6 +17,25 @@ Each block: **the question ladder**, then the **model answer** the interviewer i
 **Model answer:**
 
 - A default Postgres index is a **B+tree** (Lehman–Yao variant, allowing concurrent access without locking the whole tree). Keys live in internal nodes for routing; **all the actual values sit in leaf nodes, which are linked to their siblings** — that sideways link is what makes range scans (`BETWEEN`, `ORDER BY`, `>`) fast.
+
+```mermaid
+graph TB
+    R["Root page<br/>keys route only, hold no data"]
+    R --> A["Internal page<br/>keys less than M"]
+    R --> B["Internal page<br/>keys M and up"]
+    A --> L1["Leaf page<br/>email, TID pairs"]
+    A --> L2["Leaf page<br/>email, TID pairs"]
+    B --> L3["Leaf page<br/>email, TID pairs"]
+    B --> L4["Leaf page<br/>email, TID pairs"]
+    L1 -.->|sibling link| L2
+    L2 -.->|sibling link| L3
+    L3 -.->|sibling link| L4
+    L1 -->|TID = page + offset| H[("Heap<br/>the actual table rows")]
+    L3 -->|TID = page + offset| H
+```
+
+Caption: only 3 to 4 levels deep for 500M rows because each page holds hundreds of keys. The sibling links along the bottom are what make a range scan fast without climbing back up the tree.
+
 - **Why B+tree and not a binary tree:** the unit of disk I/O is a page (8KB in Postgres), not a byte. A binary tree of 500M rows is ~29 levels deep = up to 29 random reads. A B+tree with a few hundred keys per page has a **fanout of hundreds**, so it's 3–4 levels deep — 3–4 page reads, and the top levels are always hot in cache. The data structure is shaped by the storage medium. That sentence is what L3 is testing.
 - **Why not a hash index:** O(1) for `=`, but useless for ranges, sorting, prefix matching, or `ORDER BY ... LIMIT`. Postgres has hash indexes; they're rarely the right call.
 - **Why the index can be ignored:** (a) the filter isn't a prefix of a composite index — `INDEX (a, b)` can't serve a query filtering only on `b`; (b) the query touches too much of the table, so a **sequential scan is genuinely cheaper** than random I/O per row (roughly past ~5–10% selectivity); (c) a function or type cast on the column (`WHERE lower(email) = …` needs an expression index); (d) **stale statistics** — the planner's row estimate is wrong, so it costs the plan wrong; (e) the values aren't selective (indexing a boolean).
@@ -39,6 +58,22 @@ Each block: **the question ladder**, then the **model answer** the interviewer i
 **Model answer:**
 
 - Postgres never updates a row in place. An `UPDATE` writes a **new row version (tuple)** and marks the old one dead. Every tuple carries `xmin` (the transaction that created it) and `xmax` (the one that deleted it). A transaction sees a tuple if `xmin` is committed and visible to its snapshot and `xmax` isn't. **Readers never block writers, writers never block readers.** Only writer-vs-writer on the same row blocks.
+
+```mermaid
+sequenceDiagram
+    participant A as Transaction A - SELECT
+    participant T as Row - id = 1
+    participant B as Transaction B - UPDATE
+
+    A->>T: BEGIN - snapshot taken here
+    Note over A,T: A always sees the version<br/>visible in its own snapshot
+    B->>T: UPDATE balance - new tuple written<br/>xmin = B, old tuple xmax = B
+    B->>T: COMMIT
+    T-->>A: SELECT still returns the OLD tuple<br/>xmin was committed before A's snapshot
+    Note over T: Old tuple becomes dead once<br/>no snapshot can see it - VACUUM reclaims it
+```
+
+Caption: two row versions exist at once. A reads the old one, B writes a new one — nothing to block.
 - The cost is **bloat**: dead tuples stay in the heap until **VACUUM** reclaims them. A table churned hard with autovacuum falling behind can hold 10k live rows in gigabytes of pages — and a count or seq scan reads all those pages. That's the 8-second answer.
 - **`VACUUM` reclaims space for reuse; `VACUUM FULL` rewrites the table and returns space to the OS but takes an `ACCESS EXCLUSIVE` lock** — never casually on a live table.
 - **Transaction ID wraparound:** the visibility comparison uses a 32-bit counter, so old rows must be *frozen* before the counter laps. Autovacuum does this; if it can't keep up (long-running transactions, disabled autovacuum), Postgres will eventually refuse writes to protect data. A genuinely senior war-story topic.
@@ -51,6 +86,24 @@ Each block: **the question ladder**, then the **model answer** the interviewer i
 **L3** "You `COMMIT`, the machine loses power one millisecond later. Is the data there? Why?"
 
 - Every change is written to the **Write-Ahead Log first**, and the commit isn't acknowledged until that WAL record is `fsync`ed to disk. The actual data pages can still be dirty in shared buffers — they're flushed later at a **checkpoint**. On restart, Postgres replays WAL from the last checkpoint. Durability comes from the log, not from the table files.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant P as Postgres
+    participant W as WAL on disk - sequential append
+    participant H as Heap pages - in memory, dirty
+
+    C->>P: UPDATE ... COMMIT
+    P->>W: append the change record
+    W-->>P: fsync done
+    P-->>C: commit acknowledged
+    Note over H: heap page stays dirty in<br/>shared buffers for now
+    P->>H: checkpoint - flush dirty pages later
+    Note over P,W: power loss right here still recovers -<br/>on restart, Postgres replays WAL from the last checkpoint
+```
+
+Caption: the acknowledgement to the client happens after the **log** hits disk, not after the table file does. That's the whole mechanism.
 - **Why this is fast:** WAL writes are *sequential* appends; random page writes are deferred and batched. Sequential I/O is the whole trick.
 - **Knobs and their honest tradeoff:** `synchronous_commit = off` makes commits much faster and risks losing the last fraction of a second on a crash — safe for analytics ingest, wrong for payments. `full_page_writes` protects against torn pages at the cost of WAL volume.
 - **WAL is also the replication stream** — a physical replica just replays it. **Logical decoding** turns it into a row-level change stream, which is how CDC tools (Debezium) and Postgres logical replication work — the mechanism behind "how would you sync Postgres to Elasticsearch?"
@@ -115,6 +168,22 @@ Each block: **the question ladder**, then the **model answer** the interviewer i
 | Read cost | Predictable: 3–4 page reads | May check several SSTables; **Bloom filters** skip the ones that can't contain the key |
 | Pain | Write throughput ceiling, index maintenance | **Compaction** steals I/O and causes latency spikes; space amplification; tombstones |
 | Pick it when | Reads and range queries dominate; you want strong secondary indexes and joins | Write-heavy ingest (events, metrics, time series) at very large scale |
+
+```mermaid
+graph LR
+    subgraph BT["B+tree write - Postgres, InnoDB"]
+        W1["UPDATE arrives"] --> F1["Find the exact page"]
+        F1 --> M1["Modify in place"]
+        M1 --> WL1["Write to WAL"]
+    end
+    subgraph LSM["LSM tree write - Cassandra, RocksDB"]
+        W2["UPDATE arrives"] --> MT["Append to memtable - in memory"]
+        MT --> SS["Flush to an immutable SSTable"]
+        SS --> CO["Background compaction merges SSTables"]
+    end
+```
+
+Caption: the B+tree pays a random-access cost on every write. The LSM tree turns every write into a sequential append, and pays the cost later in the background as compaction.
 
 The insight the interviewer wants: **both are the same tradeoff triangle — read amplification, write amplification, space amplification. You pick which one to pay.**
 

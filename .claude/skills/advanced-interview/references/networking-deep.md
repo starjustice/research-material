@@ -64,6 +64,23 @@ The classic opener. Depth is scored by how many of these the candidate produces 
 - **L4 (transport)** forwards TCP/UDP — fast, protocol-blind, can't read a path or retry a request. **L7 (application)** understands HTTP — path routing, header-based routing, retries, TLS termination, per-request load balancing (essential for HTTP/2, where one connection carries everything).
 - **Algorithms:** round robin (assumes equal work), **least connections** (better with varied request cost), **consistent hashing** (session/cache affinity — see below), power-of-two-choices (near-optimal, cheap).
 - **Consistent hashing:** nodes and keys are placed on a ring; a key belongs to the next node clockwise. Adding or removing a node only remaps **1/n of the keys** instead of everything (which a plain `hash % n` would do). **Virtual nodes** (each physical node placed many times) fix uneven distribution. This is the mechanism behind Cassandra's ring, memcached client sharding, and CDN cache routing — a top-tier L3 question.
+
+```mermaid
+graph TB
+    K1["key: user-42<br/>hashes to position 10"]
+    K2["key: user-99<br/>hashes to position 95"]
+    N1["Node A - position 30"]
+    N2["Node B - position 70"]
+    N3["Node C - position 100"]
+    K1 -.->|next node clockwise| N1
+    K2 -.->|next node clockwise| N3
+    N4["NEW Node D - position 50<br/>inserted between B's old keys"]
+    N4 -.->|only remaps the slice<br/>between 30 and 50| N2
+```
+
+Caption: with plain `hash(key) % n`, adding one node reshuffles almost every key. On the ring, Node D only steals the keys between itself and the next node counter-clockwise — everything else stays put.
+
+- **The naive alternative, for contrast:** `hash(key) % n` remaps close to 100% of keys whenever `n` changes, because the modulus changes for nearly everything. That's the exact problem the ring solves.
 - **Health checks and draining:** passive vs active checks; connection draining on deploy so in-flight requests finish. Without draining, every deploy is a burst of 502s.
 - **CDN:** PoP close to the user; the **cache key** is the thing to reason about (URL + selected headers + `Vary`) — getting `Vary: Cookie` wrong destroys your hit rate; ignoring `Vary: Origin` on a CORS response serves one origin's headers to another. `stale-while-revalidate` serves the stale copy instantly and refreshes behind it. **Origin shield** stops a cold cache from stampeding your origin.
 
@@ -81,6 +98,19 @@ The classic opener. Depth is scored by how many of these the candidate produces 
 | Cost | A held connection per client | A held connection per client | Request churn |
 
 - **Scaling either one out:** connections are stateful and pinned to one process, so a message published on instance A must reach the socket held by instance C — via **Redis pub/sub, NATS, or a managed service**. "How does the message reach the right server?" is the question that separates people who've shipped this from people who've read about it.
+
+```mermaid
+graph LR
+    U1["User 1 -<br/>socket held by instance A"]
+    U2["User 2 -<br/>socket held by instance C"]
+    U1 -->|sends a message| A["Instance A"]
+    A -->|publish to a channel| PS[("Redis pub/sub<br/>or NATS")]
+    PS -->|every instance subscribes| B["Instance B - no matching socket, ignores it"]
+    PS -->|every instance subscribes| C["Instance C - has the socket, delivers it"]
+    C -->|pushes over the open socket| U2
+```
+
+Caption: instance A never talks to instance C directly — it doesn't know where the recipient's socket lives. Every instance subscribes to the same channel, and only the one holding the right socket acts on the message.
 - **SSE under HTTP/1.1 is limited by the ~6-connections-per-origin cap** across tabs — a real bug people hit; HTTP/2 multiplexing removes it.
 - **Chosen per problem:** chat → WebSocket; live dashboard or LLM token stream → SSE; a notification every few minutes → polling is fine and far cheaper to operate.
 
