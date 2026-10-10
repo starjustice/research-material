@@ -77,7 +77,8 @@ Examples:
   - `notes/advanced-interview/` — the advanced (international-bar) learning track, all in one folder: deep study notes (system design step by step, Docker/CapRover internals, networking) plus their `/advanced-interview` session reports. New advanced study notes go here.
   - `notes/mock-interviews/` — mock reports for general topics only (system design, javascript, behavioral). Company mocks go in the company folder.
   - Other topic study notes stay directly in `notes/` (e.g. `react-native-interview-guide.md`).
-- `examples/` — Practical, beginner-friendly example projects and scripts.
+- `examples/` — Practical, beginner-friendly example projects and scripts (`examples/problem-solving-practice/` is the pattern-based coding practice).
+- `notes/learning-log/` — my review list and my own tidied explanations, written by the learning skills.
 - `templates/` — Reusable templates and frameworks (answer frameworks, study plans, mock interview scripts).
 
 ## Agent Behavior
@@ -101,6 +102,10 @@ This applies to all agents and workflows in this workspace (including `research-
 - **`/live-coding` skill** (`.claude/skills/live-coding/SKILL.md`) — live coding practice in the main chat. I write the code; Claude probes complexity, breaks my solution with a bigger input, and pushes me to produce other solutions and defend which one I'd ship. Reports save to the company folder or `notes/live-coding/`.
 - **`/advanced-interview` skill** (`.claude/skills/advanced-interview/SKILL.md`) — hard, international-bar rounds (senior/staff) for applying outside Indonesia. Pushes every topic down a five-layer depth ladder into internals: DB algorithms, networking to the packet, distributed systems theory, and the theory behind my tools. Reports save to `notes/advanced-interview/` or the company folder.
 - **`mock-interviewer` agent** (`.claude/agents/mock-interviewer.md`) — written practice rounds in the background: `prepare` generates an exam paper (+ separate answer key) in the company folder or `notes/mock-interviews/`, I answer in the file at my own pace, then `grade` scores my answers with an honest scorecard and tracks progress across sessions.
+
+- **`/explain-check` skill** (`.claude/skills/explain-check/SKILL.md`) - I explain a topic in my own words, Claude points out what is right, vague, memorized or wrong, asks "why" follow-ups, then shows the correct diagram. Gaps go to `notes/learning-log/review-list.md`, my tidied explanation to `notes/learning-log/my-explanations.md`.
+- **`/project-story` skill** (`.claude/skills/project-story/SKILL.md`) - builds and rehearses interview stories about my real projects (DBO, Unloan, ZWS): the decision, why I chose it, what I gave up. Facts come only from me, never invented. Stories save to `notes/my-project-stories.md`.
+- **`/daily-review` skill** (`.claude/skills/daily-review/SKILL.md`) - a 10 minute spaced review (day 1, 3, 7, 21) from `notes/learning-log/review-list.md` and the solve log, with questions, redraw and fill-the-diagram exercises.
 
 Never prioritize speed over quality.
 

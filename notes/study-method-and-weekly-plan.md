@@ -121,13 +121,19 @@ flowchart LR
     W2 --> W3["Weeks 7 and 8<br/>Interview mode<br/>timed problems, full mocks,<br/>all 3 project stories"]
 ```
 
+## Skills in this workspace that run the method
+
+**`/explain-check <topic>`** is step 3 and 4 of the loop. I explain, Claude points out what is vague or memorized, asks "why", and draws the correct picture.
+
+**`/project-story <project>`** builds the project stories above and then attacks them like an interviewer. It never makes up facts.
+
+**`/daily-review`** is the spaced review. It asks only what is due today, about 10 minutes.
+
+**`/mock-interview` and `/live-coding`** are for Friday practice and the coding days.
+
 ## Review List
 
-Keep a plain list of questions I could not answer. Each weekend, answer them out loud. When I can answer one three times in a row, remove it. Start the list at the bottom of this file.
-
-## Questions I Could Not Answer Yet
-
-- (add here)
+Questions I could not answer live in `notes/learning-log/review-list.md`. The skills add to it and `/daily-review` reads it. My own tidied explanations are in `notes/learning-log/my-explanations.md`.
 
 ## Sources
 
