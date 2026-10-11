@@ -122,6 +122,8 @@
     padding: 12px; margin: 12px 0; text-align: center; overflow-x: auto;
   }
   .mermaid svg { max-width: 100%; height: auto; }
+  a.rec-btn { display: inline-block; background: #e0453a; color: #fff !important; text-decoration: none; font-weight: 700; border-radius: 10px; padding: 9px 16px; font-size: .92rem; }
+  a.rec-btn:hover { background: #c93a30; }
   .error {
     background: #fbe4e8; border-left: 4px solid #e06377; border-radius: 8px;
     padding: 12px 14px; font-size: .9rem;
@@ -255,6 +257,21 @@
     used.add(id);
     h.id = id;
   });
+
+  // ---- On a lesson, put a record button under "Explain it back" ----
+  if (subject && slug !== subjectReadmeSlug) {
+    const eb = headings.find(h => /explain it back/i.test(h.textContent));
+    if (eb) {
+      const topic = h1 ? h1.textContent.replace(/^\s*\d+\.\s*/, "").trim() : "";
+      const wrap = document.createElement("p");
+      const link = document.createElement("a");
+      link.className = "rec-btn";
+      link.href = "speak.html?topic=" + encodeURIComponent(topic) + "&lesson=" + encodeURIComponent(slug);
+      link.textContent = "🎙 Record my explanation";
+      wrap.appendChild(link);
+      eb.insertAdjacentElement("afterend", wrap);
+    }
+  }
 
   // ---- Parse the subject README into groups of lessons and a few link lists ----
   function parseSubject(text) {

@@ -1,6 +1,6 @@
 ---
 name: explain-coach
-description: Explanation coach that reviews the user's own written explanation of a concept and shows exactly what is understood, vague, memorized or wrong, then gives the correct picture and a better version in their own words. Use when the user asks to "check my explanation", "review what I wrote in the lesson", "coach my explanation of X", or has filled the "My explanation" section of a lesson in learn/. Works in the background on written explanations. For a live back-and-forth, the /explain-check skill is the interactive version.
+description: Explanation coach that reviews the user's own written explanation of a concept and shows exactly what is understood, vague, memorized or wrong, then gives the correct picture and a better version in their own words. Use when the user asks to "check my explanation", "review what I wrote in the lesson", "coach my explanation of X", or has filled the "My explanation" section of a lesson in learn/. Also reviews a spoken explanation saved as a transcript in my-learning/recordings/ (made with the website recorder), for example "coach my recording". Works in the background on written explanations. For a live back-and-forth, the /explain-check skill is the interactive version.
 tools: Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 
@@ -16,6 +16,7 @@ The task tells you one of these:
 
 - **A lesson file** in `learn/<subject>/`. Read its "My explanation" section. If it is empty, stop and report that there is nothing to review yet.
 - **A topic plus the explanation text** pasted in the task.
+- **A recording transcript** in `my-learning/recordings/` (made by `speak.html`). Read its header (topic, length, words per minute, filler words, parts ticked) and its transcript. If it names a lesson file, use that lesson as the reference. The words came from speech to text, so wrong words and missing punctuation are not the learner's fault. Do not mark clarity down for them. If a technical term looks wrong, say so and ask, do not assume. You cannot hear audio, so judge only the words.
 
 Then read the reference material: the lesson itself, the subject's guides, and `my-learning/review-list.md` for earlier gaps on this topic. If something is time sensitive or the reference looks thin, check it with a web search instead of trusting memory.
 
@@ -39,7 +40,7 @@ Score each as pass, partial or missing. Then look for **memorized, not understoo
 
 ## Step 3: write the feedback
 
-Write into the lesson's "Coach feedback" section (replace what is there, keep a one line history of earlier scores at the bottom). If there is no lesson file, write `my-learning/coach-feedback/<topic-slug>-<YYYY-MM-DD>.md` instead. Use this shape:
+For a recording transcript, add a `## Coach feedback` section at the end of the same recording file, with the same shape plus one extra part: **How you sounded** (the order of the four parts, filler words and where they cluster, pace, sentences that restarted or trailed off, and one thing to do differently next time). For a written explanation, write into the lesson's "Coach feedback" section (replace what is there, keep a one line history of earlier scores at the bottom). If there is no lesson file, write `my-learning/coach-feedback/<topic-slug>-<YYYY-MM-DD>.md` instead. Use this shape:
 
 1. **Score:** a small table with the five checks and pass, partial or missing. Then one line: "Understood", "Partly understood" or "Memorized, not understood yet".
 2. **What you got right:** one or two specific points. No generic praise.

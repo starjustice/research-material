@@ -74,11 +74,14 @@ def subject_block(slug, name):
     guides = [f for f in files if f.endswith(".md") and f != "README.md" and f not in lessons]
     sheets = [f for f in files if f.endswith(".html")]
     examples = sorted(os.listdir(base + "/examples")) if os.path.isdir(base + "/examples") else []
+    visuals = sorted(f for f in os.listdir(base + "/visuals") if f.endswith(".html")) if os.path.isdir(base + "/visuals") else []
     counts = []
     if lessons:
         counts.append(f"{len(lessons)} lesson" + ("s" if len(lessons) != 1 else ""))
     if guides:
         counts.append(f"{len(guides)} guide" + ("s" if len(guides) != 1 else ""))
+    if visuals:
+        counts.append(f"{len(visuals)} visual" + ("s" if len(visuals) != 1 else ""))
     if sheets:
         counts.append(f"{len(sheets)} cheatsheet" + ("s" if len(sheets) != 1 else ""))
     out.append(f'<small>{esc(", ".join(counts) or "lesson plan ready")}</small></summary>\n')
@@ -87,6 +90,10 @@ def subject_block(slug, name):
     for f in lessons:
         p = f"{base}/{f}"
         out.append(card(viewer(p), "LESSON " + f[:2], "lesson", first_heading(p), lesson_goal(p)))
+    for f in visuals:
+        p = f"{base}/visuals/{f}"
+        t, s = info(p, "Interactive page")
+        out.append(card(p, "VISUAL", "app", t, s))
     for f in guides:
         p = f"{base}/{f}"
         t, s = info(p, "Longer guide")
@@ -201,6 +208,7 @@ def main():
 <p>Pick what to learn, track your steps, and see what is due for review.</p>
 """]
     parts.append(card("study.html", "START HERE", "map", *DESC.get("study.html", ["Study Route", ""])))
+    parts.append(card("speak.html", "PRACTICE", "note", *DESC.get("speak.html", ["Say it out loud", ""])))
     parts.append(card(viewer("my-learning/learner-profile.md"), "ME", "note", "How I learn",
                       "The rules every skill and agent follows when teaching me"))
     parts.append('\n<h2>Learn</h2>\n<p>One folder per subject. Open a subject to see its map, lessons, guides, cheatsheets and code.</p>\n')
@@ -214,6 +222,10 @@ def main():
                     ("my-learning/study-method-and-weekly-plan.md", "Study method and weekly plan", "The learning loop and the four part answer")):
         if os.path.exists(p):
             parts.append(card(viewer(p), "LOG", "note", t, s))
+    rec = "my-learning/recordings"
+    for f in sorted(os.listdir(rec)) if os.path.isdir(rec) else []:
+        if f.endswith(".md") and f != "README.md":
+            parts.append(card(viewer(f"{rec}/{f}"), "RECORDING", "note", first_heading(f"{rec}/{f}"), "My spoken explanation and the coach feedback"))
     parts.append('\n<footer>Built by scripts/build-hub.py from the folders.</footer>\n</body>\n</html>\n')
     open("index.html", "w", encoding="utf-8").write("".join(parts))
     print("index.html rebuilt")

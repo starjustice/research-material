@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Say it out loud — Study Hub</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --red: #e0453a; --green: #2f9e6b; --blue-soft: #dbeafe; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.55;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 70px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.4rem; margin: 8px 0 2px; }
+  .sub { color: var(--muted); font-size: .92rem; margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .card h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  label.f { display: block; font-size: .85rem; font-weight: 650; margin-bottom: 4px; }
+  input[type=text], select, textarea {
+    font: inherit; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink);
+  }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; min-width: 0; }
+  @media (max-width: 560px) { .row { flex-direction: column; } }
+
+  .parts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .parts label {
+    display: flex; gap: 8px; align-items: flex-start; background: #fff8e1; border: 1px solid #f2e2a6; border-radius: 10px;
+    padding: 8px 10px; font-size: .88rem; cursor: pointer;
+  }
+  .parts b { display: block; }
+  .parts small { color: var(--muted); }
+  @media (max-width: 560px) { .parts { grid-template-columns: 1fr; } }
+
+  .rec { text-align: center; }
+  #recBtn {
+    width: 92px; height: 92px; border-radius: 50%; border: 6px solid #f6c9c5; background: var(--red); color: #fff;
+    font-size: 2rem; cursor: pointer; transition: transform .1s;
+  }
+  #recBtn:active { transform: scale(.95); }
+  #recBtn.on { background: #fff; color: var(--red); border-color: var(--red); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(224,69,58,.45); } 70% { box-shadow: 0 0 0 18px rgba(224,69,58,0); } 100% { box-shadow: 0 0 0 0 rgba(224,69,58,0); } }
+  #timer { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 8px; }
+  #status { color: var(--muted); font-size: .88rem; min-height: 1.4em; }
+  .meter { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 40px; margin: 10px 0 2px; }
+  .meter i { width: 6px; height: 4px; background: var(--green); border-radius: 3px; transition: height .06s; opacity: .75; }
+
+  textarea { min-height: 160px; resize: vertical; line-height: 1.6; }
+  textarea[readonly] { background: #f7f3ea; }
+  .hint { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+
+  #after { display: none; }
+  #after.show { display: block; }
+  audio { width: 100%; margin: 4px 0 10px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .stat { background: var(--blue-soft); border-radius: 10px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 1.15rem; }
+  .stat small { color: var(--muted); font-size: .74rem; }
+  .fill { font-size: .88rem; margin: 6px 0; }
+  .fill span { display: inline-block; background: #fdecd2; border-radius: 999px; padding: 2px 10px; margin: 2px 4px 2px 0; font-weight: 650; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btns button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 14px; font-size: .9rem; font-weight: 650;
+  }
+  .btns button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .help ol { margin: 4px 0 0; padding-left: 20px; font-size: .9rem; }
+  .help li { margin-bottom: 4px; }
+  .warn { background: #fdecea; border: 1px solid #f2b8b2; border-radius: 10px; padding: 8px 12px; font-size: .88rem; display: none; margin-bottom: 12px; }
+  .warn.show { display: block; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .88em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a href="index.html">← Study Hub</a></div>
+  <h1>Say it out loud</h1>
+  <p class="sub">Explain a concept like to a new junior. The recording and the words stay on your device until you save them. Claude reads the <b>words</b>, so the transcript is what gets reviewed.</p>
+
+  <div class="warn" id="warn"></div>
+
+  <div class="card">
+    <div class="row">
+      <div><label class="f" for="topic">What are you explaining?</label>
+        <input type="text" id="topic" placeholder="example: The event loop" autocomplete="off"></div>
+      <div><label class="f" for="lang">Language you speak</label>
+        <select id="lang">
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="id-ID">Bahasa Indonesia</option>
+        </select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Cover these four parts (tick them as you go)</h2>
+    <div class="parts">
+      <label><input type="checkbox" class="part" data-n="Problem"><span><b>1. Problem</b><small>What goes wrong without it?</small></span></label>
+      <label><input type="checkbox" class="part" data-n="How it works"><span><b>2. How it works</b><small>Step by step, like a movie.</small></span></label>
+      <label><input type="checkbox" class="part" data-n="Tradeoff"><span><b>3. Tradeoff</b><small>What does it cost? When not to use it?</small></span></label>
+      <label><input type="checkbox" class="part" data-n="My example"><span><b>4. My example</b><small>Where did you see it, in your own work?</small></span></label>
+    </div>
+    <p class="hint">Do not read the lesson while you speak. If you get stuck, say what you do know, then keep going. That is what the interview will be like.</p>
+  </div>
+
+  <div class="card rec">
+    <button id="recBtn" type="button" aria-label="Start recording">●</button>
+    <div id="timer">0:00</div>
+    <div id="status">Press the red button and start talking.</div>
+    <div class="meter" id="meter"></div>
+  </div>
+
+  <div class="card">
+    <h2>The words (written as you speak)</h2>
+    <textarea id="text" placeholder="Your words appear here while you talk. If nothing appears, your browser cannot write the words for you. You can still record, then type or paste your words here after."></textarea>
+    <p class="hint" id="srHint"></p>
+  </div>
+
+  <div class="card" id="after">
+    <h2>Your recording</h2>
+    <audio id="player" controls></audio>
+    <div class="stats">
+      <div class="stat"><b id="sLen">0:00</b><small>length</small></div>
+      <div class="stat"><b id="sWords">0</b><small>words</small></div>
+      <div class="stat"><b id="sWpm">0</b><small id="sPace">words per minute</small></div>
+    </div>
+    <div class="fill" id="fill"></div>
+    <div class="btns">
+      <button class="primary" id="dlMd" type="button">Save transcript (.md)</button>
+      <button id="cpMd" type="button">Copy for chat</button>
+      <button id="dlAudio" type="button">Save audio</button>
+      <button id="again" type="button">Record again</button>
+    </div>
+  </div>
+
+  <div class="card help">
+    <h2>What to do next</h2>
+    <ol>
+      <li>Fix any wrong words in the box above. Add words that were missed.</li>
+      <li>Press <b>Save transcript (.md)</b>. Put the file in the <code>my-learning/recordings/</code> folder of AiLearner.</li>
+      <li>In a chat with that folder open, say: <code>coach my recording</code>. The <code>explain-coach</code> agent scores your four parts and also comments on your speaking: order, filler words, pace and where you sounded unsure.</li>
+      <li>Keep the audio file if you want to listen to yourself. I cannot hear it, only read the words.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const lessonSlug = (params.get("lesson") || "").replace(/[^A-Za-z0-9_\/-]/g, "");
+$("topic").value = (params.get("topic") || "").slice(0, 120);
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+$("srHint").textContent = SR
+  ? "Live words are on. Chrome and Safari send your speech to their own online service to write the words. Your audio file stays here."
+  : "This browser cannot write the words for you (try Chrome or Safari). Recording still works. After you stop, type or paste your words.";
+
+const meter = $("meter");
+for (let i = 0; i < 28; i++) meter.appendChild(document.createElement("i"));
+const bars = Array.from(meter.children);
+
+let stream, mediaRec, chunks = [], mime = "", audioCtx, analyser, raf, recog, finalText = "";
+let recording = false, startTs = 0, elapsedMs = 0, tick = null, audioBlob = null, audioUrl = null;
+
+function warn(msg) { $("warn").textContent = msg; $("warn").className = "warn" + (msg ? " show" : ""); }
+function fmt(ms) { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+function pickMime() {
+  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return "";
+}
+function extFor(m) { return m.includes("mp4") ? "m4a" : m.includes("ogg") ? "ogg" : "webm"; }
+
+function drawMeter() {
+  if (!analyser) return;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(data);
+  const step = Math.floor(data.length / bars.length / 2) || 1;
+  bars.forEach((b, i) => {
+    let sum = 0; for (let j = 0; j < step; j++) sum += data[i * step + j] || 0;
+    b.style.height = Math.max(4, Math.round((sum / step) / 255 * 40)) + "px";
+  });
+  raf = requestAnimationFrame(drawMeter);
+}
+
+async function start() {
+  warn("");
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+    warn("This browser cannot record audio. Use a current Chrome, Edge, Firefox or Safari, on https or localhost.");
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    warn("The microphone is blocked. Allow the microphone for this page in your browser settings, then try again.");
+    return;
+  }
+  chunks = []; finalText = ""; $("text").value = ""; $("text").readOnly = true;
+  $("after").className = "card";
+  if (audioUrl) { URL.revokeObjectURL(audioUrl); audioUrl = null; }
+  mime = pickMime();
+  mediaRec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  mime = mediaRec.mimeType || mime;
+  mediaRec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  mediaRec.onstop = onStopped;
+  mediaRec.start(1000);
+
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+    src.connect(analyser); drawMeter();
+  } catch (e) { /* the level meter is a nice extra */ }
+
+  if (SR) startRecognition();
+
+  recording = true; startTs = Date.now();
+  tick = setInterval(() => { $("timer").textContent = fmt(Date.now() - startTs); }, 250);
+  $("recBtn").className = "on"; $("recBtn").textContent = "■"; $("recBtn").setAttribute("aria-label", "Stop recording");
+  $("status").textContent = "Recording. Talk like to a new junior.";
+}
+
+function startRecognition() {
+  recog = new SR();
+  recog.continuous = true; recog.interimResults = true; recog.lang = $("lang").value;
+  recog.onresult = e => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += (finalText && !/\s$/.test(finalText) ? " " : "") + t.trim();
+      else interim += t;
+    }
+    $("text").value = finalText + (interim ? (finalText ? " " : "") + interim : "");
+    $("text").scrollTop = $("text").scrollHeight;
+  };
+  recog.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") warn("This browser would not write the words. The audio is still recording. Type or paste your words after you stop.");
+  };
+  recog.onend = () => { if (recording) { try { recog.start(); } catch (e) {} } };
+  try { recog.start(); } catch (e) {}
+}
+
+function stop() {
+  if (!recording) return;
+  recording = false; elapsedMs = Date.now() - startTs;
+  clearInterval(tick); cancelAnimationFrame(raf);
+  bars.forEach(b => b.style.height = "4px");
+  try { recog && recog.stop(); } catch (e) {}
+  try { mediaRec.stop(); } catch (e) {}
+  stream.getTracks().forEach(t => t.stop());
+  try { audioCtx && audioCtx.close(); } catch (e) {}
+  analyser = null;
+  $("recBtn").className = ""; $("recBtn").textContent = "●"; $("recBtn").setAttribute("aria-label", "Start recording");
+  $("timer").textContent = fmt(elapsedMs);
+  $("status").textContent = "Done. Listen back, fix the words, then save.";
+  $("text").readOnly = false;
+}
+
+function onStopped() {
+  audioBlob = new Blob(chunks, { type: mime || "audio/webm" });
+  audioUrl = URL.createObjectURL(audioBlob);
+  $("player").src = audioUrl;
+  $("after").className = "card show";
+  computeStats();
+}
+
+const FILLERS = ["um", "uh", "erm", "like", "you know", "basically", "actually", "kind of", "sort of", "i think", "eh", "gitu", "apa ya", "ya kan"];
+function fillerCounts(text) {
+  const out = [];
+  FILLERS.forEach(f => {
+    const n = (text.toLowerCase().match(new RegExp("\\b" + f.replace(/ /g, "\\s+") + "\\b", "g")) || []).length;
+    if (n) out.push([f, n]);
+  });
+  return out.sort((a, b) => b[1] - a[1]);
+}
+function stats() {
+  const text = $("text").value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  const mins = Math.max(elapsedMs, 1000) / 60000;
+  return { text, words, wpm: Math.round(words / mins), fillers: fillerCounts(text) };
+}
+function computeStats() {
+  const s = stats();
+  $("sLen").textContent = fmt(elapsedMs);
+  $("sWords").textContent = s.words;
+  $("sWpm").textContent = s.words ? s.wpm : "–";
+  $("sPace").textContent = !s.words ? "words per minute" : s.wpm < 100 ? "per minute, a bit slow" : s.wpm > 170 ? "per minute, a bit fast" : "per minute, a good pace";
+  $("fill").innerHTML = !s.words ? "" : s.fillers.length
+    ? "Filler words: " + s.fillers.map(f => "<span>" + f[0] + " × " + f[1] + "</span>").join("")
+    : "Filler words: none found.";
+}
+
+function slugify(t) { return (t || "recording").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "recording"; }
+function stamp() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return { day: d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()), time: p(d.getHours()) + ":" + p(d.getMinutes()) };
+}
+function buildMarkdown() {
+  const s = stats(), st = stamp();
+  const topic = $("topic").value.trim() || "Untitled topic";
+  const langName = $("lang").selectedOptions[0].textContent;
+  const parts = Array.from(document.querySelectorAll(".part")).map(c => "[" + (c.checked ? "x" : " ") + "] " + c.dataset.n).join(" · ");
+  const fill = s.fillers.length ? s.fillers.map(f => f[0] + " x" + f[1]).join(", ") : "none found";
+  return [
+    "# Speaking practice: " + topic,
+    "",
+    "- **Date:** " + st.day + " " + st.time,
+    "- **Topic:** " + topic + (lessonSlug ? " (lesson file: `" + lessonSlug + ".md`)" : ""),
+    "- **Language spoken:** " + langName,
+    "- **Length:** " + fmt(elapsedMs) + " · " + s.words + " words · " + (s.words ? s.wpm : 0) + " words per minute",
+    "- **Filler words found:** " + fill,
+    "- **Parts I ticked as covered:** " + parts,
+    "",
+    "## Transcript",
+    "",
+    s.text || "(empty)",
+    "",
+    "## For the coach",
+    "",
+    "Review this like a senior interviewer. Use the `explain-coach` agent: score problem, how it works, tradeoff, example and clarity. Quote any sentence that sounds memorized. Also give speaking feedback: the order I told it in, filler words, pace, and where I sounded unsure. Then add the gaps to `my-learning/review-list.md`.",
+    ""
+  ].join("\n");
+}
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function baseName() { return stamp().day + "-" + slugify($("topic").value); }
+
+$("recBtn").onclick = () => recording ? stop() : start();
+$("lang").onchange = () => { if (recording && recog) { try { recog.stop(); } catch (e) {} } };
+$("text").addEventListener("input", () => { if (!recording && $("after").classList.contains("show")) computeStats(); });
+$("dlMd").onclick = () => download(new Blob([buildMarkdown()], { type: "text/markdown" }), baseName() + ".md");
+$("dlAudio").onclick = () => audioBlob && download(audioBlob, baseName() + "." + extFor(mime));
+$("cpMd").onclick = async () => {
+  const md = buildMarkdown();
+  try { await navigator.clipboard.writeText(md); $("cpMd").textContent = "Copied ✓"; }
+  catch (e) { const t = $("text"); t.select(); $("cpMd").textContent = "Select and copy the words above"; }
+  setTimeout(() => $("cpMd").textContent = "Copy for chat", 2200);
+};
+$("again").onclick = () => { $("after").className = "card"; $("text").value = ""; $("timer").textContent = "0:00"; $("status").textContent = "Press the red button and start talking."; document.querySelectorAll(".part").forEach(c => c.checked = false); };
+window.__buildMarkdown = buildMarkdown;
+</script>
+</body>
+</html>

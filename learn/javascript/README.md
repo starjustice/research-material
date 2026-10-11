@@ -49,7 +49,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 11 | The event loop `11-the-event-loop.md` | call stack, Web APIs, task queue, microtask queue, and the order they run | planned |
+| 11 | [The event loop](11-the-event-loop.md) | call stack, Web APIs, task queue, microtask queue, and the order they run | ready |
 | 12 | Callbacks `12-callbacks.md` | the first async style and why it led to callback hell | planned |
 | 13 | Promises `13-promises.md` | states, then and catch chains, Promise.all, allSettled, race, any | planned |
 | 14 | Async and await `14-async-and-await.md` | what await really pauses, error handling with try and catch, running in parallel | planned |

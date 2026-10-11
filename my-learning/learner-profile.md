@@ -17,7 +17,8 @@ Every skill and agent in this folder reads this file first. It describes how I l
 
 ## Rules for any material made for me
 
-- **Picture first.** Every concept starts with a diagram (Mermaid `graph LR` or `sequenceDiagram`) or a step by step table showing what changes at each step. Text explains the picture, not the other way round.
+- **Picture first, and many pictures.** Every concept starts with a diagram, and one diagram is never enough. A lesson has at least five pictures: the big picture, the problem drawn, the mechanism over time, what sits in memory at one moment, and right against wrong. Text explains the pictures, not the other way round. If a paragraph could be a picture, make it a picture.
+- **Let me move it.** For anything that runs in an engine (event loop, closures, scope, promises, how a query runs, how a request travels), also build a small page in `learn/<subject>/visuals/` where I press Next and watch each part change. Use a plain, self-contained HTML file.
 - **One concept per file.** Small pieces I can finish in one sitting. Link to the next piece instead of growing the file.
 - **Problem before solution.** Say what breaks without the thing, then the thing, then the cost.
 - **Show the machine running.** For code: the smallest example, then a trace of what the engine does line by line (memory, call stack, queue, values).

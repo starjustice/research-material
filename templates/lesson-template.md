@@ -8,15 +8,35 @@
 
 <One plain sentence. No jargon. If a term is needed, define it right here.>
 
-## 2. The picture
+## 2. The pictures (at least five)
 
-<What to notice in the diagram, in one line.>
+The pictures come before any long text. Every picture gets one line saying what to notice. Remove none of the five.
+
+### 2a. The big picture
+
+<What to notice, in one line.>
 
 ```mermaid
 graph LR
     A["Step 1"] -->|what happens| B["Step 2"]
     B -->|what happens| C["Result"]
 ```
+
+### 2b. The problem, drawn
+
+<Draw what goes wrong without this concept. A broken flow, or a before picture.>
+
+### 2c. How it works over time
+
+<A `sequenceDiagram` or a `graph` that shows the order of events.>
+
+### 2d. What is in memory right now
+
+<A snapshot: variables, call stack, queues, rows, tables. A diagram or a small table. Pick the most confusing moment.>
+
+### 2e. Right against wrong
+
+<Two small diagrams or two code blocks side by side in words: the common mistake against the correct way.>
 
 <Mermaid rules: use `graph LR` or `graph TB` (never `flowchart`), `sequenceDiagram` for flows over time. Edge labels only `-->|label|` with no colons and no commas inside. No parentheses in node labels. No `<-->`.>
 
@@ -44,6 +64,8 @@ graph LR
 |---|---|---|---|
 | 1 | | | |
 | 2 | | | |
+
+**Step through it yourself:** <link to `visuals/<NN>-<slug>.html`. Required when the concept runs in an engine. Press Next and watch each part change. Delete this line only for concepts with nothing that moves.>
 
 ## 6. Why it exists and what it costs
 

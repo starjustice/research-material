@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Loop Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --stack: #3b82f6; --stack-bg: #e3eefe;
+    --web: #8b5cf6; --web-bg: #efe8fd;
+    --micro: #2f9e6b; --micro-bg: #dff3ea;
+    --task: #e8890c; --task-bg: #fdecd2;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .box { border-radius: 12px; padding: 8px 10px 10px; min-height: 108px; border: 2px solid; }
+  .box h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .box small { display: block; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: .72rem; }
+  .box.stack { border-color: var(--stack); background: var(--stack-bg); }
+  .box.web   { border-color: var(--web);   background: var(--web-bg); }
+  .box.micro { border-color: var(--micro); background: var(--micro-bg); }
+  .box.task  { border-color: var(--task);  background: var(--task-bg); }
+  .box.stack h3 { color: var(--stack); } .box.web h3 { color: var(--web); }
+  .box.micro h3 { color: var(--micro); } .box.task h3 { color: var(--task); }
+  .items { display: flex; gap: 6px; }
+  .items.col { flex-direction: column-reverse; }   /* last pushed on top */
+  .items.row { flex-direction: column; }
+  .chip {
+    background: #fff; border-radius: 8px; padding: 5px 9px; font-size: .78rem; font-weight: 650;
+    border: 1px solid rgba(0,0,0,.12); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .outbox { grid-column: 1 / -1; min-height: 64px; background: var(--out); border-color: var(--out); }
+  .outbox h3 { color: #9fb4c3; }
+  .outbox .items { flex-wrap: wrap; }
+  .outbox .chip { background: #2b3a45; color: #fff; border-color: #3a4b58; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .loop {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650;
+  }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: var(--stack); } .badge.micro { background: var(--micro); }
+  .badge.task { background: var(--task); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--micro); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../11-the-event-loop.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Event loop stepper</h1>
+  <p class="sub">Press Next and watch the call stack, the browser timers and the two queues change. One step is one thing the engine does.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will it print, in order? Write your guess, then step to the end.<br>
+    <input id="guess" placeholder="example: A B C D" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your code</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div class="panel">
+      <h2>The engine</h2>
+      <div class="boxes">
+        <div class="box stack"><h3>Call stack<small>where code runs, one at a time</small></h3><div class="items col" id="stack"></div></div>
+        <div class="box web"><h3>Browser timers<small>Web APIs, waiting outside JS</small></h3><div class="items row" id="web"></div></div>
+        <div class="box micro"><h3>Microtask queue<small>promises, runs first</small></h3><div class="items row" id="micro"></div></div>
+        <div class="box task"><h3>Task queue<small>timers, runs one per turn</small></h3><div class="items row" id="task"></div></div>
+        <div class="box outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop">Event loop: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> when the call stack is empty, the event loop runs <b>every</b> microtask first. Only then does it take <b>one</b> task. After that task, it checks the microtasks again.</p>
+</div>
+
+<script>
+// ---- The programs. Each function is a list of operations on numbered code lines. ----
+const PRESETS = [
+  {
+    name: "Timer against promise",
+    why: "A promise callback (microtask) always runs before a timer callback (task), even when the timer is 0 ms.",
+    code: [
+      'console.log("A");',
+      'setTimeout(() => console.log("B"), 0);',
+      'Promise.resolve().then(() => console.log("C"));',
+      'console.log("D");'
+    ],
+    fns: {
+      main: { label: "main()", ops: [
+        { line: 0, t: "log", v: "A" },
+        { line: 1, t: "timer", fn: "tB" },
+        { line: 2, t: "then", fn: "pC" },
+        { line: 3, t: "log", v: "D" } ] },
+      tB: { label: "timer callback B", ops: [{ line: 1, t: "log", v: "B" }] },
+      pC: { label: "promise callback C", ops: [{ line: 2, t: "log", v: "C" }] }
+    }
+  },
+  {
+    name: "Inside the callbacks",
+    why: "After every task, the microtasks run again before the next task. A timer made inside a promise waits behind the timers made earlier.",
+    code: [
+      'console.log("1");',
+      'setTimeout(() => {',
+      '  console.log("2");',
+      '  Promise.resolve().then(() => console.log("3"));',
+      '}, 0);',
+      'setTimeout(() => console.log("4"), 0);',
+      'Promise.resolve().then(() => {',
+      '  console.log("5");',
+      '  setTimeout(() => console.log("6"), 0);',
+      '});',
+      'console.log("7");'
+    ],
+    fns: {
+      main: { label: "main()", ops: [
+        { line: 0, t: "log", v: "1" },
+        { line: 1, t: "timer", fn: "t2" },
+        { line: 5, t: "timer", fn: "t4" },
+        { line: 6, t: "then", fn: "p5" },
+        { line: 10, t: "log", v: "7" } ] },
+      t2: { label: "timer callback 2", ops: [
+        { line: 2, t: "log", v: "2" },
+        { line: 3, t: "then", fn: "p3" } ] },
+      p3: { label: "promise callback 3", ops: [{ line: 3, t: "log", v: "3" }] },
+      t4: { label: "timer callback 4", ops: [{ line: 5, t: "log", v: "4" }] },
+      p5: { label: "promise callback 5", ops: [
+        { line: 7, t: "log", v: "5" },
+        { line: 8, t: "timer", fn: "t6" } ] },
+      t6: { label: "timer callback 6", ops: [{ line: 8, t: "log", v: "6" }] }
+    }
+  },
+  {
+    name: "async and await",
+    why: "await splits a function in two. The code after await becomes a microtask, so the code after the call runs first.",
+    code: [
+      'async function f() {',
+      '  console.log("1");',
+      '  await null;',
+      '  console.log("2");',
+      '}',
+      'f();',
+      'console.log("3");'
+    ],
+    fns: {
+      main: { label: "main()", ops: [
+        { line: 5, t: "call", fn: "f" },
+        { line: 6, t: "log", v: "3" } ] },
+      f: { label: "f()", ops: [
+        { line: 1, t: "log", v: "1" },
+        { line: 2, t: "await", fn: "f2" } ] },
+      f2: { label: "rest of f()", ops: [{ line: 3, t: "log", v: "2" }] }
+    }
+  }
+];
+
+// ---- A small simulator. It builds a list of snapshots, one per step. ----
+function simulate(p) {
+  const steps = [];
+  let uid = 0;
+  const st = { stack: [], web: [], micro: [], task: [], out: [] };
+  const snap = (note, line, phase) => steps.push({
+    stack: st.stack.map(x => ({ ...x })), web: st.web.map(x => ({ ...x })),
+    micro: st.micro.map(x => ({ ...x })), task: st.task.map(x => ({ ...x })),
+    out: st.out.slice(), note, line, phase
+  });
+  const chip = (fn, label) => ({ id: ++uid, fn, label: label || p.fns[fn].label });
+
+  function run(fnId, existing) {
+    const f = p.fns[fnId];
+    st.stack.push(existing || chip(fnId));
+    for (const op of f.ops) {
+      if (op.t === "log") {
+        st.out.push(op.v);
+        snap('<code>console.log("' + op.v + '")</code> runs now and prints <b>' + op.v + '</b>.', op.line, "run");
+      } else if (op.t === "timer") {
+        st.web.push(chip(op.fn, "timer → " + p.fns[op.fn].label));
+        snap("<code>setTimeout</code> gives the timer to the browser. JavaScript does <b>not</b> wait. It moves to the next line.", op.line, "run");
+      } else if (op.t === "then") {
+        st.micro.push(chip(op.fn));
+        snap("The promise is already done, so its callback goes into the <b>microtask queue</b>. It cannot run yet, because <b>" + f.label + "</b> is still on the call stack.", op.line, "run");
+      } else if (op.t === "call") {
+        snap("<code>" + p.fns[op.fn].label + "</code> is called. A new box goes on top of the call stack.", op.line, "run");
+        run(op.fn);
+        snap("<b>" + p.fns[op.fn].label + "</b> has left the stack. Back in <b>" + f.label + "</b>.", op.line, "run");
+      } else if (op.t === "await") {
+        st.micro.push(chip(op.fn));
+        st.stack.pop();
+        snap("<code>await</code> pauses <b>" + f.label + "</b>. The rest of the function goes into the <b>microtask queue</b>, and <b>" + f.label + "</b> leaves the stack. The code after the call can go on.", op.line, "run");
+        return;
+      }
+    }
+    st.stack.pop();
+    snap("<b>" + f.label + "</b> is finished and leaves the call stack." + (st.stack.length ? "" : " The stack is empty, so the event loop can look at the queues."), null, st.stack.length ? "run" : "loop");
+  }
+
+  snap("The script starts. <b>Your whole file</b> is put on the call stack as <code>main()</code>. The call stack is where code runs, one thing at a time.", null, "run");
+  st.stack = [];                       // start state shows main on the stack
+  st.stack.push(chip("main"));
+  steps[0].stack = st.stack.map(x => ({ ...x }));
+  st.stack = [];
+  run("main", chip("main"));
+
+  while (true) {
+    if (st.micro.length) {
+      const m = st.micro.shift();
+      snap("<b>Rule 1:</b> the stack is empty, so the event loop empties the <b>microtask queue</b> first. It takes the oldest one: <b>" + m.label + "</b>.", null, "micro");
+      run(m.fn, m);
+      continue;
+    }
+    if (st.web.length) {
+      st.task.push(...st.web);
+      st.web = [];
+      snap("The timers are done. The browser moves their callbacks into the <b>task queue</b>, in the order they were set.", null, "task");
+      continue;
+    }
+    if (st.task.length) {
+      const t = st.task.shift();
+      snap("<b>Rule 2:</b> no microtasks are left, so the event loop takes <b>one</b> task: <b>" + t.label + "</b>.", null, "task");
+      run(t.fn, t);
+      if (st.micro.length) snap("Before the next task, the event loop checks the microtask queue again, and it is <b>not empty</b>.", null, "micro");
+      continue;
+    }
+    break;
+  }
+  snap("Every queue is empty. The program is finished. It printed: <b>" + st.out.join(" ") + "</b>", null, "done");
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevIds = {};
+
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" +
+    t.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span>").join("");
+}
+function fill(id, items, key) {
+  const old = prevIds[key] || [];
+  const box = $(id);
+  box.innerHTML = items.length ? "" : '<span class="empty">empty</span>';
+  items.forEach(x => {
+    const c = document.createElement("div");
+    c.className = "chip" + (old.includes(x.id) ? "" : " pop");
+    c.textContent = x.label;
+    box.appendChild(c);
+  });
+  prevIds[key] = items.map(x => x.id);
+}
+function fillOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing printed yet</span>';
+  items.forEach((v, i) => {
+    const c = document.createElement("div");
+    c.className = "chip" + (i < (prevIds.out || 0) ? "" : " pop");
+    c.textContent = v;
+    box.appendChild(c);
+  });
+  prevIds.out = items.length;
+}
+const BADGE = { run: ["Running code", "run"], loop: ["Looking at the queues", ""], micro: ["Microtasks first", "micro"], task: ["Taking one task", "task"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  fill("stack", s.stack, "stack"); fill("web", s.web, "web");
+  fill("micro", s.micro, "micro"); fill("task", s.task, "task");
+  fillOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = steps[idx].out.join(" ");
+  const guess = $("guess").value.trim().replace(/[\s,]+/g, " ");
+  const why = "<br><b>Why:</b> " + PRESETS[cur].why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + real + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = guess.toLowerCase() === real.toLowerCase();
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + guess + "</code>. The real output is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the moment where the order changes.");
+}
+function pick(i) {
+  stop(); cur = i; steps = simulate(PRESETS[i]); idx = 0; prevIds = {};
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevIds = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1700);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevIds = {}; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS; window.__simulate = simulate;
+pick(0);
+</script>
+</body>
+</html>

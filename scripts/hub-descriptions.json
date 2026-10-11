@@ -174,5 +174,13 @@
  "learn/problem-solving": [
   "problem-solving-practice",
   "Runnable: pattern-based coding practice with tests. Fibonacci, hash map, two pointers, sliding window, stack"
+ ],
+ "speak.html": [
+  "Say it out loud: record yourself",
+  "Record your explanation, the words are written for you, save the transcript for the coach"
+ ],
+ "learn/javascript/visuals/11-event-loop.html": [
+  "Event loop stepper",
+  "Press Next and watch the call stack and both queues change. Three programs."
  ]
 }

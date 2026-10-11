@@ -23,8 +23,8 @@ Keep every message short. One step per message. Wait for the user after every qu
 ### 1. Predict (hook)
 Show the smallest code or situation that shows the concept and ask what they think happens. Example: "What does this print, and in what order?" Wait. Do not explain yet.
 
-### 2. The picture
-Draw the concept as a Mermaid diagram (`graph LR` or `sequenceDiagram`, edge labels only `-->|label|` with no colons or commas, no parentheses in node labels). One line on what to notice. Then compare it with their prediction: what was right, what was not.
+### 2. The pictures
+Draw the concept as a Mermaid diagram (`graph LR` or `sequenceDiagram`, edge labels only `-->|label|` with no colons or commas, no parentheses in node labels). One line on what to notice. Then compare it with their prediction: what was right, what was not. Keep drawing as you go: the problem drawn, the mechanism over time, a snapshot of memory, and right against wrong. If the lesson has a page in `learn/<subject>/visuals/`, point them to it so they can press Next themselves.
 
 ### 3. Step by step trace
 Walk through the code line by line as a table: step, line, what the engine does, state after (memory, call stack, queues, values). Then ask one check question about a step in the middle ("At step 4, what is in the microtask queue?"). Wait.
