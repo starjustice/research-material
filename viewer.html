@@ -56,7 +56,7 @@
   }
   a.s-item:hover { background: var(--side-hover); }
   .s-item.current { background: var(--blue-soft); font-weight: 650; }
-  .s-item.planned { color: var(--muted); cursor: default; }
+  .s-item.planned { color: var(--muted); }
   .s-item .num { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .75rem; padding-top: 1px; flex: none; width: 1.4em; }
   .s-item .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 5px; border: 2px solid var(--border); background: transparent; }
   .s-item .dot.ready { border-color: var(--blue); background: var(--blue); }
@@ -194,8 +194,26 @@
   try {
     md = await getText(slug + ".md");
   } catch (e) {
-    content.innerHTML = '<div class="error">Could not load this note (' + e.message + '). Check the link or try the GitHub view.</div>';
-    return;
+    // A lesson that is planned has no file yet. Show what it will teach and how to get it.
+    let planned = null;
+    if (subject && slug !== subjectReadmeSlug) {
+      try {
+        const rt = await getText(subjectReadmeSlug + ".md");
+        planned = parseSubject(rt).groups.flatMap(g => g.items).find(i => i.slug === slug) || null;
+      } catch (e2) { /* fall through to the error below */ }
+    }
+    if (!planned) {
+      content.innerHTML = '<div class="error">Could not load this note (' + e.message + '). Check the link or try the GitHub view.</div>';
+      return;
+    }
+    md = "# " + planned.num + ". " + planned.title + "\n\n" +
+      "> **Status:** planned. This lesson is not written yet.\n\n" +
+      "**You will understand:** " + planned.goal + "\n\n" +
+      "## How to get this lesson\n\n" +
+      "Open a chat with the AiLearner folder and use one of these.\n\n" +
+      "Learn it live with Claude, one step at a time:\n\n```\n/learn " + subject + " " + planned.num + "\n```\n\n" +
+      "Or have the lesson file written for you, with pictures, a code trace, practice and an interactive page:\n\n```\nmake lesson " + subject + " " + planned.num + "\n```\n\n" +
+      "When the file exists, this page turns into the real lesson and the dot in the menu turns blue.\n";
   }
 
   // Start the subject README fetch while the note renders.
@@ -359,7 +377,7 @@
     title.appendChild(tl);
     side.appendChild(title);
     if (all.length) {
-      side.appendChild(el("div", "side-sub", written + " of " + all.length + " lessons written. Hollow dot means planned."));
+      side.appendChild(el("div", "side-sub", written + " of " + all.length + " lessons written. Hollow dot means planned. Click any lesson."));
       const bar = el("div", "side-bar");
       const fill = el("i");
       fill.style.width = Math.round(100 * written / all.length) + "%";
@@ -382,14 +400,14 @@
       g.items.forEach(it => {
         const isPlanned = it.status === "planned";
         const current = it.slug === slug;
-        const node = el(isPlanned ? "span" : "a", "s-item" + (current ? " current" : "") + (isPlanned ? " planned" : ""));
-        if (!isPlanned) node.href = noteHref(it.slug);
-        else node.title = "Not written yet. In a chat with this folder, say: make lesson " + subject + " " + it.num;
+        const node = el("a", "s-item" + (current ? " current" : "") + (isPlanned ? " planned" : ""));
+        node.href = noteHref(it.slug);
+        if (isPlanned) node.title = "Planned. Click to see what it covers and how to get it.";
         node.appendChild(el("span", "dot " + dotClass(it.status)));
         node.appendChild(el("span", "num", it.num));
         node.appendChild(el("span", "label", it.title));
         side.appendChild(node);
-        if (!isPlanned) navList.push({ slug: it.slug, title: it.title });
+        navList.push({ slug: it.slug, title: it.title + (isPlanned ? " (planned)" : "") });
         if (current && outline) { side.appendChild(outline); placedOutline = true; }
       });
     });
