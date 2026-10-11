@@ -1,0 +1,178 @@
+{
+ "study.html": [
+  "Study Route: pick what to learn",
+  "One place for all topics, with a step checklist per topic, a review list that comes back on day 1, 3, 7 and 21, search and the coding practice plan"
+ ],
+ "learn/system-design/system-design-cheatsheet.html": [
+  "System Design Basics",
+  "Concepts, whiteboard diagrams, numbers, decision verdicts, real cases"
+ ],
+ "learn/system-design/load-balancers-microservices-online-shop-cheatsheet.html": [
+  "Load Balancers + Microservices Online Shop",
+  "L4 vs L7, algorithms, deploys, the shop architecture, webhooks (V-D-Q-A)"
+ ],
+ "learn/other-stacks/dotnet-basics-for-typescript-devs-cheatsheet.html": [
+  ".NET Basics for a TypeScript Dev",
+  "C#↔TS mapping cards, pipeline, EF Core vs Prisma, dotnet CLI table"
+ ],
+ "learn/backend-api/express-graphql-auth-tutorial-cheatsheet.html": [
+  "Express + GraphQL + Auth",
+  "Context, JWT anatomy, access vs refresh tokens, authn vs authz"
+ ],
+ "learn/backend-api/hasura-guide-cheatsheet.html": [
+  "Hasura",
+  "Compiler not resolver, permissions, Actions, CLI commands, v2 vs DDN"
+ ],
+ "learn/database/postgresql-queries-interview-guide-cheatsheet.html": [
+  "PostgreSQL Queries",
+  "Joins, composite indexes, reading EXPLAIN, window functions, isolation levels"
+ ],
+ "learn/devops-cloud/cloud-computing-models-serverless-guide-cheatsheet.html": [
+  "Cloud Models &amp; Serverless",
+  "IaaS/PaaS/SaaS/FaaS ladder, cold starts, the Postgres connection problem, cost-flip"
+ ],
+ "learn/react/react-js-frontend-interview-guide-cheatsheet.html": [
+  "React &amp; JS Frontend",
+  "Event loop, reconciliation, stale closures, CWV thresholds, CSR/SSR/ISR/RSC decisions"
+ ],
+ "learn/react-native/react-native-interview-guide-cheatsheet.html": [
+  "React Native",
+  "Bridge vs JSI/Fabric, FlatList vs FlashList, Hermes, Expo vs bare, OTA update limits"
+ ],
+ "interview/companies/paypay/paypay-frontend-interview-prep-cheatsheet.html": [
+  "PayPay Frontend Interview",
+  "DSA patterns for the 70-min online test, time strategy, 6-week plan, Vue vs React framing"
+ ],
+ "learn/devops-cloud/container-orchestration-guide-cheatsheet.html": [
+  "Container Orchestration",
+  "K8s objects with CapRover/Swarm equivalents, kubectl commands, liveness vs readiness"
+ ],
+ "my-learning/study-method-and-weekly-plan.md": [
+  "Study Method and Weekly Plan",
+  "How to learn so it sticks: draw, explain, get quizzed, review. Project story template and weekly schedule"
+ ],
+ "learn/system-design/system-design-basics-senior-fullstack-interview.md": [
+  "System Design Basics for Senior Full-Stack Interviews",
+  "The interview flow, caching, Postgres scaling ladder, queues, L4 vs L7"
+ ],
+ "learn/system-design/load-balancers-microservices-online-shop.md": [
+  "Load Balancers in Depth + Online Shop Worked Example",
+  "Health checks, draining, sticky sessions, service split, payment webhooks, sagas"
+ ],
+ "interview/my-projects/dbo-b2b-platform-system-design-case-study.md": [
+  "DBO B2B Platform — My System, Told the Senior Way",
+  "My real architecture, improvements, API gateway deep dive, TADA incident"
+ ],
+ "learn/other-stacks/dotnet-basics-for-typescript-devs.md": [
+  ".NET Basics for a TypeScript Developer",
+  "C#, ASP.NET Core, EF Core migrations, DI, middleware, JWT — via my Skyworx code"
+ ],
+ "interview/companies/skyworx/skyworx-backend-interview-prep.md": [
+  "Skyworx Review Meeting Prep",
+  "Walkthrough script, likely questions per soal, weaknesses to own proactively"
+ ],
+ "interview/companies/skyworx/skyworx-direksi-interview-prep.md": [
+  "Skyworx Direksi Round Prep",
+  "Benefit/salary negotiation, banking &amp; KPR basics from zero, PRIMORDIUM product knowledge"
+ ],
+ "interview/companies/bank-mandiri/bank-mandiri-ddl-interview-prep.md": [
+  "Bank Mandiri IT DDL — Dept Head Prep",
+  "Digital Channel Delivery scope, AKHLAK values + stories, the business idea pitch, likely questions"
+ ],
+ "interview/companies/bank-mandiri/bank-mandiri-ddl-technical-user-interview-questions.md": [
+  "Bank Mandiri DDL — Technical &amp; User Interview Questions",
+  "DDL job-code stack (Java/Spring, native mobile), the honest stack-gap answer, SNAP &amp; OJK, Livin' numbers"
+ ],
+ "learn/system-design/choosing-the-right-tool-frontend-backend-decisions.md": [
+  "Choosing the Right Tool — Frontend &amp; Backend Decisions",
+  "React vs Angular, native vs cross-platform, Java vs Node, SQL vs NoSQL, monolith vs microservices"
+ ],
+ "learn/other-stacks/java-spring-basics-for-typescript-devs-cheatsheet.html": [
+  "Java &amp; Spring for a TS Dev — Visual",
+  "Side-by-side syntax map, annotation lookup, gotchas, interview Q — with progress tracking"
+ ],
+ "learn/other-stacks/java-spring-basics-for-typescript-devs.md": [
+  "Java &amp; Spring Basics for a TypeScript Dev",
+  "Everything mapped to TS/C#: types, records, streams, Optional, Spring Boot, JPA, legacy Spring 4.x"
+ ],
+ "learn/system-design/performance-optimization-web-mobile-backend.md": [
+  "Performance — Web, Mobile &amp; Backend",
+  "How to measure and fix: Core Web Vitals, frame budget, p95/p99, EXPLAIN ANALYZE, caching tradeoffs"
+ ],
+ "interview/companies/bank-mandiri/bank-mandiri-final-round-senior-manager.md": [
+  "Bank Mandiri — Final Round (Senior Manager, ex-dev)",
+  "Consistency risk, deeper performance probing, judgment questions, salary &amp; notice, questions to ask"
+ ],
+ "interview/companies/bank-mandiri/bank-mandiri-backend-developer-technical-interview.md": [
+  "Bank Mandiri — Backend Developer Technical (Morning Of)",
+  "Java gap answer, idempotency, DB/transactions, Redis, RabbitMQ, auth, live coding, 07:00 checklist"
+ ],
+ "interview/companies/bank-mandiri/bank-mandiri-ddl-round2-project-manager.md": [
+  "Bank Mandiri DDL — Round 2: Project Manager",
+  "Estimation, missed deadlines, scope changes, explaining tech to non-technical people, red flags"
+ ],
+ "interview/companies/bank-mandiri/bank-mandiri-ddl-round3-team-lead.md": [
+  "Bank Mandiri DDL — Round 3: Team Lead",
+  "Redis, RabbitMQ, Elastic, Sentry deep dive, idempotency, production debugging, React, code review"
+ ],
+ "learn/backend-api/express-graphql-auth-tutorial.md": [
+  "Express + GraphQL + Prisma Auth Tutorial",
+  "File-by-file walkthrough of the example app, auth deep dive"
+ ],
+ "learn/backend-api/hasura-guide.md": [
+  "Hasura — What, How, and When",
+  "How it compiles GraphQL to one SQL, permissions, Actions, when to use it"
+ ],
+ "learn/database/postgresql-queries-interview-guide.md": [
+  "PostgreSQL Queries — Interview Guide",
+  "Joins, indexing deep dive, EXPLAIN ANALYZE, transactions, window functions, production patterns"
+ ],
+ "learn/devops-cloud/cloud-computing-models-serverless-guide.md": [
+  "Cloud Computing Models &amp; Serverless",
+  "IaaS/PaaS/SaaS/FaaS explained, where your CapRover/Vercel/Hasura setup fits, serverless deep dive"
+ ],
+ "learn/react/react-js-frontend-interview-guide.md": [
+  "React &amp; JS Frontend Interview Guide",
+  "JS deep dive, React internals, performance &amp; frontend system design — every round-1/2/3 question answered"
+ ],
+ "learn/react-native/react-native-interview-guide.md": [
+  "React Native Interview Guide",
+  "The delta from React web: architecture, native modules, lists, storage, Expo, the real release process"
+ ],
+ "learn/react/react-hooks-fetching-practice.md": [
+  "React Hooks &amp; Fetching — Practice Workbook",
+  "10 hands-on exercises, step-by-step, hidden answers — fetch, useEffect, useReducer, custom hooks, RN"
+ ],
+ "interview/companies/paypay/paypay-frontend-interview-prep.md": [
+  "PayPay Frontend Interview Prep",
+  "Beat the 70-min online test: DSA patterns, JS gotchas, 6-week plan, then live coding, system design, Vue gap"
+ ],
+ "learn/devops-cloud/container-orchestration-guide.md": [
+  "Container Orchestration — Docker to Kubernetes",
+  "From your CapRover/Swarm setup to K8s: pods, deployments, probes, when NOT to use K8s, honest framing"
+ ],
+ "learn/backend-api/examples/express-graphql-auth": [
+  "express-graphql-auth",
+  "Runnable: register → login → refresh rotation → protected resolvers (SQLite, zero setup)"
+ ],
+ "learn/backend-api/examples/hasura-todo": [
+  "hasura-todo",
+  "Runnable: docker compose up → track tables → row permission → Action (10 minutes)"
+ ],
+ "learn/database/examples/postgres-practice": [
+  "postgres-practice",
+  "Runnable: 100k seeded rows, 14 EXPLAIN exercises — watch the composite index kill the Sort node"
+ ],
+ "learn/devops-cloud/examples/cloudflare-worker-hello": [
+  "cloudflare-worker-hello",
+  "Runnable: npx wrangler dev — feel the zero cold start of a V8 isolate (no account needed)"
+ ],
+ "learn/devops-cloud/examples/kubernetes-local-demo": [
+  "kubernetes-local-demo",
+  "Runnable: real K8s cluster on your laptop via kind — scale, rolling update, self-healing, OOMKill (~20 min)"
+ ],
+ "learn/problem-solving": [
+  "problem-solving-practice",
+  "Runnable: pattern-based coding practice with tests. Fibonacci, hash map, two pointers, sliding window, stack"
+ ]
+}

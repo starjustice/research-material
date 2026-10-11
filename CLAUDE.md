@@ -72,15 +72,40 @@ Examples:
 
 ## Folder Structure
 
-- `notes/` — Learning notes and research (interview topics, AI tools and agents).
-  - `notes/<company>/` — everything for one company in one folder: prep notes, its cheatsheet, and its mock interview reports (e.g. `notes/bank-mandiri/`, `notes/skyworx/`, `notes/paypay/`). Keep the company prefix in filenames so they stay unique.
-  - `notes/advanced-interview/` — the advanced (international-bar) learning track, all in one folder: deep study notes (system design step by step, Docker/CapRover internals, networking) plus their `/advanced-interview` session reports. New advanced study notes go here.
-  - `notes/mock-interviews/` — mock reports for general topics only (system design, javascript, behavioral). Company mocks go in the company folder.
-  - Other topic study notes stay directly in `notes/` (e.g. `react-native-interview-guide.md`).
-- `examples/` — Practical, beginner-friendly example projects and scripts (`examples/problem-solving-practice/` is the pattern-based coding practice).
-- `study.html` — the Study Route site (GitHub Pages). It reads the notes in `notes/` directly. When a new general note is added, add it to the `ITEMS` list inside `study.html` so it appears on the site. Company folders are deliberately not listed.
-- `notes/learning-log/` — my review list and my own tidied explanations, written by the learning skills.
-- `templates/` — Reusable templates and frameworks (answer frameworks, study plans, mock interview scripts).
+```
+learn/<subject>/        understand concepts, one folder per subject
+  README.md             the map, the lesson list with status, links
+  NN-<concept>.md       one concept per file, from templates/lesson-template.md
+  <guide>.md            longer guides covering many concepts
+  <guide>-cheatsheet.html  visual one page cheatsheets
+  practice/             small runnable exercises for lessons (with node:test tests)
+  examples/             bigger example projects
+interview/              interview preparation only
+  companies/<company>/  prep notes, cheatsheet and mock reports for one company
+  my-projects/          DBO case study, my-project-stories.md
+  practice-reports/     general mock, live coding, exam and advanced round reports
+my-learning/            my learning record
+  learner-profile.md    how I learn; every skill and agent reads it first
+  review-list.md        questions to answer again on day 1, 3, 7, 21
+  my-explanations.md    my best explanations in my own words
+templates/              lesson-template.md, study-note-template.md
+scripts/build-hub.py    rebuilds index.html from the folders
+index.html, viewer.html the hub and the markdown viewer (GitHub Pages)
+study.html              the Study Route site (GitHub Pages)
+```
+
+Subjects: `javascript`, `typescript`, `react`, `react-native`, `backend-api`, `database`, `system-design`, `networking`, `devops-cloud`, `problem-solving`, `other-stacks`.
+
+Rules:
+
+- A new concept lesson goes in `learn/<subject>/` with the number and file name from that subject's README lesson table. Update the row to a link and set its status.
+- A company or job-description note goes in `interview/companies/<company>/`, with the company prefix in the file name.
+- General interview reports go in `interview/practice-reports/`. Company reports go in the company folder.
+- After adding or moving files, run `python3 scripts/build-hub.py` to rebuild `index.html`. If a new general guide should appear on the Study Route site, add it to the `ITEMS` list in `study.html`. Company folders are deliberately not listed there.
+
+## How I learn (applies to every task)
+
+Read `my-learning/learner-profile.md` before teaching me anything. In short: I understand pictures much faster than text, I tend to memorize definitions without understanding and then forget, and I struggle to explain why. So: picture first, one concept per file, problem before solution, show the machine running step by step, plain English with no em dashes, connect to my real projects (only true facts), make me practice and explain back, and include checked links to videos and visualizers. When I ask for research, produce learning material in this shape, not only a summary.
 
 ## Agent Behavior
 
@@ -98,15 +123,21 @@ This applies to all agents and workflows in this workspace (including `research-
 
 ## Workflows in this workspace
 
-- **`research-material` agent** (`.claude/agents/research-material.md`) — background research runs. Produces a dated study note + visual HTML cheatsheet in `notes/`. Runs only when I name a topic.
-- **`/mock-interview` skill** (`.claude/skills/mock-interview/SKILL.md`) — interactive mock interviews in the main chat. One question at a time, honest scorecard at the end. Reports save to the company folder for company mocks, or `notes/mock-interviews/` for general topics.
-- **`/live-coding` skill** (`.claude/skills/live-coding/SKILL.md`) — live coding practice in the main chat. I write the code; Claude probes complexity, breaks my solution with a bigger input, and pushes me to produce other solutions and defend which one I'd ship. Reports save to the company folder or `notes/live-coding/`.
-- **`/advanced-interview` skill** (`.claude/skills/advanced-interview/SKILL.md`) — hard, international-bar rounds (senior/staff) for applying outside Indonesia. Pushes every topic down a five-layer depth ladder into internals: DB algorithms, networking to the packet, distributed systems theory, and the theory behind my tools. Reports save to `notes/advanced-interview/` or the company folder.
-- **`mock-interviewer` agent** (`.claude/agents/mock-interviewer.md`) — written practice rounds in the background: `prepare` generates an exam paper (+ separate answer key) in the company folder or `notes/mock-interviews/`, I answer in the file at my own pace, then `grade` scores my answers with an honest scorecard and tracks progress across sessions.
+Learning (understand the concept):
 
-- **`/explain-check` skill** (`.claude/skills/explain-check/SKILL.md`) - I explain a topic in my own words, Claude points out what is right, vague, memorized or wrong, asks "why" follow-ups, then shows the correct diagram. Gaps go to `notes/learning-log/review-list.md`, my tidied explanation to `notes/learning-log/my-explanations.md`.
-- **`/project-story` skill** (`.claude/skills/project-story/SKILL.md`) - builds and rehearses interview stories about my real projects (DBO, Unloan, ZWS): the decision, why I chose it, what I gave up. Facts come only from me, never invented. Stories save to `notes/my-project-stories.md`.
-- **`/daily-review` skill** (`.claude/skills/daily-review/SKILL.md`) - a 10 minute spaced review (day 1, 3, 7, 21) from `notes/learning-log/review-list.md` and the solve log, with questions, redraw and fill-the-diagram exercises.
+- **`/learn` skill** (`.claude/skills/learn/SKILL.md`) - live lesson on one concept: predict first, then the picture, a step by step trace, practice, watch and play links, and explain it back. Saves the lesson file, status and gaps.
+- **`research-material` agent** (`.claude/agents/research-material.md`) - makes learning material, not just research: a picture-first lesson in `learn/<subject>/` with a code trace, checked video and visualizer links, practice with hidden answers, runnable exercises, and review questions. For a company or job description it writes prep in `interview/companies/<company>/`.
+- **`explain-coach` agent** (`.claude/agents/explain-coach.md`) - reviews the explanation I write in a lesson's "My explanation" section: scores problem, mechanism, tradeoff, example and clarity, quotes memorized sentences, draws the correct picture, improves my version in my words, and updates the review list and lesson status.
+- **`/explain-check` skill** (`.claude/skills/explain-check/SKILL.md`) - the live version: I explain out loud, Claude asks why follow-ups and shows the correct diagram. Gaps go to `my-learning/review-list.md`, my tidied explanation to `my-learning/my-explanations.md`.
+- **`/daily-review` skill** (`.claude/skills/daily-review/SKILL.md`) - spaced review (day 1, 3, 7, 21) from the review list, the lesson review questions and the solve log.
+
+Interview practice (say it under pressure):
+
+- **`/mock-interview` skill** - one question at a time, honest scorecard. Reports go to the company folder or `interview/practice-reports/`.
+- **`/live-coding` skill** - I write the code; Claude probes complexity, breaks my solution with bigger input, and asks for other solutions. Reports go to the company folder or `interview/practice-reports/`.
+- **`/advanced-interview` skill** - hard international-bar rounds that push each topic into internals. Reports go to `interview/practice-reports/` or the company folder.
+- **`/project-story` skill** - builds and rehearses stories about my real projects (DBO, Unloan, ZWS). Facts only from me. Stories save to `interview/my-projects/my-project-stories.md`.
+- **`mock-interviewer` agent** - written exams in the background: `prepare` writes the exam, I answer at my own pace, `grade` scores it.
 
 Never prioritize speed over quality.
 

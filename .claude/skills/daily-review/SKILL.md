@@ -6,14 +6,17 @@ argument-hint: [minutes: 10|20] [topic]
 
 # Daily Review
 
+> **First:** read `my-learning/learner-profile.md` and follow it (picture first, plain English, connect to my real projects, honest feedback, no em dashes).
+
 The user forgets things they studied. The fix is not re-reading. It is being asked the question again after a gap: 1 day, 3 days, 7 days, 21 days. This skill runs that, in about 10 minutes.
 
 ## Setup (silent)
 
-1. Read `notes/learning-log/review-list.md`. If it does not exist or is empty, say so in one line and offer to start from a topic (suggest `/explain-check <topic>`). Then stop.
-2. Read `examples/problem-solving-practice/solve-log.md` if it has filled rows. Problems whose redo day 3 or day 7 is due go into today's list.
-3. Get today's date from the system (not from memory).
-4. Time budget: default 10 minutes, about 5 to 6 items. Use the argument if given.
+1. Read `my-learning/review-list.md`. If it does not exist or is empty, say so in one line and offer to start from a topic (suggest `/explain-check <topic>`). Stop only if no lesson review questions are due either (step 3).
+2. Read `learn/problem-solving/solve-log.md` if it has filled rows. Problems whose redo day 3 or day 7 is due go into today's list.
+3. Read the subject READMEs in `learn/*/README.md`. For lessons with status `learning` or `can explain`, their section 12 review questions are due on day 1, 3, 7 and 21 after the lesson was studied (use the file's last change date in git if no date is written). Add at most 2 of these per session.
+4. Get today's date from the system (not from memory).
+5. Time budget: default 10 minutes, about 5 to 6 items. Use the argument if given.
 
 ## Pick today's items
 
@@ -33,7 +36,7 @@ Mix three styles so it does not get boring (the user learns best with visuals):
 
 **Fill the diagram.** Give a Mermaid diagram or a simple text flow with 2 or 3 labels replaced by `???`. Ask them to fill the blanks.
 
-**Code problems from the solve log.** Do not ask for code in chat. Say: "Redo `<problem>` from a blank file in `examples/problem-solving-practice/`, then tell me the pattern and the time and space cost." Wait for their report.
+**Code problems from the solve log.** Do not ask for code in chat. Say: "Redo `<problem>` from a blank file in `learn/problem-solving/`, then tell me the pattern and the time and space cost." Wait for their report.
 
 ### After each answer
 Judge: **correct** (right idea in their own words), **partly** (right direction, missing the reason or the tradeoff), or **missed**.
@@ -46,7 +49,7 @@ Update the list as you go.
 
 ## Update the review list
 
-For each item, edit its row in `notes/learning-log/review-list.md`:
+For each item, edit its row in `my-learning/review-list.md`:
 
 | Result | Streak | Next review |
 |---|---|---|

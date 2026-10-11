@@ -6,6 +6,8 @@ argument-hint: <project: dbo | unloan | zws | other> [mode: build|rehearse|stres
 
 # Project Story Coach
 
+> **First:** read `my-learning/learner-profile.md` and follow it (picture first, plain English, connect to my real projects, honest feedback, no em dashes).
+
 The user often fails to explain *why* they chose something when interviewers ask about their projects. They have 7+ years of real work, but it is not organized into answers. This skill pulls the real decisions out of their head, shapes them, and then attacks them like an interviewer would.
 
 **The core rule: the facts come from the user. You never invent them.** No made-up numbers, tools, team sizes, or results. If a detail is missing, ask. A story with one invented detail will fall apart in the interview and hurt them.
@@ -14,9 +16,9 @@ The user often fails to explain *why* they chose something when interviewers ask
 
 1. Parse the project from the argument. If none, ask which project, in one short line.
 2. Read what already exists, in this order:
-   - `notes/my-project-stories.md` (their saved stories, if any)
-   - `notes/dbo-b2b-platform-system-design-case-study.md` for DBO
-   - Any `notes/<company>/` folder that matches
+   - `interview/my-projects/my-project-stories.md` (their saved stories, if any)
+   - `interview/my-projects/dbo-b2b-platform-system-design-case-study.md` for DBO
+   - Any `interview/companies/<company>/` folder that matches
 3. Choose the mode. Default is `build` if the project has no saved story, otherwise `rehearse`.
 
 ## Mode: build
@@ -58,7 +60,7 @@ Add a Mermaid `flowchart` or `sequenceDiagram` of the part of the system the dec
 Tell them plainly where an interviewer will push and where the story is thin. Examples: "You said you chose GraphQL, but you did not compare it with REST. Be ready for that." Do not hide it. Suggest what to think about, not what to fake.
 
 ### Step 5: Save
-Add or update the story in `notes/my-project-stories.md`, under a heading for the project, with the decision name and today's date. If the file does not exist, create it with a short intro line. Also add any weak spots to `notes/learning-log/review-list.md` as questions, for example "Why did I pick GraphQL over REST for DBO?"
+Add or update the story in `interview/my-projects/my-project-stories.md`, under a heading for the project, with the decision name and today's date. If the file does not exist, create it with a short intro line. Also add any weak spots to `my-learning/review-list.md` as questions, for example "Why did I pick GraphQL over REST for DBO?"
 
 ## Mode: rehearse
 

@@ -282,7 +282,7 @@ details.wk .scroll{margin-top:.6rem}
 
 /* ---------- content map ---------- */
 var REPO = true;
-var PRACTICE_DIR = "examples/problem-solving-practice/";
+var PRACTICE_DIR = "learn/problem-solving/";
 function src(p){ return p.indexOf("practice/")===0 ? PRACTICE_DIR+p.slice(9) : p }
 
 var TRACKS = [
@@ -297,56 +297,56 @@ var TRACKS = [
 
 var ART = "https://claude.ai/artifact/";
 var ITEMS = [
- {id:"study-method", track:"method", level:"Start", title:"Study method and weekly plan", file:"notes/study-method-and-weekly-plan.md",
+ {id:"study-method", track:"method", level:"Start", title:"Study method and weekly plan", file:"my-learning/study-method-and-weekly-plan.md",
   desc:"The learning loop, the four-part answer for theory questions, the project story template and the weekly schedule. Read this first."},
 
  {id:"how-js-runs", track:"js", level:"Core", title:"How JavaScript runs", url:ART+"YRvQjoaSrvTYpU9CzFYrJu", kind:"Interactive page",
   desc:"Why JavaScript has one thread, how the event loop picks the next job, and what happens when you block it. Step through live demos."},
- {id:"react-guide", track:"js", level:"Core", title:"React and JavaScript frontend guide", file:"notes/react-js-frontend-interview-guide.md", cs:"notes/react-js-frontend-interview-guide-cheatsheet.html",
+ {id:"react-guide", track:"js", level:"Core", title:"React and JavaScript frontend guide", file:"learn/react/react-js-frontend-interview-guide.md", cs:"learn/react/react-js-frontend-interview-guide-cheatsheet.html",
   desc:"Rendering, hooks, state, performance and Next.js. The main React interview guide."},
- {id:"react-hooks", track:"js", level:"Core", title:"React hooks and fetching workbook", file:"notes/react-hooks-fetching-practice.md",
+ {id:"react-hooks", track:"js", level:"Core", title:"React hooks and fetching workbook", file:"learn/react/react-hooks-fetching-practice.md",
   desc:"Hands-on exercises. Write the hooks and the fetching code yourself, then compare."},
- {id:"react-native", track:"js", level:"Core", title:"React Native, the difference from React web", file:"notes/react-native-interview-guide.md", cs:"notes/react-native-interview-guide-cheatsheet.html",
+ {id:"react-native", track:"js", level:"Core", title:"React Native, the difference from React web", file:"learn/react-native/react-native-interview-guide.md", cs:"learn/react-native/react-native-interview-guide-cheatsheet.html",
   desc:"The bridge versus the new architecture, lists, Hermes, Expo versus bare, and updates over the air."},
 
- {id:"express-graphql", track:"backend", level:"Core", title:"Express, GraphQL and Prisma with real auth", file:"notes/express-graphql-auth-tutorial.md", cs:"notes/express-graphql-auth-tutorial-cheatsheet.html",
+ {id:"express-graphql", track:"backend", level:"Core", title:"Express, GraphQL and Prisma with real auth", file:"learn/backend-api/express-graphql-auth-tutorial.md", cs:"learn/backend-api/express-graphql-auth-tutorial-cheatsheet.html",
   desc:"One small app that teaches register, login, refresh tokens and protected resolvers."},
- {id:"api-auth-sheet", track:"backend", level:"Core", title:"Cheat sheet: API request, JWT, microservices", file:"notes/cheatsheet-api-auth-microservice.md",
+ {id:"api-auth-sheet", track:"backend", level:"Core", title:"Cheat sheet: API request, JWT, microservices", file:"learn/backend-api/cheatsheet-api-auth-microservice.md",
   desc:"One short page. What happens on a request, how JWT works, and how services talk."},
- {id:"hasura", track:"backend", level:"Core", title:"Hasura: what it is and when to choose it", file:"notes/hasura-guide.md", cs:"notes/hasura-guide-cheatsheet.html",
+ {id:"hasura", track:"backend", level:"Core", title:"Hasura: what it is and when to choose it", file:"learn/backend-api/hasura-guide.md", cs:"learn/backend-api/hasura-guide-cheatsheet.html",
   desc:"Tracking tables, permissions, actions, and where Hasura stops being the right tool."},
- {id:"postgres", track:"backend", level:"Core", title:"PostgreSQL queries and indexing", file:"notes/postgresql-queries-interview-guide.md", cs:"notes/postgresql-queries-interview-guide-cheatsheet.html",
+ {id:"postgres", track:"backend", level:"Core", title:"PostgreSQL queries and indexing", file:"learn/database/postgresql-queries-interview-guide.md", cs:"learn/database/postgresql-queries-interview-guide-cheatsheet.html",
   desc:"Joins, indexes, EXPLAIN, transactions and the advanced questions."},
- {id:"choosing-tools", track:"backend", level:"Senior", title:"Choosing the right tool", file:"notes/choosing-the-right-tool-frontend-backend-decisions.md",
+ {id:"choosing-tools", track:"backend", level:"Senior", title:"Choosing the right tool", file:"learn/system-design/choosing-the-right-tool-frontend-backend-decisions.md",
   desc:"How to explain why you picked one tool over another, for frontend, mobile, backend and architecture."},
 
- {id:"sd-basics", track:"sys", level:"Core", title:"System design basics", file:"notes/system-design-basics-senior-fullstack-interview.md", cs:"notes/system-design-cheatsheet.html",
+ {id:"sd-basics", track:"sys", level:"Core", title:"System design basics", file:"learn/system-design/system-design-basics-senior-fullstack-interview.md", cs:"learn/system-design/system-design-cheatsheet.html",
   desc:"How the interview runs, then caching, scaling Postgres, queues and consistency."},
- {id:"load-balancers", track:"sys", level:"Core", title:"Load balancers and microservices for an online shop", file:"notes/load-balancers-microservices-online-shop.md", cs:"notes/load-balancers-microservices-online-shop-cheatsheet.html",
+ {id:"load-balancers", track:"sys", level:"Core", title:"Load balancers and microservices for an online shop", file:"learn/system-design/load-balancers-microservices-online-shop.md", cs:"learn/system-design/load-balancers-microservices-online-shop-cheatsheet.html",
   desc:"Health checks, sticky sessions, splitting services, payment webhooks and sagas."},
- {id:"cloud-models", track:"sys", level:"Core", title:"Cloud models and serverless", file:"notes/cloud-computing-models-serverless-guide.md", cs:"notes/cloud-computing-models-serverless-guide-cheatsheet.html",
+ {id:"cloud-models", track:"sys", level:"Core", title:"Cloud models and serverless", file:"learn/devops-cloud/cloud-computing-models-serverless-guide.md", cs:"learn/devops-cloud/cloud-computing-models-serverless-guide-cheatsheet.html",
   desc:"IaaS, PaaS, SaaS and FaaS, and when serverless is the right call."},
- {id:"containers", track:"sys", level:"Core", title:"Containers: Docker, CapRover to Kubernetes", file:"notes/container-orchestration-guide.md", cs:"notes/container-orchestration-guide-cheatsheet.html",
+ {id:"containers", track:"sys", level:"Core", title:"Containers: Docker, CapRover to Kubernetes", file:"learn/devops-cloud/container-orchestration-guide.md", cs:"learn/devops-cloud/container-orchestration-guide-cheatsheet.html",
   desc:"Kubernetes objects mapped to what you already use, plus the commands to remember."},
- {id:"performance", track:"sys", level:"Senior", title:"Performance: web, mobile and backend", file:"notes/performance-optimization-web-mobile-backend.md",
+ {id:"performance", track:"sys", level:"Senior", title:"Performance: web, mobile and backend", file:"learn/system-design/performance-optimization-web-mobile-backend.md",
   desc:"Where to look first, what to measure, and the usual fixes at each layer."},
- {id:"dbo-case", track:"sys", level:"Senior", title:"DBO B2B platform, told the senior way", file:"notes/dbo-b2b-platform-system-design-case-study.md",
+ {id:"dbo-case", track:"sys", level:"Senior", title:"DBO B2B platform, told the senior way", file:"interview/my-projects/dbo-b2b-platform-system-design-case-study.md",
   desc:"Your own system as an interview story: architecture, improvements and a real incident."},
 
- {id:"sd-walkthrough", track:"adv", level:"Senior", title:"System design, step by step", file:"notes/advanced-interview/system-design-step-by-step-walkthrough.md",
+ {id:"sd-walkthrough", track:"adv", level:"Senior", title:"System design, step by step", file:"learn/system-design/system-design-step-by-step-walkthrough.md",
   desc:"What to do in each minute of the round, with two designs carried from a blank page to the end."},
- {id:"networking", track:"adv", level:"Senior", title:"What happens when you type a URL", file:"notes/advanced-interview/networking-url-to-page-step-by-step.md", cs:"notes/advanced-interview/networking-url-to-page-step-by-step-cheatsheet.html",
+ {id:"networking", track:"adv", level:"Senior", title:"What happens when you type a URL", file:"learn/networking/networking-url-to-page-step-by-step.md", cs:"learn/networking/networking-url-to-page-step-by-step-cheatsheet.html",
   desc:"DNS, TCP, TLS, HTTP and the browser, one step at a time."},
- {id:"docker-internals", track:"adv", level:"Senior", title:"Docker and CapRover internals", file:"notes/advanced-interview/docker-caprover-internals.md",
+ {id:"docker-internals", track:"adv", level:"Senior", title:"Docker and CapRover internals", file:"learn/devops-cloud/docker-caprover-internals.md",
   desc:"How the tools you use every day actually work underneath."},
- {id:"adv-database", track:"adv", level:"Senior", title:"Advanced round report: database internals", file:"notes/advanced-interview/advanced-interview-database-2026-09-18.md", kind:"Session report",
+ {id:"adv-database", track:"adv", level:"Senior", title:"Advanced round report: database internals", file:"interview/practice-reports/advanced-interview-database-2026-09-18.md", kind:"Session report",
   desc:"Your answers on database internals, with the gaps to fix."},
- {id:"adv-tools", track:"adv", level:"Senior", title:"Advanced round report: Docker and CapRover", file:"notes/advanced-interview/advanced-interview-tool-theory-2026-09-18.md", kind:"Session report",
+ {id:"adv-tools", track:"adv", level:"Senior", title:"Advanced round report: Docker and CapRover", file:"interview/practice-reports/advanced-interview-tool-theory-2026-09-18.md", kind:"Session report",
   desc:"Your answers on tool theory, with the gaps to fix."},
 
- {id:"dotnet", track:"other", level:"Reference", title:".NET basics for a TypeScript developer", file:"notes/dotnet-basics-for-typescript-devs.md", cs:"notes/dotnet-basics-for-typescript-devs-cheatsheet.html",
+ {id:"dotnet", track:"other", level:"Reference", title:".NET basics for a TypeScript developer", file:"learn/other-stacks/dotnet-basics-for-typescript-devs.md", cs:"learn/other-stacks/dotnet-basics-for-typescript-devs-cheatsheet.html",
   desc:"C#, ASP.NET Core, EF Core migrations, DI and JWT, explained through code you already know."},
- {id:"java-spring", track:"other", level:"Reference", title:"Java and Spring basics for a TypeScript developer", file:"notes/java-spring-basics-for-typescript-devs.md", cs:"notes/java-spring-basics-for-typescript-devs-cheatsheet.html",
+ {id:"java-spring", track:"other", level:"Reference", title:"Java and Spring basics for a TypeScript developer", file:"learn/other-stacks/java-spring-basics-for-typescript-devs.md", cs:"learn/other-stacks/java-spring-basics-for-typescript-devs-cheatsheet.html",
   desc:"Java, Spring Boot, JPA and how each idea maps to Express and Prisma."},
 
  {id:"practice-readme", track:"practice", level:"Core", title:"Problem solving practice: the routine and the roadmap", file:"practice/README.md",
@@ -368,6 +368,9 @@ var PRACTICE = [
 ];
 
 var TOOLS = [
+ {cmd:"/learn", use:"Live lesson on one concept: predict first, then the picture, a step by step trace, practice and explain it back. Saves the lesson file and your gaps.", ex:"/learn javascript 13"},
+ {cmd:"research-material agent", use:"Ask it to make a lesson. It writes a picture first lesson with a code trace, checked video and visualizer links, practice and review questions.", ex:"make lesson javascript 13 promises"},
+ {cmd:"explain-coach agent", use:"Write your explanation in a lesson, then ask the coach to review it. It scores problem, how, tradeoff, example and clarity, draws the right picture and improves your version.", ex:"coach my explanation in learn/javascript/13-promises.md"},
  {cmd:"/explain-check", use:"You explain a topic in your own words. Claude points out what is right, vague or memorized, asks why, then draws the correct picture.", ex:"/explain-check database index"},
  {cmd:"/project-story", use:"Builds and rehearses your stories about DBO, Unloan and ZWS. The decision, why you chose it, what you gave up. Never invents facts.", ex:"/project-story dbo"},
  {cmd:"/daily-review", use:"A short review of only what is due today, spaced at day 1, 3, 7 and 21. Questions, redraw, fill the diagram.", ex:"/daily-review"},
@@ -588,7 +591,7 @@ function viewPractice(){
    '<div class="actions" style="--tc:var(--c-practice)"><a class="btn" href="#practice-readme">Read the routine and roadmap</a></div>'+
    '<h2 class="sec">The routine, for every problem</h2><ol class="steps7"><li>Restate it</li><li>Small example by hand</li><li>Slow solution first</li><li>What work repeats?</li><li>Better solution</li><li>Edge cases</li><li>Say time and space</li></ol>'+
    '<p class="sec-sub" style="margin-top:.8rem">Stuck? Open one hint, then try again. Redo each problem from a blank file after 3 days and after 7 days.</p>'+
-   '<h2 class="sec">Patterns, in order</h2><p class="sec-sub">Tick a problem when you solved it without hints and said the time and space cost. Run the commands inside <span class="cmd">examples/problem-solving-practice</span> in your folder.</p>';
+   '<h2 class="sec">Patterns, in order</h2><p class="sec-sub">Tick a problem when you solved it without hints and said the time and space cost. Run the commands inside <span class="cmd">learn/problem-solving</span> in your folder.</p>';
   PRACTICE.forEach(function(g,gi){
     h+='<div class="pgroup '+(g.ready?'':'soon')+'"><h3>'+(gi)+'. '+esc(g.name)+(g.ready?' <span class="cmd">'+esc(g.cmd)+'</span>':' <span class="tag">Next: ask Claude to add it</span>')+'</h3><p>'+esc(g.use)+'</p><div class="probs">';
     g.probs.forEach(function(pr){
@@ -605,7 +608,7 @@ function viewTools(){
   var h='<p class="crumb"><a href="#home">Home</a> / Tools and skills</p><h1>Tools and skills</h1><p class="lede">These run in Claude, inside your AiLearner folder. Type the command in a chat that has the folder open.</p><div class="tools">';
   TOOLS.forEach(function(t){ h+='<div class="tool"><h3>'+esc(t.cmd)+'</h3><p>'+esc(t.use)+'</p><p class="ex">'+esc(t.ex)+'</p></div>' });
   h+='</div><h2 class="sec">Where your own study data lives</h2>'+
-   '<p class="sec-sub">The skills write into your folder, so it stays yours: <span class="cmd">notes/learning-log/review-list.md</span> holds what you could not answer yet, <span class="cmd">notes/learning-log/my-explanations.md</span> holds your own tidied explanations, and <span class="cmd">notes/my-project-stories.md</span> holds your project stories. They change every day, so they are not copied onto this site.</p>'+
+   '<p class="sec-sub">The skills write into your folder, so it stays yours: <span class="cmd">my-learning/review-list.md</span> holds what you could not answer yet, <span class="cmd">my-learning/my-explanations.md</span> holds your own tidied explanations, and <span class="cmd">interview/my-projects/my-project-stories.md</span> holds your project stories. They change every day, so they are not copied onto this site.</p>'+
    (REPO?'':'<h2 class="sec">Keeping this site current</h2><p class="sec-sub">This site is a snapshot of the folder. After you add or change notes, ask Claude to refresh the study site and it will publish the new version to the same link.</p>')+footer();
   view.innerHTML=h;
 }

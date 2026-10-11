@@ -54,7 +54,7 @@ sequenceDiagram
 
 ## Cheatsheet
 
-> **Visual version:** open [<topic-slug>-cheatsheet.html](<topic-slug>-cheatsheet.html) in your browser — concept cards, diagrams, numbers, decision verdicts, and real cases, all visible at a glance with progress ticks. (See `notes/system-design-cheatsheet.html` for the reference implementation. Rule: no hidden/flip content — everything readable without tapping.)
+> **Visual version:** open [<topic-slug>-cheatsheet.html](<topic-slug>-cheatsheet.html) in your browser — concept cards, diagrams, numbers, decision verdicts, and real cases, all visible at a glance with progress ticks. (See `learn/system-design/system-design-cheatsheet.html` for the reference implementation. Rule: no hidden/flip content — everything readable without tapping.)
 
 <Quick-recall section — skimmable 10 minutes before the interview. Use whichever of these fit the topic:>
 

@@ -81,19 +81,19 @@
   const content = document.getElementById("content");
   const slug = new URLSearchParams(location.search).get("note") || "";
 
-  // Allow an optional company folder (e.g. skyworx/skyworx-backend-interview-prep).
+  // A path from the repo root without .md (e.g. learn/react/react-js-frontend-interview-guide).
   // Dots are still excluded, so ".." traversal is impossible.
-  if (!/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(slug)) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*(\/[A-Za-z0-9][A-Za-z0-9_-]*)*$/.test(slug)) {
     content.innerHTML = '<div class="error">No note selected. Go back to the Study Hub and pick one.</div>';
     return;
   }
 
   document.getElementById("ghLink").href =
-    "https://github.com/starjustice/research-material/blob/main/notes/" + slug + ".md";
+    "https://github.com/starjustice/research-material/blob/main/" + slug + ".md";
 
   let md;
   try {
-    const res = await fetch("notes/" + slug + ".md");
+    const res = await fetch(slug + ".md");
     if (!res.ok) throw new Error("HTTP " + res.status);
     md = await res.text();
   } catch (e) {
@@ -112,11 +112,11 @@
   });
 
   // Resolve a relative link against the folder the current note lives in,
-  // collapsing "." and ".." segments. Returns a path relative to notes/.
+  // collapsing "." and ".." segments. Returns a path relative to the repo root.
   const baseDir = slug.includes("/") ? slug.slice(0, slug.lastIndexOf("/")) : "";
   function resolveFromNote(href) {
     const parts = baseDir.split("/").filter(Boolean)
-      .concat(href.replace(/^notes\//, "").split("/"));
+      .concat(href.split("/"));
     const out = [];
     for (const seg of parts) {
       if (seg === "" || seg === ".") continue;
@@ -134,11 +134,11 @@
     }
   });
 
-  // Cheatsheet links are plain pages — point them at the real file under notes/.
+  // Cheatsheet links are plain pages — point them at the real file.
   content.querySelectorAll('a[href$=".html"]').forEach(a => {
     const href = a.getAttribute("href");
     if (!/^https?:\/\//.test(href)) {
-      a.href = "notes/" + resolveFromNote(href);
+      a.href = resolveFromNote(href);
     }
   });
 

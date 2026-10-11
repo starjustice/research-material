@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "http-server", "-p", "4173", "-c-1", "."],
       "port": 4173
+    },
+    {
+      "name": "main-hub",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "-p", "4174", "-c-1", "/Users/wing/Desktop/claude/AiLearner"],
+      "port": 4174
     }
   ]
 }
