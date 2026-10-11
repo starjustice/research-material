@@ -11,26 +11,87 @@
     --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86;
     --accent: #f5c542; --blue-soft: #dbeafe; --border: #e6dfd2;
     --code-bg: #1e2a33; --code-ink: #d9e6ee; --radius: 12px;
+    --green: #3a9d6e; --amber: #d99a1b; --blue: #3b82f6; --side-hover: #f1ead9;
   }
   * { box-sizing: border-box; }
   body {
-    background: var(--bg); color: var(--ink); margin: 0 auto; max-width: 780px;
+    background: var(--bg); color: var(--ink); margin: 0; padding: 0 0 70px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 14px 16px 70px; line-height: 1.6;
+    line-height: 1.6;
   }
-  nav {
-    display: flex; justify-content: space-between; align-items: center;
-    position: sticky; top: 0; background: var(--bg); padding: 10px 0; z-index: 5;
-    border-bottom: 1px solid var(--border); margin-bottom: 14px;
+  nav.top {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; background: var(--bg); padding: 10px 16px; z-index: 20;
+    border-bottom: 1px solid var(--border);
   }
-  nav a { color: var(--ink); font-weight: 600; text-decoration: none; font-size: .9rem; }
-  nav a.gh { color: var(--muted); font-weight: 500; font-size: .8rem; }
+  nav.top a { color: var(--ink); font-weight: 600; text-decoration: none; font-size: .9rem; }
+  nav.top a.gh { color: var(--muted); font-weight: 500; font-size: .8rem; margin-left: auto; }
+  #menuBtn {
+    display: none; background: var(--card); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 8px; padding: 5px 10px; font-size: .85rem; font-weight: 600; cursor: pointer;
+  }
+
+  .layout { display: flex; gap: 32px; max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+  main { flex: 1; min-width: 0; max-width: 780px; padding-top: 14px; }
+
+  /* Sidebar */
+  #side {
+    width: 280px; flex: none; position: sticky; top: 53px; align-self: flex-start;
+    max-height: calc(100vh - 53px); overflow-y: auto; padding: 16px 4px 24px 0; font-size: .86rem;
+  }
+  body.no-side #side { display: none; }
+  body.no-side #menuBtn { display: none !important; }
+  .side-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 2px; }
+  .side-title a { color: inherit; text-decoration: none; }
+  .side-sub { color: var(--muted); font-size: .76rem; margin-bottom: 10px; }
+  .side-bar { height: 5px; border-radius: 3px; background: var(--border); margin-bottom: 14px; overflow: hidden; }
+  .side-bar i { display: block; height: 100%; background: var(--green); }
+  .s-group {
+    margin: 16px 0 4px; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .s-item {
+    display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border-radius: 8px;
+    color: var(--ink); text-decoration: none; line-height: 1.35;
+  }
+  a.s-item:hover { background: var(--side-hover); }
+  .s-item.current { background: var(--blue-soft); font-weight: 650; }
+  .s-item.planned { color: var(--muted); cursor: default; }
+  .s-item .num { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .75rem; padding-top: 1px; flex: none; width: 1.4em; }
+  .s-item .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 5px; border: 2px solid var(--border); background: transparent; }
+  .s-item .dot.ready { border-color: var(--blue); background: var(--blue); }
+  .s-item .dot.learning { border-color: var(--amber); background: var(--amber); }
+  .s-item .dot.done { border-color: var(--green); background: var(--green); }
+  .s-item .label { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .s-item .tagline { font-size: .66rem; font-weight: 600; color: var(--muted); flex: none; padding-top: 2px; }
+  .s-outline { list-style: none; margin: 2px 0 8px 17px; padding: 0 0 0 10px; border-left: 2px solid var(--border); }
+  .s-outline li { margin: 0; }
+  .s-outline a {
+    display: block; padding: 3px 8px; color: var(--muted); text-decoration: none; font-size: .8rem;
+    line-height: 1.35; border-radius: 6px;
+  }
+  .s-outline a:hover { color: var(--ink); background: var(--side-hover); }
+  .s-outline a.active { color: var(--ink); font-weight: 650; background: var(--side-hover); }
+  .s-here { margin-top: 4px; }
+
+  /* Previous / next */
+  #pager { display: flex; gap: 10px; margin-top: 36px; }
+  #pager a, #pager span {
+    flex: 1; border: 1px solid var(--border); background: var(--card); border-radius: var(--radius);
+    padding: 10px 14px; text-decoration: none; color: var(--ink); font-size: .85rem; min-width: 0;
+  }
+  #pager small { display: block; color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; }
+  #pager b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pager a:hover { background: var(--side-hover); }
+  #pager .next { text-align: right; }
+  #pager span.off { visibility: hidden; }
+
   article h1 { font-size: 1.45rem; line-height: 1.3; margin: 10px 0 14px; }
   article h2 {
     font-size: 1.15rem; margin: 28px 0 10px; padding-bottom: 6px;
-    border-bottom: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent); scroll-margin-top: 70px;
   }
-  article h3 { font-size: 1rem; margin: 20px 0 8px; }
+  article h3 { font-size: 1rem; margin: 20px 0 8px; scroll-margin-top: 70px; }
   article p, article li { font-size: .95rem; }
   article ul, article ol { padding-left: 22px; }
   article li { margin-bottom: 4px; }
@@ -65,20 +126,44 @@
     background: #fbe4e8; border-left: 4px solid #e06377; border-radius: 8px;
     padding: 12px 14px; font-size: .9rem;
   }
+
+  @media (max-width: 900px) {
+    #menuBtn { display: inline-block; }
+    .layout { display: block; max-width: 780px; }
+    #side {
+      position: fixed; top: 0; left: 0; bottom: 0; width: min(86vw, 320px); max-height: none;
+      background: var(--bg); z-index: 40; padding: 18px 14px 30px; transform: translateX(-105%);
+      transition: transform .2s ease; box-shadow: 4px 0 24px rgba(0,0,0,.18);
+    }
+    body.menu-open #side { transform: none; }
+    #backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; }
+    body.menu-open #backdrop { display: block; }
+    body.no-side .layout { padding: 0 16px; }
+  }
 </style>
 </head>
-<body>
+<body class="no-side">
 
-<nav>
+<nav class="top">
+  <button id="menuBtn" type="button" aria-label="Open lesson menu">☰ Lessons</button>
   <a href="index.html">← Study Hub</a>
   <a class="gh" id="ghLink" href="#" target="_blank" rel="noopener">View on GitHub ↗</a>
 </nav>
 
-<article id="content"><p>Loading note…</p></article>
+<div class="layout">
+  <aside id="side" aria-label="Lessons in this subject"></aside>
+  <main>
+    <article id="content"><p>Loading note…</p></article>
+    <div id="pager"></div>
+  </main>
+</div>
+<div id="backdrop"></div>
 
 <script>
 (async function () {
   const content = document.getElementById("content");
+  const side = document.getElementById("side");
+  const pager = document.getElementById("pager");
   const slug = new URLSearchParams(location.search).get("note") || "";
 
   // A path from the repo root without .md (e.g. learn/react/react-js-frontend-interview-guide).
@@ -91,15 +176,30 @@
   document.getElementById("ghLink").href =
     "https://github.com/starjustice/research-material/blob/main/" + slug + ".md";
 
+  async function getText(path) {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.text();
+  }
+
+  // A subject note lives in learn/<subject>/. Its README holds the lesson list for the sidebar.
+  const subjectMatch = slug.match(/^learn\/([A-Za-z0-9_-]+)\//);
+  const subject = subjectMatch ? subjectMatch[1] : null;
+  const subjectDir = subject ? "learn/" + subject : "";
+  const subjectReadmeSlug = subject ? subjectDir + "/README" : "";
+
   let md;
   try {
-    const res = await fetch(slug + ".md");
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    md = await res.text();
+    md = await getText(slug + ".md");
   } catch (e) {
     content.innerHTML = '<div class="error">Could not load this note (' + e.message + '). Check the link or try the GitHub view.</div>';
     return;
   }
+
+  // Start the subject README fetch while the note renders.
+  const subjectPromise = !subject ? Promise.resolve(null)
+    : slug === subjectReadmeSlug ? Promise.resolve(md)
+    : getText(subjectReadmeSlug + ".md").catch(() => null);
 
   content.innerHTML = marked.parse(md);
 
@@ -111,12 +211,10 @@
     el.closest("pre").replaceWith(div);
   });
 
-  // Resolve a relative link against the folder the current note lives in,
-  // collapsing "." and ".." segments. Returns a path relative to the repo root.
-  const baseDir = slug.includes("/") ? slug.slice(0, slug.lastIndexOf("/")) : "";
-  function resolveFromNote(href) {
-    const parts = baseDir.split("/").filter(Boolean)
-      .concat(href.split("/"));
+  // Resolve a relative link against a folder, collapsing "." and ".." segments.
+  // Returns a path relative to the repo root.
+  function resolveFrom(dir, href) {
+    const parts = dir.split("/").filter(Boolean).concat(href.split("/"));
     const out = [];
     for (const seg of parts) {
       if (seg === "" || seg === ".") continue;
@@ -125,6 +223,8 @@
     }
     return out.join("/");
   }
+  const baseDir = slug.includes("/") ? slug.slice(0, slug.lastIndexOf("/")) : "";
+  const resolveFromNote = href => resolveFrom(baseDir, href);
 
   // Make relative note links (e.g. other-note.md, ../skyworx/note.md) work inside the viewer.
   content.querySelectorAll('a[href$=".md"]').forEach(a => {
@@ -145,6 +245,210 @@
   const h1 = content.querySelector("h1");
   if (h1) document.title = h1.textContent + " — Study Hub";
 
+  // ---- Headings get ids so the sidebar can jump to them ----
+  const used = new Set();
+  const headings = Array.from(content.querySelectorAll("h2"));
+  headings.forEach(h => {
+    let id = h.textContent.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+    let n = 2, base = id;
+    while (used.has(id)) id = base + "-" + n++;
+    used.add(id);
+    h.id = id;
+  });
+
+  // ---- Parse the subject README into groups of lessons and a few link lists ----
+  function parseSubject(text) {
+    const lines = text.split("\n");
+    const titleLine = lines.find(l => l.startsWith("# "));
+    const title = titleLine ? titleLine.slice(2).trim() : subject;
+    const groups = [];
+    const links = [];
+    let h2 = "", group = null;
+    for (const line of lines) {
+      if (line.startsWith("## ")) { h2 = line.slice(3).trim(); group = null; continue; }
+      if (line.startsWith("### ")) {
+        if (/^Lessons/i.test(h2)) { group = { name: line.slice(4).trim(), items: [] }; groups.push(group); }
+        continue;
+      }
+      if (/^Lessons/i.test(h2)) {
+        if (!/^\|\s*\d+\s*\|/.test(line)) continue;
+        const cells = line.split("|").slice(1, -1).map(c => c.trim());
+        if (cells.length < 4) continue;
+        let t, f;
+        const m = cells[1].match(/\[([^\]]+)\]\(([^)]+\.md)\)/);
+        if (m) { t = m[1]; f = m[2]; }
+        else {
+          const b = cells[1].match(/^(.*?)\s*`([^`]+\.md)`/);
+          if (!b) continue;
+          t = b[1]; f = b[2];
+        }
+        if (!group) { group = { name: "Lessons", items: [] }; groups.push(group); }
+        group.items.push({
+          num: cells[0], title: t,
+          slug: resolveFrom(subjectDir, f.replace(/^\.\//, "").replace(/\.md$/, "")),
+          status: cells[cells.length - 1].replace(/`/g, "").trim().toLowerCase(),
+          goal: cells[2]
+        });
+      } else if (/^(Guides|Visual cheatsheets|Cheatsheets)/i.test(h2)) {
+        const m = line.match(/^[-*]\s+\[([^\]]+)\]\(([^)]+)\)/);
+        if (m) links.push({ title: m[1].replace(/\s*\([^)]*\)\s*$/, ""), href: m[2] });
+      }
+    }
+    return { title, groups, links };
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  const noteHref = s => "viewer.html?note=" + s;
+
+  // The outline of the page being read: shown under the current item in the sidebar.
+  function buildOutline() {
+    const ul = el("ul", "s-outline");
+    headings.forEach(h => {
+      const li = el("li");
+      const a = el("a", "", h.textContent);
+      a.href = "#" + h.id;
+      a.dataset.target = h.id;
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  function dotClass(status) {
+    if (status === "can explain") return "done";
+    if (status === "learning") return "learning";
+    if (status === "ready") return "ready";
+    return "";
+  }
+
+  const readmeText = await subjectPromise;
+  const outline = headings.length ? buildOutline() : null;
+  let placedOutline = false;
+  const navList = []; // ordered, clickable entries for previous / next
+
+  if (readmeText) {
+    const info = parseSubject(readmeText);
+    const all = info.groups.flatMap(g => g.items);
+    const written = all.filter(i => i.status !== "planned").length;
+
+    const title = el("div", "side-title");
+    const tl = el("a", "", info.title);
+    tl.href = noteHref(subjectReadmeSlug);
+    title.appendChild(tl);
+    side.appendChild(title);
+    if (all.length) {
+      side.appendChild(el("div", "side-sub", written + " of " + all.length + " lessons written. Hollow dot means planned."));
+      const bar = el("div", "side-bar");
+      const fill = el("i");
+      fill.style.width = Math.round(100 * written / all.length) + "%";
+      bar.appendChild(fill);
+      side.appendChild(bar);
+    }
+
+    // Intro = the subject README
+    const intro = el("a", "s-item" + (slug === subjectReadmeSlug ? " current" : ""));
+    intro.href = noteHref(subjectReadmeSlug);
+    intro.appendChild(el("span", "dot ready"));
+    intro.appendChild(el("span", "num", ""));
+    intro.appendChild(el("span", "label", "Intro and map"));
+    side.appendChild(intro);
+    navList.push({ slug: subjectReadmeSlug, title: "Intro and map" });
+    if (slug === subjectReadmeSlug && outline) { side.appendChild(outline); placedOutline = true; }
+
+    info.groups.forEach(g => {
+      side.appendChild(el("div", "s-group", g.name));
+      g.items.forEach(it => {
+        const isPlanned = it.status === "planned";
+        const current = it.slug === slug;
+        const node = el(isPlanned ? "span" : "a", "s-item" + (current ? " current" : "") + (isPlanned ? " planned" : ""));
+        if (!isPlanned) node.href = noteHref(it.slug);
+        else node.title = "Not written yet. In a chat with this folder, say: make lesson " + subject + " " + it.num;
+        node.appendChild(el("span", "dot " + dotClass(it.status)));
+        node.appendChild(el("span", "num", it.num));
+        node.appendChild(el("span", "label", it.title));
+        side.appendChild(node);
+        if (!isPlanned) navList.push({ slug: it.slug, title: it.title });
+        if (current && outline) { side.appendChild(outline); placedOutline = true; }
+      });
+    });
+
+    // Guides and cheatsheets listed in the README
+    if (info.links.length) {
+      side.appendChild(el("div", "s-group", "Guides and cheatsheets"));
+      info.links.forEach(l => {
+        const ext = /^https?:\/\//.test(l.href);
+        let href;
+        let isNote = false;
+        let noteSlug = "";
+        if (ext) href = l.href;
+        else if (/\.md$/.test(l.href)) {
+          noteSlug = resolveFrom(subjectDir, l.href.replace(/\.md$/, ""));
+          href = noteHref(noteSlug);
+          isNote = true;
+        } else href = resolveFrom(subjectDir, l.href);
+        const current = isNote && noteSlug === slug;
+        const a = el("a", "s-item" + (current ? " current" : ""));
+        a.href = href;
+        if (ext) { a.target = "_blank"; a.rel = "noopener"; }
+        a.appendChild(el("span", "label", l.title + (ext ? " ↗" : "")));
+        side.appendChild(a);
+        if (current && outline) { side.appendChild(outline); placedOutline = true; }
+      });
+    }
+  }
+
+  // Not a subject page, or the note is not listed: still give an "On this page" list.
+  if (outline && !placedOutline) {
+    const block = el("div", "s-here");
+    block.appendChild(el("div", "s-group", "On this page"));
+    block.appendChild(outline);
+    side.insertBefore(block, side.firstChild);
+    outline.style.marginLeft = "0";
+  }
+  if (side.childNodes.length) document.body.classList.remove("no-side");
+
+  // ---- Previous and next lesson ----
+  const idx = navList.findIndex(n => n.slug === slug);
+  if (idx !== -1 && navList.length > 1) {
+    const mk = (item, label, cls) => {
+      if (!item) return el("span", "off " + cls);
+      const a = el("a", cls);
+      a.href = noteHref(item.slug);
+      a.appendChild(el("small", "", label));
+      a.appendChild(el("b", "", item.title));
+      return a;
+    };
+    pager.appendChild(mk(navList[idx - 1], "← Previous", "prev"));
+    pager.appendChild(mk(navList[idx + 1], "Next →", "next"));
+  }
+
+  // ---- Mobile drawer ----
+  const closeMenu = () => document.body.classList.remove("menu-open");
+  document.getElementById("menuBtn").addEventListener("click", () => document.body.classList.toggle("menu-open"));
+  document.getElementById("backdrop").addEventListener("click", closeMenu);
+  side.addEventListener("click", e => { if (e.target.closest("a")) closeMenu(); });
+
+  // ---- Highlight the section being read ----
+  if (outline && "IntersectionObserver" in window) {
+    const links = new Map();
+    outline.querySelectorAll("a").forEach(a => links.set(a.dataset.target, a));
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (en.isIntersecting) {
+          links.forEach(a => a.classList.remove("active"));
+          const a = links.get(en.target.id);
+          if (a) a.classList.add("active");
+        }
+      });
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    headings.forEach(h => io.observe(h));
+  }
+
   // suppressErrors: one broken diagram must not stop the others from rendering.
   // If the CDN failed and mermaid is missing, leave diagrams as readable text.
   if (typeof mermaid !== "undefined") {
@@ -154,6 +458,12 @@
     } catch (e) {
       console.warn("Mermaid render issue:", e);
     }
+  }
+
+  // Jump to a section if the link had one (#some-heading).
+  if (location.hash.length > 1) {
+    const t = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (t) t.scrollIntoView();
   }
 })();
 </script>
