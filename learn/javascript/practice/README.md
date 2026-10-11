@@ -5,11 +5,12 @@ One small exercise per lesson. Each has a stub file with `// TODO` and a test fi
 Run a test from the folder that contains `learn/`:
 
 ```
-node --test learn/javascript/practice/11-event-loop.test.js
+node --test learn/javascript/practice/01-scope-and-hoisting.test.js
 ```
 
 | Exercise | Lesson |
 |---|---|
+| `01-scope-and-hoisting.js` | [Variables, scope and hoisting](../01-variables-scope-and-hoisting.md) |
 | `11-event-loop.js` | [The event loop](../11-the-event-loop.md) |
 
 Try before you look at the answer in the lesson. Node 18 or newer is enough, nothing to install.

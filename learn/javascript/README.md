@@ -29,7 +29,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 01 | Variables, scope and hoisting `01-variables-scope-and-hoisting.md` | var, let, const, block scope, hoisting and the temporal dead zone | planned |
+| 01 | [Variables, scope and hoisting](01-variables-scope-and-hoisting.md) | var, let, const, block scope, hoisting and the temporal dead zone | ready |
 | 02 | Values, types and coercion `02-values-types-and-coercion.md` | primitive vs object, typeof, == vs ===, truthy and falsy | planned |
 | 03 | Reference vs copy `03-reference-vs-copy.md` | why changing a copied object changes the original, shallow vs deep copy | planned |
 | 04 | Functions `04-functions.md` | declaration vs expression vs arrow, parameters, return, functions as values | planned |

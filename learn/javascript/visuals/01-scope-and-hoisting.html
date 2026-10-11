@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scope and Hoisting Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --global: #3b82f6; --global-bg: #e3eefe;
+    --block: #2f9e6b; --block-bg: #dff3ea;
+    --loop: #8b5cf6; --loop-bg: #efe8fd;
+    --undef: #b7791f; --undef-bg: #fdf0d2;
+    --tdz: #c0392b; --tdz-bg: #fdecea;
+    --val: #1f7a4d; --val-bg: #e3f5ea;
+    --fn: #2563a8; --fn-bg: #e3eefe;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 280px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .scope { border: 2px solid; border-radius: 12px; padding: 8px 10px 10px; margin-bottom: 10px; }
+  .scope h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .scope.global { border-color: var(--global); background: var(--global-bg); } .scope.global h3 { color: var(--global); }
+  .scope.block  { border-color: var(--block);  background: var(--block-bg); margin-left: 18px; } .scope.block h3 { color: var(--block); }
+  .scope.loop   { border-color: var(--loop);   background: var(--loop-bg);  margin-left: 18px; } .scope.loop h3 { color: var(--loop); }
+  .scope.gone { opacity: .45; border-style: dashed; }
+  .vars { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
+  .var {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 5px 10px;
+    font-family: ui-monospace, Menlo, monospace; font-size: .82rem; font-weight: 650; border: 1.5px solid;
+    background: #fff;
+  }
+  .var b { font-weight: 800; }
+  .var.undef { color: var(--undef); background: var(--undef-bg); border-color: var(--undef); }
+  .var.tdz { color: var(--tdz); background: var(--tdz-bg); border-color: var(--tdz); }
+  .var.val { color: var(--val); background: var(--val-bg); border-color: var(--val); }
+  .var.fn { color: var(--fn); background: var(--fn-bg); border-color: var(--fn); }
+  .var.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .timers { border: 2px solid #8b5cf6; background: #efe8fd; border-radius: 12px; padding: 8px 10px 10px; margin-bottom: 10px; }
+  .timers h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #8b5cf6; }
+  .timers .chip { background: #fff; border: 1px solid rgba(0,0,0,.12); border-radius: 8px; padding: 4px 9px; font-size: .78rem; font-weight: 650; margin-right: 6px; display: inline-block; margin-bottom: 4px; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; font-weight: 650; }
+  .outbox .chip.err { background: #5a2a26; border-color: #8a3b34; color: #ffd9d4; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.setup { background: #8b5cf6; } .badge.run { background: var(--global); }
+  .badge.error { background: var(--tdz); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--block); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../01-variables-scope-and-hoisting.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Scope and hoisting stepper</h1>
+  <p class="sub">Press Next and watch the names in memory. The first step of every program is <b>setup</b>: it happens before line 1 runs.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will it print, in order? If it throws an error, write the error name or message. Then step to the end.<br>
+    <input id="guess" placeholder="the printed values in order, with spaces" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your code</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div class="panel">
+      <h2>Memory</h2>
+      <div id="scopes"></div>
+      <div class="timers" id="timersBox" style="display:none"><h3>Waiting timer callbacks</h3><div id="timers"></div></div>
+      <div class="outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+      <div class="key">
+        <span class="var undef">undefined</span> <span class="var tdz">locked</span> <span class="var val">has a value</span> <span class="var fn">function</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> before line 1 runs, every name is set up. <b>var</b> starts as <b>undefined</b>. <b>let</b> and <b>const</b> start <b>locked</b> until their line runs. A <b>function declaration</b> starts as the <b>whole function</b>. Your code is never moved. Only the names are registered early.</p>
+</div>
+
+<script>
+// ---- Small builders. A step is one snapshot of memory. ----
+const un  = n => ({ n, s: "undef" });
+const tdz = n => ({ n, s: "tdz" });
+const val = (n, v) => ({ n, s: "val", v });
+const fnv = n => ({ n, s: "fn" });
+const GL  = (...vars) => ({ name: "Global scope", kind: "global", vars });
+const BL  = (name, ...vars) => ({ name, kind: "block", vars });
+const LP  = (name, ...vars) => ({ name, kind: "loop", vars });
+const ST  = (line, phase, note, scopes, out = [], timers = []) => ({ line, phase, note, scopes, out, timers });
+const ERR = "!";   // a console item starting with ! is drawn as an error
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "var is hoisted",
+    why: "A var is set up before line 1 with the value undefined, so reading it early gives undefined and no error.",
+    code: [
+      'console.log(a);',
+      'var a = 5;',
+      'console.log(a);'
+    ],
+    steps: [
+      ST(null, "setup", "<b>Setup.</b> Before any line runs, the engine reads the scope. It finds <code>var a</code> and creates the name <b>a</b> with the value <b>undefined</b>. Notice that line 2 has not run yet.",
+        [GL(un("a"))]),
+      ST(0, "run", "Line 1 reads <code>a</code>. The slot exists and holds <b>undefined</b>. So it prints <b>undefined</b>. There is no error.",
+        [GL(un("a"))], ["undefined"]),
+      ST(1, "run", "Line 2 runs the <b>assignment</b>. Only now does <code>a</code> get the value 5.",
+        [GL(val("a", 5))], ["undefined"]),
+      ST(2, "run", "Line 3 reads <code>a</code> again. Now it holds 5.",
+        [GL(val("a", 5))], ["undefined", "5"]),
+      ST(null, "done", "Finished. It printed <b>undefined 5</b>.", [GL(val("a", 5))], ["undefined", "5"])
+    ]
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "let has a dead zone",
+    why: "A let is set up early too, but it is locked until its line runs. Reading it in that time (the temporal dead zone) throws a ReferenceError. The try and catch is only here so the program can keep going.",
+    code: [
+      'try { console.log(b); } catch (e) { console.log(e.name); }',
+      'let b = 5;',
+      'console.log(b);'
+    ],
+    steps: [
+      ST(null, "setup", "<b>Setup.</b> The engine finds <code>let b</code> and creates the name <b>b</b>, but it <b>locks</b> it. The locked time is called the <b>temporal dead zone</b>.",
+        [GL(tdz("b"))]),
+      ST(0, "error", "Line 1 tries to read <code>b</code>. It is locked, so the engine throws a <b>ReferenceError</b>: <i>Cannot access 'b' before initialization</i>. Compare with the last program, where <code>var</code> gave a quiet <code>undefined</code>.",
+        [GL(tdz("b"))]),
+      ST(0, "run", "The <code>catch</code> block catches the error and prints its name. (Without try and catch, the whole program would stop here.)",
+        [GL(tdz("b"))], [ERR + "ReferenceError"]),
+      ST(1, "run", "Line 2 runs. The declaration is reached, so the lock opens: the dead zone <b>ends</b> and <code>b</code> gets the value 5.",
+        [GL(val("b", 5))], [ERR + "ReferenceError"]),
+      ST(2, "run", "Line 3 reads <code>b</code>. It works now.",
+        [GL(val("b", 5))], [ERR + "ReferenceError", "5"]),
+      ST(null, "done", "Finished. It printed <b>ReferenceError 5</b>.", [GL(val("b", 5))], [ERR + "ReferenceError", "5"])
+    ]
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "Functions",
+    why: "A function declaration is set up as the whole function, so you can call it before its line. A var holding a function expression is only undefined at first, and calling undefined is a TypeError.",
+    code: [
+      'hello();',
+      'try { greet(); } catch (e) { console.log(e.name); }',
+      'function hello() { console.log("hello"); }',
+      'var greet = function () { console.log("hi"); };',
+      'greet();'
+    ],
+    steps: [
+      ST(null, "setup", "<b>Setup.</b> <code>function hello</code> is a declaration, so <b>hello</b> is created as the <b>whole function</b>. <code>var greet</code> is created as <b>undefined</b>, because the function on the right side is only an assignment.",
+        [GL(fnv("hello"), un("greet"))]),
+      ST(0, "run", "Line 1 calls <code>hello()</code>. It is ready, even though its line is further down. It prints <b>hello</b>.",
+        [GL(fnv("hello"), un("greet"))], ["hello"]),
+      ST(1, "error", "Line 2 calls <code>greet()</code>. But <b>greet</b> holds <b>undefined</b>, and you cannot call undefined. The engine throws a <b>TypeError</b>: <i>greet is not a function</i>.",
+        [GL(fnv("hello"), un("greet"))], ["hello"]),
+      ST(1, "run", "The <code>catch</code> prints the error name.",
+        [GL(fnv("hello"), un("greet"))], ["hello", ERR + "TypeError"]),
+      ST(2, "run", "Line 3: nothing to do. This declaration was already handled in setup.",
+        [GL(fnv("hello"), un("greet"))], ["hello", ERR + "TypeError"]),
+      ST(3, "run", "Line 4 runs the assignment. Now <b>greet</b> holds the function.",
+        [GL(fnv("hello"), fnv("greet"))], ["hello", ERR + "TypeError"]),
+      ST(4, "run", "Line 5 calls <code>greet()</code>. It works now and prints <b>hi</b>.",
+        [GL(fnv("hello"), fnv("greet"))], ["hello", ERR + "TypeError", "hi"]),
+      ST(null, "done", "Finished. It printed <b>hello TypeError hi</b>.", [GL(fnv("hello"), fnv("greet"))], ["hello", ERR + "TypeError", "hi"])
+    ]
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "Block scope",
+    why: "A var ignores curly braces and lives in the function or global scope. A let lives only inside its curly braces, so outside them the name does not exist at all.",
+    code: [
+      'if (true) {',
+      '  var x = 1;',
+      '  let y = 2;',
+      '}',
+      'console.log(x);',
+      'try { console.log(y); } catch (e) { console.log(e.message); }'
+    ],
+    steps: [
+      ST(null, "setup", "<b>Setup of the global scope.</b> <code>var x</code> is created as <b>undefined</b>. There is no <b>y</b> here, because <code>let y</code> belongs to the curly braces, not to the global scope.",
+        [GL(un("x"))]),
+      ST(0, "run", "Line 1 enters the curly braces. The engine makes a <b>new block scope</b> and sets up <code>let y</code> inside it, <b>locked</b>.",
+        [GL(un("x")), BL("Block scope", tdz("y"))]),
+      ST(1, "run", "<code>var x = 1</code> ignores the curly braces. It writes into the <b>global</b> <code>x</code>.",
+        [GL(val("x", 1)), BL("Block scope", tdz("y"))]),
+      ST(2, "run", "<code>let y = 2</code> unlocks <b>y</b> inside the block.",
+        [GL(val("x", 1)), BL("Block scope", val("y", 2))]),
+      ST(3, "run", "The closing curly brace. The block scope is thrown away, and <b>y</b> goes with it.",
+        [GL(val("x", 1))]),
+      ST(4, "run", "Line 5 reads <code>x</code>. It is in the global scope, so it prints <b>1</b>. The curly braces did not hide it.",
+        [GL(val("x", 1))], ["1"]),
+      ST(5, "error", "Line 6 reads <code>y</code>. The engine searches the current scope, then the global scope. <b>y</b> is not in either, so it throws a <b>ReferenceError</b>: <i>y is not defined</i>. This is different from the dead zone: here the name does not exist at all.",
+        [GL(val("x", 1))], ["1"]),
+      ST(5, "run", "The <code>catch</code> prints the message.",
+        [GL(val("x", 1))], ["1", ERR + "y is not defined"]),
+      ST(null, "done", "Finished. It printed <b>1 y is not defined</b>.", [GL(val("x", 1))], ["1", ERR + "y is not defined"])
+    ]
+  },
+  // ---------------------------------------------------------------- 5
+  {
+    name: "Loop bug with var",
+    why: "A var in a for loop is ONE variable for the whole loop. The timer callbacks run after the loop is finished, when that one variable is already 3.",
+    code: [
+      'for (var i = 0; i < 3; i++) {',
+      '  setTimeout(() => console.log(i), 0);',
+      '}'
+    ],
+    steps: [
+      ST(null, "setup", "<b>Setup.</b> <code>var i</code> is created once, as <b>undefined</b>, in the global scope. Remember: there will be only one <b>i</b>.",
+        [GL(un("i"))]),
+      ST(0, "run", "The loop starts. <code>i = 0</code>. The test <code>0 &lt; 3</code> is true.",
+        [GL(val("i", 0))]),
+      ST(1, "run", "<code>setTimeout</code> hands callback 1 to the browser. It does <b>not</b> run now. It will look up <b>i</b> later.",
+        [GL(val("i", 0))], [], ["callback 1 reads i"]),
+      ST(0, "run", "<code>i++</code> changes the <b>same</b> variable. Now <code>i = 1</code>. The test is true.",
+        [GL(val("i", 1))], [], ["callback 1 reads i"]),
+      ST(1, "run", "Callback 2 is handed to the browser.",
+        [GL(val("i", 1))], [], ["callback 1 reads i", "callback 2 reads i"]),
+      ST(0, "run", "<code>i++</code> again. Now <code>i = 2</code>.",
+        [GL(val("i", 2))], [], ["callback 1 reads i", "callback 2 reads i"]),
+      ST(1, "run", "Callback 3 is handed to the browser.",
+        [GL(val("i", 2))], [], ["callback 1 reads i", "callback 2 reads i", "callback 3 reads i"]),
+      ST(0, "run", "<code>i++</code> makes <code>i = 3</code>. The test <code>3 &lt; 3</code> is false, so the loop ends. There is still only one <b>i</b>, and it is 3.",
+        [GL(val("i", 3))], [], ["callback 1 reads i", "callback 2 reads i", "callback 3 reads i"]),
+      ST(1, "run", "The script is finished. The stack is empty, so the first timer fires (see the event loop lesson). Callback 1 asks for <b>i</b>. The only <b>i</b> is 3. It prints <b>3</b>.",
+        [GL(val("i", 3))], ["3"], ["callback 2 reads i", "callback 3 reads i"]),
+      ST(1, "run", "Callback 2 asks for <b>i</b>. Still 3.",
+        [GL(val("i", 3))], ["3", "3"], ["callback 3 reads i"]),
+      ST(1, "run", "Callback 3 asks for <b>i</b>. Still 3.",
+        [GL(val("i", 3))], ["3", "3", "3"]),
+      ST(null, "done", "Finished. It printed <b>3 3 3</b>. All three callbacks shared one variable.", [GL(val("i", 3))], ["3", "3", "3"])
+    ]
+  },
+  // ---------------------------------------------------------------- 6
+  {
+    name: "Same loop with let",
+    why: "With let, every pass of the loop gets its own copy of i. Each callback keeps the pass it was made in, so each one prints its own number.",
+    code: [
+      'for (let i = 0; i < 3; i++) {',
+      '  setTimeout(() => console.log(i), 0);',
+      '}'
+    ],
+    steps: [
+      ST(null, "setup", "<b>Setup.</b> The global scope has no <b>i</b>. A <code>let</code> in a <code>for</code> belongs to the loop, and the loop makes a <b>new scope for every pass</b>.",
+        [GL()]),
+      ST(0, "run", "Pass 1 starts with its own scope. In it, <code>i = 0</code>. The test is true.",
+        [GL(), LP("Loop pass 1", val("i", 0))]),
+      ST(1, "run", "Callback 1 is handed to the browser. It remembers <b>pass 1</b>, so it will read the <b>i</b> of pass 1.",
+        [GL(), LP("Loop pass 1", val("i", 0))], [], ["callback 1 sees pass 1"]),
+      ST(0, "run", "Before <code>i++</code>, the engine makes a <b>new scope for pass 2</b> and copies <b>i</b> into it. Then it adds one: <code>i = 1</code>. Pass 1 is untouched.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1))], [], ["callback 1 sees pass 1"]),
+      ST(1, "run", "Callback 2 is handed to the browser. It remembers <b>pass 2</b>.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1))], [], ["callback 1 sees pass 1", "callback 2 sees pass 2"]),
+      ST(0, "run", "Pass 3 gets its own scope with <code>i = 2</code>.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2))], [], ["callback 1 sees pass 1", "callback 2 sees pass 2"]),
+      ST(1, "run", "Callback 3 is handed to the browser. It remembers <b>pass 3</b>.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2))], [], ["callback 1 sees pass 1", "callback 2 sees pass 2", "callback 3 sees pass 3"]),
+      ST(0, "run", "<code>i++</code> makes a last scope with <code>i = 3</code>. The test <code>3 &lt; 3</code> is false, so the loop ends. Nobody remembers this last scope, so it is thrown away.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2)), { ...LP("Last check, thrown away", val("i", 3)), gone: true }], [], ["callback 1 sees pass 1", "callback 2 sees pass 2", "callback 3 sees pass 3"]),
+      ST(1, "run", "The script is finished, so the first timer fires. Callback 1 reads <b>i</b> from <b>pass 1</b>. It prints <b>0</b>. Passes 1 to 3 are still alive, because the callbacks point at them. This is a <b>closure</b> (lesson 05).",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2))], ["0"], ["callback 2 sees pass 2", "callback 3 sees pass 3"]),
+      ST(1, "run", "Callback 2 reads <b>i</b> from pass 2. It prints <b>1</b>.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2))], ["0", "1"], ["callback 3 sees pass 3"]),
+      ST(1, "run", "Callback 3 reads <b>i</b> from pass 3. It prints <b>2</b>.",
+        [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2))], ["0", "1", "2"]),
+      ST(null, "done", "Finished. It printed <b>0 1 2</b>. One word changed (<code>var</code> to <code>let</code>) and the memory picture is completely different.", [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1)), LP("Loop pass 3", val("i", 2))], ["0", "1", "2"])
+    ]
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevKeys = new Set();
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function varText(v) {
+  if (v.s === "undef") return "<b>" + esc(v.n) + "</b> undefined";
+  if (v.s === "tdz") return "🔒 <b>" + esc(v.n) + "</b> locked";
+  if (v.s === "fn") return "<b>" + esc(v.n) + "</b> function";
+  return "<b>" + esc(v.n) + "</b> = " + esc(v.v);
+}
+function renderScopes(scopes) {
+  const keys = new Set();
+  const root = $("scopes");
+  root.innerHTML = "";
+  scopes.forEach(sc => {
+    const div = document.createElement("div");
+    div.className = "scope " + sc.kind + (sc.gone ? " gone" : "");
+    const h = document.createElement("h3");
+    h.textContent = sc.name;
+    div.appendChild(h);
+    const box = document.createElement("div");
+    box.className = "vars";
+    if (!sc.vars.length) box.innerHTML = '<span class="empty">no names yet</span>';
+    sc.vars.forEach(v => {
+      const key = sc.name + "|" + v.n + "|" + v.s + "|" + (v.v ?? "");
+      keys.add(key);
+      const c = document.createElement("span");
+      c.className = "var " + v.s + (prevKeys.has(key) ? "" : " pop");
+      c.innerHTML = varText(v);
+      box.appendChild(c);
+    });
+    div.appendChild(box);
+    root.appendChild(div);
+  });
+  prevKeys = keys;
+}
+function renderTimers(list) {
+  $("timersBox").style.display = (PRESETS[cur].steps.some(s => s.timers.length)) ? "block" : "none";
+  $("timers").innerHTML = list.length ? list.map(t => '<span class="chip">' + esc(t) + "</span>").join("") : '<span class="empty">none</span>';
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing printed yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div");
+    const isErr = v.startsWith(ERR);
+    c.className = "chip" + (isErr ? " err" : "");
+    c.textContent = isErr ? v.slice(1) : v;
+    box.appendChild(c);
+  });
+}
+const BADGE = { setup: ["Setup, before line 1", "setup"], run: ["Running a line", "run"], error: ["Throwing an error", "error"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  renderScopes(s.scopes);
+  renderTimers(s.timers);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").trim();
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = steps[idx].out.map(v => v.startsWith(ERR) ? v.slice(1) : v).join(" ");
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + PRESETS[cur].why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Look at the setup step: it holds the answer.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevKeys = new Set();
+  $("guess").value = ""; $("guess").placeholder = "the printed values in order, with spaces";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevKeys = new Set(); render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1900);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevKeys = new Set(); render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>
