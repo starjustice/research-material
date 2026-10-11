@@ -78,6 +78,7 @@ Examples:
   - `notes/mock-interviews/` — mock reports for general topics only (system design, javascript, behavioral). Company mocks go in the company folder.
   - Other topic study notes stay directly in `notes/` (e.g. `react-native-interview-guide.md`).
 - `examples/` — Practical, beginner-friendly example projects and scripts (`examples/problem-solving-practice/` is the pattern-based coding practice).
+- `study.html` — the Study Route site (GitHub Pages). It reads the notes in `notes/` directly. When a new general note is added, add it to the `ITEMS` list inside `study.html` so it appears on the site. Company folders are deliberately not listed.
 - `notes/learning-log/` — my review list and my own tidied explanations, written by the learning skills.
 - `templates/` — Reusable templates and frameworks (answer frameworks, study plans, mock interview scripts).
 

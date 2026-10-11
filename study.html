@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Study Route</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed route sidebar (tracks in order) + one reading column. Home is a dashboard of the route.
+   Colour: cool paper and ink, one track hue per track so progress is readable at a glance. */
+:root{
+  --bg:#F1F4F8; --surface:#FFFFFF; --ink:#121E2B; --ink-2:#4A5968; --ink-3:#6C7A89; --line:#D6DDE5; --soft:#E8EDF3; --code:#EAEFF5;
+  --accent:#2456D1; --accent-ink:#1B44AB; --accent-soft:#DFE8FB; --mark:#FFE27A;
+  --ok:#17794A; --bad:#BE3328;
+  --c-method:#7A4CD6; --c-js:#C97F00; --c-backend:#0C8A79; --c-sys:#2456D1; --c-adv:#C2255C; --c-other:#5B6B7D; --c-practice:#1F8A4C;
+  --font-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+  --font-body:"IBM Plex Sans","Segoe UI",Roboto,Arial,sans-serif;
+  --font-code:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D131B; --surface:#141C26; --ink:#E8EDF3; --ink-2:#A8B4C1; --ink-3:#8795A4; --line:#273341; --soft:#1B2531; --code:#18212C;
+    --accent:#7AA2FF; --accent-ink:#9DBAFF; --accent-soft:#18284A; --mark:#6B5A12;
+    --ok:#4CC38A; --bad:#FF7B6F;
+    --c-method:#B79BFF; --c-js:#F2B631; --c-backend:#3CC4B3; --c-sys:#7AA2FF; --c-adv:#FF7DA8; --c-other:#A0AEC0; --c-practice:#4CC38A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D131B; --surface:#141C26; --ink:#E8EDF3; --ink-2:#A8B4C1; --ink-3:#8795A4; --line:#273341; --soft:#1B2531; --code:#18212C;
+  --accent:#7AA2FF; --accent-ink:#9DBAFF; --accent-soft:#18284A; --mark:#6B5A12;
+  --ok:#4CC38A; --bad:#FF7B6F;
+  --c-method:#B79BFF; --c-js:#F2B631; --c-backend:#3CC4B3; --c-sys:#7AA2FF; --c-adv:#FF7DA8; --c-other:#A0AEC0; --c-practice:#4CC38A;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:4.5rem}
+body{background:var(--bg);color:var(--ink);font:400 1rem/1.6 var(--font-body);-webkit-text-size-adjust:100%}
+a{color:var(--accent-ink)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:.75rem;padding:.6rem 16px;max-width:92rem;margin-inline:auto}
+.menu{display:none;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:.4rem .65rem;cursor:pointer;font:600 .85rem var(--font-display)}
+.brand{font:800 1.15rem var(--font-display);letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand i{font-style:normal;background:linear-gradient(transparent 62%,var(--mark) 62%)}
+.search{position:relative;flex:1;max-width:30rem;margin-left:auto}
+.search input{width:100%;font:400 .92rem var(--font-body);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:.5rem .75rem;min-height:2.4rem}
+.search input::placeholder{color:var(--ink-3)}
+.results{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px #0000002b;max-height:70vh;overflow:auto;z-index:40}
+.results a{display:block;padding:.6rem .85rem;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.results a:last-child{border-bottom:0}
+.results a:hover,.results a:focus-visible{background:var(--soft)}
+.results b{font:600 .92rem var(--font-display);display:block}
+.results small{display:block;color:var(--ink-2);font-size:.8rem;overflow-wrap:anywhere}
+.results .none{padding:.8rem .85rem;color:var(--ink-2);font-size:.9rem}
+.results mark{background:var(--mark);color:inherit;border-radius:2px}
+.sync{font:500 .72rem var(--font-body);color:var(--ink-3);white-space:nowrap}
+
+/* shell */
+.shell{display:grid;grid-template-columns:19rem minmax(0,1fr);max-width:92rem;margin-inline:auto;align-items:start}
+.rail{position:sticky;top:calc(3.6rem + env(safe-area-inset-top,0px));max-height:calc(100vh - 3.6rem);overflow-y:auto;padding:1rem 12px 2rem 16px;border-right:1px solid var(--line)}
+.rail a{text-decoration:none}
+.rail-home{display:flex;justify-content:space-between;align-items:center;padding:.45rem .6rem;border-radius:6px;color:var(--ink);font:600 .9rem var(--font-display);margin-bottom:.6rem}
+.rail-home[aria-current="page"],.item[aria-current="page"]{background:var(--soft)}
+.rail-home:hover,.item:hover{background:var(--soft)}
+.tgroup{margin-top:.9rem}
+.thead{display:flex;align-items:center;gap:.5rem;padding:.3rem .6rem;color:var(--ink);font:700 .78rem var(--font-display);letter-spacing:.06em;text-transform:uppercase}
+.thead .dot{width:.6rem;height:.6rem;border-radius:2px;background:var(--tc)}
+.thead span.n{margin-left:auto;font:500 .72rem var(--font-body);letter-spacing:0;color:var(--ink-3);text-transform:none}
+.item{display:grid;grid-template-columns:1rem minmax(0,1fr);gap:.5rem;align-items:start;padding:.32rem .6rem;border-radius:6px;color:var(--ink-2);font-size:.86rem;line-height:1.35}
+.item[aria-current="page"]{color:var(--ink);font-weight:500}
+.tick{width:.95rem;height:.95rem;margin-top:.12rem;border:1.5px solid var(--ink-3);border-radius:50%;display:grid;place-items:center}
+.tick.on{background:var(--tc);border-color:var(--tc)}
+.tick.on::after{content:"";width:.28rem;height:.5rem;border:solid var(--surface);border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.main{min-width:0;padding:1.5rem 16px 4rem clamp(16px,3.5vw,48px);padding-right:clamp(16px,3.5vw,48px)}
+.wrap{max-width:60rem}
+
+/* home */
+.eyebrow{font:600 .75rem var(--font-display);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:0 0 .5rem}
+h1{font:800 clamp(1.9rem,4.5vw,3rem)/1.05 var(--font-display);letter-spacing:-.02em;margin:0 0 .75rem;text-wrap:balance}
+h2.sec{font:700 1.3rem/1.2 var(--font-display);margin:2.6rem 0 .3rem;letter-spacing:-.01em}
+.sec-sub{margin:0 0 1rem;color:var(--ink-2);max-width:42rem}
+.lede{font-size:1.1rem;color:var(--ink-2);max-width:40rem;margin:0 0 1.25rem}
+.hero-row{display:flex;flex-wrap:wrap;gap:1rem 2rem;align-items:center;margin-top:1.25rem}
+.btn{display:inline-flex;align-items:center;gap:.4rem;font:600 .88rem var(--font-display);background:var(--ink);color:var(--bg);border:1px solid var(--ink);border-radius:6px;padding:.55rem 1rem;min-height:2.5rem;cursor:pointer;text-decoration:none}
+.btn:hover{opacity:.9}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--ink);opacity:1}
+.btn.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.overall{min-width:14rem;flex:1;max-width:22rem}
+.bar{height:.5rem;background:var(--soft);border-radius:4px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.overall small{display:block;margin-top:.35rem;color:var(--ink-2);font-size:.82rem}
+
+.loop{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.6rem;counter-reset:s}
+.loop li{counter-increment:s;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.8rem .85rem;position:relative}
+.loop li::before{content:counter(s);display:inline-grid;place-items:center;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--accent);color:var(--bg);font:700 .78rem var(--font-display);margin-bottom:.4rem}
+.loop li:not(:last-child)::after{content:"";position:absolute;right:-.5rem;top:1.35rem;width:.4rem;height:.4rem;border:solid var(--ink-3);border-width:2px 2px 0 0;transform:rotate(45deg)}
+.loop b{display:block;font:700 .92rem var(--font-display);margin-bottom:.15rem}
+.loop p{margin:0;font-size:.83rem;color:var(--ink-2);line-height:1.45}
+.cmd{font:500 .76rem var(--font-code);background:var(--code);border:1px solid var(--line);padding:.05rem .35rem;border-radius:4px;white-space:nowrap}
+@media (max-width:60rem){.loop{grid-template-columns:repeat(2,minmax(0,1fr))}.loop li::after{display:none!important}}
+@media (max-width:30rem){.loop{grid-template-columns:minmax(0,1fr)}}
+
+.week{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:.92rem}
+.week td,.week th{padding:.6rem .8rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.week tr:last-child td{border-bottom:0}
+.week th{font:700 .72rem var(--font-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);background:var(--soft)}
+.week td:first-child{font:700 .85rem var(--font-display);white-space:nowrap}
+.scroll{overflow-x:auto}
+
+.tracks{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr));gap:.8rem}
+.tcard{display:grid;grid-template-columns:3.4rem minmax(0,1fr);gap:.8rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.9rem;text-decoration:none;color:var(--ink);align-items:start}
+.tcard:hover{border-color:var(--tc)}
+.tcard h3{font:700 1rem/1.25 var(--font-display);margin:0 0 .2rem}
+.tcard p{margin:0;font-size:.84rem;color:var(--ink-2);line-height:1.45}
+.tcard small{display:block;margin-top:.4rem;color:var(--ink-3);font-size:.78rem}
+.ring{width:3.4rem;height:3.4rem;position:relative}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:4}
+.ring .bg{stroke:var(--soft)}
+.ring .fg{stroke:var(--tc);stroke-linecap:round}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font:700 .78rem var(--font-display)}
+
+/* track + item views */
+.crumb{font-size:.82rem;color:var(--ink-3);margin:0 0 .8rem}
+.crumb a{color:var(--ink-2)}
+.tag{display:inline-block;font:600 .68rem var(--font-display);letter-spacing:.08em;text-transform:uppercase;padding:.14rem .5rem;border-radius:4px;background:var(--soft);color:var(--ink-2);white-space:nowrap}
+.tag.vis{background:var(--accent-soft);color:var(--accent-ink)}
+.tag.lv{background:transparent;border:1px solid var(--line)}
+.list{display:grid;gap:.6rem;margin-top:1.2rem}
+.row{display:grid;grid-template-columns:2rem minmax(0,1fr) auto;gap:.8rem;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.8rem .9rem}
+.row .num{font:800 1.1rem var(--font-display);color:var(--tc)}
+.row h3{margin:0 0 .15rem;font:700 1rem/1.3 var(--font-display)}
+.row h3 a{color:var(--ink);text-decoration:none}
+.row h3 a:hover{text-decoration:underline}
+.row p{margin:0 0 .35rem;font-size:.86rem;color:var(--ink-2);line-height:1.45}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size:.78rem;color:var(--ink-3)}
+.check{width:1.7rem;height:1.7rem;border-radius:50%;border:2px solid var(--ink-3);background:transparent;cursor:pointer;display:grid;place-items:center;padding:0}
+.check.on{background:var(--tc);border-color:var(--tc)}
+.check.on::after{content:"";width:.4rem;height:.7rem;border:solid var(--surface);border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.itemhead{border-bottom:1px solid var(--line);padding-bottom:1rem;margin-bottom:1.2rem}
+.itemhead h1{font-size:clamp(1.6rem,3.6vw,2.4rem)}
+.actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem}
+.vis-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.8rem 1.2rem;align-items:center;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:.9rem 1rem;margin:0 0 1.4rem}
+.vis-card b{display:block;font:700 1rem var(--font-display);color:var(--ink)}
+.vis-card span{font-size:.86rem;color:var(--ink-2)}
+@media (max-width:34rem){.vis-card{grid-template-columns:minmax(0,1fr)}}
+.toc{border:1px solid var(--line);border-radius:8px;background:var(--surface);margin:0 0 1.4rem;font-size:.9rem}
+.toc summary{cursor:pointer;padding:.55rem .85rem;font:600 .85rem var(--font-display)}
+.toc ol{margin:0;padding:.2rem .85rem .7rem 2.2rem;columns:2 16rem;column-gap:1.5rem}
+.toc li{margin:.15rem 0;break-inside:avoid}
+.toc a{color:var(--ink-2);text-decoration:none;cursor:pointer}
+.toc a:hover{color:var(--accent-ink);text-decoration:underline}
+.pn{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+.pn a{display:block;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:.7rem .9rem;text-decoration:none;color:var(--ink)}
+.pn a:hover{border-color:var(--accent)}
+.pn small{display:block;color:var(--ink-3);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;font-family:var(--font-display);font-weight:600}
+.pn a:last-child{text-align:right}
+@media (max-width:34rem){.pn{grid-template-columns:1fr}.pn a:last-child{text-align:left}}
+
+/* reading body */
+.md{max-width:48rem;overflow-wrap:break-word}
+.md h1{display:none}
+.md h2{font:700 1.45rem/1.25 var(--font-display);margin:2.4rem 0 .7rem;padding-top:1rem;border-top:1px solid var(--line);letter-spacing:-.01em}
+.md h3{font:700 1.12rem/1.3 var(--font-display);margin:1.8rem 0 .5rem}
+.md h4{font:700 1rem var(--font-display);margin:1.4rem 0 .4rem}
+.md p,.md li{font-size:1rem;line-height:1.7}
+.md ul,.md ol{padding-left:1.4rem}
+.md li{margin:.25rem 0}
+.md blockquote{margin:1rem 0;padding:.6rem 1rem;border-left:3px solid var(--accent);background:var(--surface);border-radius:0 6px 6px 0;color:var(--ink-2)}
+.md blockquote p{margin:.3rem 0}
+.md code{font:500 .86em var(--font-code);background:var(--code);border:1px solid var(--line);padding:.05em .35em;border-radius:4px;overflow-wrap:anywhere}
+.md pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:.85rem 1rem;overflow-x:auto;margin:1rem 0}
+.md pre code{background:none;border:0;padding:0;font-size:.84rem;line-height:1.6;overflow-wrap:normal}
+.md .tablewrap{overflow-x:auto;margin:1rem 0;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.md table{border-collapse:collapse;width:100%;min-width:30rem;font-size:.9rem}
+.md th{background:var(--soft);text-align:left;font:700 .74rem var(--font-display);letter-spacing:.06em;text-transform:uppercase}
+.md th,.md td{padding:.5rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+.md tr:last-child td{border-bottom:0}
+.md hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+.md img{max-width:100%}
+.md pre.mermaid{background:var(--surface);text-align:center;font-family:var(--font-body);padding:1rem;overflow-x:auto}
+.md pre.mermaid svg{max-width:100%;height:auto}
+.gone{color:var(--ink-3);border-bottom:1px dotted var(--ink-3);cursor:help}
+.state{padding:1.5rem 0;color:var(--ink-2)}
+.err{background:var(--surface);border:1px solid var(--bad);border-radius:8px;padding:.8rem 1rem;color:var(--ink)}
+
+/* practice + tools */
+.pgroup{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem;margin-bottom:.7rem}
+.pgroup.soon{opacity:.62}
+.pgroup h3{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 .1rem;font:700 1rem var(--font-display)}
+.pgroup p{margin:0 0 .5rem;font-size:.86rem;color:var(--ink-2)}
+.probs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr));gap:.3rem .8rem}
+.probs label{display:flex;gap:.5rem;align-items:center;font-size:.9rem;cursor:pointer;min-height:1.9rem}
+.probs input{width:1.1rem;height:1.1rem;accent-color:var(--c-practice)}
+.steps7{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem;counter-reset:q}
+.steps7 li{counter-increment:q;font-size:.85rem;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.3rem .6rem}
+.steps7 li::before{content:counter(q) ". ";font-weight:700;color:var(--ink-3)}
+.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,19rem),1fr));gap:.8rem}
+.tool{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.9rem}
+.tool h3{margin:0 0 .3rem;font:600 .95rem var(--font-code)}
+.tool p{margin:.3rem 0;font-size:.88rem;color:var(--ink-2)}
+.tool .ex{font:400 .8rem var(--font-code);color:var(--ink-3)}
+footer.foot{margin-top:3.5rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--ink-3);font-size:.8rem;max-width:48rem}
+
+
+/* goals, review, steps */
+.goals{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,19rem),1fr));gap:.8rem;margin:1.2rem 0 0}
+.goal{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.95rem 1rem}
+.goal h3{margin:0 0 .15rem;font:700 1.05rem/1.25 var(--font-display)}
+.goal>p{margin:0 0 .5rem;font-size:.86rem;color:var(--ink-2)}
+.goal ul{list-style:none;margin:0;padding:0;display:grid;gap:.15rem}
+.goal li a{display:block;padding:.3rem .5rem;margin:0 -.5rem;border-radius:6px;color:var(--ink);text-decoration:none;font-size:.92rem;min-height:1.9rem}
+.goal li a:hover{background:var(--accent-soft);color:var(--accent-ink)}
+.goal .ok{font:600 .66rem var(--font-display);text-transform:uppercase;letter-spacing:.08em;color:var(--ok)}
+.goal .ex{margin:.6rem 0 0;font-size:.82rem;color:var(--ink-2)}
+.due{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr));gap:.6rem}
+.due a{display:block;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--bad);border-radius:8px;padding:.6rem .8rem;text-decoration:none;color:var(--ink)}
+.due a:hover{border-color:var(--ink)}
+.due b{display:block;font:700 .95rem/1.3 var(--font-display)}
+.due small{color:var(--ink-2);font-size:.82rem}
+.tag.warn{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+details.wk{margin-top:1.6rem}
+details.wk summary{cursor:pointer;font:700 1rem var(--font-display);padding:.4rem 0}
+details.wk .scroll{margin-top:.6rem}
+.stepsbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:0 0 1.4rem}
+.stepsbox summary{cursor:pointer;padding:.7rem .95rem;font:700 1rem var(--font-display);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.stepsbody{padding:0 .95rem .95rem}
+.stepl{list-style:none;margin:0;padding:0;display:grid;gap:.1rem}
+.stepl label{display:flex;gap:.65rem;align-items:flex-start;padding:.4rem .2rem;cursor:pointer;min-height:2.2rem}
+.stepl input{width:1.15rem;height:1.15rem;margin-top:.15rem;accent-color:var(--accent);flex:none}
+.stepl b{font:600 .95rem var(--font-display)}
+.stepl small{display:block;color:var(--ink-2);font-size:.82rem;line-height:1.4}
+.stepl em{font-style:normal;font-size:.74rem;color:var(--ink-3);margin-left:.3rem}
+.stepl em.dueNow{color:var(--bad);font-weight:700}
+.selfq{background:var(--soft);border-radius:8px;padding:.7rem .9rem;margin:.9rem 0;font-size:.9rem}
+.selfq ol{margin:.4rem 0 .4rem 1.2rem;padding:0}
+.selfq p{margin:.3rem 0 0;color:var(--ink-2)}
+
+/* narrow screens: rail becomes a drawer */
+@media (max-width:64rem){
+  .menu{display:inline-block}
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed;inset:0 auto 0 0;top:0;width:min(20rem,86vw);z-index:50;background:var(--bg);max-height:none;height:100%;padding-top:calc(1rem + env(safe-area-inset-top,0px));transform:translateX(-102%);transition:transform .2s;border-right:1px solid var(--line)}
+  .rail.open{transform:none}
+  .veil{position:fixed;inset:0;background:#0007;z-index:45}
+  .main{padding-inline:16px}
+  .sync{display:none}
+}
+@media (prefers-reduced-motion:reduce){.rail{transition:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <button class="menu" id="menuBtn" type="button" aria-controls="rail" aria-expanded="false">Route</button>
+    <a class="brand" href="#home"><i>Study</i> Route</a>
+    <div class="search">
+      <label class="sr" for="q">Search all notes</label>
+      <input id="q" type="search" placeholder="Search notes, e.g. index, JWT, event loop" autocomplete="off">
+      <div class="results" id="results" hidden></div>
+    </div>
+    <span class="sync" id="sync"></span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="rail" id="rail" aria-label="Study route"></nav>
+  <main class="main"><div class="wrap" id="view"></div></main>
+</div>
+<div class="veil" id="veil" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ---------- content map ---------- */
+var REPO = true;
+var PRACTICE_DIR = "examples/problem-solving-practice/";
+function src(p){ return p.indexOf("practice/")===0 ? PRACTICE_DIR+p.slice(9) : p }
+
+var TRACKS = [
+ {id:"method", name:"Learn how to learn", color:"--c-method", blurb:"How to study so it sticks: the loop, how to answer theory questions, the weekly plan."},
+ {id:"js", name:"JavaScript and frontend", color:"--c-js", blurb:"How JavaScript runs, React, hooks and React Native."},
+ {id:"backend", name:"Backend, API and database", color:"--c-backend", blurb:"Express, GraphQL, Hasura, auth, PostgreSQL, and how to choose tools."},
+ {id:"sys", name:"System design", color:"--c-sys", blurb:"Load balancers, cloud models, containers, performance, and your own DBO system."},
+ {id:"adv", name:"Advanced, senior level", color:"--c-adv", blurb:"Step by step design, the network journey, Docker internals, database internals."},
+ {id:"other", name:"Other stacks", color:"--c-other", blurb:".NET and Java Spring, explained from what you already know in TypeScript."},
+ {id:"practice", name:"Coding practice", color:"--c-practice", blurb:"Patterns first. Twelve problems with tests, then more as you finish them."}
+];
+
+var ART = "https://claude.ai/artifact/";
+var ITEMS = [
+ {id:"study-method", track:"method", level:"Start", title:"Study method and weekly plan", file:"notes/study-method-and-weekly-plan.md",
+  desc:"The learning loop, the four-part answer for theory questions, the project story template and the weekly schedule. Read this first."},
+
+ {id:"how-js-runs", track:"js", level:"Core", title:"How JavaScript runs", url:ART+"YRvQjoaSrvTYpU9CzFYrJu", kind:"Interactive page",
+  desc:"Why JavaScript has one thread, how the event loop picks the next job, and what happens when you block it. Step through live demos."},
+ {id:"react-guide", track:"js", level:"Core", title:"React and JavaScript frontend guide", file:"notes/react-js-frontend-interview-guide.md", cs:"notes/react-js-frontend-interview-guide-cheatsheet.html",
+  desc:"Rendering, hooks, state, performance and Next.js. The main React interview guide."},
+ {id:"react-hooks", track:"js", level:"Core", title:"React hooks and fetching workbook", file:"notes/react-hooks-fetching-practice.md",
+  desc:"Hands-on exercises. Write the hooks and the fetching code yourself, then compare."},
+ {id:"react-native", track:"js", level:"Core", title:"React Native, the difference from React web", file:"notes/react-native-interview-guide.md", cs:"notes/react-native-interview-guide-cheatsheet.html",
+  desc:"The bridge versus the new architecture, lists, Hermes, Expo versus bare, and updates over the air."},
+
+ {id:"express-graphql", track:"backend", level:"Core", title:"Express, GraphQL and Prisma with real auth", file:"notes/express-graphql-auth-tutorial.md", cs:"notes/express-graphql-auth-tutorial-cheatsheet.html",
+  desc:"One small app that teaches register, login, refresh tokens and protected resolvers."},
+ {id:"api-auth-sheet", track:"backend", level:"Core", title:"Cheat sheet: API request, JWT, microservices", file:"notes/cheatsheet-api-auth-microservice.md",
+  desc:"One short page. What happens on a request, how JWT works, and how services talk."},
+ {id:"hasura", track:"backend", level:"Core", title:"Hasura: what it is and when to choose it", file:"notes/hasura-guide.md", cs:"notes/hasura-guide-cheatsheet.html",
+  desc:"Tracking tables, permissions, actions, and where Hasura stops being the right tool."},
+ {id:"postgres", track:"backend", level:"Core", title:"PostgreSQL queries and indexing", file:"notes/postgresql-queries-interview-guide.md", cs:"notes/postgresql-queries-interview-guide-cheatsheet.html",
+  desc:"Joins, indexes, EXPLAIN, transactions and the advanced questions."},
+ {id:"choosing-tools", track:"backend", level:"Senior", title:"Choosing the right tool", file:"notes/choosing-the-right-tool-frontend-backend-decisions.md",
+  desc:"How to explain why you picked one tool over another, for frontend, mobile, backend and architecture."},
+
+ {id:"sd-basics", track:"sys", level:"Core", title:"System design basics", file:"notes/system-design-basics-senior-fullstack-interview.md", cs:"notes/system-design-cheatsheet.html",
+  desc:"How the interview runs, then caching, scaling Postgres, queues and consistency."},
+ {id:"load-balancers", track:"sys", level:"Core", title:"Load balancers and microservices for an online shop", file:"notes/load-balancers-microservices-online-shop.md", cs:"notes/load-balancers-microservices-online-shop-cheatsheet.html",
+  desc:"Health checks, sticky sessions, splitting services, payment webhooks and sagas."},
+ {id:"cloud-models", track:"sys", level:"Core", title:"Cloud models and serverless", file:"notes/cloud-computing-models-serverless-guide.md", cs:"notes/cloud-computing-models-serverless-guide-cheatsheet.html",
+  desc:"IaaS, PaaS, SaaS and FaaS, and when serverless is the right call."},
+ {id:"containers", track:"sys", level:"Core", title:"Containers: Docker, CapRover to Kubernetes", file:"notes/container-orchestration-guide.md", cs:"notes/container-orchestration-guide-cheatsheet.html",
+  desc:"Kubernetes objects mapped to what you already use, plus the commands to remember."},
+ {id:"performance", track:"sys", level:"Senior", title:"Performance: web, mobile and backend", file:"notes/performance-optimization-web-mobile-backend.md",
+  desc:"Where to look first, what to measure, and the usual fixes at each layer."},
+ {id:"dbo-case", track:"sys", level:"Senior", title:"DBO B2B platform, told the senior way", file:"notes/dbo-b2b-platform-system-design-case-study.md",
+  desc:"Your own system as an interview story: architecture, improvements and a real incident."},
+
+ {id:"sd-walkthrough", track:"adv", level:"Senior", title:"System design, step by step", file:"notes/advanced-interview/system-design-step-by-step-walkthrough.md",
+  desc:"What to do in each minute of the round, with two designs carried from a blank page to the end."},
+ {id:"networking", track:"adv", level:"Senior", title:"What happens when you type a URL", file:"notes/advanced-interview/networking-url-to-page-step-by-step.md", cs:"notes/advanced-interview/networking-url-to-page-step-by-step-cheatsheet.html",
+  desc:"DNS, TCP, TLS, HTTP and the browser, one step at a time."},
+ {id:"docker-internals", track:"adv", level:"Senior", title:"Docker and CapRover internals", file:"notes/advanced-interview/docker-caprover-internals.md",
+  desc:"How the tools you use every day actually work underneath."},
+ {id:"adv-database", track:"adv", level:"Senior", title:"Advanced round report: database internals", file:"notes/advanced-interview/advanced-interview-database-2026-09-18.md", kind:"Session report",
+  desc:"Your answers on database internals, with the gaps to fix."},
+ {id:"adv-tools", track:"adv", level:"Senior", title:"Advanced round report: Docker and CapRover", file:"notes/advanced-interview/advanced-interview-tool-theory-2026-09-18.md", kind:"Session report",
+  desc:"Your answers on tool theory, with the gaps to fix."},
+
+ {id:"dotnet", track:"other", level:"Reference", title:".NET basics for a TypeScript developer", file:"notes/dotnet-basics-for-typescript-devs.md", cs:"notes/dotnet-basics-for-typescript-devs-cheatsheet.html",
+  desc:"C#, ASP.NET Core, EF Core migrations, DI and JWT, explained through code you already know."},
+ {id:"java-spring", track:"other", level:"Reference", title:"Java and Spring basics for a TypeScript developer", file:"notes/java-spring-basics-for-typescript-devs.md", cs:"notes/java-spring-basics-for-typescript-devs-cheatsheet.html",
+  desc:"Java, Spring Boot, JPA and how each idea maps to Express and Prisma."},
+
+ {id:"practice-readme", track:"practice", level:"Core", title:"Problem solving practice: the routine and the roadmap", file:"practice/README.md",
+  desc:"The seven step routine for every problem, why Fibonacci comes first, and the pattern roadmap."}
+];
+
+var PRACTICE = [
+ {name:"Warm up", cmd:"npm run test:warmup", use:"The same sub-problem appears again and again.", ready:true, probs:["Fibonacci","Climbing Stairs"]},
+ {name:"Hash map", cmd:"npm run test:hash-map", use:"You keep asking whether you have seen this before.", ready:true, probs:["Two Sum","Valid Anagram","Group Anagrams"]},
+ {name:"Two pointers", cmd:"npm run test:two-pointers", use:"Sorted data, or comparing from both ends.", ready:true, probs:["Valid Palindrome","Two Sum in a Sorted Array","Container With Most Water"]},
+ {name:"Sliding window", cmd:"npm run test:sliding-window", use:"Best sub-array or sub-string of consecutive items.", ready:true, probs:["Max Sum of k Numbers","Longest Substring Without Repeats"]},
+ {name:"Stack", cmd:"npm run test:stack", use:"The most recent item must be handled first.", ready:true, probs:["Valid Parentheses","Daily Temperatures"]},
+ {name:"Binary search", use:"Sorted data, or find the smallest value that works.", ready:false, probs:["Binary Search","Search Rotated Array","Koko Eating Bananas"]},
+ {name:"Backtracking", use:"Try every choice, undo, try the next.", ready:false, probs:["Subsets","Permutations","Combination Sum"]},
+ {name:"Trees", use:"Anything shaped like a tree or nested data.", ready:false, probs:["Max Depth","Level Order","Validate BST"]},
+ {name:"Graphs", use:"Connections: maps, dependencies, networks.", ready:false, probs:["Number of Islands","Course Schedule"]},
+ {name:"Dynamic programming", use:"Overlapping choices, best or count the ways.", ready:false, probs:["House Robber","Coin Change","Longest Common Subsequence"]},
+ {name:"Heap and intervals", use:"Top k and scheduling.", ready:false, probs:["Kth Largest","Merge Intervals"]}
+];
+
+var TOOLS = [
+ {cmd:"/explain-check", use:"You explain a topic in your own words. Claude points out what is right, vague or memorized, asks why, then draws the correct picture.", ex:"/explain-check database index"},
+ {cmd:"/project-story", use:"Builds and rehearses your stories about DBO, Unloan and ZWS. The decision, why you chose it, what you gave up. Never invents facts.", ex:"/project-story dbo"},
+ {cmd:"/daily-review", use:"A short review of only what is due today, spaced at day 1, 3, 7 and 21. Questions, redraw, fill the diagram.", ex:"/daily-review"},
+ {cmd:"/mock-interview", use:"A realistic interview on one topic. One question at a time, honest scorecard at the end.", ex:"/mock-interview system design"},
+ {cmd:"/live-coding", use:"You write the code. Claude asks for the complexity, breaks your solution with big input and asks for other solutions.", ex:"/live-coding hash map"},
+ {cmd:"/advanced-interview", use:"Hard senior rounds that push each topic down into internals: databases, networking, distributed systems.", ex:"/advanced-interview postgres"}
+];
+
+var WEEK = [
+ ["Mon","Coding","One pattern, a few problems.","#practice"],
+ ["Tue","Backend and database","One topic through the steps. Draw it.","#track-backend"],
+ ["Wed","System design","One design from a blank page.","#track-sys"],
+ ["Thu","Coding","Same pattern again. Redo one old problem.","#practice"],
+ ["Fri","Interview practice","Write one project story. Then a spoken mock.","#tools"],
+ ["Weekend","Review only","Only the topics in Review now. No new material.","#tools"]
+];
+
+/* what do you want to learn: goal cards that jump straight to the right topics */
+var GOALS = [
+ {t:"Explain how things work", s:"Theory questions: databases, the event loop, the network.", ids:["how-js-runs","postgres","networking","adv-database","docker-internals"]},
+ {t:"Practice system design", s:"From a blank page to a full design.", ids:["sd-basics","sd-walkthrough","load-balancers","cloud-models","performance"]},
+ {t:"Explain my projects and my choices", s:"The why behind what you built.", ids:["dbo-case","choosing-tools"], tool:"/project-story dbo"},
+ {t:"Solve code problems", s:"Fibonacci and the patterns behind most questions.", ids:["practice-readme"], practice:true},
+ {t:"React and frontend", s:"React, hooks, React Native.", ids:["react-guide","react-hooks","react-native"]},
+ {t:"API, auth and backend", s:"Express, GraphQL, JWT, Hasura.", ids:["express-graphql","api-auth-sheet","hasura"]}
+];
+
+/* the steps each topic goes through */
+var STEPS = [
+ {k:"p", t:"Looked at the picture", h:"Open the visual cheatsheet first, then read the note."},
+ {k:"d", t:"Drew it from memory", h:"Boxes and arrows on paper. No notes open."},
+ {k:"e", t:"Explained it out loud", h:"As if to a new junior. Then run /explain-check and fix what it points out."},
+ {k:"r1", t:"Redrew it the next day", h:"From memory. If you can, you understood it.", due:1},
+ {k:"r3", t:"Review on day 3", h:"Answer the questions without looking.", due:3},
+ {k:"r7", t:"Review on day 7", h:"Same again. Draw the diagram.", due:7},
+ {k:"r21", t:"Review on day 21", h:"The last one. After this it is long-term memory.", due:21}
+];
+var ANSWER4 = ["What problem does it solve?","How does it work? (draw it)","What is the tradeoff?","Where did I use it in my own project?"];
+
+/* ---------- helpers ---------- */
+function $(s,r){return (r||document).querySelector(s)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function track(id){return TRACKS.filter(function(t){return t.id===id})[0]}
+function item(id){return ITEMS.filter(function(i){return i.id===id})[0]}
+function itemsOf(tid){return ITEMS.filter(function(i){return i.track===tid})}
+function base(p){return p.split("/").pop()}
+var byBase={}, csByBase={};
+ITEMS.forEach(function(i){ if(i.file) byBase[base(i.file)]=i.id; if(i.cs) csByBase[base(i.cs)]=i.cs; });
+
+/* ---------- progress store ---------- */
+var state={done:{},checks:{},last:null,loop:{},review:{}};
+var ref=null, saveTimer=null, KEY="study-route-progress-v1";
+function loadLocal(){ try{ var s=JSON.parse(localStorage.getItem(KEY)||"null"); if(s){state.done=s.done||{};state.checks=s.checks||{};state.last=s.last||null;state.loop=s.loop||{};state.review=s.review||{}} }catch(e){} }
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(state)) }catch(e){}
+  if(!ref) return;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(function(){ ref.set({done:state.done,checks:state.checks,last:state.last||null,loop:state.loop,review:state.review}).catch(function(){}) },700);
+}
+var DAY=86400000;
+function stepOn(id,k){ return state.loop[id] && state.loop[id][k] }
+function setStep(id,k,on){
+  var l=state.loop[id]||(state.loop[id]={});
+  if(on) l[k]=Date.now(); else delete l[k];
+  if(k==="e"){ if(on) state.done[id]=1; else delete state.done[id]; if(on) delete state.review[id] }
+  if(!Object.keys(l).length) delete state.loop[id];
+  save(); renderRail(); refreshSteps(id);
+}
+function toggleHard(id){ if(state.review[id]) delete state.review[id]; else state.review[id]=1; save(); refreshSteps(id) }
+function refreshSteps(id){ var el=document.getElementById("stepsbox"), it=item(id); if(el&&it&&location.hash.slice(1)===id){ var open=el.open; el.outerHTML=stepsHtml(it); var n=document.getElementById("stepsbox"); if(n&&!open) n.open=false } }
+function stepsHtml(i){
+  var e=stepOn(i.id,"e"), n=loopCount(i.id), now=Date.now();
+  var h='<details class="stepsbox" id="stepsbox" open><summary>Your steps for this topic <span class="tag">'+n+' of '+STEPS.length+'</span>'+(state.review[i.id]?' <span class="tag warn">Hard to explain</span>':'')+'</summary><div class="stepsbody"><ol class="stepl">';
+  STEPS.forEach(function(s){
+    var on=!!stepOn(i.id,s.k), note="";
+    if(s.due&&e&&!on){ var at=e+s.due*DAY; note=now>=at?'<em class="dueNow">Due now</em>':'<em>From '+new Date(at).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+'</em>' }
+    else if(s.due&&!e&&!on){ note='<em>Starts after you explain it</em>' }
+    h+='<li><label><input type="checkbox" data-step="'+esc(i.id+"|"+s.k)+'" '+(on?"checked":"")+'><span><b>'+esc(s.t)+'</b> '+note+'<small>'+esc(s.h)+'</small></span></label></li>';
+  });
+  h+='</ol><div class="selfq"><b>Before you tick "Explained it out loud", answer these four, out loud:</b><ol>'+ANSWER4.map(function(q){return '<li>'+esc(q)+'</li>'}).join("")+'</ol><p>Then ask Claude to check you: <span class="cmd">/explain-check '+esc(i.title)+'</span></p></div>'+
+   '<button class="btn ghost" type="button" data-hard="'+i.id+'">'+(state.review[i.id]?'I can explain it now':'Hard to explain, keep it in Review now')+'</button></div></details>';
+  return h;
+}
+function loopCount(id){ var n=0; STEPS.forEach(function(s){ if(stepOn(id,s.k)) n++ }); return n }
+/* topics that need a review today: explained a while ago and the next step is not ticked yet, plus ones flagged as hard */
+function dueList(){
+  var out=[], now=Date.now();
+  ITEMS.forEach(function(i){
+    if(state.review[i.id]){ out.push({i:i,why:"You marked it hard to explain"}); return }
+    var e=stepOn(i.id,"e"); if(!e) return;
+    for(var n=0;n<STEPS.length;n++){
+      var s=STEPS[n]; if(!s.due||stepOn(i.id,s.k)) continue;
+      if(now>=e+s.due*DAY) out.push({i:i,why:s.t.replace("Redrew it the next day","Redraw it from memory")});
+      break;
+    }
+  });
+  return out;
+}
+function syncLabel(txt){ $("#sync").textContent=txt }
+async function connectStore(){
+  syncLabel("Saved in this browser");
+  try{
+    if(!window.claude||!window.claude.use) return;
+    var u=await window.claude.use("user"), db=await window.claude.use("db");
+    if(!u||!db) return;
+    var id=await u.id();
+    ref=db.doc("data/users/"+id+"/progress");
+    var snap=await ref.get();
+    if(snap.exists){
+      var r=snap.data()||{};
+      Object.keys(r.done||{}).forEach(function(k){state.done[k]=1});
+      Object.keys(r.checks||{}).forEach(function(k){state.checks[k]=1});
+      Object.keys(r.review||{}).forEach(function(k){state.review[k]=1});
+      Object.keys(r.loop||{}).forEach(function(id){ var l=state.loop[id]||(state.loop[id]={}); Object.keys(r.loop[id]||{}).forEach(function(k){ if(!l[k]) l[k]=r.loop[id][k] }) });
+      if(!state.last&&r.last) state.last=r.last;
+    }
+    syncLabel("Synced to your account");
+    save(); renderRail(); route();
+  }catch(e){ ref=null; syncLabel("Saved in this browser") }
+}
+function toggleDone(id){ if(state.done[id]) delete state.done[id]; else state.done[id]=1; save(); renderRail(); route(true) }
+
+/* ---------- rail ---------- */
+function doneCount(tid){ return itemsOf(tid).filter(function(i){return state.done[i.id]}).length }
+function practiceTotals(){ var t=0,d=0; PRACTICE.forEach(function(g){ if(!g.ready) return; g.probs.forEach(function(p){t++; if(state.checks[g.name+"|"+p]) d++}) }); return [d,t] }
+function renderRail(){
+  var cur=location.hash.slice(1)||"home", h='<a class="rail-home" href="#home" '+(cur==="home"?'aria-current="page"':'')+'>Home<span class="tag">'+overall().d+' of '+overall().t+'</span></a>';
+  TRACKS.forEach(function(t){
+    var its=itemsOf(t.id);
+    h+='<div class="tgroup" style="--tc:var('+t.color+')"><a class="thead" href="#'+(t.id==="practice"?"practice":"track-"+t.id)+'"><span class="dot"></span>'+esc(t.name)+'<span class="n">'+doneCount(t.id)+'/'+its.length+'</span></a>';
+    its.forEach(function(i){ h+='<a class="item" href="#'+i.id+'" '+(cur===i.id?'aria-current="page"':'')+'><span class="tick '+(state.done[i.id]?'on':'')+'"></span><span>'+esc(i.title)+'</span></a>' });
+    h+='</div>';
+  });
+  h+='<div class="tgroup"><a class="thead" href="#tools"><span class="dot" style="background:var(--ink-3)"></span>Tools and skills</a></div>';
+  $("#rail").innerHTML=h;
+}
+function overall(){ var d=0; ITEMS.forEach(function(i){ if(state.done[i.id]) d++ }); return {d:d,t:ITEMS.length} }
+function nextUp(){
+  var order=ITEMS, start=0;
+  if(state.last){ var ix=order.map(function(i){return i.id}).indexOf(state.last); if(ix>=0) start=ix }
+  for(var k=0;k<order.length;k++){ var i=order[(start+k)%order.length]; if(!state.done[i.id]) return i }
+  return null;
+}
+
+/* ---------- views ---------- */
+var view=$("#view");
+function ring(done,total,tc){
+  var r=15.5, c=2*Math.PI*r, f=total?done/total:0;
+  return '<div class="ring" style="--tc:var('+tc+')"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="bg" cx="18" cy="18" r="'+r+'"/><circle class="fg" cx="18" cy="18" r="'+r+'" stroke-dasharray="'+(c*f).toFixed(1)+' '+c.toFixed(1)+'"/></svg><b>'+done+'/'+total+'</b></div>';
+}
+function viewHome(){
+  var o=overall(), nx=nextUp(), pct=o.t?Math.round(o.d/o.t*100):0, due=dueList();
+  var h='<p class="eyebrow">Interview prep for mid and senior engineer roles</p><h1>What do you want to learn?</h1>'+
+  '<p class="lede">Pick one. Each card goes straight to the right topics. Open the picture first, then explain it out loud.</p>';
+
+  h+='<div class="goals">';
+  GOALS.forEach(function(g){
+    h+='<div class="goal"><h3>'+esc(g.t)+'</h3><p>'+esc(g.s)+'</p><ul>';
+    g.ids.forEach(function(id){ var it=item(id); if(it) h+='<li><a href="#'+(g.practice?"practice":id)+'">'+esc(g.practice?"Open the coding practice":it.title)+'</a>'+(state.done[id]&&!g.practice?' <span class="ok">done</span>':'')+'</li>' });
+    h+='</ul>'+(g.tool?'<p class="ex">Then practice with <span class="cmd">'+esc(g.tool)+'</span></p>':'')+'</div>';
+  });
+  h+='</div>';
+
+  h+='<h2 class="sec">Review now</h2>';
+  if(due.length){
+    h+='<p class="sec-sub">These are due. Do them before anything new. Open the topic and tick the next step.</p><div class="due">';
+    due.forEach(function(d){ h+='<a href="#'+d.i.id+'"><b>'+esc(d.i.title)+'</b><small>'+esc(d.why)+'</small></a>' });
+    h+='</div>';
+  } else {
+    h+='<p class="sec-sub">Nothing is due. When you tick "Explained it out loud" on a topic, it shows up here again on day 1, 3, 7 and 21. You can also mark a topic "Hard to explain" and it waits here until you can.</p>';
+  }
+
+  h+='<div class="hero-row">'+(nx?'<a class="btn" href="#'+nx.id+'">'+(o.d?'Continue: ':'Start: ')+esc(nx.title)+'</a>':'<span class="tag">Every topic is done</span>')+
+  '<div class="overall"><div class="bar" role="progressbar" aria-valuenow="'+pct+'" aria-valuemin="0" aria-valuemax="100"><i style="width:'+pct+'%"></i></div><small>'+o.d+' of '+o.t+' topics explained</small></div></div>';
+
+  h+='<h2 class="sec">How to study each topic</h2><p class="sec-sub">Every topic page has these steps as a checklist. The slash commands run inside your AiLearner folder.</p><ol class="loop">'+
+   '<li><b>Look at the picture</b><p>Open the visual cheatsheet first. Then read the note.</p></li>'+
+   '<li><b>Draw it</b><p>Boxes and arrows on paper. No notes open.</p></li>'+
+   '<li><b>Explain it out loud</b><p>Like to a new junior. Run <span class="cmd">/explain-check</span></p></li>'+
+   '<li><b>Redraw tomorrow</b><p>From memory. If you can, you understood it.</p></li>'+
+   '<li><b>Review on day 3, 7, 21</b><p>Questions only. Run <span class="cmd">/daily-review</span></p></li></ol>';
+
+  h+='<details class="wk"><summary>Weekly rhythm</summary><div class="scroll"><table class="week"><thead><tr><th>Day</th><th>Focus</th><th>What to do</th></tr></thead><tbody>';
+  WEEK.forEach(function(w){ h+='<tr><td>'+w[0]+'</td><td><a href="'+w[3]+'">'+esc(w[1])+'</a></td><td>'+esc(w[2])+'</td></tr>' });
+  h+='</tbody></table></div></details>';
+
+  h+='<h2 class="sec">All topics</h2><p class="sec-sub">The full route if you want to go in order. Tracks 2 to 4 matter most for interviews.</p><div class="tracks">';
+  TRACKS.forEach(function(t,ix){
+    var its=itemsOf(t.id), d=doneCount(t.id), tot=its.length, href=t.id==="practice"?"#practice":"#track-"+t.id, extra="";
+    if(t.id==="practice"){ var p=practiceTotals(); d=p[0]; tot=p[1]; extra=" problems" }
+    h+='<a class="tcard" href="'+href+'" style="--tc:var('+t.color+')">'+ring(d,tot,t.color)+'<div><h3>'+(ix+1)+'. '+esc(t.name)+'</h3><p>'+esc(t.blurb)+'</p><small>'+its.length+(t.id==="practice"?" guide":" topics")+'</small></div></a>';
+  });
+  h+='</div>';
+  h+=footer();
+  view.innerHTML=h;
+}
+
+function rowHtml(i,n){
+  var tr=track(i.track), lc=loopCount(i.id);
+  return '<div class="row" style="--tc:var('+tr.color+')"><span class="num">'+n+'</span><div><h3><a href="#'+i.id+'">'+esc(i.title)+'</a></h3><p>'+esc(i.desc)+'</p><div class="meta">'+
+   (i.cs?'<span class="tag vis">Visual cheatsheet</span>':'')+(i.url?'<span class="tag vis">'+esc(i.kind||"Interactive")+'</span>':'')+(i.kind&&!i.url?'<span class="tag">'+esc(i.kind)+'</span>':'')+
+   '<span class="tag lv">'+esc(i.level)+'</span>'+(lc?'<span>'+lc+' of '+STEPS.length+' steps</span>':'')+(state.review[i.id]?'<span class="tag warn">Hard to explain</span>':'')+'</div></div>'+
+   '<button class="check '+(state.done[i.id]?'on':'')+'" type="button" data-done="'+i.id+'" aria-pressed="'+(!!state.done[i.id])+'" aria-label="Mark '+esc(i.title)+' as done"></button></div>';
+}
+function viewTrack(tid){
+  var t=track(tid); if(!t){ return viewHome() }
+  var its=itemsOf(tid);
+  var h='<p class="crumb"><a href="#home">Home</a> / '+esc(t.name)+'</p><div style="--tc:var('+t.color+')"><h1>'+esc(t.name)+'</h1><p class="lede">'+esc(t.blurb)+'</p>'+
+   '<p class="meta"><span>'+doneCount(tid)+' of '+its.length+' explained</span></p><div class="list">';
+  its.forEach(function(i,k){ h+=rowHtml(i,k+1) });
+  h+='</div></div>'+footer();
+  view.innerHTML=h;
+}
+
+function viewPractice(){
+  var t=track("practice"), p=practiceTotals();
+  var h='<p class="crumb"><a href="#home">Home</a> / '+esc(t.name)+'</p><h1>Coding practice</h1><p class="lede">Patterns first, not random questions. Learn to see which pattern a new problem belongs to. '+p[0]+' of '+p[1]+' problems done.</p>'+
+   '<div class="actions" style="--tc:var(--c-practice)"><a class="btn" href="#practice-readme">Read the routine and roadmap</a></div>'+
+   '<h2 class="sec">The routine, for every problem</h2><ol class="steps7"><li>Restate it</li><li>Small example by hand</li><li>Slow solution first</li><li>What work repeats?</li><li>Better solution</li><li>Edge cases</li><li>Say time and space</li></ol>'+
+   '<p class="sec-sub" style="margin-top:.8rem">Stuck? Open one hint, then try again. Redo each problem from a blank file after 3 days and after 7 days.</p>'+
+   '<h2 class="sec">Patterns, in order</h2><p class="sec-sub">Tick a problem when you solved it without hints and said the time and space cost. Run the commands inside <span class="cmd">examples/problem-solving-practice</span> in your folder.</p>';
+  PRACTICE.forEach(function(g,gi){
+    h+='<div class="pgroup '+(g.ready?'':'soon')+'"><h3>'+(gi)+'. '+esc(g.name)+(g.ready?' <span class="cmd">'+esc(g.cmd)+'</span>':' <span class="tag">Next: ask Claude to add it</span>')+'</h3><p>'+esc(g.use)+'</p><div class="probs">';
+    g.probs.forEach(function(pr){
+      var key=g.name+"|"+pr;
+      h+='<label><input type="checkbox" data-chk="'+esc(key)+'" '+(state.checks[key]?'checked':'')+(g.ready?'':' disabled')+'> '+esc(pr)+'</label>';
+    });
+    h+='</div></div>';
+  });
+  h+=footer();
+  view.innerHTML=h;
+}
+
+function viewTools(){
+  var h='<p class="crumb"><a href="#home">Home</a> / Tools and skills</p><h1>Tools and skills</h1><p class="lede">These run in Claude, inside your AiLearner folder. Type the command in a chat that has the folder open.</p><div class="tools">';
+  TOOLS.forEach(function(t){ h+='<div class="tool"><h3>'+esc(t.cmd)+'</h3><p>'+esc(t.use)+'</p><p class="ex">'+esc(t.ex)+'</p></div>' });
+  h+='</div><h2 class="sec">Where your own study data lives</h2>'+
+   '<p class="sec-sub">The skills write into your folder, so it stays yours: <span class="cmd">notes/learning-log/review-list.md</span> holds what you could not answer yet, <span class="cmd">notes/learning-log/my-explanations.md</span> holds your own tidied explanations, and <span class="cmd">notes/my-project-stories.md</span> holds your project stories. They change every day, so they are not copied onto this site.</p>'+
+   (REPO?'':'<h2 class="sec">Keeping this site current</h2><p class="sec-sub">This site is a snapshot of the folder. After you add or change notes, ask Claude to refresh the study site and it will publish the new version to the same link.</p>')+footer();
+  view.innerHTML=h;
+}
+
+function footer(){ return '<footer class="foot">'+(REPO?'Reads the notes straight from the AiLearner repo, so they are always current. Company specific interview notes are not listed here.':'Snapshot of the AiLearner folder, 11 October 2026. Company specific interview notes are not on this site.')+'</footer>' }
+
+/* ---------- note reader ---------- */
+var cache={}, mmLoading=null;
+function dark(){ var t=document.documentElement.getAttribute("data-theme"); if(t) return t==="dark"; return matchMedia("(prefers-color-scheme: dark)").matches }
+function ensureMermaid(){
+  if(window.mermaid) return Promise.resolve(window.mermaid);
+  if(mmLoading) return mmLoading;
+  mmLoading=new Promise(function(res,rej){
+    var s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js";
+    s.onload=function(){ res(window.mermaid) }; s.onerror=rej; document.head.appendChild(s);
+  });
+  return mmLoading;
+}
+function mermaidFallback(root){
+  setTimeout(function(){
+    var pending=[].filter.call(root.querySelectorAll("pre.mermaid"),function(n){return !n.querySelector("svg")});
+    if(!pending.length) return;
+    ensureMermaid().then(function(m){
+      m.initialize({startOnLoad:false,theme:dark()?"dark":"neutral",securityLevel:"strict"});
+      return m.run({nodes:pending});
+    }).catch(function(){});
+  },1500);
+}
+
+function fixLinks(root){
+  root.querySelectorAll("a[href]").forEach(function(a){
+    var href=a.getAttribute("href"), clean=href.split("#")[0];
+    if(/^https?:/i.test(href)){ a.target="_blank"; a.rel="noopener"; return }
+    if(href.charAt(0)==="#") { a.removeAttribute("href"); return }
+    var b=base(clean);
+    if(/\.md$/i.test(clean) && byBase[b]){ a.setAttribute("href","#"+byBase[b]); return }
+    if(/\.html$/i.test(clean) && csByBase[b]){ a.setAttribute("href",csByBase[b]); a.target="_blank"; a.rel="noopener"; return }
+    var sp=document.createElement("span"); sp.className="gone"; sp.title="This file is not on the site (it stays in your folder)"; sp.innerHTML=a.innerHTML; a.replaceWith(sp);
+  });
+}
+function postProcess(root){
+  root.querySelectorAll("pre code.language-mermaid").forEach(function(c){
+    var pre=document.createElement("pre"); pre.className="mermaid"; pre.textContent=c.textContent; c.closest("pre").replaceWith(pre);
+  });
+  root.querySelectorAll("table").forEach(function(t){ var w=document.createElement("div"); w.className="tablewrap"; t.replaceWith(w); w.appendChild(t) });
+  var used={}; root.querySelectorAll("h2").forEach(function(h,i){ h.id="s"+i });
+  fixLinks(root);
+  mermaidFallback(root);
+}
+function buildToc(root){
+  var hs=root.querySelectorAll("h2"); if(hs.length<3) return "";
+  var h='<details class="toc"><summary>On this page ('+hs.length+' sections)</summary><ol>';
+  hs.forEach(function(x){ h+='<li><a data-jump="'+x.id+'">'+esc(x.textContent)+'</a></li>' });
+  return h+'</ol></details>';
+}
+async function viewItem(i){
+  var tr=track(i.track), its=itemsOf(i.track), ix=its.indexOf(i);
+  state.last=i.id; save();
+  var h='<div style="--tc:var('+tr.color+')"><p class="crumb"><a href="#home">Home</a> / <a href="#'+(tr.id==="practice"?"practice":"track-"+tr.id)+'">'+esc(tr.name)+'</a></p>'+
+   '<div class="itemhead"><div class="meta"><span class="tag lv">'+esc(i.level)+'</span>'+(i.kind?'<span class="tag">'+esc(i.kind)+'</span>':'')+'</div><h1>'+esc(i.title)+'</h1><p class="lede" style="margin:.2rem 0 0">'+esc(i.desc)+'</p></div>';
+  if(i.cs) h+='<div class="vis-card"><div><b>Start with the visual cheatsheet</b><span>Diagrams, numbers and decisions on one page. Then read the note below.</span></div><a class="btn" href="'+i.cs+'" target="_blank" rel="noopener">Open cheatsheet</a></div>';
+  if(i.url){
+    h+='<div class="vis-card"><div><b>This one is an interactive page</b><span>It opens in a new tab and has live demos you can step through.</span></div><a class="btn" href="'+i.url+'" target="_blank" rel="noopener">Open the page</a></div>';
+    h+=stepsHtml(i);
+  } else {
+    h+=stepsHtml(i);
+    h+='<div id="note"><p class="state">Loading note...</p></div>';
+  }
+  h+='<div class="pn">'+(ix>0?'<a href="#'+its[ix-1].id+'"><small>Previous</small>'+esc(its[ix-1].title)+'</a>':'<span></span>')+(ix<its.length-1?'<a href="#'+its[ix+1].id+'"><small>Next</small>'+esc(its[ix+1].title)+'</a>':'<a href="#home"><small>Track finished</small>Back to the route</a>')+'</div></div>';
+  view.innerHTML=h; renderRail();
+  if(i.url) return;
+  var box=$("#note");
+  try{
+    if(!window.marked) throw new Error("The reader library did not load. Check your connection and reload.");
+    var md=cache[i.file]; if(md==null){ var r=await fetch(src(i.file)); if(!r.ok) throw new Error("Could not load the note (HTTP "+r.status+")."); md=cache[i.file]=await r.text() }
+    if(location.hash.slice(1)!==i.id) return;
+    box.innerHTML='<article class="md"></article>';
+    var art=$(".md",box); art.innerHTML=marked.parse(md,{gfm:true});
+    postProcess(art);
+    var toc=buildToc(art); if(toc) art.insertAdjacentHTML("beforebegin",toc);
+  }catch(e){ box.innerHTML='<div class="err">'+esc(e.message||String(e))+'</div>' }
+}
+
+/* ---------- router ---------- */
+function route(keepScroll){
+  var id=location.hash.slice(1)||"home";
+  closeDrawer(); renderRail();
+  if(id==="home") viewHome();
+  else if(id==="practice") viewPractice();
+  else if(id==="tools") viewTools();
+  else if(id.indexOf("track-")===0) viewTrack(id.slice(6));
+  else if(item(id)) viewItem(item(id));
+  else viewHome();
+  if(!keepScroll) window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",function(){ route() });
+
+/* ---------- events ---------- */
+document.addEventListener("click",function(e){
+  var d=e.target.closest("[data-done]"); if(d){ e.preventDefault(); toggleDone(d.getAttribute("data-done")); return }
+  var hd=e.target.closest("[data-hard]"); if(hd){ e.preventDefault(); toggleHard(hd.getAttribute("data-hard")); return }
+  var j=e.target.closest("[data-jump]"); if(j){ var el=document.getElementById(j.getAttribute("data-jump")); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); return }
+  if(!e.target.closest(".search")) hideResults();
+});
+document.addEventListener("change",function(e){
+  var sp=e.target.closest("[data-step]"); if(sp){ var pr=sp.getAttribute("data-step").split("|"); setStep(pr[0],pr[1],sp.checked); return }
+  var c=e.target.closest("[data-chk]"); if(!c) return;
+  var k=c.getAttribute("data-chk"); if(c.checked) state.checks[k]=1; else delete state.checks[k];
+  save(); renderRail();
+  var p=practiceTotals(), lede=$(".lede"); if(lede) lede.textContent=lede.textContent.replace(/\d+ of \d+ problems done\./, p[0]+" of "+p[1]+" problems done.");
+});
+function openDrawer(){ $("#rail").classList.add("open"); $("#veil").hidden=false; $("#menuBtn").setAttribute("aria-expanded","true") }
+function closeDrawer(){ $("#rail").classList.remove("open"); $("#veil").hidden=true; $("#menuBtn").setAttribute("aria-expanded","false") }
+$("#menuBtn").addEventListener("click",function(){ $("#rail").classList.contains("open")?closeDrawer():openDrawer() });
+$("#veil").addEventListener("click",closeDrawer);
+
+/* ---------- search ---------- */
+var idx=null, idxLoading=null;
+function loadIndex(){
+  if(idx) return Promise.resolve(idx);
+  if(idxLoading) return idxLoading;
+  idxLoading=Promise.all(ITEMS.filter(function(i){return i.file}).map(function(i){
+    var p=cache[i.file]!=null?Promise.resolve(cache[i.file]):fetch(src(i.file)).then(function(r){return r.ok?r.text():""}).catch(function(){return ""});
+    return p.then(function(t){ cache[i.file]=t; return {id:i.id,text:t} });
+  })).then(function(a){ idx={}; a.forEach(function(x){ idx[x.id]=x.text }); return idx });
+  return idxLoading;
+}
+function hideResults(){ $("#results").hidden=true }
+function hi(s,q){ var i=s.toLowerCase().indexOf(q); if(i<0) return esc(s); return esc(s.slice(0,i))+"<mark>"+esc(s.slice(i,i+q.length))+"</mark>"+esc(s.slice(i+q.length)) }
+function snippet(text,q){
+  var i=text.toLowerCase().indexOf(q); if(i<0) return "";
+  var s=Math.max(0,i-50), e=Math.min(text.length,i+q.length+80);
+  return (s>0?"...":"")+text.slice(s,e).replace(/[#*`>|_\n]+/g," ")+(e<text.length?"...":"");
+}
+async function runSearch(){
+  var q=$("#q").value.trim().toLowerCase(), box=$("#results");
+  if(q.length<2){ hideResults(); return }
+  var hits=[];
+  ITEMS.forEach(function(i){ if((i.title+" "+i.desc).toLowerCase().indexOf(q)>=0) hits.push({i:i,s:"",rank:0}) });
+  box.hidden=false; box.innerHTML=hits.length?"":'<div class="none">Searching the notes...</div>';
+  render(hits,q,false);
+  var ix=await loadIndex();
+  if($("#q").value.trim().toLowerCase()!==q) return;
+  ITEMS.forEach(function(i){
+    if(!ix[i.id]) return;
+    var sn=snippet(ix[i.id],q); if(!sn) return;
+    var ex=hits.filter(function(h){return h.i===i})[0];
+    if(ex) ex.s=sn; else hits.push({i:i,s:sn,rank:1});
+  });
+  hits.sort(function(a,b){return a.rank-b.rank});
+  render(hits,q,true);
+}
+function render(hits,q,done){
+  var box=$("#results"); if(!hits.length){ if(done) box.innerHTML='<div class="none">Nothing found for "'+esc(q)+'".</div>'; return }
+  box.innerHTML=hits.slice(0,10).map(function(h){ return '<a href="#'+h.i.id+'"><b>'+hi(h.i.title,q)+'</b><small>'+(h.s?hi(h.s,q):esc(track(h.i.track).name))+'</small></a>' }).join("");
+}
+var st=null;
+$("#q").addEventListener("input",function(){ clearTimeout(st); st=setTimeout(runSearch,160) });
+$("#q").addEventListener("focus",function(){ if($("#q").value.trim().length>=2) runSearch() });
+$("#q").addEventListener("keydown",function(e){ if(e.key==="Escape"){ hideResults(); $("#q").blur() } });
+$("#results").addEventListener("click",function(){ hideResults(); $("#q").value="" });
+
+/* ---------- start ---------- */
+loadLocal(); route(); connectStore();
+})();
+</script>
+</body>
+</html>
