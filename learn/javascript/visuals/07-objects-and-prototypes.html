@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Objects and Prototypes Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --global: #3b82f6; --block: #2f9e6b; --loop: #8b5cf6;
+    --tdz: #c0392b; --tdz-bg: #fdecea;
+    --val: #1f7a4d; --val-bg: #e3f5ea;
+    --fn: #b7791f; --fn-bg: #fdf0d2;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .picker {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 10px; font-size: .9rem; display: none;
+  }
+  .picker.show { display: block; }
+  .picker .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .picker button {
+    border: 1px solid var(--border); background: #f3efe4; color: var(--ink); cursor: pointer;
+    border-radius: 8px; padding: 5px 11px; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; font-weight: 650;
+  }
+  .picker button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .picker input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 170px; max-width: 100%; }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input, .predict select {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 280px; max-width: 100%; background: #fff;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .grid .panel { margin-bottom: 0; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px 0 2.4em; text-indent: -2.4em; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .rules { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .rules h2 { margin-bottom: 6px; }
+  .rules ol { margin: 0; padding-left: 0; list-style: none; counter-reset: r; }
+  .rules li {
+    counter-increment: r; font-size: .86rem; padding: 5px 8px 5px 34px; border-radius: 8px; position: relative;
+    border: 1.5px solid transparent; margin-bottom: 3px; color: var(--muted);
+  }
+  .rules li::before {
+    content: counter(r); position: absolute; left: 8px; top: 5px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--border); color: var(--ink); font-size: .74rem; font-weight: 800; text-align: center; line-height: 20px;
+  }
+  .rules li.on { background: #fff1bf; border-color: var(--accent); color: var(--ink); font-weight: 650; }
+  .rules li.on::before { background: var(--ink); color: #fff; }
+  .rules code { background: #efe9db; border-radius: 4px; padding: 1px 4px; font-size: .9em; }
+
+  /* ---- object boxes ---- */
+  .obj {
+    --c: #3b82f6; --bg: #e3eefe;
+    border: 2px solid var(--c); background: var(--bg); border-radius: 12px; padding: 8px 10px 8px; transition: box-shadow .2s, border-color .2s, opacity .2s;
+  }
+  .obj.mine { --c: #3b82f6; --bg: #e3eefe; }
+  .obj.fn { --c: #b7791f; --bg: #fdf0d2; }
+  .obj.built { --c: #6b7a86; --bg: #eef1f4; }
+  .obj.newo { --c: #8b5cf6; --bg: #efe8fd; }
+  .obj.end { --c: #6b7a86; --bg: #fff; border-style: dashed; }
+  .obj.pop { animation: pop .35s ease; }
+  .obj.ask { border-color: #e0a800; box-shadow: 0 0 0 4px #fff1bf; }
+  .obj.yes { border-color: var(--val); box-shadow: 0 0 0 4px #c9ecd8; background: var(--val-bg); }
+  .obj.no { opacity: .62; }
+  .obj.changed { border-color: #8b5cf6; box-shadow: 0 0 0 4px #e1d6fb; }
+  .obj-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: .98rem; }
+  .lvl { font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--c); }
+  .tag { font-size: .7rem; color: var(--muted); }
+  .props { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; min-height: 26px; }
+  .prop {
+    font-family: ui-monospace, Menlo, monospace; font-size: .76rem; font-weight: 650; background: #fff;
+    border: 1.5px solid rgba(0,0,0,.15); border-radius: 7px; padding: 3px 8px;
+  }
+  .prop.hit { background: var(--val-bg); border-color: var(--val); color: var(--val); }
+  .prop.ptr { background: var(--fn-bg); border-color: var(--fn); color: var(--fn); }
+  .prop.more { color: var(--muted); border-style: dashed; font-weight: 500; }
+  .prop.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .linkrow { margin-top: 6px; font-size: .74rem; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .verdict { margin-top: 6px; font-size: .8rem; font-weight: 750; }
+  .obj.ask .verdict { color: #8a6500; }
+  .obj.yes .verdict { color: var(--val); }
+  .obj.no .verdict { color: var(--tdz); }
+  .conn { text-align: center; color: var(--muted); font-size: .74rem; padding: 3px 0; line-height: 1.2; min-height: 8px; }
+  .conn b { color: var(--ink); }
+
+  .counter {
+    display: none; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 12px; border-radius: 10px;
+    background: var(--fn-bg); border: 1.5px solid var(--fn); font-size: .86rem; font-weight: 650;
+  }
+  .counter.show { display: flex; }
+  .counter .n { font-size: 1.6rem; font-weight: 850; color: var(--fn); min-width: 1.2em; text-align: center; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; margin-top: 10px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; font-weight: 650; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.setup { background: #8b5cf6; } .badge.run { background: var(--global); }
+  .badge.found { background: var(--val); } .badge.miss { background: var(--tdz); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--block); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../07-objects-and-prototypes.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Objects and prototypes stepper</h1>
+  <p class="sub">Every object has a hidden link to another object. Press Next and watch the engine ask one object at a time. It follows the link only when the property is not there.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="picker" id="picker">
+    <b>Pick a property to look up on <code>rex</code>.</b> Try one of each kind, and one that does not exist anywhere.
+    <div class="row" id="chips"></div>
+    <div class="row">
+      <span>or type your own:</span>
+      <input id="keyIn" placeholder="any property name" maxlength="40" autocomplete="off">
+      <button id="goKey">Look up</button>
+    </div>
+  </div>
+
+  <div class="predict" id="predictBox">
+    <b>Predict first.</b> <span id="predictLabel"></span><br>
+    <input id="guess" autocomplete="off">
+    <select id="guessSel">
+      <option value="">choose your guess</option>
+      <option value="1">level 1 (rex itself)</option>
+      <option value="2">level 2 (dog)</option>
+      <option value="3">level 3 (animal)</option>
+      <option value="4">level 4 (Object.prototype)</option>
+      <option value="none">not found anywhere (undefined)</option>
+    </select>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your code</h2>
+      <pre class="code" id="code"></pre>
+      <div class="rules"><h2 id="rulesTitle">The rule</h2><ol id="rules"></ol></div>
+    </div>
+    <div class="panel">
+      <h2>Memory: objects and their hidden links</h2>
+      <div id="chain"></div>
+      <div class="counter" id="counter"><span class="n" id="counterN">0</span><span id="counterLabel"></span></div>
+      <div class="outbox"><h3 id="outLabel">Console output</h3><div class="items" id="out"></div></div>
+    </div>
+  </div>
+
+  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> reading a property <b>walks up</b> the chain, one object at a time, and stops at the first object that owns the name. If it reaches <b>null</b>, the answer is <b>undefined</b>. Writing a property never walks up. It always changes the object you wrote it on.</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+// ------------------------------------------------------------------
+// The REAL objects. They are built with the same lines as the lesson,
+// so every lookup below is decided by the real engine, not by a script.
+// ------------------------------------------------------------------
+const animal = { eats: true, eat() { return "eating"; } };
+const dog = Object.create(animal);
+dog.bark = () => "woof";
+const rex = Object.create(dog);
+rex.name = "Rex";
+
+const CHAIN = [rex, dog, animal, Object.prototype];
+const TITLES = ["rex", "dog", "animal", "Object.prototype"];
+const IDS = ["rex", "dog", "animal", "op"];
+const TAGS = ["your object", "your object", "your object", "built in to JavaScript"];
+const NAME_OF = new Map(CHAIN.map((o, i) => [o, TITLES[i]]));
+// Self-check: the links really are rex -> dog -> animal -> Object.prototype -> null
+CHAIN.forEach((o, i) => console.assert(Object.getPrototypeOf(o) === (CHAIN[i + 1] || null), "chain broken at " + i));
+
+function show(v) {
+  if (v === undefined) return "undefined";
+  if (v === null) return "null";
+  if (typeof v === "string") return JSON.stringify(v);
+  if (typeof v === "function") return "ƒ " + (v.name || "") + "()";
+  if (typeof v === "object") return NAME_OF.get(v) || "{ … }";
+  return String(v);
+}
+
+// Chips for the own properties of one object. Object.prototype has many, so only a few are shown.
+const OP_SHOWN = ["constructor", "toString", "hasOwnProperty", "valueOf", "__proto__"];
+function chipsFor(o, hitKey) {
+  let names = Object.getOwnPropertyNames(o);
+  let more = false;
+  if (o === Object.prototype) {
+    const keep = new Set(OP_SHOWN);
+    if (hitKey && names.includes(hitKey)) keep.add(hitKey);
+    more = names.some(n => !keep.has(n));
+    names = names.filter(n => keep.has(n));
+  }
+  const chips = names.map(n => {
+    const d = Object.getOwnPropertyDescriptor(o, n);
+    return { k: n, v: d.get ? "getter" : show(d.value), hit: n === hitKey };
+  });
+  if (more) chips.push({ k: "…and more", more: true });
+  return chips;
+}
+
+// ---- small builders for the hand written presets ----
+const P = (k, v, cls = "") => ({ k, v, cls });
+const B = (id, title, cls, tag, props, o = {}) => ({ id, title, cls, tag, props, ...o });
+const OBJP = (state) => B("op", "Object.prototype", "built", "built in", [P("toString", "ƒ()"), P("hasOwnProperty", "ƒ()"), { k: "…and more", cls: "more" }], { link: "hidden link [[Prototype]] → null", state });
+const ST = (line, phase, note, boxes, out = [], rule = -1, counter = null) => ({ line, phase, note, boxes, out, rule, counter });
+
+// ------------------------------------------------------------------
+// Preset 1: look up a property. Steps are built by really walking the chain.
+// ------------------------------------------------------------------
+const IDENT = /^[A-Za-z_$][\w$]*$/;
+function lookupPreset(key) {
+  const access = IDENT.test(key) ? "rex." + key : "rex[" + JSON.stringify(key) + "]";
+  const code = [
+    'const animal = { eats: true, eat() { return "eating"; } };',
+    'const dog = Object.create(animal);',
+    'dog.bark = () => "woof";',
+    'const rex = Object.create(dog);',
+    'rex.name = "Rex";',
+    'const result = ' + access + ';'
+  ];
+  const real = rex[key];                                              // the real answer
+  const owner = CHAIN.findIndex(o => Object.hasOwn(o, key));          // the real owner, or -1
+  const k = "<code>" + esc(key) + "</code>";
+
+  // Draw the chain. Boxes before "at" were already asked and said no.
+  function boxes(at, mode, nullState) {
+    const list = CHAIN.map((o, i) => {
+      const state = i < at ? "no" : (i === at ? mode : "");
+      const reached = state === "yes";
+      return B(IDS[i], TITLES[i], i < 3 ? "mine" : "built", "level " + (i + 1) + " · " + TAGS[i],
+        chipsFor(o, reached ? key : null),
+        {
+          link: "hidden link [[Prototype]] → " + (i + 1 < CHAIN.length ? TITLES[i + 1] : "null"),
+          linkTo: IDS[i + 1] || "null", state,
+          verdict: state === "ask" ? "Does it OWN " + esc(key) + "?" : state === "yes" ? "Yes. Found it here." : state === "no" ? "No. Not here." : ""
+        });
+    });
+    list.push(B("null", "null", "end", "level 5 · the end of every chain", [], { state: nullState || "", verdict: nullState === "ask" ? "Nothing left to check." : "" }));
+    return list;
+  }
+
+  const steps = [];
+  steps.push(ST(null, "setup",
+    "<b>Setup.</b> The first five lines have run. Memory holds three objects you made, plus the built-in <b>Object.prototype</b>. Each one has a hidden link to the next: <b>rex → dog → animal → Object.prototype → null</b>. Line 6 will look up " + k + " on <b>rex</b>.",
+    boxes(-1, "")));
+  for (let i = 0; i < CHAIN.length; i++) {
+    const name = TITLES[i];
+    steps.push(ST(5, "run",
+      "<b>Level " + (i + 1) + ": " + name + ".</b> The engine asks only this object: does it have " + k + " as its <b>own</b> property? It does not look at the objects above or below yet.",
+      boxes(i, "ask"), [], 0));
+    if (owner === i) {
+      steps.push(ST(5, "found",
+        "<b>Yes.</b> <b>" + name + "</b> owns " + k + ". The engine <b>stops</b> and returns its value: <b>" + esc(show(real)) + "</b>." +
+        (i === 0 ? " It was on rex itself, so the hidden link was not used." : " The levels after " + name + " are never looked at."),
+        boxes(i, "yes"), [], 1));
+      const lvlName = TITLES[i];
+      steps.push(ST(null, "done",
+        "Finished. <b>result = " + esc(show(real)) + "</b>. It was found at <b>level " + (i + 1) + " (" + lvlName + ")</b>, after asking " + (i + 1) + " object" + (i ? "s" : "") + ".",
+        boxes(i, "yes"), ["result = " + show(real)], 1));
+      break;
+    }
+    const next = i + 1 < CHAIN.length ? TITLES[i + 1] : "null";
+    steps.push(ST(5, "run",
+      "<b>No.</b> " + name + " does not own " + k + ". The engine follows the hidden link <b>[[Prototype]]</b> to <b>" + next + "</b>.",
+      boxes(i, "no"), [], 2));
+    if (i === CHAIN.length - 1) {
+      steps.push(ST(5, "miss",
+        "The link of <b>Object.prototype</b> is <b>null</b>. This is the end of the chain. There is nothing left to ask, so the engine returns <b>undefined</b>. It does <b>not</b> throw an error.",
+        boxes(CHAIN.length, "", "ask"), [], 3));
+      steps.push(ST(null, "done",
+        "Finished. <b>result = undefined</b>. All four objects were asked, and none of them owns " + k + ". (Calling it, like <code>" + esc(access) + "()</code>, would throw a <b>TypeError</b>, because you cannot call undefined.)",
+        boxes(CHAIN.length, "", "ask"), ["result = undefined"], 3));
+    }
+  }
+
+  const finalOut = steps[steps.length - 1].out[0];
+  const answer = owner === -1 ? "none" : String(owner + 1);
+  const answerText = owner === -1 ? "not found anywhere (undefined)" : "level " + (owner + 1) + " (" + TITLES[owner] + ")";
+  return {
+    name: "1. Look up a property", picker: true, code,
+    why: owner === -1
+      ? "A missing property is not an error. The engine asks every object in the chain, reaches null, and answers undefined."
+      : "The engine asks one object at a time, starting at rex, and stops at the first owner. That is why a closer object can hide a farther one (shadowing).",
+    rulesTitle: "What the engine does for a read",
+    rules: [
+      "Look at the <b>own</b> properties of this object.",
+      "Found it? <b>Stop</b> and return the value.",
+      "Not found? Follow the hidden link <code>[[Prototype]]</code> to the next object, then go back to rule 1.",
+      "The link is <code>null</code>? <b>Stop</b> and return <code>undefined</code>."
+    ],
+    outLabel: "Result",
+    predict: { type: "level", label: "At which level will the engine find <b>" + esc(key) + "</b>, or will it never find it?", answer, answerText },
+    steps
+  };
+}
+
+// ------------------------------------------------------------------
+// Presets 2 to 5: written by hand, then checked against real node output.
+// ------------------------------------------------------------------
+const rexBox = (props, o = {}) => B("rex", "rex", "mine", "your object", props, { link: "hidden link [[Prototype]] → animal", linkTo: "animal", ...o });
+const animalBox = (o = {}) => B("animal", "animal", "mine", "your object", [P("eats", "true")], { link: "hidden link [[Prototype]] → Object.prototype", linkTo: "op", ...o });
+
+const PRESET_RW = {
+  name: "2. Reading and writing",
+  why: "Reading walks up the chain. Writing never does: it creates or changes an own property on the object you wrote on. The inherited value is hidden (shadowed), not changed. Deleting the own property lets the inherited value show again.",
+  code: [
+    'const animal = { eats: true };',
+    'const rex = Object.create(animal);',
+    'console.log(rex.eats);',
+    'rex.eats = false;',
+    'console.log(rex.eats);',
+    'console.log(animal.eats);',
+    'delete rex.eats;',
+    'console.log(rex.eats);'
+  ],
+  rulesTitle: "Reading against writing",
+  rules: [
+    "<b>Read</b> <code>obj.x</code>: walk up the chain until some object owns <code>x</code>.",
+    "<b>Write</b> <code>obj.x = 1</code>: put <code>x</code> on <code>obj</code> itself. Never on a prototype.",
+    "<b>Delete</b> <code>delete obj.x</code>: removes only the <b>own</b> property. The inherited one is untouched."
+  ],
+  outLabel: "Console output",
+  predict: { type: "text", label: "What do the four <code>console.log</code> lines print, in order?", placeholder: "the printed values in order, with spaces", answer: "true false true true" },
+  steps: [
+    ST(0, "run", "Line 1 creates <b>animal</b> with one own property, <code>eats: true</code>. Its hidden link points to the built-in Object.prototype.",
+      [B("animal", "animal", "mine", "your object", [P("eats", "true")], { link: "hidden link [[Prototype]] → Object.prototype", state: "changed" }), OBJP()]),
+    ST(1, "run", "Line 2 creates <b>rex</b> with <code>Object.create(animal)</code>. rex has <b>no</b> own properties. Its hidden link points to animal.",
+      [rexBox([], { state: "changed" }), animalBox(), OBJP()]),
+    ST(2, "run", "<b>Reading</b> <code>rex.eats</code>. Does rex own <code>eats</code>? No. Follow the link. Does animal own it? <b>Yes</b>, the value is <b>true</b>. It prints <b>true</b>.",
+      [rexBox([], { state: "no", verdict: "No. Not here." }), animalBox({ state: "yes", verdict: "Yes. Found it here." }), OBJP()], ["true"], 0),
+    ST(3, "run", "<b>Writing</b> <code>rex.eats = false</code>. The engine does <b>not</b> walk up the chain to change animal. It creates a new <b>own</b> property on <b>rex</b>. This is <b>shadowing</b>: rex's own <code>eats</code> now hides the one on animal.",
+      [rexBox([P("eats", "false", "hit")], { state: "changed" }), animalBox(), OBJP()], ["true"], 1),
+    ST(4, "run", "<b>Reading</b> <code>rex.eats</code> again. rex owns <code>eats</code> now, so the lookup stops at level 1. It prints <b>false</b>. The animal is never asked.",
+      [rexBox([P("eats", "false", "hit")], { state: "yes", verdict: "Yes. Found it here." }), animalBox(), OBJP()], ["true", "false"], 0),
+    ST(5, "run", "<code>animal.eats</code> is still <b>true</b>. The write did not change animal at all. Every other object that inherits from animal still sees true.",
+      [rexBox([P("eats", "false")]), animalBox({ state: "yes", verdict: "Own property: true" }), OBJP()], ["true", "false", "true"], 1),
+    ST(6, "run", "<b>Deleting</b> <code>delete rex.eats</code>. This removes only rex's <b>own</b> property. rex is empty again.",
+      [rexBox([], { state: "changed" }), animalBox(), OBJP()], ["true", "false", "true"], 2),
+    ST(7, "run", "<b>Reading</b> <code>rex.eats</code>. rex has no own property, so the engine walks up to animal and finds <b>true</b>. The hidden value shows again.",
+      [rexBox([], { state: "no", verdict: "No. Not here." }), animalBox({ state: "yes", verdict: "Yes. Found it here." }), OBJP()], ["true", "false", "true", "true"], 0),
+    ST(null, "done", "Finished. It printed <b>true false true true</b>. One object was shadowed, and nothing above it ever changed.",
+      [rexBox([]), animalBox(), OBJP()], ["true", "false", "true", "true"], 0)
+  ]
+};
+
+// ---- Preset 3 and 4: a method copied into every object against one shared method ----
+const dpBox = (props, o = {}) => B("dp", "Dog.prototype", "mine", "plain object, made with the function Dog", props, { link: "hidden link [[Prototype]] → Object.prototype", ...o });
+const dogObj = (id, title, props, o = {}) => B(id, title, "newo", "made by new Dog", props, { link: "hidden link [[Prototype]] → Dog.prototype", linkTo: "dp", ...o });
+const CTOR = P("constructor", "ƒ Dog()");
+const COUNT = "bark functions in memory";
+
+const PRESET_COPY = {
+  name: "3. A method copied into every object",
+  why: "Every time the constructor runs, the line this.bark = function ... makes a brand new function object. Two dogs have two functions, 1000 dogs have 1000. They are different objects, so === says false.",
+  code: [
+    'function Dog(name) {',
+    '  this.name = name;',
+    '  this.bark = function () { return this.name + " says woof"; };',
+    '}',
+    'const rex = new Dog("Rex");',
+    'const fido = new Dog("Fido");',
+    'console.log(rex.bark === fido.bark);'
+  ],
+  rulesTitle: "What to notice",
+  rules: [
+    "The constructor runs <b>once for every</b> <code>new Dog</code>.",
+    "So <code>function () {…}</code> inside it is evaluated <b>every time</b> and makes a new function object.",
+    "Many objects, many identical copies. A fix to the method would have to touch every copy."
+  ],
+  outLabel: "Console output",
+  predict: { type: "text", label: "What does the last line print?", placeholder: "true or false", answer: "false" },
+  steps: [
+    ST(null, "setup", "<b>Setup.</b> The function declaration <code>Dog</code> is ready. The engine also made <b>Dog.prototype</b>, a plain object that only holds <code>constructor</code>. Nothing has called Dog yet, so there are <b>0</b> bark functions.",
+      [dpBox([CTOR])], [], -1, { n: 0, label: COUNT }),
+    ST(4, "run", "<code>new Dog(\"Rex\")</code> makes a new object and links it to Dog.prototype. Then the constructor body runs with <code>this</code> = the new object. Line 2 gives it <code>name</code>. Line 3 makes a <b>new function object</b> and gives it to rex as <code>bark</code>. The count is <b>1</b>.",
+      [dpBox([CTOR]), dogObj("rex", "rex", [P("name", "\"Rex\""), P("bark", "ƒ #1", "ptr")], { state: "changed" })], [], 0, { n: 1, label: COUNT }),
+    ST(5, "run", "<code>new Dog(\"Fido\")</code> runs the constructor <b>again</b>. Line 3 makes <b>another</b> function with the same code. fido gets <code>bark</code> = <b>ƒ #2</b>. The count is <b>2</b>. With 1000 dogs it would be 1000.",
+      [dpBox([CTOR]), dogObj("rex", "rex", [P("name", "\"Rex\""), P("bark", "ƒ #1", "ptr")]), dogObj("fido", "fido", [P("name", "\"Fido\""), P("bark", "ƒ #2", "ptr")], { state: "changed" })], [], 1, { n: 2, label: COUNT }),
+    ST(6, "run", "<code>rex.bark === fido.bark</code> compares two function objects. ƒ #1 and ƒ #2 look the same, but they are <b>two different objects</b> in memory. So it prints <b>false</b>.",
+      [dpBox([CTOR]), dogObj("rex", "rex", [P("name", "\"Rex\""), P("bark", "ƒ #1", "ptr")], { state: "yes", verdict: "Own bark: ƒ #1" }), dogObj("fido", "fido", [P("name", "\"Fido\""), P("bark", "ƒ #2", "ptr")], { state: "yes", verdict: "Own bark: ƒ #2" })], ["false"], 2, { n: 2, label: COUNT }),
+    ST(null, "done", "Finished. It printed <b>false</b>. Every dog carries its own copy of the method.",
+      [dpBox([CTOR]), dogObj("rex", "rex", [P("name", "\"Rex\""), P("bark", "ƒ #1", "ptr")]), dogObj("fido", "fido", [P("name", "\"Fido\""), P("bark", "ƒ #2", "ptr")])], ["false"], 2, { n: 2, label: COUNT })
+  ]
+};
+
+const PRESET_SHARED = {
+  name: "4. One shared method",
+  why: "The method lives once on Dog.prototype. Each dog keeps only its own data (name) and a hidden link. rex.bark and fido.bark both walk up and find the very same function, so === says true, and a fix to the method is made in one place.",
+  code: [
+    'function Dog(name) { this.name = name; }',
+    'Dog.prototype.bark = function () { return this.name + " says woof"; };',
+    'const rex = new Dog("Rex");',
+    'const fido = new Dog("Fido");',
+    'console.log(rex.bark === fido.bark);'
+  ],
+  rulesTitle: "What to notice",
+  rules: [
+    "The method is written <b>once</b>, on <code>Dog.prototype</code>.",
+    "Each object keeps only its <b>own data</b> and a <b>link</b>.",
+    "Reading <code>rex.bark</code> walks up the link and finds the one shared function."
+  ],
+  outLabel: "Console output",
+  predict: { type: "text", label: "What does the last line print?", placeholder: "true or false", answer: "true" },
+  steps: [
+    ST(null, "setup", "<b>Setup.</b> <code>Dog</code> is ready, and so is <b>Dog.prototype</b> with only <code>constructor</code>. There are <b>0</b> bark functions.",
+      [dpBox([CTOR])], [], -1, { n: 0, label: COUNT }),
+    ST(1, "run", "Line 2 adds <code>bark</code> to <b>Dog.prototype</b>. One function object, <b>ƒ #1</b>, now exists. This is the only copy there will ever be.",
+      [dpBox([CTOR, P("bark", "ƒ #1", "ptr")], { state: "changed" })], [], -1, { n: 1, label: COUNT }),
+    ST(2, "run", "<code>new Dog(\"Rex\")</code> makes rex and links it to Dog.prototype. The constructor only runs <code>this.name = name</code>. rex has <b>no</b> bark of its own. The count stays <b>1</b>.",
+      [dpBox([CTOR, P("bark", "ƒ #1", "ptr")]), dogObj("rex", "rex", [P("name", "\"Rex\"")], { state: "changed" })], [], -1, { n: 1, label: COUNT }),
+    ST(3, "run", "<code>new Dog(\"Fido\")</code> does the same. A second dog was added and <b>no new function</b> was made. The count is still <b>1</b>.",
+      [dpBox([CTOR, P("bark", "ƒ #1", "ptr")]), dogObj("rex", "rex", [P("name", "\"Rex\"")]), dogObj("fido", "fido", [P("name", "\"Fido\"")], { state: "changed" })], [], -1, { n: 1, label: COUNT }),
+    ST(4, "run", "<code>rex.bark === fido.bark</code>. For rex: no own <code>bark</code>, follow the link, Dog.prototype has <b>ƒ #1</b>. For fido: the same walk finds the same <b>ƒ #1</b>. It is one object, so it prints <b>true</b>.",
+      [dpBox([CTOR, P("bark", "ƒ #1", "hit")], { state: "yes", verdict: "Both lookups end here: ƒ #1" }), dogObj("rex", "rex", [P("name", "\"Rex\"")], { state: "no" }), dogObj("fido", "fido", [P("name", "\"Fido\"")], { state: "no" })], ["true"], 0, { n: 1, label: COUNT }),
+    ST(null, "done", "Finished. It printed <b>true</b>. 1000 dogs would still use <b>one</b> bark function.",
+      [dpBox([CTOR, P("bark", "ƒ #1", "ptr")]), dogObj("rex", "rex", [P("name", "\"Rex\"")]), dogObj("fido", "fido", [P("name", "\"Fido\"")])], ["true"], 0, { n: 1, label: COUNT })
+  ]
+};
+
+// ---- Preset 5: what new does ----
+const dogFn = (o = {}) => B("Dog", "Dog", "fn", "a function (functions are objects too)", [P("prototype", "→ Dog.prototype", "ptr")], { link: "hidden link [[Prototype]] → Function.prototype", protoTo: "dp", ...o });
+const newObj = (title, props, link, o = {}) => B("obj", title, "newo", "the new object", props, { link, linkTo: link && link.includes("Dog.prototype") ? "dp" : null, ...o });
+const DP_BARK = [CTOR, P("bark", "ƒ()")];
+const NEW_RULES = [
+  "Create a <b>blank</b> object.",
+  "Set its hidden link <code>[[Prototype]]</code> to <code>Dog.prototype</code>.",
+  "Run <code>Dog</code> with <code>this</code> = the new object.",
+  "<b>Return</b> the new object. (If the function returns another object, that one wins.)"
+];
+const PRESET_NEW = {
+  name: "5. What new does",
+  why: "new does four things: make a blank object, link it to F.prototype, run F with this set to that object, and return the object. The link in step 2 is the only reason rex can find bark later.",
+  code: [
+    'function Dog(name) { this.name = name; }',
+    'Dog.prototype.bark = function () { return this.name + " says woof"; };',
+    'const rex = new Dog("Rex");',
+    'console.log(rex.bark());'
+  ],
+  rulesTitle: "The four things new does",
+  rules: NEW_RULES,
+  outLabel: "Console output",
+  predict: { type: "text", label: "What does the last line print?", placeholder: "the printed text", answer: "Rex says woof" },
+  steps: [
+    ST(null, "setup", "<b>Setup.</b> <code>function Dog</code> is a declaration, so it exists before line 1. For every normal function the engine also makes a plain object called <b>Dog.prototype</b>, with <code>constructor</code> pointing back to Dog. The function's <code>prototype</code> property points to it. Notice that this is <b>not</b> Dog's own hidden link.",
+      [dogFn(), dpBox([CTOR])]),
+    ST(1, "run", "Line 2 adds <code>bark</code> to <b>Dog.prototype</b>. It is stored once.",
+      [dogFn(), dpBox(DP_BARK, { state: "changed" })]),
+    ST(2, "run", "<b>new, thing 1.</b> The engine creates a <b>blank object</b>. It has no properties yet, and it is not linked to Dog.prototype yet.",
+      [dogFn(), dpBox(DP_BARK), newObj("(blank object)", [], "hidden link [[Prototype]] → not set yet", { state: "changed" })], [], 0),
+    ST(2, "run", "<b>new, thing 2.</b> The engine reads <code>Dog.prototype</code> and sets the new object's hidden link <code>[[Prototype]]</code> to it. This is where the link is made. Look at the arrow: it points up.",
+      [dogFn(), dpBox(DP_BARK), newObj("(blank object)", [], "hidden link [[Prototype]] → Dog.prototype", { state: "changed" })], [], 1),
+    ST(0, "run", "<b>new, thing 3.</b> The engine runs the body of <code>Dog</code> with <code>this</code> = the new object. <code>this.name = name</code> writes an <b>own</b> property on the new object.",
+      [dogFn(), dpBox(DP_BARK), newObj("(new object)", [P("name", "\"Rex\"", "hit")], "hidden link [[Prototype]] → Dog.prototype", { state: "changed" })], [], 2),
+    ST(2, "run", "<b>new, thing 4.</b> Dog did not return anything, so <code>new</code> returns the new object. <code>const rex</code> now points to it.",
+      [dogFn(), dpBox(DP_BARK), newObj("rex", [P("name", "\"Rex\"")], "hidden link [[Prototype]] → Dog.prototype", { state: "changed" })], [], 3),
+    ST(3, "run", "<code>rex.bark()</code>. Does rex own <code>bark</code>? No. Follow the link to Dog.prototype. It owns <code>bark</code>: found. The function runs with <code>this</code> = rex, so it returns <b>Rex says woof</b>.",
+      [dogFn(), dpBox(DP_BARK.map((p, i) => i === 1 ? P("bark", "ƒ()", "hit") : p), { state: "yes", verdict: "Yes. Found it here." }), newObj("rex", [P("name", "\"Rex\"")], "hidden link [[Prototype]] → Dog.prototype", { state: "no", verdict: "No. Not here." })], ["Rex says woof"], -1),
+    ST(null, "done", "Finished. It printed <b>Rex says woof</b>. The four things new does made the link, and the link made the lookup work.",
+      [dogFn(), dpBox(DP_BARK), newObj("rex", [P("name", "\"Rex\"")], "hidden link [[Prototype]] → Dog.prototype")], ["Rex says woof"], -1)
+  ]
+};
+
+// ------------------------------------------------------------------
+// The page
+// ------------------------------------------------------------------
+const PRESETS = [lookupPreset("bark"), PRESET_RW, PRESET_COPY, PRESET_SHARED, PRESET_NEW];
+const KEYS = ["name", "bark", "eat", "eats", "toString", "hasOwnProperty", "fly"];
+let cur = 0, idx = 0, steps = PRESETS[0].steps, timer = null, prevKeys = new Set(), curKey = "bark";
+
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderBoxes(boxes) {
+  const root = $("chain");
+  const keys = new Set();
+  root.innerHTML = "";
+  boxes.forEach((b, i) => {
+    const d = document.createElement("div");
+    const bkey = b.id + "|" + b.title;
+    keys.add(bkey);
+    d.className = "obj " + b.cls + (b.state ? " " + b.state : "") + (prevKeys.has(bkey) ? "" : " pop");
+    let h = '<div class="obj-h">' + (b.tag && /^level/.test(b.tag) ? '<span class="lvl">' + esc(b.tag.split(" · ")[0]) + "</span>" : "") +
+      "<b>" + esc(b.title) + '</b><span class="tag">' + esc(b.tag && /^level/.test(b.tag) ? b.tag.split(" · ").slice(1).join(" · ") : (b.tag || "")) + "</span></div>";
+    if (b.id !== "null") {
+      h += '<div class="props">';
+      if (!b.props.length) h += '<span class="empty">no own properties</span>';
+      b.props.forEach(p => {
+        const pk = bkey + "|" + p.k + "|" + p.v;
+        keys.add(pk);
+        const cls = (p.hit ? "hit " : "") + (p.cls || "") + (p.more ? " more" : "") + (prevKeys.has(pk) ? "" : " pop");
+        h += '<span class="prop ' + cls + '">' + esc(p.k) + (p.v !== undefined && p.v !== null && !p.more ? ": " + esc(p.v) : "") + "</span>";
+      });
+      h += "</div>";
+    }
+    if (b.link) h += '<div class="linkrow">' + esc(b.link) + "</div>";
+    if (b.verdict) h += '<div class="verdict">' + esc(b.verdict) + "</div>";
+    d.innerHTML = h;
+    root.appendChild(d);
+    const nx = boxes[i + 1];
+    if (nx) {
+      const c = document.createElement("div");
+      c.className = "conn";
+      if (b.linkTo && b.linkTo === nx.id) c.innerHTML = "▼ <b>[[Prototype]]</b>";
+      else if (nx.linkTo && nx.linkTo === b.id) c.innerHTML = "▲ <b>[[Prototype]]</b> points up";
+      else if (b.protoTo && b.protoTo === nx.id) c.innerHTML = "▼ <b>.prototype</b> property (read only by <code>new</code>)";
+      root.appendChild(c);
+    }
+  });
+  prevKeys = keys;
+}
+function renderRules(active) {
+  const p = PRESETS[cur];
+  $("rulesTitle").textContent = p.rulesTitle || "The rule";
+  $("rules").innerHTML = p.rules.map((r, i) => '<li class="' + (i === active ? "on" : "") + '">' + r + "</li>").join("");
+}
+function renderCounter(c) {
+  $("counter").className = "counter" + (c ? " show" : "");
+  if (c) { $("counterN").textContent = c.n; $("counterLabel").textContent = c.label; }
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div");
+    c.className = "chip";
+    c.textContent = v;
+    box.appendChild(c);
+  });
+}
+const BADGE = {
+  setup: ["Setup, before the code runs", "setup"], run: ["Running a step", "run"], found: ["Found it", "found"],
+  miss: ["Not found anywhere", "miss"], done: ["Finished", "done"]
+};
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  renderBoxes(s.boxes);
+  renderRules(s.rule);
+  renderCounter(s.counter);
+  renderOut(s.out);
+  $("outLabel").textContent = PRESETS[cur].outLabel;
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+const norm = s => String(s).toLowerCase().replace(/[\s,]+/g, " ").trim();
+function showResult() {
+  const r = $("result");
+  const p = PRESETS[cur];
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const why = "<br><b>Why:</b> " + p.why;
+  if (p.predict.type === "level") {
+    const g = $("guessSel").value;
+    const real = "<b>" + esc(p.predict.answerText) + "</b>";
+    if (!g) { r.className = "result show"; r.innerHTML = "The answer: " + real + "." + why + "<br>Next time, choose a guess first. Predicting is what makes it stick."; return; }
+    const ok = g === p.predict.answer;
+    r.className = "result show" + (ok ? "" : " bad");
+    r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "The answer: " + real + "." + why +
+      (ok ? "" : "<br>Press Reset and watch each level. The engine stops at the first object that owns the name.");
+    return;
+  }
+  const real = p.predict.answer;
+  const guess = $("guess").value.trim();
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which object answers each question.");
+}
+
+function setupPredict() {
+  const p = PRESETS[cur].predict;
+  $("predictLabel").innerHTML = p.label;
+  const isLevel = p.type === "level";
+  $("guess").style.display = isLevel ? "none" : "";
+  $("guessSel").style.display = isLevel ? "" : "none";
+  $("guess").value = ""; $("guessSel").value = "";
+  if (!isLevel) $("guess").placeholder = p.placeholder;
+  $("picker").className = "picker" + (PRESETS[cur].picker ? " show" : "");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevKeys = new Set();
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  setupPredict();
+  render();
+}
+function setKey(key) {
+  key = String(key).trim();
+  if (!key) return;
+  stop();
+  curKey = key;
+  PRESETS[0] = lookupPreset(key);
+  cur = 0; steps = PRESETS[0].steps; idx = 0; prevKeys = new Set();
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === 0));
+  document.querySelectorAll("#chips button").forEach(b => b.classList.toggle("on", b.dataset.key === key));
+  setupPredict();
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevKeys = new Set(); render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1900);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => (i === 0 ? setKey(curKey) : pick(i));
+  $("tabs").appendChild(b);
+});
+KEYS.forEach(k => {
+  const b = document.createElement("button");
+  b.textContent = k; b.dataset.key = k;
+  b.onclick = () => setKey(k);
+  $("chips").appendChild(b);
+});
+$("goKey").onclick = () => setKey($("keyIn").value);
+$("keyIn").addEventListener("keydown", e => { if (e.key === "Enter") setKey($("keyIn").value); });
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevKeys = new Set(); render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+$("guessSel").addEventListener("change", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+window.__lookupPreset = lookupPreset;
+setKey("bark");
+</script>
+</body>
+</html>

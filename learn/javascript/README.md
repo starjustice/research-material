@@ -38,11 +38,11 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 05 | Closures `05-closures.md` | how a function remembers variables after its outer function finished | planned |
+| 05 | [Closures](05-closures.md) | how a function remembers variables after its outer function finished | ready |
 | 06 | this, call, apply and bind `06-this-call-apply-and-bind.md` | what decides the value of this, and how arrow functions differ | planned |
 | 07 | Objects and prototypes `07-objects-and-prototypes.md` | the prototype chain, how property lookup walks up it | planned |
 | 08 | Classes `08-classes.md` | class syntax on top of prototypes, extends, super, private fields | planned |
-| 09 | Arrays and higher order functions `09-arrays-and-higher-order-functions.md` | map, filter, reduce, find, and when to use each | planned |
+| 09 | [Arrays and higher order functions](09-arrays-and-higher-order-functions.md) | map, filter, reduce, find, and when to use each | ready |
 | 10 | Destructuring, spread and rest `10-destructuring-spread-and-rest.md` | unpacking values and copying with ... | planned |
 
 ### Async

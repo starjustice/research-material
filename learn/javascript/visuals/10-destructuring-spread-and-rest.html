@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Destructuring, Spread and Rest Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --global: #3b82f6; --global-bg: #e3eefe;
+    --rest: #7c3aed; --rest-bg: #efe8fd;
+    --spread: #1f8a5b; --spread-bg: #dff3ea;
+    --undef: #b7791f; --undef-bg: #fdf0d2;
+    --tdz: #c0392b; --tdz-bg: #fdecea;
+    --val: #1f7a4d; --val-bg: #e3f5ea;
+    --fn: #2563a8; --fn-bg: #e3eefe;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 380px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln .part { background: #ffd24d; border-radius: 4px; padding: 0 2px; box-shadow: 0 0 0 1px #e0a800; }
+
+  /* the source value */
+  .src { border: 2px solid var(--global); background: var(--global-bg); border-radius: 12px; padding: 8px 10px 10px; margin-bottom: 10px; }
+  .src h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: var(--global); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .item {
+    display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1.5px solid #b9cdea; border-radius: 8px;
+    padding: 4px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .82rem;
+  }
+  .item .k { color: var(--muted); font-weight: 700; }
+  .item .v { font-weight: 700; }
+  .item .tag { font-family: -apple-system, sans-serif; font-size: .66rem; font-weight: 700; border-radius: 999px; padding: 1px 7px; color: #fff; background: var(--muted); }
+  .item.read { background: #fff1bf; border-color: var(--accent); box-shadow: 0 0 0 2px #f5c54266; }
+  .item.read .tag { background: #b8860b; }
+  .item.taken { background: var(--val-bg); border-color: var(--val); }
+  .item.taken .tag { background: var(--val); }
+  .item.skip { opacity: .55; text-decoration: line-through; border-style: dashed; }
+  .item.skip .tag { background: var(--muted); text-decoration: none; }
+  .item.left { background: var(--rest-bg); border-color: var(--rest); }
+  .item.left .tag { background: var(--rest); }
+  .item.ghost { background: transparent; border-style: dashed; border-color: var(--tdz); color: var(--tdz); }
+  .item.ghost .tag { background: var(--tdz); }
+
+  /* variables */
+  .vars { border: 2px solid var(--val); background: #f3fbf6; border-radius: 12px; padding: 8px 10px 10px; margin-bottom: 10px; }
+  .vars h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: var(--val); }
+  table.vt { border-collapse: collapse; width: 100%; font-size: .82rem; }
+  table.vt td { padding: 3px 6px; border-bottom: 1px solid #d9eadf; vertical-align: middle; }
+  table.vt tr:last-child td { border-bottom: 0; }
+  table.vt td.n { font-family: ui-monospace, Menlo, monospace; font-weight: 800; white-space: nowrap; }
+  table.vt td.val { font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  table.vt td.how { color: var(--muted); font-size: .74rem; }
+  table.vt tr.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.vt tr.def td.val { color: var(--undef); }
+  table.vt tr.nul td.val { color: var(--tdz); }
+  table.vt tr.rest td.val { color: var(--rest); }
+  table.vt tr.fn td.val { color: var(--fn); }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .refchip { display: inline-block; border-radius: 6px; padding: 1px 8px; color: #fff; font-weight: 800; }
+
+  /* objects in memory */
+  .heap { border: 2px solid #8a6d3b; background: #fbf4e4; border-radius: 12px; padding: 8px 10px 10px; margin-bottom: 10px; }
+  .heap h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #8a6d3b; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
+  .obj { border: 2px solid; border-radius: 10px; padding: 5px 8px 7px; background: #fff; min-width: 130px; }
+  .obj h4 { margin: 0 0 4px; font-size: .74rem; letter-spacing: .03em; }
+  .obj .f { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; display: flex; gap: 6px; align-items: center; }
+  .obj .f .fk { color: var(--muted); }
+  .obj.hot { box-shadow: 0 0 0 3px #f5c54299; transform: translateY(-1px); }
+  .obj.pop { animation: pop .35s ease; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .85rem; font-weight: 650; }
+  .outbox .chip.err { background: #5a2a26; border-color: #8a3b34; color: #ffd9d4; }
+  .outbox .empty { color: #7b8f9d; }
+
+  /* the three dots banner */
+  .dots { margin-top: 14px; border-radius: var(--radius); padding: 12px 14px; border: 2px solid; }
+  .dots.rest { border-color: var(--rest); background: var(--rest-bg); }
+  .dots.spread { border-color: var(--spread); background: var(--spread-bg); }
+  .dtitle { font-weight: 750; font-size: .9rem; margin-bottom: 10px; }
+  .dots.rest .dtitle { color: var(--rest); } .dots.spread .dtitle { color: var(--spread); }
+  .dflow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .dflow .side { flex: 1 1 200px; min-width: 0; }
+  .dflow .lab { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 4px; }
+  .dflow .loose, .dflow .bag { display: flex; flex-wrap: wrap; gap: 6px; min-height: 38px; align-items: center; }
+  .dflow .bag { background: #fff; border: 2.5px solid; border-radius: 14px; padding: 6px 8px; }
+  .dots.rest .bag { border-color: var(--rest); } .dots.spread .bag { border-color: var(--spread); }
+  .dchip { background: #fff; border: 1.5px solid #c9c2b3; border-radius: 8px; padding: 3px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; font-weight: 700; }
+  .dflow .bag .dchip { background: #faf6ee; }
+  .dchip.taken { opacity: .45; text-decoration: line-through; }
+  .dchip.left { border-color: var(--rest); background: var(--rest-bg); }
+  .dchip.new { border-color: var(--spread); background: #fff; box-shadow: 0 0 0 2px #1f8a5b33; }
+  .dchip.over { border-color: var(--tdz); background: var(--tdz-bg); color: var(--tdz); }
+  .dflow .arrow { text-align: center; flex: 0 0 auto; }
+  .dflow .arrow b { display: block; font-size: 1.6rem; line-height: 1; letter-spacing: .1em; }
+  .dflow .arrow span { display: block; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+  .dflow .arrow em { display: block; font-style: normal; font-size: 1.5rem; line-height: 1; }
+  .dots.rest .arrow { color: var(--rest); } .dots.spread .arrow { color: var(--spread); }
+  .dleg { margin-top: 8px; font-size: .74rem; color: var(--muted); }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.setup { background: #8b5cf6; } .badge.run { background: var(--global); }
+  .badge.error { background: var(--tdz); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--val); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: .74rem; }
+  .key span { border-radius: 999px; padding: 2px 10px; font-weight: 700; border: 1.5px solid; background: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../10-destructuring-spread-and-rest.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Destructuring, spread and rest stepper</h1>
+  <p class="sub">Press Next. On the left is the code. On the right you see the <b>source value</b>, the <b>variables being filled one by one</b>, and the <b>three dots</b> either collecting (rest) or expanding (spread).</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will the program print, line by line? Then step to the end.<br>
+    <input id="guess" placeholder="the printed lines in order, one after the other" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your code</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div class="panel">
+      <h2>Memory</h2>
+      <div class="src" id="srcBox" style="display:none"><h3 id="srcTitle"></h3><div class="items" id="srcItems"></div></div>
+      <div class="heap" id="heapBox" style="display:none"><h3>Objects in memory</h3><div class="cards" id="cards"></div></div>
+      <div class="vars"><h3>Variables</h3><table class="vt"><tbody id="vars"></tbody></table></div>
+      <div class="outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+      <div class="key">
+        <span style="color:#1f7a4d;border-color:#1f7a4d">value taken</span>
+        <span style="color:#b7791f;border-color:#b7791f">default used</span>
+        <span style="color:#c0392b;border-color:#c0392b">null kept</span>
+        <span style="color:#7c3aed;border-color:#7c3aed">rest collected</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dots" id="dots" style="display:none"></div>
+
+  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the same three dots, opposite directions. On the <b>left side</b> (a pattern or a parameter list), <b>...</b> is <b>rest</b>: it <b>collects</b> the leftovers into one new array or object, and it must be last. On the <b>right side</b> (a call, an array literal or an object literal), <b>...</b> is <b>spread</b>: it <b>expands</b> one value into separate pieces. A default applies only to <b>undefined</b>. Spread copies only <b>one level</b>.</p>
+</div>
+
+<script>
+// ---- Builders. A step is one snapshot. build() keeps the running state so each step only lists what changed. ----
+const SRC = (kind, title, ...items) => ({ kind, title, items: items.map(([k, v]) => ({ k: String(k), v })) });
+const V   = (n, v, how = "", kind = "val", ref = null) => ({ n, v, how, kind, ref });
+const OBJ = (id, ...fields) => ({ id, fields: fields.map(f => ({ k: f[0], v: f[1], ref: f[2] || null })) });
+const CH  = (t, c = "") => ({ t, c });
+const BOX = (label, chips, boxed) => ({ label, chips, boxed });
+const ERR = "!";   // a console item starting with ! is drawn as an error
+
+// spec row: [line, phase, hl, note, patch]
+function build(spec) {
+  let st = { src: null, marks: {}, vars: [], heap: [], dots: null, out: [] };
+  return spec.map(([line, phase, hl, note, p = {}]) => {
+    st = JSON.parse(JSON.stringify(st));
+    if (p.src) { st.src = p.src; st.marks = {}; }
+    if (p.noSrc) { st.src = null; st.marks = {}; }
+    if (p.mark) Object.assign(st.marks, p.mark);
+    if (p.setVars) st.vars = p.setVars;
+    (p.vars || []).forEach(v => { const i = st.vars.findIndex(x => x.n === v.n); if (i >= 0) st.vars[i] = v; else st.vars.push(v); });
+    (p.drop || []).forEach(n => { st.vars = st.vars.filter(v => v.n !== n); });
+    (p.heap || []).forEach(o => { const i = st.heap.findIndex(x => x.id === o.id); if (i >= 0) st.heap[i] = o; else st.heap.push(o); });
+    if ("dots" in p) st.dots = p.dots;
+    (p.out || []).forEach(o => st.out.push(o));
+    const snap = JSON.parse(JSON.stringify(st));
+    snap.line = line; snap.phase = phase; snap.hl = hl; snap.note = note;
+    snap.read = p.read || []; snap.hot = p.hot || []; snap.ghost = p.ghost || [];
+    return snap;
+  });
+}
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "Array: by position",
+    why: "An array pattern matches by position, left to right. An empty slot throws that value away. A default is used only when the value is undefined. Rest collects everything left into a new array, and it must be last. The source array is never changed.",
+    code: [
+      'const nums = [10, 20, undefined, 40, 50];',
+      'const [first, , third = 0, ...tail] = nums;',
+      'console.log(first, third);',
+      'console.log(tail);'
+    ],
+    steps: build([
+      [0, "run", "", "Line 1 makes an array with five slots. Notice that slot 2 holds the value <code>undefined</code>.",
+        { src: SRC("array", "nums", [0, "10"], [1, "20"], [2, "undefined"], [3, "40"], [4, "50"]), vars: [V("nums", "[10, 20, undefined, 40, 50]", "the array")] }],
+      [1, "run", "[first, , third = 0, ...tail]", "Line 2 is a <b>pattern</b>. It looks like an array, so the engine matches <b>by position</b>, from left to right. It only reads <code>nums</code>. It does not change it.", {}],
+      [1, "run", "first", "<b>first</b> matches position 0. The value is 10. So <code>first = 10</code>.",
+        { read: ["0"], mark: { 0: "taken" }, vars: [V("first", "10", "position 0")] }],
+      [1, "run", ", ,", "The empty place between the two commas matches position 1 (the value 20) and <b>throws it away</b>. No variable is made.",
+        { read: ["1"], mark: { 1: "skip" } }],
+      [1, "run", "third = 0", "<b>third</b> matches position 2. The value there is <code>undefined</code>, so the <b>default 0</b> is used.",
+        { read: ["2"], mark: { 2: "taken" }, vars: [V("third", "0", "was undefined, default used", "def")] }],
+      [1, "run", "...tail", "The three dots are on the <b>left side</b>, inside a pattern. That is <b>rest</b>. It collects everything that is left, from position 3 to the end, into a <b>new array</b>. Rest must be the last item in the pattern.",
+        { mark: { 3: "left", 4: "left" }, vars: [V("tail", "[40, 50]", "rest, a new array", "rest")],
+          dots: { mode: "rest", where: "inside an array pattern", from: BOX("positions 3 and 4", [CH("40", "left"), CH("50", "left")], false), to: BOX("tail, a NEW array", [CH("40"), CH("50")], true) } }],
+      [2, "run", "", "Line 3 prints <code>first</code> and <code>third</code>.", { dots: null, out: ["10 0"] }],
+      [3, "run", "", "Line 4 prints <code>tail</code>.", { out: ["[ 40, 50 ]"] }],
+      [null, "done", "", "Finished. It printed <b>10 0</b> and <b>[ 40, 50 ]</b>. Notice that <code>nums</code> still has all five values. Destructuring reads from the source. It does not take values out.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "Object: by name",
+    why: "An object pattern matches by name, so the order in the pattern does not matter. A colon renames: age: years reads the key age and makes a variable called years. A nested pattern goes one level down. Only the names that end up inside the pattern as variables are created.",
+    code: [
+      'const user = { name: "Ana", age: 30, address: { city: "Jakarta" } };',
+      'const { name, age: years, role = "guest", address: { city } } = user;',
+      'console.log(name, years, role, city);'
+    ],
+    steps: build([
+      [0, "run", "", "Line 1 makes an object with three keys. The key <code>address</code> holds another object.",
+        { src: SRC("object", "user", ["name", '"Ana"'], ["age", "30"], ["address", '{ city: "Jakarta" }']), vars: [V("user", '{ name: "Ana", age: 30, address: { city: "Jakarta" } }', "the object")] }],
+      [1, "run", '{ name, age: years, role = "guest", address: { city } }', "Line 2 is a pattern that looks like an object, so the engine matches <b>by name</b>. The order inside the braces does not matter. It reads <code>user</code> and does not change it.", {}],
+      [1, "run", "name", "<b>name</b> reads the key <code>name</code>. The value is \"Ana\". So <code>name = \"Ana\"</code>.",
+        { read: ["name"], mark: { name: "taken" }, vars: [V("name", '"Ana"', "user.name")] }],
+      [1, "run", "age: years", "<code>age: years</code> means: read the key <b>age</b>, and put the value in a variable called <b>years</b>. The colon <b>renames</b>. No variable called <code>age</code> is made.",
+        { read: ["age"], mark: { age: "taken" }, vars: [V("years", "30", "user.age, renamed")] }],
+      [1, "run", 'role = "guest"', "<b>role</b> reads the key <code>role</code>. There is no such key, so the value is <code>undefined</code>. The <b>default</b> \"guest\" is used.",
+        { ghost: [["role", "(no such key)"]], vars: [V("role", '"guest"', "key missing, default used", "def")] }],
+      [1, "run", "address: { city }", "<code>address: { city }</code> goes <b>one level down</b>. It reads <code>user.address</code>, then matches the pattern <code>{ city }</code> against that inner object. <code>city</code> is \"Jakarta\". The name <code>address</code> is only a path here, so it does <b>not</b> become a variable.",
+        { read: ["address"], mark: { address: "taken" }, vars: [V("city", '"Jakarta"', "user.address.city")] }],
+      [2, "run", "", "Line 3 prints the four new variables.", { out: ["Ana 30 guest Jakarta"] }],
+      [null, "done", "", "Finished. It printed <b>Ana 30 guest Jakarta</b>. The variables are <code>name</code>, <code>years</code>, <code>role</code> and <code>city</code>. There is no <code>age</code> and no <code>address</code> variable.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "Defaults: undefined only",
+    why: "A default is used in one case only: the value is undefined (the key is missing, or it holds undefined). null, 0 and an empty string are real values, so they are kept. That is why null is the classic trap.",
+    code: [
+      'const cfg = { a: undefined, b: null, c: 0, d: "" };',
+      'const { a = 1, b = 2, c = 3, d = "x", e = 5 } = cfg;',
+      'console.log(a, b, c, d === "", e);'
+    ],
+    steps: build([
+      [0, "run", "", "Line 1 makes an object. Look at the four values: <code>undefined</code>, <code>null</code>, <code>0</code> and an empty string.",
+        { src: SRC("object", "cfg", ["a", "undefined"], ["b", "null"], ["c", "0"], ["d", '""']), vars: [V("cfg", '{ a: undefined, b: null, c: 0, d: "" }', "the object")] }],
+      [1, "run", "", "Line 2 has a default for every name. Ask one question for each: <b>is the value exactly undefined?</b> Only then is the default used.", {}],
+      [1, "run", "a = 1", "<b>a</b>: the value is <code>undefined</code>. Yes, so the <b>default 1</b> is used.",
+        { read: ["a"], mark: { a: "taken" }, vars: [V("a", "1", "was undefined, default used", "def")] }],
+      [1, "run", "b = 2", "<b>b</b>: the value is <code>null</code>. That is <b>not</b> undefined. <code>null</code> counts as a real value, so the default is <b>not</b> used. <code>b</code> is <code>null</code>.",
+        { read: ["b"], mark: { b: "taken" }, vars: [V("b", "null", "null is kept", "nul")] }],
+      [1, "run", "c = 3", "<b>c</b>: the value is <code>0</code>. Not undefined, so it is kept. (Careful: the old style <code>cfg.c || 3</code> would give 3 here, because 0 is falsy. A default does not make that mistake.)",
+        { read: ["c"], mark: { c: "taken" }, vars: [V("c", "0", "0 is kept")] }],
+      [1, "run", 'd = "x"', "<b>d</b>: the value is an empty string. Not undefined, so it is kept.",
+        { read: ["d"], mark: { d: "taken" }, vars: [V("d", '""', "empty string is kept")] }],
+      [1, "run", "e = 5", "<b>e</b>: the key is missing, so the value is <code>undefined</code>. The <b>default 5</b> is used.",
+        { ghost: [["e", "(no such key)"]], vars: [V("e", "5", "key missing, default used", "def")] }],
+      [2, "run", "", "Line 3 prints the values.", { out: ["1 null 0 true 5"] }],
+      [null, "done", "", "Finished. It printed <b>1 null 0 true 5</b>. Two defaults were used (a and e). Three values were kept (null, 0 and the empty string). To also replace null, use <code>b ?? 2</code> after the destructuring.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "Options object and TypeError",
+    why: "An options object names every value, so the caller does not need to remember an order, and defaults fill the missing names. But the default for the whole parameter (= {}) is used only for undefined. A null still gets in, the port stays null, and destructuring null throws a TypeError.",
+    code: [
+      'function connect({ host, port = 80, secure = false } = {}) {',
+      '  return host + ":" + port + " " + secure;',
+      '}',
+      'console.log(connect({ host: "a.com", secure: true }));',
+      'console.log(connect({ host: "b.com", port: null }));',
+      'try { connect(null); } catch (e) { console.log(e.name); }'
+    ],
+    steps: build([
+      [null, "setup", "", "<b>Setup.</b> <code>connect</code> is a function declaration, so it exists as a whole function before line 1 runs. The pattern in its parameter is not run yet. It runs each time the function is called.",
+        { vars: [V("connect", "function", "", "fn")] }],
+      [3, "run", '{ host: "a.com", secure: true }', "<b>Call 1.</b> The caller passes <b>one object</b>. The names say what each value means, so the caller does not need to remember an order.",
+        { src: SRC("object", "argument 1", ["host", '"a.com"'], ["secure", "true"]) }],
+      [0, "run", "host", "<b>host</b> reads the key <code>host</code>. The value is \"a.com\".",
+        { read: ["host"], mark: { host: "taken" }, vars: [V("host", '"a.com"', "from the argument")] }],
+      [0, "run", "port = 80", "<b>port</b>: there is no <code>port</code> key, so the value is <code>undefined</code>. The <b>default 80</b> is used.",
+        { ghost: [["port", "(no such key)"]], vars: [V("port", "80", "key missing, default used", "def")] }],
+      [0, "run", "secure = false", "<b>secure</b> reads the key <code>secure</code>. The value is <code>true</code>. The default is not needed.",
+        { read: ["secure"], mark: { secure: "taken" }, vars: [V("secure", "true", "from the argument")] }],
+      [3, "run", "", "The function returns the text and <code>console.log</code> prints it. The three parameters are thrown away when the call ends.",
+        { out: ["a.com:80 true"], drop: ["host", "port", "secure"], noSrc: true }],
+      [4, "run", '{ host: "b.com", port: null }', "<b>Call 2.</b> This time the caller passes <code>port: null</code>.",
+        { src: SRC("object", "argument 1", ["host", '"b.com"'], ["port", "null"]) }],
+      [0, "run", "host", "<b>host</b> is \"b.com\".",
+        { read: ["host"], mark: { host: "taken" }, vars: [V("host", '"b.com"', "from the argument")] }],
+      [0, "run", "port = 80", "<b>port</b>: the value is <code>null</code>. That is not undefined, so the default 80 is <b>not</b> used. <code>port</code> is <code>null</code>.",
+        { read: ["port"], mark: { port: "taken" }, vars: [V("port", "null", "null is kept", "nul")] }],
+      [0, "run", "secure = false", "<b>secure</b>: no such key, so the default <code>false</code> is used.",
+        { ghost: [["secure", "(no such key)"]], vars: [V("secure", "false", "key missing, default used", "def")] }],
+      [4, "run", "", "It prints <b>b.com:null false</b>. The text says null for the port. Probably not what you wanted. A default does not catch null.",
+        { out: ["b.com:null false"], drop: ["host", "port", "secure"], noSrc: true }],
+      [5, "error", "connect(null)", "<b>Call 3.</b> The argument is <code>null</code>. The default <code>= {}</code> is used only for <code>undefined</code>, so it is skipped. The engine now tries to destructure <code>null</code>, and that throws a <b>TypeError</b>. (The exact message words differ between engines.)",
+        { src: SRC("object", "argument 1", ["", "null"]) }],
+      [5, "run", "console.log(e.name)", "The <code>catch</code> prints the error name.",
+        { out: [ERR + "TypeError"], noSrc: true }],
+      [null, "done", "", "Finished. It printed <b>a.com:80 true</b>, <b>b.com:null false</b> and <b>TypeError</b>. Remember: a default covers <code>undefined</code>, not <code>null</code>. A missing argument is fine because of <code>= {}</code>. A null argument is not.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 5
+  {
+    name: "Rest: collect the leftover",
+    why: "Rest collects the leftover pieces into ONE new array (in a parameter list) or ONE new object (in an object pattern). If nothing is left over, rest is an empty array, never undefined. Rest must be last.",
+    code: [
+      'function total(label, ...nums) {',
+      '  console.log(label, nums);',
+      '}',
+      'total("sum", 1, 2, 3);',
+      'total("none");',
+      'const { id, ...others } = { id: 7, name: "Ana", age: 30 };',
+      'console.log(id, others);'
+    ],
+    steps: build([
+      [null, "setup", "", "<b>Setup.</b> <code>total</code> is a function declaration, so it exists as a whole function before line 1 runs.",
+        { vars: [V("total", "function", "", "fn")] }],
+      [3, "run", '"sum", 1, 2, 3', "<b>Call 1.</b> Four separate values arrive as arguments. Look at the banner below the code: it shows the pieces going in.",
+        { dots: { mode: "rest", where: "in a parameter list", from: BOX("4 arguments, separate", [CH('"sum"'), CH("1"), CH("2"), CH("3")], false), to: BOX("the parameters", [], true) } }],
+      [0, "run", "label", "<b>label</b> is the first parameter, so it takes the first argument, \"sum\".",
+        { vars: [V("label", '"sum"', "argument 1")],
+          dots: { mode: "rest", where: "in a parameter list", from: BOX("4 arguments, separate", [CH('"sum"', "taken"), CH("1"), CH("2"), CH("3")], false), to: BOX("the parameters", [CH("label = sum")], true) } }],
+      [0, "run", "...nums", "<code>...nums</code> has the three dots in the <b>parameter list</b>. That is <b>rest</b>. It collects <b>all the arguments that are left</b> (1, 2 and 3) into <b>one new array</b> called <code>nums</code>. Rest must be the last parameter.",
+        { vars: [V("nums", "[1, 2, 3]", "rest, a new array", "rest")],
+          dots: { mode: "rest", where: "in a parameter list", from: BOX("4 arguments, separate", [CH('"sum"', "taken"), CH("1", "left"), CH("2", "left"), CH("3", "left")], false), to: BOX("nums, a NEW array", [CH("1"), CH("2"), CH("3")], true) } }],
+      [1, "run", "", "The function prints both parameters.", { out: ["sum [ 1, 2, 3 ]"], dots: null }],
+      [4, "run", '"none"', "<b>Call 2.</b> Only one argument arrives. <code>label</code> takes it. Nothing is left over, so rest gives an <b>empty array</b>. It is never <code>undefined</code>.",
+        { setVars: [V("total", "function", "", "fn"), V("label", '"none"', "argument 1"), V("nums", "[]", "rest, nothing left", "rest")],
+          dots: { mode: "rest", where: "in a parameter list", from: BOX("1 argument", [CH('"none"', "taken")], false), to: BOX("nums, a NEW array", [], true) } }],
+      [1, "run", "", "It prints the label and the empty array.", { out: ["none []"], dots: null }],
+      [5, "run", "{ id, ...others }", "Line 6 uses the same idea in an <b>object pattern</b>. The object on the right has three keys. The engine matches by name.",
+        { setVars: [V("total", "function", "", "fn")], src: SRC("object", "the object on the right", ["id", "7"], ["name", '"Ana"'], ["age", "30"]) }],
+      [5, "run", "id", "<b>id</b> reads the key <code>id</code>. The value is 7.",
+        { read: ["id"], mark: { id: "taken" }, vars: [V("id", "7", "key id")] }],
+      [5, "run", "...others", "<code>...others</code> is <b>rest</b> again. It collects every own key that was <b>not named</b> in the pattern (name and age) into a <b>new object</b>.",
+        { mark: { name: "left", age: "left" }, vars: [V("others", '{ name: "Ana", age: 30 }', "rest, a new object", "rest")],
+          dots: { mode: "rest", where: "inside an object pattern", from: BOX("keys not named", [CH('name: "Ana"', "left"), CH("age: 30", "left")], false), to: BOX("others, a NEW object", [CH('name: "Ana"'), CH("age: 30")], true) } }],
+      [6, "run", "", "Line 7 prints <code>id</code> and <code>others</code>.", { out: ["7 { name: 'Ana', age: 30 }"], dots: null }],
+      [null, "done", "", "Finished. Rest always builds something <b>new</b>: an array in a parameter list, an object in an object pattern.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 6
+  {
+    name: "Spread: expand into pieces",
+    why: "Spread takes ONE array or object and expands it into separate pieces, in an array literal, a function call or an object literal. It always builds something new. The source is not changed.",
+    code: [
+      'const a = [1, 2];',
+      'const b = [0, ...a, 3];',
+      'console.log(Math.max(...b));',
+      'const base = { x: 1, y: 2 };',
+      'const next = { ...base, y: 20 };',
+      'console.log(b, next);'
+    ],
+    steps: build([
+      [0, "run", "", "Line 1 makes the array <code>a</code>.", { vars: [V("a", "[1, 2]", "the array")] }],
+      [1, "run", "0", "Line 2 builds a <b>new array</b> from left to right. First the plain value 0 goes in.",
+        { dots: { mode: "spread", where: "in an array literal", from: BOX("a", [CH("1"), CH("2")], true), to: BOX("new array being built", [CH("0", "new")], true) } }],
+      [1, "run", "...a", "<code>...a</code> has the three dots on the <b>right side</b>, inside an array literal. That is <b>spread</b>. It takes the <b>one</b> array <code>a</code> and <b>pours out</b> its items, one by one, at this spot. <code>a</code> itself is not changed.",
+        { dots: { mode: "spread", where: "in an array literal", from: BOX("a", [CH("1"), CH("2")], true), to: BOX("new array being built", [CH("0"), CH("1", "new"), CH("2", "new")], true) } }],
+      [1, "run", "3", "Then the plain value 3 goes in. The finished array is stored in <code>b</code>.",
+        { vars: [V("b", "[0, 1, 2, 3]", "a new array")],
+          dots: { mode: "spread", where: "in an array literal", from: BOX("a", [CH("1"), CH("2")], true), to: BOX("b, a NEW array", [CH("0"), CH("1"), CH("2"), CH("3", "new")], true) } }],
+      [2, "run", "...b", "<code>Math.max</code> wants separate numbers, not one array. <code>...b</code> is <b>spread in a call</b>. It expands the one array into four separate arguments, so the call is <code>Math.max(0, 1, 2, 3)</code>.",
+        { out: ["3"],
+          dots: { mode: "spread", where: "in a function call", from: BOX("b", [CH("0"), CH("1"), CH("2"), CH("3")], true), to: BOX("4 separate arguments", [CH("0", "new"), CH("1", "new"), CH("2", "new"), CH("3", "new")], false) } }],
+      [3, "run", "", "Line 4 makes an object.", { vars: [V("base", "{ x: 1, y: 2 }", "the object")], dots: null }],
+      [4, "run", "...base", "In an <b>object literal</b>, <code>...base</code> is spread too. It copies the <b>own properties</b> of <code>base</code>, key by key, into the new object. Right now the new object is <code>{ x: 1, y: 2 }</code>.",
+        { dots: { mode: "spread", where: "in an object literal", from: BOX("base", [CH("x: 1"), CH("y: 2")], true), to: BOX("new object being built", [CH("x: 1", "new"), CH("y: 2", "new")], true) } }],
+      [4, "run", "y: 20", "Then <code>y: 20</code> comes <b>after</b> the spread, so it <b>replaces</b> the copied <code>y</code>. A later key wins.",
+        { vars: [V("next", "{ x: 1, y: 20 }", "a new object")],
+          dots: { mode: "spread", where: "in an object literal", from: BOX("base", [CH("x: 1"), CH("y: 2")], true), to: BOX("next, a NEW object", [CH("x: 1"), CH("y: 20", "over")], true) } }],
+      [5, "run", "", "Line 6 prints <code>b</code> and <code>next</code>. Notice that <code>base</code> still has <code>y: 2</code>.", { dots: null, out: ["[ 0, 1, 2, 3 ] { x: 1, y: 20 }"] }],
+      [null, "done", "", "Finished. It printed <b>3</b> and <b>[ 0, 1, 2, 3 ] { x: 1, y: 20 }</b>. Spread built three new things and changed none of its sources.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 7
+  {
+    name: "Later keys win",
+    why: "Spread copies keys in order, and a later key with the same name replaces the earlier value (the key keeps its first position). So put the defaults first and the overrides last. If you flip the order, the defaults win and the user's choice is lost.",
+    code: [
+      'const defaults = { theme: "light", size: 10 };',
+      'const mine = { size: 14, lang: "id" };',
+      'const a = { ...defaults, ...mine };',
+      'const b = { ...mine, ...defaults };',
+      'console.log(a);',
+      'console.log(b);'
+    ],
+    steps: build([
+      [0, "run", "", "Line 1 makes <code>defaults</code>.", { vars: [V("defaults", '{ theme: "light", size: 10 }', "the object")] }],
+      [1, "run", "", "Line 2 makes <code>mine</code>. It has its own <code>size</code>.", { vars: [V("mine", '{ size: 14, lang: "id" }', "the object")] }],
+      [2, "run", "...defaults", "Line 3 builds <code>a</code>. First <code>...defaults</code> is spread. Both keys are copied in.",
+        { dots: { mode: "spread", where: "in an object literal", from: BOX("defaults", [CH('theme: "light"'), CH("size: 10")], true), to: BOX("a, being built", [CH('theme: "light"', "new"), CH("size: 10", "new")], true) } }],
+      [2, "run", "...mine", "Then <code>...mine</code> is spread. <code>size</code> already exists, so its value is <b>replaced</b> by 14. <code>lang</code> is new, so it is added at the end.",
+        { vars: [V("a", '{ theme: "light", size: 14, lang: "id" }', "mine won")],
+          dots: { mode: "spread", where: "in an object literal", from: BOX("mine", [CH("size: 14"), CH('lang: "id"')], true), to: BOX("a, a NEW object", [CH('theme: "light"'), CH("size: 14", "over"), CH('lang: "id"', "new")], true) } }],
+      [3, "run", "...mine", "Line 4 builds <code>b</code> with the <b>order flipped</b>. First <code>...mine</code> is spread.",
+        { dots: { mode: "spread", where: "in an object literal", from: BOX("mine", [CH("size: 14"), CH('lang: "id"')], true), to: BOX("b, being built", [CH("size: 14", "new"), CH('lang: "id"', "new")], true) } }],
+      [3, "run", "...defaults", "Now <code>...defaults</code> comes <b>second</b>. It replaces <code>size</code> with 10, and adds <code>theme</code>. The user's 14 is <b>lost</b>. This is a very common bug.",
+        { vars: [V("b", '{ size: 10, lang: "id", theme: "light" }', "defaults won")],
+          dots: { mode: "spread", where: "in an object literal", from: BOX("defaults", [CH('theme: "light"'), CH("size: 10")], true), to: BOX("b, a NEW object", [CH("size: 10", "over"), CH('lang: "id"'), CH('theme: "light"', "new")], true) } }],
+      [4, "run", "", "Line 5 prints <code>a</code>.", { dots: null, out: ["{ theme: 'light', size: 14, lang: 'id' }"] }],
+      [5, "run", "", "Line 6 prints <code>b</code>. Notice that <code>size</code> is 10 here, and it kept its first position.", { out: ["{ size: 10, lang: 'id', theme: 'light' }"] }],
+      [null, "done", "", "Finished. The rule: <b>defaults first, overrides last</b>. Same two objects, a different order, a different result.", {}]
+    ])
+  },
+  // ---------------------------------------------------------------- 8
+  {
+    name: "Shallow copy trap",
+    why: "Spread copies only the top level. A field that holds an object really holds an arrow to it, and the arrow is copied, not the object. So the copy and the original share the nested object. To change a nested value safely, spread each level on the path.",
+    code: [
+      'const orig = { name: "Ana", address: { city: "Jakarta" } };',
+      'const copy = { ...orig };',
+      'copy.name = "Budi";',
+      'copy.address.city = "Bandung";',
+      'console.log(orig.name, orig.address.city);',
+      'const safe = { ...orig, address: { ...orig.address, city: "Surabaya" } };',
+      'console.log(orig.address.city, safe.address.city, orig.address === safe.address);'
+    ],
+    steps: (() => {
+      const A0 = OBJ("A", ["name", '"Ana"'], ["address", "", "B"]);
+      const B0 = OBJ("B", ["city", '"Jakarta"']);
+      return build([
+        [0, "run", "", "Line 1 makes <b>two</b> objects. <b>A</b> is the outer one. Its field <code>address</code> does not contain B. It holds an <b>arrow</b> to B. The variable <code>orig</code> holds an arrow to A.",
+          { heap: [B0, A0], vars: [V("orig", "", "points to A", "val", "A")], hot: ["A", "B"] }],
+        [1, "run", "{ ...orig }", "Line 2: spread makes a <b>new object C</b> and copies the fields of A one by one. First <code>name</code>: the value is the text \"Ana\", so C gets its own \"Ana\".",
+          { heap: [OBJ("C", ["name", '"Ana"'])], hot: ["C"] }],
+        [1, "run", "{ ...orig }", "Next, the field <code>address</code>. What is copied is its <b>value</b>, and the value is an <b>arrow to B</b>. So C gets a copy of the <b>arrow</b>. B itself is <b>not</b> copied. Now two arrows point at B. The variable <code>copy</code> points to C.",
+          { heap: [OBJ("C", ["name", '"Ana"'], ["address", "", "B"])], vars: [V("copy", "", "points to C", "val", "C")], hot: ["B", "C"] }],
+        [2, "run", "copy.name", "Line 3 changes the field <code>name</code> of <b>C</b> only. A still says \"Ana\".",
+          { heap: [OBJ("C", ["name", '"Budi"'], ["address", "", "B"])], hot: ["C"] }],
+        [3, "run", "copy.address.city", "Line 4 follows <code>copy</code> to C, then the arrow <code>address</code> to <b>B</b>, and changes <code>city</code> inside B. But A's arrow points to the <b>same</b> B. So A sees the change too.",
+          { heap: [OBJ("B", ["city", '"Bandung"'])], hot: ["B"] }],
+        [4, "run", "", "Line 5 prints the name and the city of <code>orig</code>. The top level was separate (\"Ana\"). The nested level was shared (\"Bandung\"). This is the <b>shallow copy trap</b>.",
+          { out: ["Ana Bandung"], hot: ["A", "B"] }],
+        [5, "run", "...orig", "Line 6, the safe way. First <code>...orig</code> makes a <b>new object D</b>. It copies <code>name</code>, and it copies the arrow <code>address</code> to B.",
+          { heap: [OBJ("D", ["name", '"Ana"'], ["address", "", "B"])], hot: ["D"] }],
+        [5, "run", "{ ...orig.address, city: \"Surabaya\" }", "Next, the value for the key <code>address</code> is worked out. The inner braces make <b>another new object E</b>. <code>...orig.address</code> copies <code>city</code> from B, and then <code>city: \"Surabaya\"</code> replaces it.",
+          { heap: [OBJ("E", ["city", '"Surabaya"'])], hot: ["E"] }],
+        [5, "run", "address:", "The later key <code>address</code> now <b>replaces</b> the arrow that was copied. D's <code>address</code> points to <b>E</b>, not to B. The variable <code>safe</code> points to D.",
+          { heap: [OBJ("D", ["name", '"Ana"'], ["address", "", "E"])], vars: [V("safe", "", "points to D", "val", "D")], hot: ["D", "E"] }],
+        [6, "run", "", "Line 7 prints three things. <code>orig.address.city</code> is B's city, still \"Bandung\". <code>safe.address.city</code> is E's city, \"Surabaya\". And <code>orig.address === safe.address</code> is <code>false</code>, because they are arrows to different objects (B and E).",
+          { out: ["Bandung Surabaya false"], hot: ["B", "E"] }],
+        [null, "done", "", "Finished. Spread copies <b>one level</b>. To change something nested without touching the original, spread <b>every level on the path</b>. For a full deep copy, use <code>structuredClone(value)</code>.", {}]
+      ]);
+    })()
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevKeys = new Set();
+const HCOL = { A: "#3b82f6", B: "#d97706", C: "#7c3aed", D: "#1f8a5b", E: "#d6336c" };
+const MARK_LABEL = { read: "reading now", taken: "taken", skip: "skipped", left: "leftover" };
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) => {
+    let body = esc(t);
+    if (i === s.line && s.hl && t.indexOf(s.hl) >= 0) {
+      const at = t.indexOf(s.hl);
+      body = esc(t.slice(0, at)) + '<span class="part">' + esc(s.hl) + "</span>" + esc(t.slice(at + s.hl.length));
+    }
+    return '<span class="ln' + (i === s.line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + body + "</span>";
+  }).join("");
+}
+
+function renderSrc(s) {
+  const box = $("srcBox");
+  if (!s.src) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  $("srcTitle").textContent = "Source value: " + s.src.title + (s.src.kind === "array" ? " (array, by position)" : " (object, by name)");
+  const wrap = $("srcItems");
+  wrap.innerHTML = "";
+  s.src.items.forEach(it => {
+    const st = s.read.includes(it.k) ? "read" : (s.marks[it.k] || "");
+    const d = document.createElement("div");
+    d.className = "item " + st;
+    const key = it.k === "" ? "" : (s.src.kind === "array" ? "[" + esc(it.k) + "]" : esc(it.k) + ":");
+    d.innerHTML = (key ? '<span class="k">' + key + "</span>" : "") + '<span class="v">' + esc(it.v) + "</span>" + (st ? '<span class="tag">' + MARK_LABEL[st] + "</span>" : "");
+    wrap.appendChild(d);
+  });
+  s.ghost.forEach(g => {
+    const d = document.createElement("div");
+    d.className = "item ghost";
+    d.innerHTML = '<span class="k">' + esc(g[0]) + ':</span><span class="v">' + esc(g[1]) + '</span><span class="tag">missing, so undefined</span>';
+    wrap.appendChild(d);
+  });
+}
+
+function refChip(id) { return '<span class="refchip" style="background:' + HCOL[id] + '">' + id + "</span>"; }
+
+function renderVars(s) {
+  const keys = new Set();
+  const tb = $("vars");
+  tb.innerHTML = "";
+  if (!s.vars.length) tb.innerHTML = '<tr><td class="empty">no variables yet</td></tr>';
+  s.vars.forEach(v => {
+    const key = v.n + "|" + v.v + "|" + v.ref;
+    keys.add(key);
+    const tr = document.createElement("tr");
+    tr.className = v.kind + (prevKeys.has(key) ? "" : " pop");
+    const valCell = v.ref ? "→ object " + refChip(v.ref) : esc(v.v);
+    tr.innerHTML = '<td class="n">' + esc(v.n) + '</td><td class="val">' + valCell + '</td><td class="how">' + esc(v.how) + "</td>";
+    tb.appendChild(tr);
+  });
+  prevKeys = keys;
+}
+
+function renderHeap(s) {
+  const box = $("heapBox");
+  if (!s.heap.length) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  const wrap = $("cards");
+  wrap.innerHTML = "";
+  s.heap.forEach(o => {
+    const c = HCOL[o.id];
+    const d = document.createElement("div");
+    d.className = "obj" + (s.hot.includes(o.id) ? " hot" : "");
+    d.style.borderColor = c;
+    d.style.background = c + "14";
+    let html = '<h4 style="color:' + c + '">object ' + o.id + "</h4>";
+    o.fields.forEach(f => {
+      html += '<div class="f"><span class="fk">' + esc(f.k) + ":</span> " + (f.ref ? "→ " + refChip(f.ref) : "<b>" + esc(f.v) + "</b>") + "</div>";
+    });
+    d.innerHTML = html;
+    wrap.appendChild(d);
+  });
+}
+
+function renderDots(d) {
+  const el = $("dots");
+  if (!d) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.className = "dots " + d.mode;
+  const side = b => '<div class="side"><div class="lab">' + esc(b.label) + '</div><div class="' + (b.boxed ? "bag" : "loose") + '">' +
+    (b.chips.length ? b.chips.map(c => '<span class="dchip ' + c.c + '">' + esc(c.t) + "</span>").join("") : '<span class="empty">empty</span>') + "</div></div>";
+  const title = d.mode === "rest"
+    ? "REST (collects). Many separate pieces go IN, ONE new array or object comes OUT. The three dots are on the LEFT side, " + d.where + "."
+    : "SPREAD (expands). ONE array or object goes IN, many separate pieces come OUT. The three dots are on the RIGHT side, " + d.where + ".";
+  const all = d.from.chips.concat(d.to.chips).map(c => c.c);
+  const leg = [];
+  if (all.includes("taken")) leg.push("crossed out = already taken by an earlier name");
+  if (all.includes("left")) leg.push("purple = leftover that rest collects");
+  if (all.includes("new")) leg.push("green glow = just added");
+  if (all.includes("over")) leg.push("red = replaced a value that was already there");
+  el.innerHTML = '<div class="dtitle">' + esc(title) + '</div><div class="dflow">' + side(d.from) +
+    '<div class="arrow"><b>...</b><em>⇒</em><span>' + (d.mode === "rest" ? "collect" : "expand") + "</span></div>" + side(d.to) + "</div>" +
+    (leg.length ? '<div class="dleg">' + esc(leg.join("  ·  ")) + "</div>" : "");
+}
+
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing printed yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div");
+    const isErr = v.startsWith(ERR);
+    c.className = "chip" + (isErr ? " err" : "");
+    c.textContent = isErr ? v.slice(1) : v;
+    box.appendChild(c);
+  });
+}
+const BADGE = { setup: ["Setup, before line 1", "setup"], run: ["Running a line", "run"], error: ["Throwing an error", "error"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s);
+  renderSrc(s);
+  renderHeap(s);
+  renderVars(s);
+  renderDots(s.dots);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+// Compare guesses without caring about spaces, commas or quote marks.
+const norm = s => s.toLowerCase().replace(/['"`\s,]+/g, "");
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const lines = steps[idx].out.map(v => v.startsWith(ERR) ? v.slice(1) : v);
+  const real = lines.join("  |  ");
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + PRESETS[cur].why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(lines.join(" "));
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code> (one console line, then the next)." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which values are kept and which get a default.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevKeys = new Set();
+  $("guess").value = ""; $("guess").placeholder = "the printed lines in order, one after the other";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevKeys = new Set(); render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2300);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevKeys = new Set(); render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>

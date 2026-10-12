@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>map, filter and reduce Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --global: #3b82f6; --global-bg: #e3eefe;
+    --block: #2f9e6b; --block-bg: #dff3ea;
+    --loop: #8b5cf6; --loop-bg: #efe8fd;
+    --undef: #b7791f; --undef-bg: #fdf0d2;
+    --tdz: #c0392b; --tdz-bg: #fdecea;
+    --val: #1f7a4d; --val-bg: #e3f5ea;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 320px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .stack > * + * { margin-top: 12px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .panel h2 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .cells { display: flex; flex-wrap: wrap; gap: 8px; min-height: 56px; align-items: flex-start; }
+  .cell {
+    min-width: 58px; text-align: center; border: 2px solid var(--border); border-radius: 10px;
+    padding: 6px 8px 4px; background: #fff; font-family: ui-monospace, Menlo, monospace; transition: background .2s;
+  }
+  .cell b { display: block; font-size: .95rem; white-space: nowrap; }
+  .cell i { display: block; font-style: normal; font-size: .64rem; color: var(--muted); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .cell.now { border-color: var(--accent); background: #fff1bf; box-shadow: 0 0 0 3px rgba(245,197,66,.35); }
+  .cell.done { border-color: #b9e2cc; background: #e9f7ef; }
+  .cell.empty { border-style: dashed; color: var(--muted); background: #faf8f3; }
+  .cell.filled { border-color: var(--val); background: var(--val-bg); }
+  .cell.undef { border-color: var(--undef); background: var(--undef-bg); color: var(--undef); }
+  .cell.fresh { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty-note { color: var(--muted); font-size: .78rem; font-style: italic; }
+
+  .cb .lbl { font-size: .74rem; color: var(--muted); margin-bottom: 3px; }
+  .cb .sig, .cb .callline {
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #f4efe4; border-radius: 8px;
+    padding: 5px 9px; margin-bottom: 8px; overflow-wrap: anywhere;
+  }
+  .cb .callline { background: #fff1bf; font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .chip2 {
+    display: inline-flex; gap: 6px; border-radius: 8px; padding: 4px 10px; border: 1.5px solid;
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; font-weight: 650; overflow-wrap: anywhere;
+  }
+  .chip2.named { color: var(--val); background: var(--val-bg); border-color: var(--val); }
+  .chip2.extra { color: var(--muted); background: #f4f2ec; border-color: #d9d4c7; font-weight: 500; }
+  .chip2.ret { color: var(--global); background: var(--global-bg); border-color: var(--global); }
+  .chip2.ret.bad { color: var(--undef); background: var(--undef-bg); border-color: var(--undef); }
+  .chip2.accv { color: var(--loop); background: var(--loop-bg); border-color: var(--loop); font-size: .9rem; }
+  .chip2.pop { animation: pop .35s ease; }
+  .tiny { font-size: .72rem; color: var(--muted); }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-direction: column; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .85rem; font-weight: 650; overflow-wrap: anywhere; }
+  .outbox .chip.err { background: #5a2a26; border-color: #8a3b34; color: #ffd9d4; }
+  .outbox .empty-note { color: #7b8f9d; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.setup { background: #8b5cf6; } .badge.call { background: var(--global); } .badge.ret { background: var(--block); }
+  .badge.error { background: var(--tdz); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--block); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: .74rem; color: var(--muted); align-items: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../09-arrays-and-higher-order-functions.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>map, filter and reduce stepper</h1>
+  <p class="sub">Press Next and watch the array method handle <b>one item at a time</b>. The steps are recorded from the real <code>map</code>, <code>filter</code> and <code>reduce</code>, not typed by hand.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will <code>console.log</code> print? Write it the way Node prints it, for example <code>[ 1, 2 ]</code>. Then step to the end.<br>
+    <input id="guess" placeholder="what gets printed" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="stack">
+      <div class="panel">
+        <h2>Your code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+    </div>
+    <div class="stack">
+      <div class="panel">
+        <h2 id="arrTitle">The array</h2>
+        <div class="cells" id="arr"></div>
+        <div class="key"><span class="cell now" style="min-width:0;padding:2px 8px">now</span> <span class="cell done" style="min-width:0;padding:2px 8px">handled</span> <span class="cell" style="min-width:0;padding:2px 8px">waiting</span></div>
+      </div>
+      <div class="panel cb">
+        <h2>Your small function (the callback)</h2>
+        <div id="call"></div>
+      </div>
+      <div class="panel" id="accBox">
+        <h2>The accumulator <small>(the box that carries the running answer)</small></h2>
+        <div id="acc"></div>
+      </div>
+      <div class="panel" id="resBox">
+        <h2 id="resTitle">The new array</h2>
+        <div class="cells" id="res"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> <b>map</b> gives a new array with the <b>same length</b> and new values. <b>filter</b> gives a new array with <b>fewer items</b> and the same values. <b>reduce</b> gives <b>one value</b>, and the return value of each call becomes the accumulator of the next call. None of them changes the original array.</p>
+</div>
+
+<script>
+// ---- Core: the steps are recorded from the real array methods ----
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const clone = v => (v !== null && typeof v === "object") ? structuredClone(v) : v;
+// Print values the way Node prints short values.
+const fmt = v => {
+  if (v === undefined) return "undefined";
+  if (typeof v === "string") return "'" + v + "'";
+  if (Array.isArray(v)) return v.length ? "[ " + v.map(fmt).join(", ") + " ]" : "[]";
+  if (v && typeof v === "object") {
+    const k = Object.keys(v);
+    return k.length ? "{ " + k.map(key => key + ": " + fmt(v[key])).join(", ") + " }" : "{}";
+  }
+  return String(v);
+};
+const bold = v => "<b>" + esc(fmt(v)) + "</b>";
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "map", kind: "map", arrName: "prices", resName: "doubled", arr: [10, 20, 30, 40],
+    params: ["p"], sig: "p => { return p * 2; }", fn: (p) => { return p * 2; },
+    code: [
+      'const prices = [10, 20, 30, 40];',
+      'const doubled = prices.map(p => {',
+      '  return p * 2;',
+      '});',
+      'console.log(doubled);'
+    ],
+    defLine: 0, callLine: 1, bodyLines: [2], endLine: 3, printLine: 4,
+    why: "map calls your function once per item and stores each return value in the same slot of a new array. The new array has the same length. The original array is not touched."
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "filter", kind: "filter", arrName: "prices", resName: "big", arr: [10, 20, 30, 40],
+    params: ["p"], sig: "p => { return p > 25; }", fn: (p) => { return p > 25; },
+    code: [
+      'const prices = [10, 20, 30, 40];',
+      'const big = prices.filter(p => {',
+      '  return p > 25;',
+      '});',
+      'console.log(big);'
+    ],
+    defLine: 0, callLine: 1, bodyLines: [2], endLine: 3, printLine: 4,
+    why: "filter calls your function once per item. If the answer is true, the item is copied into the new array. If it is false, the item is skipped. The kept items are the same values, only fewer of them."
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "reduce with a start value", kind: "reduce", hasStart: true, mkStart: () => 0,
+    arrName: "prices", resName: "total", arr: [10, 20, 30, 40],
+    params: ["sum", "p"], sig: "(sum, p) => { return sum + p; }", fn: (sum, p) => { return sum + p; },
+    code: [
+      'const prices = [10, 20, 30, 40];',
+      'const total = prices.reduce((sum, p) => {',
+      '  return sum + p;',
+      '}, 0);',
+      'console.log(total);'
+    ],
+    defLine: 0, callLine: 1, bodyLines: [2], startLine: 3, endLine: 3, printLine: 4,
+    why: "reduce starts the accumulator at the start value (0). Each call gets the accumulator and one item. What your function returns becomes the accumulator for the next call. After the last item, the accumulator is the answer."
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "reduce, no start value", kind: "reduce", hasStart: false,
+    arrName: "prices", resName: "total", arr: [10, 20, 30, 40],
+    params: ["sum", "p"], sig: "(sum, p) => { return sum + p; }", fn: (sum, p) => { return sum + p; },
+    code: [
+      'const prices = [10, 20, 30, 40];',
+      'const total = prices.reduce((sum, p) => {',
+      '  return sum + p;',
+      '});',
+      'console.log(total);'
+    ],
+    defLine: 0, callLine: 1, bodyLines: [2], endLine: 3, printLine: 4,
+    why: "With no start value, reduce uses the first item as the accumulator and starts calling your function at index 1. That is one call fewer. It works, but it breaks on an empty array (see the next tab)."
+  },
+  // ---------------------------------------------------------------- 5
+  {
+    name: "reduce on an empty array", kind: "reduceEmpty", arrName: "empty", arr: [],
+    code: [
+      'const empty = [];',
+      'try {',
+      '  empty.reduce((sum, p) => sum + p);',
+      '} catch (e) {',
+      '  console.log(e.name + ": " + e.message);',
+      '}',
+      'console.log(empty.reduce((sum, p) => sum + p, 0));'
+    ],
+    why: "Without a start value, reduce needs a first item to use as the accumulator. An empty array has none, so reduce throws a TypeError. With a start value, reduce just returns the start value. Always give reduce a start value."
+  },
+  // ---------------------------------------------------------------- 6
+  {
+    name: "reduce to group", kind: "reduce", hasStart: true, mkStart: () => ({}),
+    arrName: "words", resName: "byLetter", arr: ["apple", "banana", "avocado", "blueberry"],
+    params: ["acc", "w"], sig: "(acc, w) => { ...group by first letter...; return acc; }",
+    fn: (acc, w) => { const k = w[0]; if (!acc[k]) acc[k] = []; acc[k].push(w); return acc; },
+    code: [
+      'const words = ["apple", "banana", "avocado", "blueberry"];',
+      'const byLetter = words.reduce((acc, w) => {',
+      '  const k = w[0];',
+      '  if (!acc[k]) acc[k] = [];',
+      '  acc[k].push(w);',
+      '  return acc;',
+      '}, {});',
+      'console.log(byLetter);'
+    ],
+    defLine: 0, callLine: 1, bodyLines: [2, 3, 4, 5], startLine: 6, endLine: 6, printLine: 7,
+    why: "The accumulator does not have to be a number. Here it is an object that starts empty. Each call adds one word to the right group and returns the same object. After the last word, the object is the answer. One pass over the array."
+  },
+  // ---------------------------------------------------------------- 7
+  {
+    name: "map, forgot return", kind: "map", arrName: "prices", resName: "doubled", arr: [10, 20, 30],
+    params: ["p"], sig: "p => { p * 2; }", fn: (p) => { p * 2; },
+    code: [
+      'const prices = [10, 20, 30];',
+      'const doubled = prices.map(p => {',
+      '  p * 2;',
+      '});',
+      'console.log(doubled);'
+    ],
+    defLine: 0, callLine: 1, bodyLines: [2], endLine: 3, printLine: 4,
+    why: "A function with curly braces returns undefined unless it has the word return. The calculation p * 2 runs and is thrown away, so map stores undefined in every slot. With the short form p => p * 2 there are no curly braces, and the value is returned for you."
+  }
+];
+
+// Run the REAL method on a copy of the array. A small wrapper around your function writes down every call.
+function record(p) {
+  const calls = [];
+  const arr = p.arr.slice();
+  let result, error = null, startVal;
+  try {
+    if (p.kind === "reduce") {
+      const spy = (acc, cur, i) => {
+        const c = { acc: clone(acc), cur, i };
+        const r = p.fn(acc, cur, i, arr);
+        c.ret = clone(r);
+        calls.push(c);
+        return r;
+      };
+      if (p.hasStart) { startVal = p.mkStart(); result = arr.reduce(spy, startVal); startVal = clone(p.mkStart()); }
+      else result = arr.reduce(spy);
+    } else {
+      const spy = (el, i) => { const r = p.fn(el, i, arr); calls.push({ el, i, ret: r }); return r; };
+      result = arr[p.kind](spy);
+    }
+  } catch (e) { error = e; }
+  return { calls, result, error, startVal };
+}
+
+// A step is one snapshot of everything on the page.
+const S = o => Object.assign({ line: null, phase: "run", note: "", cur: -1, done: 0, call: null, ret: null, acc: null, res: null, out: [] }, o);
+
+function callInfo(p, c) {
+  const named = p.kind === "reduce"
+    ? [{ n: p.params[0], t: fmt(c.acc) }, { n: p.params[1], t: fmt(c.cur) }]
+    : [{ n: p.params[0], t: fmt(c.el) }];
+  const args = p.kind === "reduce" ? [fmt(c.acc), fmt(c.cur), c.i, p.arrName] : [fmt(c.el), c.i, p.arrName];
+  return { text: "callback(" + args.join(", ") + ")", named, extra: [{ n: "index", t: String(c.i) }, { n: "array", t: p.arrName }] };
+}
+
+function finish(steps, p, rec, extra) {
+  const n = p.arr.length, shown = fmt(rec.result);
+  steps.push(S(Object.assign({ line: p.printLine, phase: "run", done: n, out: [shown],
+    note: "<code>console.log</code> prints " + esc(shown) + ". Notice that <code>" + p.arrName + "</code> itself is still " + esc(fmt(p.arr)) + "." }, extra)));
+  steps.push(S(Object.assign({ line: null, phase: "done", done: n, out: [shown],
+    note: "Finished. It printed <b>" + esc(shown) + "</b>." }, extra)));
+}
+
+function buildList(p, rec) {          // map and filter
+  const n = p.arr.length, isMap = p.kind === "map", steps = [];
+  const items = isMap ? Array(n).fill(null) : [];
+  const resOf = fresh => ({ items: items.slice(), fresh });
+  steps.push(S({ line: p.defLine, phase: "setup",
+    note: "<b>Start.</b> The array <code>" + p.arrName + "</code> is in memory. It has " + n + " items. The first index is 0, not 1." }));
+  steps.push(S({ line: p.callLine, phase: "setup", res: resOf(-1),
+    note: isMap
+      ? "<code>map</code> starts. It makes a <b>new array</b> with the same length: " + n + " empty slots. The array <code>" + p.arrName + "</code> will not change."
+      : "<code>filter</code> starts. It makes a <b>new empty array</b>. It does not know yet how many items it will keep. The array <code>" + p.arrName + "</code> will not change." }));
+  rec.calls.forEach((c, j) => {
+    const info = callInfo(p, c);
+    const first = isMap
+      ? "<code>map</code> calls your function and passes <b>three things</b>: the item (" + esc(fmt(c.el)) + "), its index (" + c.i + ") and the whole array. Your function names only the first one, <code>" + p.params[0] + "</code>. The grey chips are the two it ignores."
+      : "<code>filter</code> calls your function the same way: the item, its index and the whole array. It wants a yes or no answer back. (Any truthy value counts as yes.)";
+    steps.push(S({ line: p.bodyLines, phase: "call", cur: c.i, done: c.i, call: info, res: resOf(-1),
+      note: j === 0 ? "<b>Call 1 of " + n + ".</b> " + first
+                    : "<b>Call " + (j + 1) + " of " + n + ".</b> The item is " + bold(c.el) + " and the index is " + c.i + ". Your function runs." }));
+    let fresh = -1, note;
+    if (isMap) {
+      items[c.i] = { v: c.ret }; fresh = c.i;
+      note = c.ret === undefined
+        ? "Your function has no <code>return</code>, so it gives back <b>undefined</b>. <code>map</code> stores undefined in slot " + c.i + ". The calculation was done and thrown away."
+        : "Your function returns " + bold(c.ret) + ". <code>map</code> puts it in slot " + c.i + " of the new array.";
+    } else if (c.ret) {
+      items.push({ v: c.el }); fresh = items.length - 1;
+      note = "Your function returns " + bold(c.ret) + ". <code>filter</code> <b>keeps</b> the item: it copies " + bold(c.el) + " into the new array.";
+    } else {
+      note = "Your function returns " + bold(c.ret) + ". <code>filter</code> <b>skips</b> the item " + bold(c.el) + ". The new array does not change.";
+    }
+    steps.push(S({ line: p.bodyLines, phase: "return", cur: c.i, done: c.i, call: info, ret: { v: c.ret }, res: resOf(fresh), note }));
+  });
+  steps.push(S({ line: p.endLine, phase: "run", done: n, res: resOf(-1),
+    note: isMap
+      ? "No items left. <code>map</code> returns the new array and it is stored in <code>" + p.resName + "</code>. Same length (" + n + "), new values."
+      : "No items left. <code>filter</code> returns the new array and it is stored in <code>" + p.resName + "</code>. Fewer items (" + items.length + " of " + n + "). They are the same values that were in <code>" + p.arrName + "</code>." }));
+  finish(steps, p, rec, { res: resOf(-1) });
+  return steps;
+}
+
+function buildReduce(p, rec) {
+  const n = p.arr.length, steps = [];
+  steps.push(S({ line: p.defLine, phase: "setup",
+    note: "<b>Start.</b> The array <code>" + p.arrName + "</code> is in memory. It has " + n + " items." }));
+  if (p.hasStart) {
+    steps.push(S({ line: p.startLine, phase: "setup", acc: { v: rec.startVal },
+      note: "<code>reduce</code> starts. Its second argument, " + bold(rec.startVal) + ", is the <b>start value</b>. It becomes the first <b>accumulator</b>, the box that carries the running answer from one call to the next." }));
+  } else {
+    steps.push(S({ line: p.callLine, phase: "setup", acc: { v: p.arr[0] }, done: 1,
+      note: "<code>reduce</code> starts with <b>no start value</b>. So it takes the first item, " + bold(p.arr[0]) + ", as the first accumulator and does not call your function for it. The first call will use index 1. That is one call fewer." }));
+  }
+  rec.calls.forEach((c, j) => {
+    const info = callInfo(p, c);
+    steps.push(S({ line: p.bodyLines, phase: "call", cur: c.i, done: c.i, call: info, acc: { v: c.acc },
+      note: j === 0
+        ? "<b>Call 1 of " + rec.calls.length + ".</b> <code>reduce</code> calls your function with the accumulator (<code>" + p.params[0] + "</code> = " + esc(fmt(c.acc)) + ") and the item (<code>" + p.params[1] + "</code> = " + esc(fmt(c.cur)) + "). It also passes the index and the array, which your function ignores."
+        : "<b>Call " + (j + 1) + " of " + rec.calls.length + ".</b> The accumulator is " + bold(c.acc) + " and the item is " + bold(c.cur) + ". Your function runs." }));
+    const last = j === rec.calls.length - 1;
+    steps.push(S({ line: p.bodyLines, phase: "return", cur: c.i, done: c.i, call: info, ret: { v: c.ret }, acc: { v: c.ret },
+      note: "Your function returns " + bold(c.ret) + ". That value <b>becomes the new accumulator</b>." + (last ? " This was the last item, so it is the final answer." : " It is passed into the next call.") }));
+  });
+  steps.push(S({ line: p.endLine, phase: "run", done: n, acc: { v: rec.result },
+    note: "No items left. <code>reduce</code> returns the last accumulator, " + bold(rec.result) + ", and it is stored in <code>" + p.resName + "</code>. Many items went in. One value came out." }));
+  finish(steps, p, rec, { acc: { v: rec.result } });
+  return steps;
+}
+
+function buildReduceEmpty(p) {
+  let err = null;
+  try { [].reduce((a, b) => a + b); } catch (e) { err = e; }
+  const zero = [].reduce((a, b) => a + b, 0);
+  const msg = err.name + ": " + err.message;
+  return [
+    S({ line: 0, phase: "setup", note: "<b>Start.</b> <code>empty</code> is an array with <b>no items</b>." }),
+    S({ line: 2, phase: "error",
+      note: "The first <code>reduce</code> has <b>no start value</b>, so it wants to use the first item as the accumulator. There is no first item. It throws a <b>" + esc(err.name) + "</b>: <i>" + esc(err.message) + "</i>. Your function is never called." }),
+    S({ line: 4, phase: "run", out: [msg],
+      note: "The <code>catch</code> block prints the error. (Without try and catch, the program would stop at the line above.)" }),
+    S({ line: 6, phase: "run", acc: { v: zero }, out: [msg, String(zero)],
+      note: "The second <code>reduce</code> has the start value <b>0</b>. The accumulator is 0. There are no items, so your function is never called, and <code>reduce</code> returns the start value: <b>" + esc(zero) + "</b>. No error." }),
+    S({ line: null, phase: "done", acc: { v: zero }, out: [msg, String(zero)],
+      note: "Finished. It printed <b>" + esc(msg) + "</b> and then <b>" + esc(zero) + "</b>." })
+  ];
+}
+
+function buildSteps(p) {
+  if (p.kind === "reduceEmpty") return buildReduceEmpty(p);
+  const rec = record(p);
+  return p.kind === "reduce" ? buildReduce(p, rec) : buildList(p, rec);
+}
+PRESETS.forEach(p => { p.steps = buildSteps(p); });
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevKey = {};
+
+function renderCode(lines) {
+  const set = new Set(Array.isArray(lines) ? lines : lines === null ? [] : [lines]);
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (set.has(i) ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderArray(s) {
+  const p = PRESETS[cur];
+  $("arrTitle").textContent = "The array " + p.arrName + " (it never changes)";
+  const box = $("arr");
+  if (!p.arr.length) { box.innerHTML = '<span class="empty-note">empty array, no items</span>'; return; }
+  box.innerHTML = "";
+  p.arr.forEach((v, i) => {
+    const c = document.createElement("div");
+    c.className = "cell " + (i === s.cur ? "now" : i < s.done ? "done" : "");
+    c.innerHTML = "<b>" + esc(fmt(v)) + "</b><i>index " + i + "</i>";
+    box.appendChild(c);
+  });
+}
+function renderCall(s) {
+  const p = PRESETS[cur], box = $("call");
+  const panel = box.parentNode;
+  panel.style.display = p.kind === "reduceEmpty" ? "none" : "block";
+  if (!s.call) { box.innerHTML = '<span class="empty-note">Your function is not running right now.</span>'; return; }
+  let h = '<div class="lbl">The function you wrote</div><div class="sig">' + esc(p.sig) + "</div>";
+  h += '<div class="lbl">' + (p.kind === "reduceEmpty" ? "" : p.kind) + " calls it like this</div>";
+  h += '<div class="callline">' + esc(s.call.text) + "</div>";
+  h += '<div class="chips">' + s.call.named.map(a => '<span class="chip2 named"><b>' + esc(a.n) + "</b> = " + esc(a.t) + "</span>").join("") +
+       '<span class="tiny">also passed, not named:</span>' +
+       s.call.extra.map(a => '<span class="chip2 extra">' + esc(a.n) + " = " + esc(a.t) + "</span>").join("") + "</div>";
+  if (s.ret) {
+    const bad = s.ret.v === undefined;
+    h += '<div class="chips"><span class="tiny">your function returns</span><span class="chip2 ret' + (bad ? " bad" : "") + ' pop"><b>' + esc(fmt(s.ret.v)) + "</b></span></div>";
+  } else {
+    h += '<div class="chips"><span class="tiny">your function is running, nothing returned yet</span></div>';
+  }
+  box.innerHTML = h;
+}
+function renderAcc(s) {
+  const p = PRESETS[cur];
+  $("accBox").style.display = p.kind.indexOf("reduce") === 0 ? "block" : "none";
+  if (!s.acc) { $("acc").innerHTML = '<span class="empty-note">no accumulator yet</span>'; prevKey.acc = null; return; }
+  const key = fmt(s.acc.v);
+  const nameAcc = p.kind === "reduceEmpty" ? "sum" : p.params[0];
+  $("acc").innerHTML = '<span class="chip2 accv' + (prevKey.acc === key ? "" : " pop") + '"><b>' + esc(nameAcc) + "</b> = " + esc(key) + "</span>";
+  prevKey.acc = key;
+}
+function renderRes(s) {
+  const p = PRESETS[cur];
+  const show = p.kind === "map" || p.kind === "filter";
+  $("resBox").style.display = show ? "block" : "none";
+  if (!show) return;
+  $("resTitle").textContent = "The new array that " + p.kind + " is building";
+  const box = $("res");
+  if (!s.res) { box.innerHTML = '<span class="empty-note">no new array yet</span>'; return; }
+  if (!s.res.items.length) { box.innerHTML = '<span class="empty-note">the new array is empty so far: []</span>'; return; }
+  box.innerHTML = "";
+  s.res.items.forEach((it, i) => {
+    const c = document.createElement("div");
+    if (it === null) { c.className = "cell empty"; c.innerHTML = "<b>empty</b><i>slot " + i + "</i>"; }
+    else {
+      c.className = "cell " + (it.v === undefined ? "undef" : "filled") + (i === s.res.fresh ? " fresh" : "");
+      c.innerHTML = "<b>" + esc(fmt(it.v)) + "</b><i>slot " + i + "</i>";
+    }
+    box.appendChild(c);
+  });
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty-note">nothing printed yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div");
+    c.className = "chip" + (v.indexOf("Error") >= 0 ? " err" : "");
+    c.textContent = v;
+    box.appendChild(c);
+  });
+}
+const BADGE = {
+  setup: ["Getting ready", "setup"], call: ["Calling your function", "call"], run: ["Running a line", "call"],
+  return: ["Your function returned", "ret"], error: ["Throwing an error", "error"], done: ["Finished", "done"]
+};
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  renderArray(s);
+  renderCall(s);
+  renderAcc(s);
+  renderRes(s);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = s => s.toLowerCase().replace(/["'`\s]/g, "");
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = steps[idx].out.join("  then  ");
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + esc(PRESETS[cur].why);
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(steps[idx].out.join(" "));
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the new array or the accumulator after each call.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevKey = {};
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevKey = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1900);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevKey = {}; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>

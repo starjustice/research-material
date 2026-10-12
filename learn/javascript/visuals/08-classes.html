@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classes Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --global: #3b82f6; --global-bg: #e3eefe;
+    --block: #2f9e6b; --block-bg: #dff3ea;
+    --undef: #b7791f; --undef-bg: #fdf0d2;
+    --tdz: #c0392b; --tdz-bg: #fdecea;
+    --val: #1f7a4d; --val-bg: #e3f5ea;
+    --fn: #2563a8; --fn-bg: #e3eefe;
+    --ref: #7c3aed; --ref-bg: #efe8fd;
+    --out: #1e2a33;
+    --chain1: #2563a8;   /* instance chain: the [[Prototype]] of objects */
+    --chain2: #8b5cf6;   /* constructor chain: the [[Prototype]] of classes */
+    --pair: #b7791f;     /* prototype and constructor pair */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%;
+  }
+
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.setup { background: #8b5cf6; } .badge.run { background: var(--global); }
+  .badge.error { background: var(--tdz); } .badge.done { background: var(--ink); }
+  .loop-line { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: .84rem; font-weight: 650; }
+
+  .note {
+    background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--block); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); gap: 14px; margin-top: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .78rem; line-height: 1.7; }
+  .ln { display: block; padding: 0 8px 0 2.6em; text-indent: -2.6em; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2.6em; text-indent: 0; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .vars { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
+  .var {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 5px 10px;
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; font-weight: 650; border: 1.5px solid; background: #fff;
+  }
+  .var b { font-weight: 800; }
+  .var.undef { color: var(--undef); background: var(--undef-bg); border-color: var(--undef); }
+  .var.tdz { color: var(--tdz); background: var(--tdz-bg); border-color: var(--tdz); }
+  .var.val { color: var(--val); background: var(--val-bg); border-color: var(--val); }
+  .var.fn { color: var(--fn); background: var(--fn-bg); border-color: var(--fn); }
+  .var.ref { color: var(--ref); background: var(--ref-bg); border-color: var(--ref); }
+  .var.pop, .card.pop, .row.pop { animation: fade .45s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .frame { border: 2px solid var(--global); background: var(--global-bg); border-radius: 10px; padding: 6px 10px 8px; margin-bottom: 6px; }
+  .frame.topf { box-shadow: 0 0 0 3px #fff1bf; }
+  .frame h3 { font-size: .72rem; margin: 0 0 5px; letter-spacing: .04em; text-transform: uppercase; color: var(--global); }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; font-weight: 650; }
+  .outbox .chip.err { background: #5a2a26; border-color: #8a3b34; color: #ffd9d4; }
+  .outbox .empty { color: #7b8f9d; }
+
+  /* ---- the objects in memory ---- */
+  .memwrap { overflow-x: auto; }
+  .mem { position: relative; display: grid; grid-template-columns: repeat(3, minmax(170px, 1fr)); column-gap: 52px; row-gap: 22px;
+         padding: 8px 20px 8px 50px; min-width: 700px; align-items: start; }
+  svg.arrows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  svg.arrows path { fill: none; stroke-width: 2.2; }
+  svg.arrows path.inst { stroke: var(--chain1); }
+  svg.arrows path.ctor { stroke: var(--chain2); }
+  svg.arrows path.ref  { stroke: var(--pair); stroke-dasharray: 6 4; }
+  svg.arrows path.active { stroke-width: 4.2; }
+  .card { position: relative; z-index: 1; border: 2px solid; border-radius: 12px; padding: 0 0 6px; background: #fff; overflow: hidden; }
+  .card h3 { margin: 0; padding: 5px 9px 3px; font-size: .8rem; font-weight: 800; font-family: ui-monospace, Menlo, monospace; }
+  .card .what { padding: 0 9px 4px; font-size: .68rem; color: var(--muted); }
+  .card.fn { border-color: var(--fn); } .card.fn h3 { background: var(--fn-bg); color: var(--fn); }
+  .card.proto { border-color: var(--block); } .card.proto h3 { background: var(--block-bg); color: var(--block); }
+  .card.inst { border-color: var(--ref); } .card.inst h3 { background: var(--ref-bg); color: var(--ref); }
+  .card.builtin { border-color: #9aa5ae; } .card.builtin h3 { background: #eef1f3; color: #55636e; }
+  .card.visit { box-shadow: 0 0 0 4px #fff1bf; }
+  .card.found { box-shadow: 0 0 0 4px #9be0b8; }
+  .row { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 8px; margin: 1px 5px; padding: 2px 5px; border-radius: 6px;
+         font-family: ui-monospace, Menlo, monospace; font-size: .72rem; }
+  .row .k { font-weight: 800; }
+  .row .v { color: #3d4f5c; }
+  .row.hid .k { color: #7b8a95; font-weight: 700; }
+  .row.hid .k::after { content: " hidden"; font-family: -apple-system, sans-serif; font-size: .6rem; font-weight: 600; color: #9aa5ae; border: 1px solid #cfd6db; border-radius: 4px; padding: 0 3px; margin-left: 4px; }
+  .row.prv { background: #fdf0d2; border: 1px dashed var(--undef); }
+  .row.prv .k::before { content: "🔒 "; }
+  .row.link.inst .v { color: var(--chain1); font-weight: 700; }
+  .row.link.ctor .v { color: var(--chain2); font-weight: 700; }
+  .row.link.ref  .v { color: var(--pair); font-weight: 700; }
+  .row.chg { background: #fff1bf; }
+  .row.hit { outline: 2px solid var(--block); background: #dff3ea; }
+  .keyline { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: .78rem; color: var(--muted); }
+  .keyline span b { display: inline-block; width: 26px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 5px; }
+  .keyline .k1 b { border-color: var(--chain1); } .keyline .k2 b { border-color: var(--chain2); } .keyline .k3 b { border-color: var(--pair); border-top-style: dashed; }
+
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../08-classes.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Classes stepper</h1>
+  <p class="sub">Press Next and watch the objects a class builds in memory. Follow the arrows: they are the links the engine uses to find things.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will it print, in order? Write one value per console line. If it throws an error, write the error name. Then step to the end.<br>
+    <input id="guess" placeholder="the printed lines in order, separated by commas" autocomplete="off">
+  </div>
+
+  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="panel">
+        <h2>Your code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>Names in the file</h2>
+        <div class="vars" id="names"></div>
+      </div>
+      <div class="panel">
+        <h2>Call stack (top first)</h2>
+        <div id="frames"></div>
+      </div>
+      <div class="outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+    </div>
+    <div class="panel">
+      <h2>Objects in memory</h2>
+      <div class="memwrap">
+        <div class="mem" id="mem">
+          <svg class="arrows" id="arrows" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="m-inst" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563a8" stroke="none"/></marker>
+              <marker id="m-ctor" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8b5cf6" stroke="none"/></marker>
+              <marker id="m-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b7791f" stroke="none"/></marker>
+            </defs>
+            <g id="arrowGroup"></g>
+          </svg>
+        </div>
+      </div>
+      <div class="keyline">
+        <span class="k1"><b></b>instance chain: the prototype link of an object</span>
+        <span class="k2"><b></b>constructor chain: the prototype link of a class</span>
+        <span class="k3"><b></b>prototype and constructor pair</span>
+      </div>
+      <div class="keyline"><span>🔒 private slot (not a property)</span><span>hidden = not enumerable, so <code>Object.keys</code> and <code>for...in</code> skip it</span></div>
+    </div>
+  </div>
+
+  <p class="legend"><b>The rule to remember:</b> a class is a <b>function</b>. Its methods sit on <b>one shared prototype object</b>. Every instance has an arrow to that object. <b>extends</b> adds two more arrows. In a derived class, <b>super()</b> must run before <b>this</b> is unlocked, because the base class builds the object.</p>
+</div>
+
+<script>
+// ---- Data ----
+// Row builders. A card is one object in memory. A row is one property of it.
+const R   = (k, v, o = {}) => ({ k, v, ...o });                              // normal property
+const HID = (k, v, o = {}) => ({ k, v, hid: true, ...o });                    // not enumerable
+const PRV = (k, v, o = {}) => ({ k, v, prv: true, ...o });                    // private slot
+const LK  = (k, to, type, v, o = {}) => ({ k, v, to, type, ...o });           // a row that draws an arrow
+const CARD = (id, title, kind, what, rows) => ({ id, title, kind, what, rows });
+// mark rows: marks = { cardId: { rowKey: { active: true, hit: true } } }
+const mark = (cards, marks) => cards.map(c => !marks[c.id] ? c : { ...c, rows: c.rows.map(r => marks[c.id][r.k] ? { ...r, ...marks[c.id][r.k] } : r) });
+// names and frame variables
+const tdz = n => ({ n, s: "tdz" });
+const cls = n => ({ n, s: "fn", v: "class" });
+const ref = (n, v) => ({ n, s: "ref", v });
+const val = (n, v) => ({ n, s: "val", v });
+const undf = n => ({ n, s: "undef" });
+const MAIN = { t: "main, the whole file", vars: [] };
+const ERR = "!";   // a console item starting with ! is drawn as an error
+const ST = (line, phase, note, o = {}) => ({ line, phase, note, names: [], frames: [MAIN], cards: [], out: [], ...o });
+
+const OBJP = () => CARD("objp", "Object.prototype", "builtin", "built in, top of every chain", [
+  HID("toString and more", "functions"), R("[[Prototype]]", "null")]);
+
+// ---------------- preset 1: Dog, a base class ----------------
+const DOG1 = (o = {}) => CARD("dog", "Dog", "fn", "the class, which is a function", [
+  R("code", "constructor(name) {...}"),
+  R("[[Prototype]]", "Function.prototype"),
+  ...(o.proto ? [LK("prototype", "dogp", "ref", "→ Dog.prototype")] : [])]);
+const DOGP1 = (o = {}) => CARD("dogp", "Dog.prototype", "proto", "a plain object, shared by all dogs", [
+  LK("constructor", "dog", "ref", "→ Dog", { hid: true }),
+  ...(o.bark ? [HID("bark", "function")] : []),
+  LK("[[Prototype]]", "objp", "inst", "→ Object.prototype")]);
+const REX1 = (rows) => CARD("rex", "rex", "inst", "an instance, made by new", [LK("[[Prototype]]", "dogp", "inst", "→ Dog.prototype"), ...rows]);
+const L1 = { objp: [2, 1], dog: [1, 2], dogp: [2, 2], rex: [3, 2] };
+const D1 = [OBJP(), DOG1({ proto: true }), DOGP1({ bark: true })];
+
+const P1 = {
+  name: "A class is a function",
+  why: "A class creates a function (typeof says function) and one shared prototype object that holds the methods. new makes an empty object, links it to that prototype, and runs the constructor on it. bark is found through the link, and it is not an own property, so Object.keys does not list it.",
+  layout: L1,
+  code: [
+    'class Dog {',
+    '  constructor(name) { this.name = name; }',
+    '  bark() { return this.name + " says woof"; }',
+    '}',
+    'const rex = new Dog("Rex");',
+    'console.log(typeof Dog);',
+    'console.log(rex.bark());',
+    'console.log(Object.keys(rex).join());'
+  ],
+  steps: [
+    ST(null, "setup", `<b>Setup.</b> Before line 1, the engine sets up the names, like in lesson 01. <code>class Dog</code> behaves like <code>let</code>: the name <b>Dog</b> exists but is <b>locked</b> until the class line has run. <b>rex</b> is locked too. In memory there is only the built-in <b>Object.prototype</b>.`,
+      { names: [tdz("Dog"), tdz("rex")], cards: [OBJP()] }),
+    ST([0, 1], "run", `The engine reaches <code>class Dog</code>. It creates a <b>function</b>. The code of the <code>constructor</code> becomes the code of that function. A class <b>is</b> a function. That is why <code>typeof Dog</code> will say <i>function</i>.`,
+      { names: [tdz("Dog"), tdz("rex")], cards: [OBJP(), DOG1()] }),
+    ST([0], "run", `With the function, the engine makes <b>one more object: Dog.prototype</b>. The two point at each other (brown dashed arrows): <code>Dog.prototype</code> goes to the object, and <code>Dog.prototype.constructor</code> comes back to the class. The new object has its own prototype link (blue) to <b>Object.prototype</b>.`,
+      { names: [tdz("Dog"), tdz("rex")], cards: mark([OBJP(), DOG1({ proto: true }), DOGP1()], { dog: { prototype: { active: true } }, dogp: { constructor: { active: true } } }) }),
+    ST([2], "run", `The method <code>bark</code> is stored on <b>Dog.prototype</b>, not on each future dog. There is only <b>one copy</b>. It is marked <b>hidden</b> (not enumerable), so <code>for...in</code> and <code>Object.keys</code> skip it.`,
+      { names: [tdz("Dog"), tdz("rex")], cards: mark([OBJP(), DOG1({ proto: true }), DOGP1({ bark: true })], { dogp: { bark: { hit: true } } }) }),
+    ST([3], "run", `The closing brace. The class is complete, so the lock opens. The name <b>Dog</b> now points to the function.`,
+      { names: [cls("Dog"), tdz("rex")], cards: D1 }),
+    ST([4], "run", `<code>new Dog("Rex")</code>, part 1. <code>new</code> creates an <b>empty object</b> and sets its prototype link to <b>Dog.prototype</b>. This link is how a dog will find <code>bark</code> later.`,
+      { names: [cls("Dog"), tdz("rex")], cards: mark([...D1, REX1([])], { rex: { "[[Prototype]]": { active: true } } }) }),
+    ST([1], "run", `<code>new Dog("Rex")</code>, part 2. <code>new</code> calls the constructor function. Inside it, <b>this</b> is the new object, and <code>name</code> is "Rex". A frame is added to the call stack.`,
+      { names: [cls("Dog"), tdz("rex")], cards: [...D1, REX1([])],
+        frames: [MAIN, { t: "Dog constructor", vars: [ref("this", "the new object"), val("name", '"Rex"')] }] }),
+    ST([1], "run", `<code>this.name = name</code> runs. The property <b>name</b> is written on the <b>new object itself</b> (an <i>own</i> property). Notice that <b>bark</b> is not here.`,
+      { names: [cls("Dog"), tdz("rex")], cards: [...D1, REX1([R("name", '"Rex"', { chg: true })])],
+        frames: [MAIN, { t: "Dog constructor", vars: [ref("this", "the new object"), val("name", '"Rex"')] }] }),
+    ST([4], "run", `The constructor ends and its frame is removed. <code>new</code> hands back the object, and the lock on <b>rex</b> opens. The name <b>rex</b> now holds an arrow to the object.`,
+      { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])] }),
+    ST([5], "run", `<code>typeof Dog</code> asks about the thing inside the name <b>Dog</b>. That is the function in the Dog card. So it prints <b>function</b>. There is no separate type called class.`,
+      { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])], out: ["function"] }),
+    ST([6], "run", `<code>rex.bark()</code>. Does <b>rex</b> have its own <b>bark</b>? No, only <b>name</b>. The engine follows the blue link to <b>Dog.prototype</b> and finds <b>bark</b> there. It runs it with <b>this</b> = rex, the object before the dot.`,
+      { names: [cls("Dog"), ref("rex", "the object")], out: ["function"],
+        cards: mark([OBJP(), DOG1({ proto: true }), DOGP1({ bark: true }), REX1([R("name", '"Rex"')])], { rex: { "[[Prototype]]": { active: true } }, dogp: { bark: { hit: true } } }),
+        frames: [MAIN, { t: "bark", vars: [ref("this", "rex")] }] }),
+    ST([2], "run", `Inside <code>bark</code>, <code>this.name</code> is "Rex". It returns "Rex says woof" and the result is printed.`,
+      { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])], out: ["function", "Rex says woof"] }),
+    ST([7], "run", `<code>Object.keys(rex)</code> lists only the <b>own</b> properties that are not hidden. That is only <b>name</b>. The method <b>bark</b> lives on the prototype, so it is not listed.`,
+      { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])], out: ["function", "Rex says woof", "name"] }),
+    ST(null, "done", `Finished. It printed <b>function, Rex says woof, name</b>. One class made one function and one shared prototype. Every dog made later will link to that same prototype.`,
+      { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])], out: ["function", "Rex says woof", "name"] })
+  ]
+};
+
+// ---------------- preset 2: extends and super() ----------------
+const ANIMAL = (o = {}) => CARD("animal", "Animal", "fn", "the parent class", [
+  R("code", "constructor(name) {...}"),
+  R("[[Prototype]]", "Function.prototype"),
+  LK("prototype", "animalp", "ref", "→ Animal.prototype")]);
+const ANIMALP = (o = {}) => CARD("animalp", "Animal.prototype", "proto", "shared by all animals", [
+  LK("constructor", "animal", "ref", "→ Animal", { hid: true }),
+  HID("speak", "function"),
+  LK("[[Prototype]]", "objp", "inst", "→ Object.prototype")]);
+const DOG2 = () => CARD("dog", "Dog", "fn", "the child class", [
+  R("code", "constructor(name) {...}"),
+  LK("[[Prototype]]", "animal", "ctor", "→ Animal"),
+  LK("prototype", "dogp", "ref", "→ Dog.prototype")]);
+const DOGP2 = (o = {}) => CARD("dogp", "Dog.prototype", "proto", "shared by all dogs", [
+  LK("constructor", "dog", "ref", "→ Dog", { hid: true }),
+  ...(o.speak ? [HID("speak", "function")] : []),
+  LK("[[Prototype]]", "animalp", "inst", "→ Animal.prototype")]);
+const REX2 = (rows) => CARD("rex", "rex", "inst", "an instance, made by new", [...rows, LK("[[Prototype]]", "dogp", "inst", "→ Dog.prototype")]);
+const L2 = { objp: [2, 1], animal: [1, 2], animalp: [2, 2], dog: [1, 3], dogp: [2, 3], rex: [3, 3] };
+const A2 = [OBJP(), ANIMAL(), ANIMALP()];
+const BOTH2 = [...A2, DOG2(), DOGP2({ speak: true })];
+const dogCtor = (thisItem) => ({ t: "Dog constructor", vars: [thisItem, val("name", '"Rex"')] });
+const LOCKED = tdz("this");
+
+const P2 = {
+  name: "extends and super()",
+  why: "extends sets two links: Dog.prototype to Animal.prototype (for instance methods) and Dog to Animal (for static methods). In a derived class the object is not made by new. It is made by the base constructor when super() runs, so this stays locked until then. super.speak() searches one step above the method's own prototype, but keeps this = rex.",
+  layout: L2,
+  code: [
+    'class Animal {',
+    '  constructor(name) { this.name = name; }',
+    '  speak() { return this.name + " makes a sound"; }',
+    '}',
+    'class Dog extends Animal {',
+    '  constructor(name) { super(name); this.tricks = 0; }',
+    '  speak() { return super.speak() + ", woof"; }',
+    '}',
+    'const rex = new Dog("Rex");',
+    'console.log(rex.speak());',
+    'console.log(rex instanceof Animal);'
+  ],
+  steps: [
+    ST(null, "setup", `<b>Setup.</b> The engine sets up three names. <b>Animal</b>, <b>Dog</b> and <b>rex</b> are all locked until their lines run. In memory there is only <b>Object.prototype</b>.`,
+      { names: [tdz("Animal"), tdz("Dog"), tdz("rex")], cards: [OBJP()] }),
+    ST([0, 1, 2, 3], "run", `<code>class Animal</code> runs. This is the same work as in the last program, done in one step: a function <b>Animal</b>, an object <b>Animal.prototype</b> holding <code>speak</code>, the pair of brown links between them, and a blue link up to <b>Object.prototype</b>.`,
+      { names: [cls("Animal"), tdz("Dog"), tdz("rex")], cards: A2 }),
+    ST([4], "run", `<code>class Dog extends Animal</code> builds <b>Dog</b> and <b>Dog.prototype</b> like before, but <b>extends</b> sets <b>two links</b>. <b>Link 1, blue:</b> <code>Dog.prototype</code> to <code>Animal.prototype</code>. Dogs find instance methods through it. <b>Link 2, purple:</b> <code>Dog</code> to <code>Animal</code>. Static methods are found through it.`,
+      { names: [cls("Animal"), tdz("Dog"), tdz("rex")],
+        cards: mark([...A2, DOG2(), DOGP2()], { dog: { "[[Prototype]]": { active: true } }, dogp: { "[[Prototype]]": { active: true } } }) }),
+    ST([6], "run", `The method <code>speak</code> in Dog is stored on <b>Dog.prototype</b>. Now there are <b>two</b> speak functions, one on each prototype. A dog finds the one on Dog.prototype first, so it hides Animal's. This is called overriding.`,
+      { names: [cls("Animal"), tdz("Dog"), tdz("rex")], cards: mark(BOTH2, { dogp: { speak: { hit: true } } }) }),
+    ST([7], "run", `The closing brace of Dog. The lock opens and the name <b>Dog</b> points to the function.`,
+      { names: [cls("Animal"), cls("Dog"), tdz("rex")], cards: BOTH2 }),
+    ST([8], "run", `<code>new Dog("Rex")</code>. Dog is a <b>derived</b> class, because it uses <code>extends</code>. So <code>new</code> does <b>not</b> make the object here. A frame for Dog's constructor appears, and <b>this is locked</b>. The object does not exist yet.`,
+      { names: [cls("Animal"), cls("Dog"), tdz("rex")], cards: BOTH2, frames: [MAIN, dogCtor(LOCKED)] }),
+    ST([5], "run", `<code>super(name)</code> runs <b>Animal's</b> constructor. It passes along <b>new.target</b>, which means &quot;the class that <code>new</code> was called on&quot;. That is <b>Dog</b>. Animal is a base class (no extends), so <b>Animal's constructor makes the empty object</b>. Its prototype link goes to <b>Dog.prototype</b>, because new.target is Dog.`,
+      { names: [cls("Animal"), cls("Dog"), tdz("rex")],
+        cards: mark([...BOTH2, REX2([])], { rex: { "[[Prototype]]": { active: true } } }),
+        frames: [MAIN, dogCtor(LOCKED), { t: "Animal constructor", vars: [ref("this", "the new object"), val("name", '"Rex"')] }] }),
+    ST([1], "run", `<code>this.name = name</code> runs inside <b>Animal's</b> constructor. The property <b>name</b> is written on the new object.`,
+      { names: [cls("Animal"), cls("Dog"), tdz("rex")], cards: [...BOTH2, REX2([R("name", '"Rex"', { chg: true })])],
+        frames: [MAIN, dogCtor(LOCKED), { t: "Animal constructor", vars: [ref("this", "the new object"), val("name", '"Rex"')] }] }),
+    ST([5], "run", `Animal's constructor ends. The object goes back to the <code>super(name)</code> call, and <b>this is unlocked</b> in Dog's constructor. It now points to that object. Only now may Dog's constructor use <b>this</b>.`,
+      { names: [cls("Animal"), cls("Dog"), tdz("rex")], cards: [...BOTH2, REX2([R("name", '"Rex"')])],
+        frames: [MAIN, dogCtor(ref("this", "the object"))] }),
+    ST([5], "run", `<code>this.tricks = 0</code> runs. It works, because <b>this</b> is unlocked. In the next program the two statements are in the wrong order, and this line crashes.`,
+      { names: [cls("Animal"), cls("Dog"), tdz("rex")], cards: [...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0", { chg: true })])],
+        frames: [MAIN, dogCtor(ref("this", "the object"))] }),
+    ST([8], "run", `Dog's constructor ends and <code>new</code> returns the object. The lock on <b>rex</b> opens.`,
+      { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")], cards: [...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])] }),
+    ST([9], "run", `<code>rex.speak()</code>. The object <b>rex</b> has no own speak. The engine follows the blue link to <b>Dog.prototype</b> and finds <b>speak</b> there. Animal's speak is hidden behind it. It runs with <b>this</b> = rex.`,
+      { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")],
+        cards: mark([...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])], { rex: { "[[Prototype]]": { active: true } }, dogp: { speak: { hit: true } } }),
+        frames: [MAIN, { t: "Dog speak", vars: [ref("this", "rex")] }] }),
+    ST([6], "run", `<code>super.speak()</code>. The word <b>super</b> starts the search <b>one step up</b> from where this method is stored. That is <b>Animal.prototype</b>. It finds Animal's speak and runs it, but <b>this</b> is still <b>rex</b>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")],
+        cards: mark([...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])], { dogp: { "[[Prototype]]": { active: true } }, animalp: { speak: { hit: true } } }),
+        frames: [MAIN, { t: "Dog speak", vars: [ref("this", "rex")] }, { t: "Animal speak", vars: [ref("this", "rex")] }] }),
+    ST([2], "run", `Animal's speak returns <code>this.name + " makes a sound"</code>, which is "Rex makes a sound". Back in Dog's speak, <code>", woof"</code> is added. The result is printed.`,
+      { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")], cards: [...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])], out: ["Rex makes a sound, woof"] }),
+    ST([10], "run", `<code>rex instanceof Animal</code> asks: is <b>Animal.prototype</b> anywhere on rex's blue chain? Walk: rex links to Dog.prototype (not it), which links to Animal.prototype (yes). So the answer is <b>true</b>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")],
+        cards: mark([...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])], { rex: { "[[Prototype]]": { active: true } }, dogp: { "[[Prototype]]": { active: true } } }),
+        visit: ["rex", "dogp"], found: "animalp", out: ["Rex makes a sound, woof", "true"] }),
+    ST(null, "done", `Finished. It printed <b>Rex makes a sound, woof</b> and <b>true</b>. Two links made it work: the blue one for methods, and the order super() then this for the object.`,
+      { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")], cards: [...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])], out: ["Rex makes a sound, woof", "true"] })
+  ]
+};
+
+// ---------------- preset 3: super() forgotten ----------------
+const ANIMAL3 = () => CARD("animal", "Animal", "fn", "the parent class", [
+  R("code", "constructor(name) {...}"), R("[[Prototype]]", "Function.prototype"), LK("prototype", "animalp", "ref", "→ Animal.prototype")]);
+const ANIMALP3 = () => CARD("animalp", "Animal.prototype", "proto", "shared by all animals", [
+  LK("constructor", "animal", "ref", "→ Animal", { hid: true }), LK("[[Prototype]]", "objp", "inst", "→ Object.prototype")]);
+const DOG3 = () => CARD("dog", "Dog", "fn", "the child class", [
+  R("code", "constructor(name) {...}"), LK("[[Prototype]]", "animal", "ctor", "→ Animal"), LK("prototype", "dogp", "ref", "→ Dog.prototype")]);
+const DOGP3 = () => CARD("dogp", "Dog.prototype", "proto", "shared by all dogs", [
+  LK("constructor", "dog", "ref", "→ Dog", { hid: true }), LK("[[Prototype]]", "animalp", "inst", "→ Animal.prototype")]);
+const A3 = [OBJP(), ANIMAL3(), ANIMALP3()];
+const B3 = [...A3, DOG3(), DOGP3()];
+
+const P3 = {
+  name: "super() forgotten",
+  why: "In a derived class, this is locked until super() has returned, because the base constructor is the one that creates the object. Touching this first throws a ReferenceError, and no object is ever made. Put super(name) on the first line and it works.",
+  layout: { objp: [2, 1], animal: [1, 2], animalp: [2, 2], dog: [1, 3], dogp: [2, 3] },
+  code: [
+    'class Animal {',
+    '  constructor(name) { this.name = name; }',
+    '}',
+    'class Dog extends Animal {',
+    '  constructor(name) {',
+    '    this.tricks = 0;',
+    '    super(name);',
+    '  }',
+    '}',
+    'try { new Dog("Rex"); } catch (e) { console.log(e.name); }'
+  ],
+  steps: [
+    ST(null, "setup", `<b>Setup.</b> <b>Animal</b> and <b>Dog</b> are locked names until their class lines run.`,
+      { names: [tdz("Animal"), tdz("Dog")], cards: [OBJP()] }),
+    ST([0, 1, 2], "run", `<code>class Animal</code> runs: a function, a prototype object, and the links between them.`,
+      { names: [cls("Animal"), tdz("Dog")], cards: A3 }),
+    ST([3, 4, 5, 6, 7, 8], "run", `<code>class Dog extends Animal</code> runs. The two <b>extends</b> links are made: blue from Dog.prototype to Animal.prototype, purple from Dog to Animal. Nothing is wrong with the class itself. The mistake is inside its constructor.`,
+      { names: [cls("Animal"), cls("Dog")], cards: B3 }),
+    ST([9], "run", `<code>new Dog("Rex")</code>. Dog is derived, so <code>new</code> does not make an object. Dog's constructor starts with <b>this locked</b>.`,
+      { names: [cls("Animal"), cls("Dog")], cards: B3, frames: [MAIN, dogCtor(LOCKED)] }),
+    ST([5], "error", `<code>this.tricks = 0</code> uses <b>this</b> while it is locked. The engine throws a <b>ReferenceError</b>: <i>Must call super constructor in derived class before accessing &#39;this&#39; or returning from derived constructor</i>. Look at the memory: <b>no object exists</b>. Line 7, the <code>super(name)</code>, never ran.`,
+      { names: [cls("Animal"), cls("Dog")], cards: B3, frames: [MAIN, dogCtor(LOCKED)] }),
+    ST([9], "run", `The error leaves the constructor, so its frame is removed. The <code>catch</code> prints the error name. Fix: put <code>super(name)</code> on the first line. A constructor that never calls <code>super()</code> at all fails the same way when it ends.`,
+      { names: [cls("Animal"), cls("Dog")], cards: B3, out: [ERR + "ReferenceError"] }),
+    ST(null, "done", `Finished. It printed <b>ReferenceError</b>. In a derived class, always call <b>super()</b> before you touch <b>this</b>.`,
+      { names: [cls("Animal"), cls("Dog")], cards: B3, out: [ERR + "ReferenceError"] })
+  ]
+};
+
+// ---------------- preset 4: lost this and arrow fields ----------------
+const COUNTER = () => CARD("counter", "Counter", "fn", "the class, which is a function", [
+  R("code", "empty constructor"), R("[[Prototype]]", "Function.prototype"), LK("prototype", "counterp", "ref", "→ Counter.prototype")]);
+const COUNTERP = () => CARD("counterp", "Counter.prototype", "proto", "shared by all counters", [
+  LK("constructor", "counter", "ref", "→ Counter", { hid: true }), HID("inc", "function"), LK("[[Prototype]]", "objp", "inst", "→ Object.prototype")]);
+const CNT = (id, title, rows) => CARD(id, title, "inst", "an instance, made by new", [...rows, LK("[[Prototype]]", "counterp", "inst", "→ Counter.prototype")]);
+const L4 = { objp: [2, 1], counter: [1, 2], counterp: [2, 2], c: [3, 2], c2: [3, 3] };
+const K4 = [OBJP(), COUNTER(), COUNTERP()];
+const N4 = (o = {}) => [o.cls ? cls("Counter") : tdz("Counter"), o.c || tdz("c"), o.f || tdz("f"), o.g || tdz("g"), o.c2 || tdz("c2")];
+const cC = ref("c", "object c");
+
+const P4 = {
+  name: "Lost this and arrow fields",
+  why: "A method is stored once on the prototype. Copying it into a variable removes the object before the dot, so this is undefined in class code (strict mode) and this.count throws a TypeError. An arrow function field is created again for every instance and remembers that instance as this, so it keeps working when detached. The price is one function per instance.",
+  layout: L4,
+  code: [
+    'class Counter {',
+    '  count = 0;',
+    '  inc() { this.count++; }',
+    '  incArrow = () => { this.count++; };',
+    '}',
+    'const c = new Counter();',
+    'const f = c.inc;',
+    'try { f(); } catch (e) { console.log(e.name); }',
+    'const g = c.incArrow;',
+    'g();',
+    'console.log(c.count);',
+    'const c2 = new Counter();',
+    'console.log(c.inc === c2.inc, c.incArrow === c2.incArrow);'
+  ],
+  steps: [
+    ST(null, "setup", `<b>Setup.</b> Five names are locked until their lines run: <b>Counter</b>, <b>c</b>, <b>f</b>, <b>g</b> and <b>c2</b>.`,
+      { names: N4(), cards: [OBJP()] }),
+    ST([0, 1, 2, 3, 4], "run", `<code>class Counter</code> runs. The method <code>inc</code> is stored <b>once</b> on <b>Counter.prototype</b>. But look: <code>count</code> and <code>incArrow</code> are <b>not</b> on the prototype. They are <b>class fields</b>. A field is a recipe that runs again for every new object.`,
+      { names: N4({ cls: true }), cards: mark(K4, { counterp: { inc: { hit: true } } }) }),
+    ST([5], "run", `<code>new Counter()</code>. <code>new</code> makes an empty object and links it to Counter.prototype. There is no written constructor, so the engine uses an empty one. Before its body, it runs the <b>field recipes</b>, in order.`,
+      { names: N4({ cls: true }), cards: [...K4, CNT("c", "c", [])],
+        frames: [MAIN, { t: "Counter constructor", vars: [ref("this", "the new object")] }] }),
+    ST([1], "run", `The first recipe, <code>count = 0</code>, writes an own property <b>count</b> on the new object.`,
+      { names: N4({ cls: true }), cards: [...K4, CNT("c", "c", [R("count", "0", { chg: true })])],
+        frames: [MAIN, { t: "Counter constructor", vars: [ref("this", "the new object")] }] }),
+    ST([3], "run", `The second recipe, <code>incArrow = () =&gt; ...</code>, creates a <b>new arrow function now</b>. An arrow function has no <b>this</b> of its own. It uses the <b>this</b> of the place where it was written. Here that is the constructor, where <b>this</b> is the new object. So this copy is tied to <b>c</b> for good.`,
+      { names: N4({ cls: true }), cards: [...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c", { chg: true })])],
+        frames: [MAIN, { t: "Counter constructor", vars: [ref("this", "the new object")] }] }),
+    ST([5], "run", `The constructor ends. The name <b>c</b> now points to the object, which has its own <b>count</b> and its own <b>incArrow</b>.`,
+      { names: N4({ cls: true, c: cC }), cards: [...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])] }),
+    ST([6], "run", `<code>const f = c.inc</code>. Reading <code>c.inc</code> finds the function on <b>Counter.prototype</b> (through the blue link). <b>f</b> receives the <b>function only</b>. Nothing in it remembers that it came from c.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc") }),
+        cards: mark([...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])], { c: { "[[Prototype]]": { active: true } }, counterp: { inc: { hit: true } } }) }),
+    ST([7], "error", `<code>f()</code> has <b>no object before the dot</b>. Code inside a class is always strict, so <b>this</b> is <b>undefined</b>. Then <code>this.count++</code> tries to read <i>count</i> of undefined, and the engine throws a <b>TypeError</b>. In Node the message is: <i>Cannot read properties of undefined (reading &#39;count&#39;)</i>.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc") }), cards: [...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])],
+        frames: [MAIN, { t: "inc", vars: [undf("this")] }] }),
+    ST([7], "run", `The <code>catch</code> prints the error name. The count of <b>c</b> did not change.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc") }), cards: [...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])], out: [ERR + "TypeError"] }),
+    ST([8], "run", `<code>const g = c.incArrow</code>. This time <b>g</b> receives the arrow function that belongs to <b>c</b> itself.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc"), g: ref("g", "arrow of c") }),
+        cards: mark([...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])], { c: { incArrow: { hit: true } } }), out: [ERR + "TypeError"] }),
+    ST([9], "run", `<code>g()</code> also has no object before the dot. But an arrow function does not use the caller's <b>this</b>. It uses the <b>remembered</b> one: <b>c</b>. So <code>this.count++</code> works, and <b>count</b> becomes 1.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc"), g: ref("g", "arrow of c") }),
+        cards: [...K4, CNT("c", "c", [R("count", "1", { chg: true }), R("incArrow", "function, this is c")])],
+        frames: [MAIN, { t: "incArrow", vars: [ref("this", "c, remembered")] }], out: [ERR + "TypeError"] }),
+    ST([10], "run", `<code>console.log(c.count)</code> prints <b>1</b>.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc"), g: ref("g", "arrow of c") }),
+        cards: [...K4, CNT("c", "c", [R("count", "1"), R("incArrow", "function, this is c")])], out: [ERR + "TypeError", "1"] }),
+    ST([11], "run", `<code>new Counter()</code> again. The field recipes run again, so <b>c2</b> gets its own <b>count</b> and a <b>second, different</b> arrow function tied to c2.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc"), g: ref("g", "arrow of c"), c2: ref("c2", "object c2") }),
+        cards: [...K4, CNT("c", "c", [R("count", "1"), R("incArrow", "function, this is c")]), CNT("c2", "c2", [R("count", "0", { chg: true }), R("incArrow", "function, this is c2", { chg: true })])],
+        out: [ERR + "TypeError", "1"] }),
+    ST([12], "run", `<code>c.inc === c2.inc</code>: both are found on Counter.prototype. That is <b>one</b> function, so <b>true</b>. <code>c.incArrow === c2.incArrow</code>: each object has its <b>own copy</b>, so <b>false</b>. The price of the arrow field: 1000 counters means 1000 arrow functions.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc"), g: ref("g", "arrow of c"), c2: ref("c2", "object c2") }),
+        cards: mark([...K4, CNT("c", "c", [R("count", "1"), R("incArrow", "function, this is c")]), CNT("c2", "c2", [R("count", "0"), R("incArrow", "function, this is c2")])], { counterp: { inc: { hit: true } }, c: { incArrow: { hit: true } }, c2: { incArrow: { hit: true } } }),
+        out: [ERR + "TypeError", "1", "true false"] }),
+    ST(null, "done", `Finished. It printed <b>TypeError, 1, true false</b>. A detached method loses <b>this</b>. An arrow field keeps it, at the cost of one function per object. Other fixes: <code>.bind(c)</code>, or an arrow wrapper such as <code>() =&gt; c.inc()</code>.`,
+      { names: N4({ cls: true, c: cC, f: ref("f", "function inc"), g: ref("g", "arrow of c"), c2: ref("c2", "object c2") }),
+        cards: [...K4, CNT("c", "c", [R("count", "1"), R("incArrow", "function, this is c")]), CNT("c2", "c2", [R("count", "0"), R("incArrow", "function, this is c2")])],
+        out: [ERR + "TypeError", "1", "true false"] })
+  ]
+};
+
+// ---------------- preset 5: private field ----------------
+const ACC = () => CARD("account", "Account", "fn", "the class, which is a function", [
+  R("code", "empty constructor"), R("[[Prototype]]", "Function.prototype"), LK("prototype", "accountp", "ref", "→ Account.prototype")]);
+const ACCP = () => CARD("accountp", "Account.prototype", "proto", "shared by all accounts", [
+  LK("constructor", "account", "ref", "→ Account", { hid: true }), HID("deposit", "function"), HID("balance", "getter"),
+  LK("[[Prototype]]", "objp", "inst", "→ Object.prototype")]);
+const ACCI = (rows) => CARD("a", "a", "inst", "an instance, made by new", [LK("[[Prototype]]", "accountp", "inst", "→ Account.prototype"), ...rows]);
+const K5 = [OBJP(), ACC(), ACCP()];
+const N5 = (c, a) => [c, a];
+
+const P5 = {
+  name: "Private field #",
+  why: "A # field is stored in a hidden slot of each object. It is not a property, so it has no name that outside code can use: a string key, Object.keys and JSON.stringify do not see it. Only code written inside the class body can use #balance. Writing a.#balance outside the class is a SyntaxError, so the program does not even start.",
+  layout: { objp: [2, 1], account: [1, 2], accountp: [2, 2], a: [3, 2] },
+  code: [
+    'class Account {',
+    '  #balance = 0;',
+    '  deposit(n) { this.#balance += n; }',
+    '  get balance() { return this.#balance; }',
+    '}',
+    'const a = new Account();',
+    'a.deposit(50);',
+    'console.log(a.balance);',
+    'console.log(a["#balance"], Object.keys(a).length);'
+  ],
+  steps: [
+    ST(null, "setup", `<b>Setup.</b> <b>Account</b> and <b>a</b> are locked names.`,
+      { names: N5(tdz("Account"), tdz("a")), cards: [OBJP()] }),
+    ST([0, 1, 2, 3, 4], "run", `<code>class Account</code> runs. <code>deposit</code> and the getter <code>balance</code> are stored on <b>Account.prototype</b>, as usual. The line <code>#balance = 0</code> only <b>declares a private name</b>. The # name can be used by code written inside this class body, and by nobody else.`,
+      { names: N5(cls("Account"), tdz("a")), cards: K5 }),
+    ST([5], "run", `<code>new Account()</code>, part 1. An empty object is made and linked to <b>Account.prototype</b>.`,
+      { names: N5(cls("Account"), tdz("a")), cards: mark([...K5, ACCI([])], { a: { "[[Prototype]]": { active: true } } }) }),
+    ST([1], "run", `<code>new Account()</code>, part 2. The field recipe <code>#balance = 0</code> runs. It makes a <b>private slot</b> on the object, with the value 0. The slot is shown with a lock. It is <b>not a property</b>.`,
+      { names: N5(cls("Account"), tdz("a")), cards: [...K5, ACCI([PRV("#balance", "0", { chg: true })])] }),
+    ST([5], "run", `The lock on <b>a</b> opens. It points to the object.`,
+      { names: N5(cls("Account"), ref("a", "the object")), cards: [...K5, ACCI([PRV("#balance", "0")])] }),
+    ST([6], "run", `<code>a.deposit(50)</code>. <b>a</b> has no own deposit, so the engine follows the blue link to <b>Account.prototype</b> and finds it. It runs with <b>this</b> = a.`,
+      { names: N5(cls("Account"), ref("a", "the object")),
+        cards: mark([...K5, ACCI([PRV("#balance", "0")])], { a: { "[[Prototype]]": { active: true } }, accountp: { deposit: { hit: true } } }),
+        frames: [MAIN, { t: "deposit", vars: [ref("this", "a"), val("n", "50")] }] }),
+    ST([2], "run", `<code>this.#balance += n</code>. This line is written inside the class body, so it may use the private name. The slot changes from 0 to 50.`,
+      { names: N5(cls("Account"), ref("a", "the object")), cards: [...K5, ACCI([PRV("#balance", "50", { chg: true })])],
+        frames: [MAIN, { t: "deposit", vars: [ref("this", "a"), val("n", "50")] }] }),
+    ST([7], "run", `<code>a.balance</code> looks like a property, but the engine finds a <b>getter</b> on Account.prototype and calls it with <b>this</b> = a. The getter is inside the class, so it can read <code>#balance</code>. It returns 50, which is printed.`,
+      { names: N5(cls("Account"), ref("a", "the object")),
+        cards: mark([...K5, ACCI([PRV("#balance", "50")])], { accountp: { balance: { hit: true } } }),
+        frames: [MAIN, { t: "balance getter", vars: [ref("this", "a")] }], out: ["50"] }),
+    ST([8], "run", `<code>a["#balance"]</code> is an ordinary lookup for a property whose name is the <i>text</i> &quot;#balance&quot;. There is none, on <b>a</b> or on its prototypes. So <b>undefined</b>. <code>Object.keys(a)</code> lists no properties: <b>0</b>. The secret is really hidden. (Writing <code>a.#balance</code> outside the class is a SyntaxError, so it cannot even be in this file.)`,
+      { names: N5(cls("Account"), ref("a", "the object")), cards: [...K5, ACCI([PRV("#balance", "50")])], out: ["50", "undefined 0"] }),
+    ST(null, "done", `Finished. It printed <b>50</b> and <b>undefined 0</b>. A # field is private for real. A name such as <code>_balance</code> would have been a normal property that anyone can read and change.`,
+      { names: N5(cls("Account"), ref("a", "the object")), cards: [...K5, ACCI([PRV("#balance", "50")])], out: ["50", "undefined 0"] })
+  ]
+};
+
+// ---------------- preset 6: instanceof walks the chain ----------------
+const ANIMAL6 = () => CARD("animal", "Animal", "fn", "the parent class", [
+  R("code", "empty constructor"), R("[[Prototype]]", "Function.prototype"), LK("prototype", "animalp", "ref", "→ Animal.prototype")]);
+const DOG6 = () => CARD("dog", "Dog", "fn", "the child class", [
+  R("code", "constructor(...args) { super(...args) }"), LK("[[Prototype]]", "animal", "ctor", "→ Animal"), LK("prototype", "dogp", "ref", "→ Dog.prototype")]);
+const D6 = (link) => CARD("d", "d", "inst", "an instance, made by new", [link]);
+const link6a = LK("[[Prototype]]", "dogp", "inst", "→ Dog.prototype");
+const link6b = LK("[[Prototype]]", "animalp", "inst", "→ Animal.prototype");
+const W6 = (dCard) => [OBJP(), ANIMAL6(), ANIMALP3(), DOG6(), DOGP3(), dCard];
+const N6 = (a, dd) => [cls("Animal"), cls("Dog"), dd];
+
+const P6 = {
+  name: "instanceof walks the chain",
+  why: "instanceof does not ask who made the object. It asks whether the prototype object of the class appears anywhere on the object's blue chain. Re-linking the object with Object.setPrototypeOf changes the answer, even though new Dog made it.",
+  layout: { objp: [2, 1], animal: [1, 2], animalp: [2, 2], dog: [1, 3], dogp: [2, 3], d: [3, 3] },
+  code: [
+    'class Animal {}',
+    'class Dog extends Animal {}',
+    'const d = new Dog();',
+    'console.log(d instanceof Dog, d instanceof Animal, d instanceof Object);',
+    'Object.setPrototypeOf(d, Animal.prototype);',
+    'console.log(d instanceof Dog, d instanceof Animal);'
+  ],
+  steps: [
+    ST(null, "setup", `<b>Setup.</b> <b>Animal</b>, <b>Dog</b> and <b>d</b> are locked names.`,
+      { names: [tdz("Animal"), tdz("Dog"), tdz("d")], cards: [OBJP()] }),
+    ST([0, 1], "run", `Both classes run. You know the shape by now: each class is a function with a prototype object, and <b>extends</b> adds the blue link (Dog.prototype to Animal.prototype) and the purple link (Dog to Animal).`,
+      { names: [cls("Animal"), cls("Dog"), tdz("d")], cards: [OBJP(), ANIMAL6(), ANIMALP3(), DOG6(), DOGP3()] }),
+    ST([2], "run", `<code>new Dog()</code>. There is no written constructor. A derived class gets a default one, <code>constructor(...args) { super(...args) }</code>, so <b>super()</b> is called for you. The base class makes the object and links it to <b>Dog.prototype</b>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: W6(D6(link6a)) }),
+    ST([3], "run", `<code>d instanceof Dog</code>. The engine takes <b>Dog.prototype</b> and looks for it on d's blue chain. Step 1: d links to Dog.prototype. <b>Found.</b> The answer is <b>true</b>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6a)), { d: { "[[Prototype]]": { active: true } } }), visit: ["d"], found: "dogp" }),
+    ST([3], "run", `<code>d instanceof Animal</code>. Look for <b>Animal.prototype</b>. Step 1: Dog.prototype, not it. Step 2: the next link goes to Animal.prototype. <b>Found.</b> The answer is <b>true</b>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6a)), { d: { "[[Prototype]]": { active: true } }, dogp: { "[[Prototype]]": { active: true } } }), visit: ["d", "dogp"], found: "animalp" }),
+    ST([3], "run", `<code>d instanceof Object</code>. Look for <b>Object.prototype</b>. The walk goes up one more step and finds it at the top. The answer is <b>true</b>. The line prints three answers.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6a)), { d: { "[[Prototype]]": { active: true } }, dogp: { "[[Prototype]]": { active: true } }, animalp: { "[[Prototype]]": { active: true } } }), visit: ["d", "dogp", "animalp"], found: "objp", out: ["true true true"] }),
+    ST([4], "run", `<code>Object.setPrototypeOf(d, Animal.prototype)</code> changes the blue link of <b>d</b>. It now goes straight to Animal.prototype. Dog.prototype is <b>no longer on d's chain</b>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: W6(D6({ ...link6b, chg: true })), out: ["true true true"] }),
+    ST([5], "run", `<code>d instanceof Dog</code>. Look for Dog.prototype. Step 1: Animal.prototype, not it. Step 2: Object.prototype, not it. Step 3: null, the end. <b>Not found</b>, so <b>false</b>. Notice that <code>new Dog</code> made this object. Only the chain counts.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6b)), { d: { "[[Prototype]]": { active: true } }, animalp: { "[[Prototype]]": { active: true } } }), visit: ["d", "animalp", "objp"], out: ["true true true"] }),
+    ST([5], "run", `<code>d instanceof Animal</code>. Look for Animal.prototype. Step 1: d links to it. <b>Found</b>, so <b>true</b>. The line prints <code>false true</code>.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6b)), { d: { "[[Prototype]]": { active: true } } }), visit: ["d"], found: "animalp", out: ["true true true", "false true"] }),
+    ST(null, "done", `Finished. It printed <b>true true true</b> and <b>false true</b>. <code>instanceof</code> walks the chain. It does not look at which constructor ran.`,
+      { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: W6(D6(link6b)), out: ["true true true", "false true"] })
+  ]
+};
+
+const PRESETS = [P1, P2, P3, P4, P5, P6];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const lineSet = line => line == null ? [] : (Array.isArray(line) ? line : [line]);
+function renderCode(line) {
+  const on = lineSet(line);
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (on.includes(i) ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function varText(v) {
+  if (v.s === "tdz") return "🔒 <b>" + esc(v.n) + "</b> locked";
+  if (v.s === "undef") return "<b>" + esc(v.n) + "</b> undefined";
+  if (v.s === "fn") return "<b>" + esc(v.n) + "</b> " + esc(v.v);
+  if (v.s === "ref") return "<b>" + esc(v.n) + "</b> → " + esc(v.v);
+  return "<b>" + esc(v.n) + "</b> = " + esc(v.v);
+}
+function chips(list, prevList) {
+  const prev = new Set((prevList || []).map(v => v.n + "|" + v.s + "|" + (v.v || "")));
+  return list.map(v => '<span class="var ' + v.s + (prev.has(v.n + "|" + v.s + "|" + (v.v || "")) ? "" : " pop") + '">' + varText(v) + "</span>").join("");
+}
+function renderNames(s, p) {
+  $("names").innerHTML = s.names.length ? chips(s.names, p && p.names) : '<span class="empty">none</span>';
+}
+function renderFrames(s, p) {
+  const root = $("frames");
+  root.innerHTML = "";
+  const list = s.frames.slice().reverse();
+  list.forEach((f, i) => {
+    const div = document.createElement("div");
+    div.className = "frame" + (i === 0 ? " topf" : "");
+    div.innerHTML = "<h3>" + esc(f.t) + "</h3>" + (f.vars.length ? '<div class="vars">' + chips(f.vars, null) + "</div>" : '<span class="empty">nothing yet</span>');
+    root.appendChild(div);
+  });
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing printed yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div");
+    const isErr = v.startsWith(ERR);
+    c.className = "chip" + (isErr ? " err" : "");
+    c.textContent = isErr ? v.slice(1) : v;
+    box.appendChild(c);
+  });
+}
+
+const rowKey = (c, r) => c.id + "|" + r.k + "|" + r.v;
+function renderMem(s, p) {
+  const mem = $("mem");
+  mem.querySelectorAll(".card").forEach(n => n.remove());
+  const layout = PRESETS[cur].layout;
+  const prevCards = new Set(((p && p.cards) || []).map(c => c.id));
+  const prevRows = new Set(((p && p.cards) || []).flatMap(c => c.rows.map(r => rowKey(c, r))));
+  s.cards.forEach(c => {
+    const pos = layout[c.id];
+    const el = document.createElement("div");
+    el.className = "card " + c.kind + (prevCards.has(c.id) ? "" : " pop") +
+      ((s.visit || []).includes(c.id) ? " visit" : "") + (s.found === c.id ? " found" : "");
+    el.dataset.card = c.id;
+    el.style.gridColumn = pos[0];
+    el.style.gridRow = pos[1];
+    let html = "<h3>" + esc(c.title) + '</h3><div class="what">' + esc(c.what) + "</div>";
+    c.rows.forEach(r => {
+      const rc = "row" + (r.hid ? " hid" : "") + (r.prv ? " prv" : "") + (r.to ? " link " + r.type : "") +
+        (r.chg || !prevRows.has(rowKey(c, r)) && p ? " chg" : "") + (r.hit ? " hit" : "");
+      html += '<div class="' + rc + '"' + (r.to ? ' data-to="' + r.to + '" data-type="' + r.type + '"' + (r.active ? ' data-active="1"' : "") : "") +
+        '><span class="k">' + esc(r.k) + '</span><span class="v">' + esc(r.v) + "</span></div>";
+    });
+    el.innerHTML = html;
+    mem.appendChild(el);
+  });
+  drawArrows();
+}
+
+function drawArrows() {
+  const mem = $("mem"), g = $("arrowGroup");
+  g.innerHTML = "";
+  const hr = mem.getBoundingClientRect();
+  const svg = $("arrows");
+  svg.setAttribute("width", mem.scrollWidth); svg.setAttribute("height", mem.scrollHeight);
+  mem.querySelectorAll(".row[data-to]").forEach(row => {
+    const target = mem.querySelector('.card[data-card="' + row.dataset.to + '"]');
+    if (!target) return;
+    const src = row.closest(".card");
+    if (src === target) return;
+    const a = row.getBoundingClientRect(), sc = src.getBoundingClientRect();
+    const tc = target.getBoundingClientRect(), th = target.querySelector("h3").getBoundingClientRect();
+    const ay = a.top + a.height / 2 - hr.top;
+    const by = th.top + th.height / 2 - hr.top;
+    let d;
+    if (tc.left > sc.right - 8) {                       // target is to the right
+      const x1 = sc.right - hr.left, x2 = tc.left - hr.left, dx = Math.max(24, (x2 - x1) / 2);
+      d = "M" + x1 + "," + ay + " C" + (x1 + dx) + "," + ay + " " + (x2 - dx) + "," + by + " " + x2 + "," + by;
+    } else if (tc.right < sc.left + 8) {                // target is to the left
+      const x1 = sc.left - hr.left, x2 = tc.right - hr.left, dx = Math.max(24, (x1 - x2) / 2);
+      d = "M" + x1 + "," + ay + " C" + (x1 - dx) + "," + ay + " " + (x2 + dx) + "," + by + " " + x2 + "," + by;
+    } else {                                            // same column: loop out to the side
+      const left = sc.left - hr.left < 90;
+      const x1 = (left ? sc.left : sc.right) - hr.left, x2 = (left ? tc.left : tc.right) - hr.left, o = left ? -38 : 38;
+      d = "M" + x1 + "," + ay + " C" + (x1 + o) + "," + ay + " " + (x2 + o) + "," + by + " " + x2 + "," + by;
+    }
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", d);
+    p.setAttribute("class", row.dataset.type + (row.dataset.active ? " active" : ""));
+    p.setAttribute("marker-end", "url(#m-" + row.dataset.type + ")");
+    g.appendChild(p);
+  });
+}
+
+const BADGE = { setup: ["Setup, before line 1", "setup"], run: ["Running a line", "run"], error: ["Throwing an error", "error"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], p = idx > 0 ? steps[idx - 1] : null;
+  renderCode(s.line);
+  renderNames(s, p);
+  renderFrames(s, p);
+  renderMem(s, p);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").trim();
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = steps[idx].out.map(v => v.startsWith(ERR) ? v.slice(1) : v).join(", ");
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + PRESETS[cur].why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the arrows: they hold the answer.");
+}
+function pick(i, at) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = Math.max(0, Math.min(steps.length - 1, at || 0));
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2200);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.addEventListener("resize", drawArrows);
+window.__presets = PRESETS;
+// A link such as 08-classes.html#p=2&s=7 opens preset 2 at step 7 (counting from 1).
+const hm = location.hash.match(/p=(\d+)(?:&s=(\d+))?/);
+pick(hm ? Math.min(PRESETS.length, Math.max(1, +hm[1])) - 1 : 0, hm && hm[2] ? +hm[2] - 1 : 0);
+</script>
+</body>
+</html>

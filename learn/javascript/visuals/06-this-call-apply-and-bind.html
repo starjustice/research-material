@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>this, call, apply and bind Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --global: #3b82f6; --block: #2f9e6b; --loop: #8b5cf6; --loop-bg: #efe8fd;
+    --tdz: #c0392b; --tdz-bg: #fdecea;
+    --val: #1f7a4d; --val-bg: #e3f5ea;
+    --fn: #2563a8; --fn-bg: #e3eefe;
+    --this: #7c3aed; --this-bg: #f1eaff; --lex: #d9822b; --lex-bg: #fff3e4;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .83rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 300px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .col { display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mode { font-size: .72rem; letter-spacing: 0; text-transform: none; font-weight: 800; border-radius: 999px; padding: 2px 10px; color: #fff; }
+  .mode.strict { background: var(--val); } .mode.sloppy { background: var(--lex); }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .78rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .88rem; font-weight: 650; }
+  .outbox .chip.err { background: #5a2a26; border-color: #8a3b34; color: #ffd9d4; }
+  .outbox .empty { color: #7b8f9d; font-size: .76rem; font-style: italic; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .timers { border: 2px solid #8b5cf6; background: #efe8fd; border-radius: 12px; padding: 8px 10px 10px; }
+  .timers h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #8b5cf6; }
+  .timers .chip { background: #fff; border: 1px solid rgba(0,0,0,.12); border-radius: 8px; padding: 4px 9px; font-size: .78rem; font-weight: 650; margin: 0 6px 4px 0; display: inline-block; }
+
+  .callsite {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 1.05rem; font-weight: 700;
+    background: var(--out); color: #fff; padding: 10px 14px; border-radius: 10px; overflow-x: auto; white-space: pre;
+  }
+  .callsite u { text-decoration: none; border-bottom: 3px solid #c4a7ff; color: #e6d9ff; }
+  .callsite.none { background: #f3efe6; color: var(--muted); font-style: italic; font-weight: 500; font-family: inherit; font-size: .9rem; }
+  .callcap { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+
+  .rule { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: start; padding: 6px 10px; border-radius: 10px; border: 1.5px solid var(--border); margin-bottom: 6px; background: #fff; transition: background .2s, opacity .2s; }
+  .rule:last-child { margin-bottom: 0; }
+  .rule .num { width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-weight: 800; font-size: .8rem; display: flex; align-items: center; justify-content: center; }
+  .rule.arrowrow .num { background: var(--lex); }
+  .rule b { font-size: .86rem; }
+  .rule .rr { display: block; font-size: .78rem; color: var(--muted); }
+  .rule .rr em { font-style: normal; font-weight: 800; color: var(--ink); }
+  .rule .rw { display: block; font-size: .8rem; margin-top: 2px; }
+  .rule .tag { font-size: .7rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: #eee8da; color: var(--muted); }
+  .rule.st-no { opacity: .6; } .rule.st-no .tag { background: var(--tdz-bg); color: var(--tdz); }
+  .rule.st-yes { border-color: var(--val); background: var(--val-bg); } .rule.st-yes .tag { background: var(--val); color: #fff; }
+  .rule.st-yes.arrowrow { border-color: var(--lex); background: var(--lex-bg); } .rule.st-yes.arrowrow .tag { background: var(--lex); }
+  .rule.st-skip { opacity: .35; border-style: dashed; }
+
+  .heapwrap { position: relative; display: flex; gap: 84px; align-items: flex-start; min-height: 130px; padding: 2px 0; }
+  .thiscol { width: 118px; flex: none; }
+  .pill {
+    background: var(--this-bg); border: 2px solid var(--this); color: var(--this); border-radius: 14px;
+    padding: 8px 8px; text-align: center; font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 1.2rem;
+  }
+  .pill small { display: block; font-family: -apple-system, "Segoe UI", sans-serif; font-size: .7rem; font-weight: 600; color: var(--muted); margin-top: 1px; }
+  .pill.off { background: #f3efe6; border-color: var(--border); color: var(--muted); }
+  .pill.lex { background: var(--lex-bg); border: 2px dashed var(--lex); color: var(--lex); }
+  .heap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .obj { border: 2px solid var(--fn); background: var(--fn-bg); border-radius: 10px; padding: 6px 10px; }
+  .obj .ot { font-weight: 800; font-size: .82rem; font-family: ui-monospace, Menlo, monospace; }
+  .obj .op { font-family: ui-monospace, Menlo, monospace; font-size: .76rem; color: #34495a; }
+  .obj.k-none { border-style: dashed; border-color: var(--tdz); background: var(--tdz-bg); }
+  .obj.k-glob { border-style: dashed; border-color: #64748b; background: #eef1f5; }
+  .obj.k-mod { border-style: dashed; border-color: #0d9488; background: #e0f5f2; }
+  .obj.k-timer { border-style: dashed; border-color: #d97706; background: #fff3e0; }
+  .obj.k-fresh { border-color: var(--block); background: #dff3ea; }
+  .obj.k-fn { border-color: var(--loop); background: var(--loop-bg); }
+  .obj.target { box-shadow: 0 0 0 4px rgba(124, 58, 237, .28); }
+  .obj.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  #arrows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .memcap { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.ask { background: var(--this); } .badge.call { background: var(--global); } .badge.run { background: var(--global); }
+  .badge.error { background: var(--tdz); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code, .result code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--block); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../06-this-call-apply-and-bind.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>this, call, apply and bind stepper</h1>
+  <p class="sub">Look at <b>how the function is called</b>, not at where it is written. Each call has two steps: first <b>you</b> guess the rule, then the engine shows its answer.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will the whole program print, in order? If it throws an error, write the error name. Then step to the end.<br>
+    <input id="guess" placeholder="the printed values in order, with spaces" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="panel">
+        <h2>Your code <span class="mode" id="mode"></span></h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="timers" id="timersBox" style="display:none"><h3>Waiting timer callbacks</h3><div id="timers"></div></div>
+      <div class="outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+    </div>
+    <div class="col">
+      <div class="panel">
+        <h2>Call site: how is the function called?</h2>
+        <div class="callsite none" id="site"></div>
+        <div class="callcap" id="sitecap"></div>
+      </div>
+      <div class="panel">
+        <h2>Which rule decides this? Ask in this order</h2>
+        <div id="rules"></div>
+      </div>
+      <div class="panel">
+        <h2>Memory: the value of this and the objects</h2>
+        <div class="heapwrap" id="heapwrap">
+          <div class="thiscol"><div class="pill off" id="pill">this<small>no function is running</small></div></div>
+          <div class="heap" id="heap"></div>
+          <svg id="arrows" aria-hidden="true">
+            <defs>
+              <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker>
+              <marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d9822b"/></marker>
+            </defs>
+            <path id="arrowpath" d="" fill="none" stroke="#7c3aed" stroke-width="3" marker-end="url(#ah)" style="display:none"/>
+          </svg>
+        </div>
+        <div class="memcap" id="memcap"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> <code>this</code> is decided by the <b>call</b>, not by where the function is written. Ask in this order: <b>1 new</b>, <b>2 call, apply or bind</b>, <b>3 a dot call</b> (<code>obj.fn()</code>), <b>4 a plain call</b> (<code>undefined</code> in strict mode, <code>globalThis</code> in sloppy mode). <b>Arrow functions</b> skip all four and borrow <code>this</code> from the code around them. You can open one program directly, for example <code>#5</code> for call, apply and bind, or <code>#2.4</code> for program 2, step 4.</p>
+</div>
+
+<!-- Block 1: data only. No page code here, so a test can run it on its own. -->
+<script id="data">
+// ---- Small builders ----
+const ERR = "!";   // a console item starting with ! is drawn as an error
+const O = (id, title, props = [], kind = "obj") => ({ id, title, props, kind });
+const SPECIAL = {
+  undef:   O("undef", "undefined", ["no object at all", "this.name will fail"], "none"),
+  global:  O("global", "globalThis", ["the global object", "window in a browser"], "glob"),
+  modexp:  O("modexp", "module.exports", ["an empty object {}", "Node: this at the top of a file"], "mod"),
+  timeout: O("timeout", "Timeout object", ["made by Node for each timer", "has no name"], "timer")
+};
+const NO_ASK = `<b>Your turn.</b> A function is about to be called. Look at the <b>call site</b> on the right. Ask the questions in order: arrow function? then 1 new, 2 call, apply or bind, 3 a dot, 4 a plain call. Say what <code>this</code> will be. Then press Next to check.`;
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "Method call",
+    mode: "strict",
+    why: "A dot call sets this to the object left of the dot. The same function gave two answers because it was called through two different objects.",
+    code: [
+      '"use strict";',
+      'const user = { name: "Ana", hi() { return this.name; } };',
+      'console.log(user.hi());',
+      'const admin = { name: "Budi", hi: user.hi };',
+      'console.log(admin.hi());'
+    ],
+    steps: [
+      { line: 0, note: `Line 1 turns on <b>strict mode</b> for this file. It matters only for rule 4. Remember that.` },
+      { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])],
+        note: `The object <code>user</code> is created. It has a property <b>name</b> and a property <b>hi</b>. The property <b>hi</b> holds a function. Notice that the function is only stored there. It does not know which object holds it.` },
+      { line: 2, phase: "call", call: `<u>user</u>.hi()`, rules: ["method", `The name before the dot is <b>user</b>`], thisTo: "user", frame: "hi",
+        note: `The engine reads the <b>call site</b> and asks the questions in order. Arrow function? No. <b>1 new</b>? No. <b>2 call, apply or bind</b>? No. <b>3 a dot</b>? <b>Yes</b>, and the object left of the dot is <code>user</code>. Rule 3 wins, so <code>this</code> is <code>user</code>. The engine never asked where <code>hi</code> was written.` },
+      { line: 1, keep: true, print: ["Ana"],
+        note: `Inside <code>hi</code>, <code>this.name</code> follows the purple arrow to <code>user</code> and reads <b>Ana</b>. The function returns it, and <code>console.log</code> prints it.` },
+      { line: 3, heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("admin", "admin", ['name: "Budi"', "hi: the same function"])],
+        note: `A second object <code>admin</code> is created. Its <b>hi</b> holds <b>the very same function</b>. There is still only one function in memory, and two objects point to it. This is why the function needs <code>this</code>: it must find out which object it is working for.` },
+      { line: 4, phase: "call", call: `<u>admin</u>.hi()`, rules: ["method", `The name before the dot is <b>admin</b>`], thisTo: "admin", frame: "hi",
+        note: `The same function, but a different call site. Now the object left of the dot is <code>admin</code>, so rule 3 gives <code>this = admin</code>.` },
+      { line: 1, keep: true, print: ["Budi"],
+        note: `<code>this.name</code> follows the arrow to <code>admin</code> and reads <b>Budi</b>.` },
+      { phase: "done", note: `Finished. It printed <b>Ana Budi</b>. One function, two call sites, two values of <code>this</code>.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "Lost this (strict)",
+    mode: "strict",
+    why: "const f = user.hi copies only the function. Calling f() has no dot, so it is a plain call. In strict mode a plain call gives this = undefined, and undefined.name is a TypeError.",
+    code: [
+      '"use strict";',
+      'const user = { name: "Ana", hi() { return this.name; } };',
+      'const f = user.hi;',
+      'try { console.log(f()); } catch (e) { console.log(e.name); }'
+    ],
+    steps: [
+      { line: 0, note: `Strict mode is on for this file.` },
+      { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])],
+        note: `The object <code>user</code> is created with a name and a method <b>hi</b>.` },
+      { line: 2, heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("f", "f", ["holds only the function hi", "no link back to user"], "fn")],
+        note: `<code>const f = user.hi</code> copies the function out of the object. Look at the memory: <b>f</b> holds only the function. Nothing in it points back to <code>user</code>. The link to the object is gone.` },
+      { line: 3, phase: "call", call: `f()`, rules: ["plain", `There is no dot. Nothing is left of the name <b>f</b>`], thisTo: "undef", frame: "hi",
+        note: `Arrow function? No. <b>1 new</b>? No. <b>2 call, apply or bind</b>? No. <b>3 a dot</b>? <b>No</b>. So rule 4, the plain call. Strict mode is ON, so <code>this</code> is <b>undefined</b>. It is not <code>user</code>, even though it is the same function.` },
+      { line: 1, phase: "error", keep: true,
+        note: `Inside <code>hi</code>, <code>this.name</code> tries to read <b>name</b> from <b>undefined</b>. The engine throws a <b>TypeError</b>: <i>Cannot read properties of undefined (reading 'name')</i>.` },
+      { line: 3, print: [ERR + "TypeError"],
+        note: `The <code>catch</code> block catches the error and prints its name.` },
+      { phase: "done", note: `Finished. It printed <b>TypeError</b>. This is the famous bug: a method that is pulled out of its object <b>loses this</b>.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "Lost this (sloppy)",
+    mode: "sloppy",
+    why: "Same pulled out method, but in sloppy mode a plain call fills this with globalThis. globalThis has no name, so you get a quiet undefined and no error. The bug hides.",
+    code: [
+      'const user = { name: "Ana", hi() { return this.name; } };',
+      'const f = user.hi;',
+      'console.log(f());'
+    ],
+    steps: [
+      { line: 0, heap: [O("user", "user", ['name: "Ana"', "hi: function"])],
+        note: `There is no <code>"use strict"</code> in this file, so it runs in <b>sloppy mode</b> (the old default). The object <code>user</code> is created.` },
+      { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("f", "f", ["holds only the function hi", "no link back to user"], "fn")],
+        note: `The function is copied out. <b>f</b> holds only the function, not the object.` },
+      { line: 2, phase: "call", call: `f()`, rules: ["plain", `There is no dot. Nothing is left of the name <b>f</b>`], thisTo: "global", frame: "hi",
+        note: `Rule 4 again. But this time sloppy mode is on, so JavaScript does not leave <code>this</code> empty. It fills it with <b>globalThis</b>, the global object.` },
+      { line: 0, keep: true, print: ["undefined"],
+        note: `<code>this.name</code> reads the property <b>name</b> of <code>globalThis</code>. There is none, so the result is <b>undefined</b>. No error is thrown. <code>console.log</code> prints <b>undefined</b>.` },
+      { phase: "done", note: `Finished. It printed <b>undefined</b>. In sloppy mode the bug is quiet: no error, just a wrong value. Strict mode (the last program) shows the same bug loudly. That is one reason to use strict mode. Classes and ES modules are strict by default.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "new",
+    mode: "strict",
+    why: "new is rule 1. It makes a fresh empty object and sets this to it. Without new, the same function is a plain call, and in strict mode this is undefined.",
+    code: [
+      '"use strict";',
+      'function User(name) { this.name = name; }',
+      'const u = new User("Ana");',
+      'console.log(u.name);',
+      'try { User("Budi"); } catch (e) { console.log(e.name); }'
+    ],
+    steps: [
+      { line: 0, note: `Strict mode is on.` },
+      { line: 1, heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn")],
+        note: `The function <code>User</code> is created. It is a normal function. Nothing about it says "constructor". What happens depends on how it is called.` },
+      { line: 2, phase: "call", call: `<u>new</u> User("Ana")`, rules: ["new", `The call starts with the word <b>new</b>`], thisTo: "fresh", frame: "User",
+        heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn"), O("fresh", "new empty object", [], "fresh")],
+        note: `Rule 1 is asked first. The call starts with <b>new</b>, so the engine makes a brand new empty object and sets <code>this</code> to it. The other rules are never asked.` },
+      { line: 1, keep: true,
+        heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn"), O("fresh", "new empty object", ['name: "Ana"'], "fresh")],
+        note: `<code>this.name = name</code> writes the property <b>name</b> onto the new object.` },
+      { line: 2, heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn"), O("u", "u", ['name: "Ana"'])],
+        note: `<code>User</code> finishes. <code>new</code> hands back the new object, and <code>u</code> now points to it.` },
+      { line: 3, print: ["Ana"], note: `<code>u.name</code> is <b>Ana</b>.` },
+      { line: 4, phase: "call", call: `User("Budi")`, rules: ["plain", `No <b>new</b>, no dot. It is a plain call`], thisTo: "undef", frame: "User",
+        note: `The same function is called <b>without new</b>. No new object is made. It is a plain call, strict mode is ON, so <code>this</code> is <b>undefined</b>.` },
+      { line: 1, phase: "error", keep: true,
+        note: `<code>this.name = name</code> tries to write onto <b>undefined</b>. The engine throws a <b>TypeError</b>: <i>Cannot set properties of undefined (setting 'name')</i>.` },
+      { line: 4, print: [ERR + "TypeError"], note: `The <code>catch</code> prints the error name.` },
+      { phase: "done", note: `Finished. It printed <b>Ana TypeError</b>. In sloppy mode, forgetting <code>new</code> would not throw. It would silently write <b>name</b> onto <code>globalThis</code>.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 5
+  {
+    name: "call, apply, bind",
+    mode: "strict",
+    why: "call and apply run the function now with the this you give. bind makes a new function with this locked. A locked this cannot be changed by call, apply or another bind.",
+    code: [
+      '"use strict";',
+      'function hi(greet) { return greet + " " + this.name; }',
+      'const ana = { name: "Ana" };',
+      'const budi = { name: "Budi" };',
+      'console.log(hi.call(ana, "Hello"));',
+      'console.log(hi.apply(budi, ["Hi"]));',
+      'const hiAna = hi.bind(ana);',
+      'console.log(hiAna("Yo"));',
+      'console.log(hiAna.call(budi, "Hey"));'
+    ],
+    steps: [
+      { line: 0, note: `Strict mode is on.` },
+      { line: 1, heap: [O("hi", "function hi", ["uses this.name"], "fn")],
+        note: `The function <code>hi</code> is created. It is not inside any object. It reads <code>this.name</code>.` },
+      { line: 2, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"'])], note: `The object <code>ana</code> is created.` },
+      { line: 3, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"']), O("budi", "budi", ['name: "Budi"'])], note: `The object <code>budi</code> is created. Notice that neither object has <code>hi</code> as a property.` },
+      { line: 4, phase: "call", call: `hi.call(<u>ana</u>, "Hello")`, rules: ["explicit", `<b>call</b> says: use <b>ana</b> as this`], thisTo: "ana", frame: "hi",
+        note: `<code>call</code> runs <code>hi</code> <b>now</b>. Rule 2 beats the dot rule and the plain rule. The first argument, <code>ana</code>, becomes <code>this</code>. The other arguments are passed one by one, separated by commas.` },
+      { line: 1, keep: true, print: ["Hello Ana"],
+        note: `<code>this.name</code> reads <b>Ana</b>. <code>hi</code> returns <b>Hello Ana</b> and <code>console.log</code> prints it.` },
+      { line: 5, phase: "call", call: `hi.apply(<u>budi</u>, ["Hi"])`, rules: ["explicit", `<b>apply</b> says: use <b>budi</b> as this`], thisTo: "budi", frame: "hi",
+        note: `<code>apply</code> does the same job as <code>call</code>. The only difference is how the arguments arrive: <b>in one array</b>. Easy to remember: <b>c</b>all takes <b>c</b>ommas, <b>a</b>pply takes an <b>a</b>rray.` },
+      { line: 1, keep: true, print: ["Hi Budi"], note: `<code>this.name</code> reads <b>Budi</b>. It prints <b>Hi Budi</b>.` },
+      { line: 6, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"']), O("budi", "budi", ['name: "Budi"']), O("hiAna", "hiAna  (bound function)", ["target: hi", "locked this: ana"], "fn")],
+        note: `<code>bind</code> does <b>not</b> run <code>hi</code>. It makes a <b>new function</b>, <code>hiAna</code>, that remembers two things: the target function and the locked <code>this</code>. The original <code>hi</code> is not changed.` },
+      { line: 7, phase: "call", call: `hiAna("Yo")`, rules: ["explicit", `It looks like a plain call, but <b>hiAna</b> is a bound function with this locked to <b>ana</b>`], thisTo: "ana", frame: "hi",
+        note: `This call has no dot and no <code>call</code>. It looks like rule 4. But a bound function always passes its locked object. So rule 2 applies, hidden inside <code>bind</code>.` },
+      { line: 1, keep: true, print: ["Yo Ana"], note: `<code>this</code> is <code>ana</code>. It prints <b>Yo Ana</b>.` },
+      { line: 8, phase: "call", call: `hiAna.call(<u>budi</u>, "Hey")`, rules: ["explicit", `<b>call</b> asks for budi, but the bind came first and its <b>ana</b> is locked`], thisTo: "ana", frame: "hi",
+        note: `<code>call</code> asks for <code>budi</code>. But the bound function ignores it. <b>bind works only once.</b> <code>this</code> stays <code>ana</code>.` },
+      { line: 1, keep: true, print: ["Hey Ana"], note: `It prints <b>Hey Ana</b>, not Hey Budi.` },
+      { phase: "done", note: `Finished. It printed <b>Hello Ana, Hi Budi, Yo Ana, Hey Ana</b>.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 6
+  {
+    name: "Arrow inside a method",
+    mode: "strict",
+    why: "An arrow function has no this of its own. It looks outward, like a closure looks for a variable, and finds the this of show, which is team. So an arrow is the right tool for a callback inside a method.",
+    code: [
+      '"use strict";',
+      'const team = {',
+      '  name: "Blue",',
+      '  members: ["Ana", "Budi"],',
+      '  show() { return this.members.map(m => m + " in " + this.name); },',
+      '};',
+      'console.log(team.show().join(", "));'
+    ],
+    steps: [
+      { line: 0, note: `Strict mode is on.` },
+      { line: [1, 2, 3, 4, 5], heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana", "Budi"]', "show: function"])],
+        note: `The object <code>team</code> is created with a name, a list and a method <b>show</b>.` },
+      { line: 6, phase: "call", call: `<u>team</u>.show()`, rules: ["method", `The name before the dot is <b>team</b>`], thisTo: "team", frame: "show",
+        note: `A dot call. Rule 3 gives <code>this = team</code> inside <code>show</code>.` },
+      { line: 4, keep: true,
+        heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana", "Budi"]', "show: function"]), O("arrow", "arrow function  m => ...", ["written inside show", "has NO this of its own"], "fn")],
+        note: `Inside <code>show</code>, <code>map</code> receives an <b>arrow function</b> that is written right here. An arrow function does not get a <code>this</code> when it is created. Watch what happens when <code>map</code> calls it.` },
+      { line: 4, phase: "call", call: `map calls the arrow with "Ana"`, inside: true, rules: ["arrow", `An arrow ignores the four rules. It takes this from <b>show</b>, the code around it`], thisTo: "team", lex: true, frame: "the arrow",
+        heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana", "Budi"]', "show: function"]), O("arrow", "arrow function  m => ...", ["written inside show", "has NO this of its own"], "fn")],
+        note: `The first question is: <b>is it an arrow function?</b> Yes. So the four rules are skipped. The engine looks <b>outward</b> for a <code>this</code>, the same way a closure looks outward for a variable (lesson 05). The nearest <code>this</code> belongs to <code>show</code>: it is <code>team</code>. The arrow is dashed orange because the value is <b>borrowed</b>.` },
+      { line: 4, keep: true,
+        note: `<code>this.name</code> reads <b>Blue</b>. The arrow returns <b>Ana in Blue</b>. Then <code>map</code> calls it again for Budi. The arrow still borrows the same <code>this</code>, so it returns <b>Budi in Blue</b>.` },
+      { line: 6, print: ["Ana in Blue, Budi in Blue"], note: `<code>join</code> glues the two results together, and <code>console.log</code> prints them.` },
+      { phase: "done", note: `Finished. It printed <b>Ana in Blue, Budi in Blue</b>. An arrow function inside a method is the clean fix for callbacks.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 7
+  {
+    name: "function inside a method",
+    mode: "strict",
+    why: "A normal function gets its own this, decided by how it is called. map calls it as a plain call, so in strict mode this is undefined. The this of show does not help. Change function to an arrow and it works.",
+    code: [
+      '"use strict";',
+      'const team = {',
+      '  name: "Blue",',
+      '  members: ["Ana"],',
+      '  show() { return this.members.map(function (m) { return m + this.name; }); },',
+      '};',
+      'try { team.show(); } catch (e) { console.log(e.name); }'
+    ],
+    steps: [
+      { line: 0, note: `Strict mode is on.` },
+      { line: [1, 2, 3, 4, 5], heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana"]', "show: function"])],
+        note: `The same <code>team</code> object as the last program. But this time the callback is written with the word <code>function</code>, not an arrow.` },
+      { line: 6, phase: "call", call: `<u>team</u>.show()`, rules: ["method", `The name before the dot is <b>team</b>`], thisTo: "team", frame: "show",
+        note: `A dot call. <code>this</code> inside <code>show</code> is <code>team</code>, as before.` },
+      { line: 4, keep: true,
+        heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana"]', "show: function"]), O("cb", "function (m) ...", ["a normal function", "gets its OWN this"], "fn")],
+        note: `<code>map</code> receives a normal function. It is written inside <code>show</code>, but that gives it nothing. A normal function gets its own <code>this</code> every time it is called.` },
+      { line: 4, phase: "call", call: `map calls the function with "Ana"`, inside: true, rules: ["plain", `<b>map</b> calls it with no new, no call and no dot. A plain call`], thisTo: "undef", frame: "the function",
+        heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana"]', "show: function"]), O("cb", "function (m) ...", ["a normal function", "gets its OWN this"], "fn")],
+        note: `Here is the difference from the arrow. This is a normal function, so the four rules apply. <code>map</code> calls it as a plain call. Strict mode is ON, so <code>this</code> is <b>undefined</b>. The <code>this</code> of <code>show</code> is not used.` },
+      { line: 4, phase: "error", keep: true,
+        note: `<code>this.name</code> reads <b>name</b> of <b>undefined</b>. The engine throws a <b>TypeError</b>.` },
+      { line: 6, print: [ERR + "TypeError"], note: `The <code>catch</code> prints the error name.` },
+      { phase: "done", note: `Finished. It printed <b>TypeError</b>. Three fixes: use an arrow function (the last program), pass <code>this</code> as the second argument of <code>map</code>, or write <code>.bind(this)</code> after the function.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 8
+  {
+    name: "Arrow as a method",
+    mode: "sloppy",
+    why: "An arrow function takes this from where it is written. Curly braces of an object do not make a this. The arrow is written at the top of the file, so it gets the this of the file, which in a Node CommonJS file is module.exports.",
+    code: [
+      'const user = { name: "Ana", hi: () => this.name };',
+      'console.log(user.hi());'
+    ],
+    steps: [
+      { line: 0, heap: [O("user", "user", ['name: "Ana"', "hi: arrow function"]), SPECIAL.modexp],
+        note: `The object <code>user</code> is created. Its <b>hi</b> is an <b>arrow function</b>. The arrow is written at the top of the file, not inside another function. So the <code>this</code> it borrows is the one of the file. In a Node CommonJS file that is <b>module.exports</b>, an empty object. Curly braces of an object do not create a <code>this</code>.` },
+      { line: 1, phase: "call", call: `<u>user</u>.hi()`, rules: ["arrow", `The dot does not count. An arrow uses the this of the file: <b>module.exports</b>`], thisTo: "modexp", lex: true, frame: "the arrow",
+        heap: [O("user", "user", ['name: "Ana"', "hi: arrow function"]), SPECIAL.modexp],
+        note: `This looks like a dot call, so you may expect rule 3: <code>this = user</code>. But the function is an <b>arrow function</b>. It ignores the dot and all four rules. Its <code>this</code> is the one from where it was written: the top of the file.` },
+      { line: 0, keep: true, print: ["undefined"],
+        note: `<code>this.name</code> reads <b>name</b> from <code>module.exports</code>. There is none, so the result is <b>undefined</b>. No error. The object <code>user</code> was never asked.` },
+      { phase: "done", note: `Finished. It printed <b>undefined</b>. Fix: write <code>hi() { return this.name; }</code> as a normal method. In an ES module, <code>this</code> at the top of the file is <code>undefined</code>, so the same code would throw a TypeError there.` }
+    ]
+  },
+  // ---------------------------------------------------------------- 9
+  {
+    name: "Callback in setTimeout",
+    mode: "strict",
+    why: "setTimeout(user.hi) hands over only the function, so the object is lost, the same as const f = user.hi. Node calls it through its own Timeout object. An arrow wrapper or bind keeps the object.",
+    code: [
+      '"use strict";',
+      'const user = { name: "Ana", hi() { console.log(this === user); } };',
+      'setTimeout(user.hi, 0);',
+      'setTimeout(() => user.hi(), 0);',
+      'setTimeout(user.hi.bind(user), 0);'
+    ],
+    steps: [
+      { line: 0, note: `Strict mode is on.` },
+      { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])], note: `The object <code>user</code> is created. Its method <b>hi</b> prints whether <code>this</code> is <code>user</code>.` },
+      { line: 2, timers: ["timer 1: the function hi, alone"],
+        note: `<code>setTimeout(user.hi, 0)</code> hands <b>only the function</b> to the timer. The object is not part of the deal. This is the same as <code>const f = user.hi</code>.` },
+      { line: 3, timers: ["timer 1: the function hi, alone", "timer 2: an arrow that will call user.hi()"],
+        note: `Timer 2 gets an <b>arrow wrapper</b>. The arrow will call <code>user.hi()</code> itself, with a dot, when the time comes.` },
+      { line: 4, timers: ["timer 1: the function hi, alone", "timer 2: an arrow that will call user.hi()", "timer 3: hi bound to user"],
+        heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("bound", "bound hi", ["target: hi", "locked this: user"], "fn")],
+        note: `Timer 3 gets a <b>bound</b> copy of <code>hi</code> with <code>this</code> locked to <code>user</code>. The script is now finished. The stack is empty, so the timers fire one by one (see <a href="../11-the-event-loop.md">the event loop lesson</a>).` },
+      { line: 1, phase: "call", call: `<u>timer</u>._onTimeout()`, rules: ["method", `Node calls your function through its own <b>Timeout object</b>, with a dot`], thisTo: "timeout", frame: "hi", timers: ["timer 2: an arrow that will call user.hi()", "timer 3: hi bound to user"],
+        note: `Timer 1 fires. Inside Node, the call is written like <code>timer._onTimeout()</code>. That is a dot call, so rule 3 sets <code>this</code> to the <b>Timeout object</b>. It is <b>not</b> <code>user</code>. (A browser would give the global object. Either way, not <code>user</code>.)` },
+      { line: 1, keep: true, print: ["false"], note: `<code>this === user</code> is <b>false</b>. The bug: the method lost its object. In Node there is no error here, because the Timeout object is a real object. The bug is silent.` },
+      { line: 3, phase: "call", call: `<u>user</u>.hi()`, rules: ["method", `The arrow wrapper calls hi <b>through user</b>, with a dot`], thisTo: "user", frame: "hi", timers: ["timer 3: hi bound to user"],
+        note: `Timer 2 fires. The arrow wrapper runs. It does not use <code>this</code> at all. It only calls <code>user.hi()</code> with a dot. Rule 3: the object left of the dot is <code>user</code>.` },
+      { line: 1, keep: true, print: ["true"], note: `<code>this === user</code> is <b>true</b>.` },
+      { line: 4, phase: "call", call: `boundHi()`, rules: ["explicit", `The function is bound. Its this is locked to <b>user</b>`], thisTo: "user", frame: "hi", timers: [],
+        note: `Timer 3 fires. Node calls the bound function. A bound function ignores how it is called and always uses its locked object. Rule 2, hidden inside <code>bind</code>.` },
+      { line: 1, keep: true, print: ["true"], note: `<code>this === user</code> is <b>true</b>.` },
+      { phase: "done", note: `Finished. It printed <b>false true true</b>. Passing <code>user.hi</code> alone loses the object. An arrow wrapper or <code>bind</code> keeps it.` }
+    ]
+  }
+];
+
+// ---- Turn the short step notes into full steps ----
+// Each raw step may leave out things. Heap, console and timers carry over from the step before.
+// A step with phase "call" gets an extra "your turn" step in front of it.
+function buildSteps(p) {
+  const built = [];
+  let heap = [], out = [], timers = [], last = null;
+  const push = s => { built.push(s); last = s; };
+  p.steps.forEach(raw => {
+    if (raw.heap) heap = raw.heap;
+    if (raw.timers) timers = raw.timers;
+    const prevHeap = built.length ? last.heap : [];
+    const prevOut = out.slice();
+    out = out.concat(raw.print || []);
+    let s = {
+      line: raw.line === undefined ? null : raw.line, phase: raw.phase || "run", note: raw.note,
+      call: raw.call || null, rules: raw.rules || null, thisTo: raw.thisTo || null, frame: raw.frame || null, lex: !!raw.lex,
+      heap: heap, out: out.slice(), timers: timers.slice()
+    };
+    if (raw.keep && last) {
+      s.call = last.call; s.rules = last.rules; s.thisTo = last.thisTo; s.frame = last.frame; s.lex = last.lex;
+      s.phase = raw.phase || "run";
+    }
+    if (s.phase === "call") {
+      const inner = raw.inside && last;   // this call happens while the function before it is still running
+      push({ line: s.line, phase: "ask", note: NO_ASK, call: s.call, rules: null,
+             thisTo: inner ? last.thisTo : null, frame: inner ? last.frame : null, lex: inner ? last.lex : false,
+             heap: prevHeap, out: prevOut, timers: last ? last.timers : [] });
+    }
+    push(s);
+  });
+  return built;
+}
+</script>
+
+<!-- Block 2: the page. -->
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+let cur = 0, idx = 0, steps = [], timer = null, prevKeys = new Set();
+
+const ROWS = {
+  arrow:    { n: "A", cls: "arrowrow", title: "Is it an arrow function?", rule: "It has no this of its own. It borrows the this of the code around it, and rules 1 to 4 do not apply.", no: "not an arrow function", yes: "yes, stop here" },
+  new:      { n: "1", cls: "", title: "new", rule: "this is a brand new empty object", no: "no new" },
+  explicit: { n: "2", cls: "", title: "call, apply or bind", rule: "this is the object you pass", no: "no call, apply or bind" },
+  method:   { n: "3", cls: "", title: "a dot call  obj.fn()", rule: "this is the object left of the dot", no: "no dot" },
+  plain:    { n: "4", cls: "", title: "a plain call  fn()", rule: "", no: "" }
+};
+const ORDER = ["arrow", "new", "explicit", "method", "plain"];
+const BADGE = { ask: ["Your turn: pick the rule", "ask"], call: ["Engine reads the call site", "call"], run: ["Running a line", "run"], error: ["Throwing an error", "error"], done: ["Finished", "done"] };
+
+function renderCode(line) {
+  const on = new Set(Array.isArray(line) ? line : [line]);
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (on.has(i) ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderMode() {
+  const m = PRESETS[cur].mode;
+  $("mode").textContent = m === "strict" ? "strict mode" : "sloppy mode";
+  $("mode").className = "mode " + m;
+}
+function renderSite(s) {
+  const el = $("site");
+  if (s.call) { el.className = "callsite"; el.innerHTML = s.call; $("sitecap").textContent = "Read the call. Do not look at where the function is written."; }
+  else { el.className = "callsite none"; el.textContent = "No function is being called on this step."; $("sitecap").textContent = ""; }
+}
+function renderRules(s) {
+  const mode = PRESETS[cur].mode;
+  const r = s.rules;   // null or [winner, why]
+  const wi = r ? ORDER.indexOf(r[0]) : -1;
+  $("rules").innerHTML = ORDER.map((k, i) => {
+    const row = ROWS[k];
+    let st = "idle", tag = "not asked yet", why = "";
+    if (r) {
+      if (r[0] === "arrow") { st = i === 0 ? "yes" : "skip"; }
+      else if (i < wi) st = "no"; else if (i === wi) st = "yes"; else st = "skip";
+      if (st === "yes") { tag = k === "arrow" ? "yes" : "wins"; why = r[1]; }
+      else if (st === "no") { tag = "no"; why = row.no; }
+      else tag = "not needed";
+    }
+    let rule = row.rule;
+    if (k === "plain") {
+      rule = mode === "strict"
+        ? 'this is <em>undefined</em> (strict mode is ON). In sloppy mode it would be globalThis.'
+        : 'this is <em>globalThis</em> (sloppy mode is ON). In strict mode it would be undefined.';
+    }
+    return '<div class="rule st-' + st + " " + row.cls + '"><span class="num">' + row.n + '</span><div><b>' + row.title + '</b><span class="rr">' + rule + '</span>' +
+      (why ? '<span class="rw">' + (st === "yes" ? "✓ " : "✗ ") + why + "</span>" : "") + '</div><span class="tag">' + tag + "</span></div>";
+  }).join("");
+}
+function renderHeap(s) {
+  const list = s.heap.slice();
+  if (s.thisTo && SPECIAL[s.thisTo] && !list.some(o => o.id === s.thisTo)) list.push(SPECIAL[s.thisTo]);
+  const keys = new Set(), root = $("heap");
+  root.innerHTML = "";
+  if (!list.length) root.innerHTML = '<span class="empty">no objects yet</span>';
+  list.forEach(o => {
+    const key = o.id + "|" + o.title + "|" + o.props.join(",");
+    keys.add(key);
+    const d = document.createElement("div");
+    d.className = "obj k-" + o.kind + (s.thisTo === o.id ? " target" : "") + (prevKeys.has(key) ? "" : " pop");
+    d.id = "obj-" + o.id;
+    d.innerHTML = '<div class="ot">' + esc(o.title) + '</div><div class="op">' + (o.props.length ? o.props.map(esc).join("<br>") : "{ }") + "</div>";
+    root.appendChild(d);
+  });
+  prevKeys = keys;
+  const pill = $("pill");
+  if (s.thisTo) {
+    pill.className = "pill" + (s.lex ? " lex" : "");
+    pill.innerHTML = "this<small>" + (s.lex ? "borrowed, in " : "in ") + esc(s.frame || "the function") + "</small>";
+  } else {
+    pill.className = "pill off";
+    pill.innerHTML = "this<small>no function is running</small>";
+  }
+  const cap = $("memcap");
+  cap.textContent = !s.thisTo ? "" :
+    s.thisTo === "undef" ? "The arrow points at undefined: there is no object. Reading a property from it is a TypeError." :
+    s.lex ? "The dashed orange arrow means this was borrowed from the code around the arrow function." :
+    "Follow the purple arrow to see what this is right now.";
+}
+function drawArrow() {
+  const s = steps[idx], path = $("arrowpath");
+  const target = s.thisTo ? $("obj-" + s.thisTo) : null;
+  if (!target) { path.style.display = "none"; return; }
+  // offsetLeft and offsetTop ignore the pop animation, so the arrow lands on the final box position.
+  const pill = $("pill");
+  const x1 = pill.offsetLeft + pill.offsetWidth + 2, y1 = pill.offsetTop + pill.offsetHeight / 2;
+  const x2 = target.offsetLeft - 3, y2 = target.offsetTop + target.offsetHeight / 2;
+  const dx = Math.max(30, (x2 - x1) / 2);
+  path.setAttribute("d", "M" + x1 + "," + y1 + " C" + (x1 + dx) + "," + y1 + " " + (x2 - dx) + "," + y2 + " " + x2 + "," + y2);
+  path.setAttribute("stroke", s.lex ? "#d9822b" : "#7c3aed");
+  path.setAttribute("stroke-dasharray", s.lex ? "7 5" : "");
+  path.setAttribute("marker-end", s.lex ? "url(#ahl)" : "url(#ah)");
+  path.style.display = "block";
+}
+function renderTimers(list) {
+  $("timersBox").style.display = PRESETS[cur].steps.some(s => s.timers) ? "block" : "none";
+  $("timers").innerHTML = list.length ? list.map(t => '<span class="chip">' + esc(t) + "</span>").join("") : '<span class="empty">none</span>';
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing printed yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div"), isErr = v.startsWith(ERR);
+    c.className = "chip" + (isErr ? " err" : "");
+    c.textContent = isErr ? v.slice(1) : v;
+    box.appendChild(c);
+  });
+}
+function render() {
+  const s = steps[idx];
+  renderCode(s.line === null ? [] : s.line);
+  renderMode();
+  renderSite(s);
+  renderRules(s);
+  renderHeap(s);
+  renderTimers(s.timers);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+  requestAnimationFrame(drawArrow);
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").trim();
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = steps[idx].out.map(v => v.startsWith(ERR) ? v.slice(1) : v).join(" ");
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + esc(PRESETS[cur].why);
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. At every call, say the rule out loud before you press Next.");
+}
+function pick(i, at) {
+  stop(); cur = i; steps = buildSteps(PRESETS[i]); idx = Math.max(0, Math.min(steps.length - 1, (at || 1) - 1)); prevKeys = new Set();
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevKeys = new Set(); render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevKeys = new Set(); render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+window.addEventListener("resize", drawArrow);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+const m = /^#(\d+)(?:\.(\d+))?$/.exec(location.hash);
+if (m && PRESETS[+m[1] - 1]) pick(+m[1] - 1, m[2] ? +m[2] : 1); else pick(0);
+</script>
+</body>
+</html>
