@@ -30,20 +30,20 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 01 | [Variables, scope and hoisting](01-variables-scope-and-hoisting.md) | var, let, const, block scope, hoisting and the temporal dead zone | ready |
-| 02 | Values, types and coercion `02-values-types-and-coercion.md` | simple values against objects, typeof, == against ===, and which values count as true or false (truthy and falsy) | planned |
-| 03 | Reference vs copy `03-reference-vs-copy.md` | why changing a copied object changes the original, and copying one level against copying everything (shallow and deep copy) | planned |
-| 04 | Functions `04-functions.md` | the three ways to write a function, parameters, return, and passing functions around like values | planned |
+| 02 | [Values, types and coercion](02-values-types-and-coercion.md) | simple values against objects, typeof, == against ===, and which values count as true or false (truthy and falsy) | ready |
+| 03 | [Reference vs copy](03-reference-vs-copy.md) | why changing a copied object changes the original, and copying one level against copying everything (shallow and deep copy) | ready |
+| 04 | [Functions](04-functions.md) | the three ways to write a function, parameters, return, and passing functions around like values | ready |
 
 ### Core ideas
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 05 | [Closures](05-closures.md) | how a function remembers variables after its outer function finished | ready |
-| 06 | this, call, apply and bind `06-this-call-apply-and-bind.md` | what decides the value of this, and how arrow functions differ | planned |
-| 07 | Objects and prototypes `07-objects-and-prototypes.md` | how an object finds a property it does not have, by following hidden links (the prototype chain) | planned |
-| 08 | Classes `08-classes.md` | what a class really builds in memory, extends, super, and private # fields | planned |
+| 06 | [this, call, apply and bind](06-this-call-apply-and-bind.md) | what decides the value of this, and how arrow functions differ | ready |
+| 07 | [Objects and prototypes](07-objects-and-prototypes.md) | how an object finds a property it does not have, by following hidden links (the prototype chain) | ready |
+| 08 | [Classes](08-classes.md) | what a class really builds in memory, extends, super, and private # fields | ready |
 | 09 | [Arrays and higher order functions](09-arrays-and-higher-order-functions.md) | map, filter, reduce, find, and when to use each | ready |
-| 10 | Destructuring, spread and rest `10-destructuring-spread-and-rest.md` | unpacking values and copying with ... | planned |
+| 10 | [Destructuring, spread and rest](10-destructuring-spread-and-rest.md) | unpacking values and copying with ... | ready |
 
 ### Async
 
@@ -69,6 +69,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 Longer guides that cover many concepts at once. Good for revision after the lessons.
 
+- [JavaScript cheat sheet](javascript-cheatsheet.html) - all 11 lessons on one page: the rule for each lesson, 7 pictures to draw, 20 predict quizzes, interview answers to say, and the interview words in plain English
 - [React and JS frontend guide (part 1 covers the event loop, closures and this)](../react/react-js-frontend-interview-guide.md)
 - [How JavaScript runs (interactive)](https://claude.ai/artifact/YRvQjoaSrvTYpU9CzFYrJu) - your interactive page on one thread and the event loop, with live demos
 

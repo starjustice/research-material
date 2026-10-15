@@ -2,7 +2,7 @@
 
 > **Subject:** JavaScript · **Lesson:** 11 · **Made:** 2026-10-11 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
 > **You will be able to:** say in what order a script with `console.log`, `setTimeout` and a promise prints, and explain why in four parts.
-> **Before this:** Destructuring, spread and rest (not written yet) · **Next:** Callbacks (not written yet)
+> **Before this:** [Destructuring, spread and rest](10-destructuring-spread-and-rest.md) · **Next:** Callbacks (not written yet)
 
 ## 1. The idea in one sentence
 

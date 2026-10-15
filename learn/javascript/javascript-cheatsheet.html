@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaScript Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --purple: #7c5cc4;
+    --purple-soft: #ece6fa;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px; max-width: 1000px; margin: 0 auto; line-height: 1.5;
+  }
+  a { color: var(--blue); }
+  code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86em; background: #f1ebdf; border-radius: 4px; padding: 1px 4px; }
+  header { text-align: center; margin-bottom: 8px; }
+  header .back { display: block; text-align: left; font-size: .85rem; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub { display: inline-block; margin-top: 6px; background: linear-gradient(transparent 60%, var(--accent) 60%); font-weight: 600; }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg); padding: 10px 0; z-index: 5; }
+  nav button { border: 2px solid var(--border); background: var(--card); color: var(--ink); padding: 8px 14px; border-radius: 999px; font-size: .86rem; font-weight: 600; cursor: pointer; }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .86rem; margin-bottom: 16px; }
+  h2.block { font-size: 1.1rem; margin: 26px 0 10px; }
+
+  /* Map: one card per lesson */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .concept { position: relative; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 14px 52px; box-shadow: 0 2px 6px rgba(30,58,76,.06); }
+  .concept .num-chip { position: absolute; top: 14px; left: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--blue-soft); display: flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 700; }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; }
+  .concept .rule { margin-top: 8px; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 6px 10px; font-size: .84rem; }
+  .concept .links { margin-top: 8px; font-size: .8rem; display: flex; gap: 12px; flex-wrap: wrap; }
+  .concept .got { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); background: var(--card); cursor: pointer; font-size: .9rem; line-height: 1; color: transparent; }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+  .group-title { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
+
+  /* Pictures */
+  .diagram-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .note { font-size: .84rem; color: var(--muted); }
+  .diagram-card .say { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; font-size: .86rem; margin-top: 10px; }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+  .box-blue { fill: var(--blue-soft); } .box-green { fill: var(--green-soft); } .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); } .box-purple { fill: var(--purple-soft); } .box-faint { fill: #f4f1ea; stroke: var(--muted); stroke-dasharray: 4 3; }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-l { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: start; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .lbl-sl { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: start; }
+  .mono { font: 600 12px "SF Mono", ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+  .arrow-pink { stroke: var(--pink); stroke-width: 1.8; fill: none; marker-end: url(#arrPink); }
+
+  /* Predict */
+  .quiz { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .quiz h3 { font-size: .95rem; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font-size: .82rem; line-height: 1.55; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  details { margin-top: 10px; }
+  details summary { cursor: pointer; font-weight: 600; font-size: .86rem; color: var(--blue); }
+  details .ans { margin-top: 8px; background: var(--green-soft); border-radius: 8px; padding: 8px 12px; font-size: .86rem; }
+  details .ans b.out { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+  /* Pick one */
+  .decision { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; background: var(--blue-soft); }
+  .decision .col:nth-child(2) { background: var(--green-soft); }
+  .decision .col:nth-child(3) { background: var(--purple-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .84rem; }
+  .decision .verdict { margin-top: 10px; font-size: .85rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; }
+
+  /* Interview */
+  .qa { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--blue); }
+  .qa .q { font-weight: 700; font-size: .98rem; margin-bottom: 8px; }
+  .qa .row { font-size: .86rem; margin-top: 6px; }
+  .qa .row b { display: inline-block; min-width: 92px; }
+  .qa .say { background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; font-size: .88rem; margin-top: 8px; }
+  .qa .trap { background: var(--pink-soft); border-radius: 8px; padding: 6px 12px; font-size: .84rem; margin-top: 8px; }
+  .qa .more { font-size: .8rem; margin-top: 8px; }
+  .notyet { background: var(--card); border: 1px dashed var(--muted); border-radius: var(--radius); padding: 14px 16px; font-size: .86rem; }
+  .notyet li { margin: 4px 0 4px 18px; }
+
+  /* Words */
+  table.words { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.words th, table.words td { border: 1px solid var(--border); padding: 9px 12px; font-size: .86rem; text-align: left; vertical-align: top; }
+  table.words th { background: var(--blue-soft); }
+  table.words td.plain { font-weight: 700; background: var(--accent-soft); white-space: nowrap; }
+  table.words td.where { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  /* Hooks */
+  .hook { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--accent); }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  @media (max-width: 520px) { .qa .row b { display: block; } table.words td.plain, table.words td.where { white-space: normal; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker>
+    <marker id="arrPink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e06377"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <a class="back" href="../../viewer.html?note=learn/javascript/README">← JavaScript lessons</a>
+  <h1>JAVASCRIPT CHEATSHEET</h1>
+  <p class="sub">11 lessons on one page. See it, say it, remember it.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" id="resetBtn">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="map">🗺️ Map</button>
+  <button data-tab="pictures">🖼️ Pictures</button>
+  <button data-tab="predict">🔮 Predict</button>
+  <button data-tab="pick">⚖️ Pick one</button>
+  <button data-tab="interview">🎤 Interview</button>
+  <button data-tab="words">📖 Words</button>
+  <button data-tab="hooks">🧠 Hooks</button>
+</nav>
+
+<!-- ============ MAP ============ -->
+<section id="map" class="active">
+  <p class="hint">One card per lesson, in order. Read the rule, then tick ✓ when you can say it out loud without looking.</p>
+  <div id="mapList"></div>
+</section>
+
+<!-- ============ PICTURES ============ -->
+<section id="pictures">
+  <p class="hint">The pictures to draw on a whiteboard. Try to draw each one from memory in under one minute.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Before line 1 runs: every name gets a slot (lesson 01)</h3>
+    <p class="note">The code does not move. Only the slots are made early, and each kind starts in a different state.</p>
+    <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="20" y="14" width="200" height="34" rx="8"/><text class="mono" x="120" y="36">var a = 5</text>
+      <rect class="box" x="260" y="14" width="200" height="34" rx="8"/><text class="mono" x="360" y="36">let b = 5</text>
+      <rect class="box" x="500" y="14" width="200" height="34" rx="8"/><text class="mono" x="600" y="36">function hello() {}</text>
+      <path class="arrow" d="M120,48 L120,82"/><path class="arrow" d="M360,48 L360,82"/><path class="arrow" d="M600,48 L600,82"/>
+      <rect class="box box-yellow" x="20" y="86" width="200" height="40" rx="8"/><text class="lbl" x="120" y="111">a = undefined</text>
+      <rect class="box box-pink" x="260" y="86" width="200" height="40" rx="8"/><text class="lbl" x="360" y="111">🔒 b is locked</text>
+      <rect class="box box-green" x="500" y="86" width="200" height="40" rx="8"/><text class="lbl" x="600" y="111">hello = the whole function</text>
+      <text class="lbl-s" x="120" y="148">read early: undefined</text>
+      <text class="lbl-s" x="360" y="148">read early: ReferenceError</text>
+      <text class="lbl-s" x="600" y="148">call early: it works</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Before running, JavaScript makes a slot for every name. A var slot starts as undefined. A let or const slot is locked until its line, so reading it early is a ReferenceError. A function declaration is ready at once. The code itself never moves."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Copy a number, copy an arrow (lesson 03)</h3>
+    <p class="note">A slot holds a simple value, or an arrow to an object. <code>=</code> copies what is in the slot.</p>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl-l" x="20" y="22">let b = a</text>
+      <rect class="box" x="20" y="34" width="110" height="36" rx="8"/><text class="lbl" x="75" y="57">a: 5</text>
+      <rect class="box" x="150" y="34" width="110" height="36" rx="8"/><text class="lbl" x="205" y="57">b: 5</text>
+      <text class="lbl-s" x="140" y="92">two separate 5s</text>
+      <rect class="box" x="20" y="120" width="110" height="36" rx="8"/><text class="lbl" x="75" y="143">user1: →</text>
+      <rect class="box" x="150" y="120" width="110" height="36" rx="8"/><text class="lbl" x="205" y="143">user2: →</text>
+      <rect class="box box-blue" x="300" y="112" width="120" height="52" rx="8"/><text class="lbl" x="360" y="135">{ name: "Ana" }</text><text class="lbl-s" x="360" y="153">ONE object</text>
+      <path class="arrow" d="M75,120 C75,96 290,92 330,110"/><path class="arrow" d="M260,140 L298,140"/>
+      <line x1="450" y1="10" x2="450" y2="190" stroke="#e6dfd2" stroke-width="2"/>
+      <text class="lbl-l" x="470" y="22">copy = { ...orig }</text>
+      <rect class="box box-blue" x="470" y="40" width="100" height="50" rx="8"/><text class="lbl" x="520" y="62">orig</text><text class="lbl-s" x="520" y="78">new outer</text>
+      <rect class="box box-green" x="600" y="40" width="100" height="50" rx="8"/><text class="lbl" x="650" y="62">copy</text><text class="lbl-s" x="650" y="78">new outer</text>
+      <rect class="box box-pink" x="535" y="130" width="110" height="44" rx="8"/><text class="lbl" x="590" y="150">address</text><text class="lbl-s" x="590" y="166">SHARED</text>
+      <path class="arrow-pink" d="M520,90 L575,128"/><path class="arrow-pink" d="M650,90 L605,128"/>
+    </svg>
+    <div class="say"><b>Say this:</b> "JavaScript always copies the value in the slot. For an object, that value is an arrow, so two names can point at one object. Spread makes a new outer object only. The inner objects are still shared. For a full copy, use structuredClone."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Each call gets a box, and a closure keeps it alive (lessons 04 and 05)</h3>
+    <p class="note">After both <code>makeCounter()</code> calls finish, the call stack is empty. The two boxes stay, because <code>a</code> and <code>b</code> still point at them.</p>
+    <svg viewBox="0 0 720 190" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="20" width="170" height="150" rx="10"/><text class="lbl" x="105" y="42">Global box</text>
+      <rect class="box" x="40" y="58" width="130" height="30" rx="6"/><text class="mono" x="105" y="78">makeCounter: ƒ</text>
+      <rect class="box" x="40" y="96" width="130" height="30" rx="6"/><text class="mono" x="105" y="116">a: ƒ →</text>
+      <rect class="box" x="40" y="134" width="130" height="30" rx="6"/><text class="mono" x="105" y="154">b: ƒ →</text>
+      <rect class="box box-yellow" x="320" y="40" width="160" height="50" rx="10"/><text class="lbl" x="400" y="62">Box 1</text><text class="mono" x="400" y="80">count = 2</text>
+      <rect class="box box-green" x="320" y="120" width="160" height="50" rx="10"/><text class="lbl" x="400" y="142">Box 2</text><text class="mono" x="400" y="160">count = 1</text>
+      <path class="arrow" d="M170,111 C240,100 260,70 318,66"/><path class="arrow" d="M170,149 C240,150 270,145 318,145"/>
+      <text class="lbl-s" x="250" y="62">link</text><text class="lbl-s" x="250" y="168">link</text>
+      <rect class="box box-faint" x="540" y="70" width="160" height="60" rx="10"/><text class="lbl" x="620" y="96">Call stack</text><text class="lbl-s" x="620" y="114">empty, both calls done</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Every call makes a new scope box. A function keeps a link to the box where it was made, and a box stays alive while something points at it. So each counter remembers its own count after makeCounter has finished. That is a closure."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Who is <code>this</code>? Ask in order, stop at the first yes (lesson 06)</h3>
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-purple" x="20" y="14" width="280" height="36" rx="8"/><text class="lbl" x="160" y="37">0. Is it an arrow function?</text>
+      <path class="arrow" d="M300,32 L360,32"/><text class="lbl-s" x="330" y="26">yes</text>
+      <rect class="box box-purple" x="362" y="14" width="338" height="36" rx="8"/><text class="lbl" x="531" y="37">borrow this from where it was made</text>
+      <rect class="box" x="20" y="66" width="280" height="36" rx="8"/><text class="mono" x="160" y="89">1. new Fn()</text>
+      <path class="arrow" d="M300,84 L360,84"/>
+      <rect class="box box-blue" x="362" y="66" width="338" height="36" rx="8"/><text class="lbl" x="531" y="89">a brand new empty object</text>
+      <rect class="box" x="20" y="118" width="280" height="36" rx="8"/><text class="mono" x="160" y="141">2. fn.call(obj) / apply / bind</text>
+      <path class="arrow" d="M300,136 L360,136"/>
+      <rect class="box box-blue" x="362" y="118" width="338" height="36" rx="8"/><text class="lbl" x="531" y="141">the object you pass</text>
+      <rect class="box" x="20" y="170" width="280" height="36" rx="8"/><text class="mono" x="160" y="193">3. obj.fn()</text>
+      <path class="arrow" d="M300,188 L360,188"/>
+      <rect class="box box-blue" x="362" y="170" width="338" height="36" rx="8"/><text class="lbl" x="531" y="193">the object left of the dot</text>
+      <rect class="box" x="20" y="222" width="280" height="24" rx="8"/><text class="mono" x="160" y="239">4. fn()</text>
+      <path class="arrow" d="M300,234 L360,234"/>
+      <rect class="box box-pink" x="362" y="222" width="338" height="24" rx="8"/><text class="lbl" x="531" y="239">undefined (strict) · globalThis (sloppy)</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "this is decided by the call, not by where the function is written. Arrow functions have no this of their own, they borrow it. For normal functions I check: new, then call/apply/bind, then a dot call, then a plain call."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · The chain of hidden links (lessons 07 and 08)</h3>
+    <p class="note">Reading walks right until it finds the name. Writing always stays on the first object.</p>
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-yellow" x="10" y="40" width="140" height="62" rx="10"/><text class="lbl" x="80" y="62">rex</text><text class="mono" x="80" y="84">name: "Rex"</text>
+      <rect class="box box-blue" x="200" y="40" width="160" height="62" rx="10"/><text class="lbl" x="280" y="62">Dog.prototype</text><text class="mono" x="280" y="84">bark()</text>
+      <rect class="box box-green" x="410" y="40" width="170" height="62" rx="10"/><text class="lbl" x="495" y="62">Object.prototype</text><text class="mono" x="495" y="84">toString()</text>
+      <rect class="box box-faint" x="630" y="50" width="70" height="42" rx="10"/><text class="lbl" x="665" y="76">null</text>
+      <path class="arrow" d="M150,71 L198,71"/><path class="arrow" d="M360,71 L408,71"/><path class="arrow" d="M580,71 L628,71"/>
+      <text class="lbl-s" x="174" y="62">hidden</text><text class="lbl-s" x="384" y="62">hidden</text><text class="lbl-s" x="604" y="62">hidden</text>
+      <text class="lbl-s" x="360" y="128">rex.bark() → not on rex → found on Dog.prototype · rex.age → reaches null → undefined</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Every object has one hidden link. When I read a property the object does not own, JavaScript follows the links until it finds it, or gives undefined at null. A class sets up exactly this: methods live once on the prototype, and every instance links to it."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · map, filter, reduce: same input, three shapes (lesson 09)</h3>
+    <svg viewBox="0 0 720 158" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="20" y="54" width="160" height="40" rx="8"/><text class="mono" x="100" y="79">[10, 20, 30, 40]</text>
+      <path class="arrow" d="M180,66 C240,30 270,24 318,24"/><text class="lbl-s" x="250" y="22">map(p =&gt; p * 2)</text>
+      <path class="arrow" d="M180,74 L318,74"/><text class="lbl-s" x="250" y="68">filter(p =&gt; p &gt; 25)</text>
+      <path class="arrow" d="M180,84 C240,120 270,126 318,126"/><text class="lbl-s" x="235" y="152">reduce((s, p) =&gt; s + p, 0)</text>
+      <rect class="box box-blue" x="320" y="6" width="170" height="36" rx="8"/><text class="mono" x="405" y="29">[20, 40, 60, 80]</text>
+      <rect class="box box-green" x="320" y="56" width="170" height="36" rx="8"/><text class="mono" x="405" y="79">[30, 40]</text>
+      <rect class="box box-yellow" x="320" y="108" width="170" height="36" rx="8"/><text class="mono" x="405" y="131">100</text>
+      <text class="lbl-sl" x="510" y="29">new array, same length</text>
+      <text class="lbl-sl" x="510" y="79">new array, fewer items</text>
+      <text class="lbl-sl" x="510" y="131">one value</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "They do the loop for me. I write only the small function for one item. map and filter return a new array and never change the original. reduce carries a running total, and I always give it a start value."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · The event loop: two waiting lines (lesson 11)</h3>
+    <svg viewBox="0 0 720 245" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="70" width="140" height="90" rx="10"/><text class="lbl" x="90" y="100">Call stack</text><text class="lbl-s" x="90" y="120">one thing</text><text class="lbl-s" x="90" y="136">at a time</text>
+      <rect class="box" x="220" y="10" width="170" height="44" rx="8"/><text class="lbl" x="305" y="30">Browser Web APIs</text><text class="lbl-s" x="305" y="46">timers and fetch wait here</text>
+      <rect class="box box-yellow" x="500" y="10" width="200" height="44" rx="8"/><text class="lbl" x="600" y="37">Task queue: take ONE</text>
+      <rect class="box box-green" x="500" y="165" width="200" height="44" rx="8"/><text class="lbl" x="600" y="192">Microtask queue: run ALL</text>
+      <path class="arrow" d="M150,70 L218,38"/><text class="lbl-s" x="160" y="44">setTimeout</text>
+      <path class="arrow" d="M390,32 L498,32"/><text class="lbl-s" x="444" y="24">timer done</text>
+      <path class="arrow" d="M160,150 L498,182"/><text class="lbl-s" x="330" y="155">promise .then</text>
+      <path class="arrow-dash" d="M500,54 C420,100 260,104 162,104"/><text class="lbl-s" x="345" y="74">2nd: take one task, then check microtasks again</text>
+      <path class="arrow-dash" d="M500,205 C400,232 240,226 150,163"/><text class="lbl-s" x="345" y="240">1st: when the stack is empty, run every microtask</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "JavaScript has one call stack. Slow work waits in the browser. When the stack is empty, the event loop runs all the microtasks first, like promise callbacks, then takes one task, like a timer. So setTimeout 0 always runs after a resolved promise."</div>
+  </div>
+</section>
+
+<!-- ============ PREDICT ============ -->
+<section id="predict">
+  <p class="hint">Say your answer out loud first, then open it. Every answer below was run in Node 24 on 2026-10-15.</p>
+  <div id="quizList"></div>
+</section>
+
+<!-- ============ PICK ONE ============ -->
+<section id="pick">
+  <p class="hint">Choices interviewers ask about. All sides are visible. The yellow line is your short answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ INTERVIEW ============ -->
+<section id="interview">
+  <p class="hint">The questions you are most likely to hear about these 11 lessons. Learn the yellow "Say this" line, then open the lesson for the full four-part answer.</p>
+  <div id="qaList"></div>
+  <h2 class="block">Also asked often, but not in these lessons yet</h2>
+  <div class="notyet">
+    <p>Interview question lists in 2026 also ask about these. They are planned lessons, so learn them next:</p>
+    <ul>
+      <li><b>Promises</b> (lesson 13): states, <code>then</code> and <code>catch</code>, <code>Promise.all</code>.</li>
+      <li><b>async and await</b> (lesson 14): what <code>await</code> pauses, and errors with try and catch.</li>
+      <li><b>Debounce and throttle</b> (lesson 18): often asked as "write it yourself". Both are closures that keep a timer.</li>
+      <li><b>Modules</b> (lesson 16) and <b>error handling</b> (lesson 15).</li>
+      <li><b>Event bubbling and delegation</b>: how a click travels up through the page elements. Not in the lesson plan yet.</li>
+    </ul>
+    <p style="margin-top:8px;color:var(--muted);font-size:.8rem">Topic lists checked on 2026-10-15: <a href="https://playcode.io/blog/javascript-technical-interview-guide">PlayCode interview guide 2026</a>, <a href="https://foundit.in/career-advice/javascript-interview-questions-and-answers/">foundit most asked questions 2026</a>, <a href="https://lets-code.co.in/interview/javascriptinterview/">Lets Code questions 2026</a>. These are blogs, not official rankings.</p>
+  </div>
+</section>
+
+<!-- ============ WORDS ============ -->
+<section id="words">
+  <p class="hint">The interview word on the left, what it really means on the right. Use the plain meaning to explain, and the interview word to show you know the name.</p>
+  <div class="table-wrap"><table class="words" id="wordTable"><tr><th>Interview word</th><th>Plain meaning</th><th>Lesson</th></tr></table></div>
+</section>
+
+<!-- ============ HOOKS ============ -->
+<section id="hooks">
+  <p class="hint">Short lines that make the idea stick. Say them in your head when you see the code.</p>
+  <div id="hookList"></div>
+</section>
+
+<footer>Made 2026-10-15 from the 11 JavaScript lessons in this folder. Practice files: <code>learn/javascript/practice/</code></footer>
+
+<script>
+const V = n => "../../viewer.html?note=learn/javascript/" + n;
+
+const lessons = [
+  { group: "Basics", n: "01", t: "Variables, scope and hoisting", slug: "01-variables-scope-and-hoisting", step: "01-scope-and-hoisting",
+    d: "Before line 1, JavaScript makes a slot for every name. var starts as undefined, let and const start locked, a function declaration starts as the whole function.",
+    r: "Use const by default, let when it must change, never var." },
+  { group: "Basics", n: "02", t: "Values, types and coercion", slug: "02-values-types-and-coercion", step: "02-values-types-and-coercion",
+    d: "Every value has a type. Some signs, like ==, + and if, quietly change a value into another type before they use it.",
+    r: "=== never changes a type. Only 8 values count as false: false, 0, -0, 0n, \"\", null, undefined, NaN." },
+  { group: "Basics", n: "03", t: "Reference vs copy", slug: "03-reference-vs-copy", step: "03-reference-vs-copy",
+    d: "Copy a number and you get your own copy. Copy an object and you only copy an arrow to the same object.",
+    r: "= copies what is in the slot. For an object, that is an arrow. Spread copies one level only." },
+  { group: "Basics", n: "04", t: "Functions", slug: "04-functions", step: "04-functions",
+    d: "A function is steps you write once and run many times. Each call gets a new box and gives one value back. A function is also a value you can store, pass and return.",
+    r: "No return gives undefined. A missing argument is undefined, and a default fills it in." },
+  { group: "Core ideas", n: "05", t: "Closures", slug: "05-closures", step: "05-closures",
+    d: "A function remembers the variables around the place where you wrote it, even after the outer function has finished.",
+    r: "A function carries a link to the box where it was made. A box stays alive while something points at it." },
+  { group: "Core ideas", n: "06", t: "this, call, apply and bind", slug: "06-this-call-apply-and-bind", step: "06-this-call-apply-and-bind",
+    d: "this is a hidden input of a normal function, and the way you call the function decides what goes into it.",
+    r: "Arrow? Borrow it. Else ask: new, then call/apply/bind, then obj.fn(), then plain fn()." },
+  { group: "Core ideas", n: "07", t: "Objects and prototypes", slug: "07-objects-and-prototypes", step: "07-objects-and-prototypes",
+    d: "When you ask an object for a property it does not have, JavaScript follows a hidden link to another object and asks there.",
+    r: "Reading walks up the chain. Writing never walks up." },
+  { group: "Core ideas", n: "08", t: "Classes", slug: "08-classes", step: "08-classes",
+    d: "A class builds a function that makes objects, and one shared object that holds their methods. It is a shorter way to write prototypes, with a few safety rules.",
+    r: "In a child class, call super() before you touch this. #fields are private slots, not properties." },
+  { group: "Core ideas", n: "09", t: "Arrays and higher order functions", slug: "09-arrays-and-higher-order-functions", step: "09-arrays-and-higher-order-functions",
+    d: "map, filter and reduce do the looping for you. You give each one a small function that handles one item.",
+    r: "map and filter give a new array. sort and push change the original. Always give reduce a start value." },
+  { group: "Core ideas", n: "10", t: "Destructuring, spread and rest", slug: "10-destructuring-spread-and-rest", step: "10-destructuring-spread-and-rest",
+    d: "Take many values out of an array or object in one line, and build new ones from old ones with three dots.",
+    r: "Same three dots, opposite directions: left side collects (rest), right side expands (spread). Defaults only for undefined." },
+  { group: "Async", n: "11", t: "The event loop", slug: "11-the-event-loop", step: "11-event-loop",
+    d: "JavaScript does one thing at a time. Slow work waits in the browser, and the event loop brings its callback back only when the call stack is empty.",
+    r: "All microtasks (promises) first, then ONE task (timer), then microtasks again." },
+];
+
+const quizzes = [
+  { tag: "01", code: 'console.log(a);\nvar a = 1;', out: "undefined", why: "The slot for a was made before line 1, holding undefined. The = 1 has not run yet." },
+  { tag: "01", code: 'console.log(b);\nlet b = 1;', out: "ReferenceError: Cannot access 'b' before initialization", why: "The slot for b exists but is locked until its line runs." },
+  { tag: "01 + 04", code: 'sayHi();\ngreet();\nfunction sayHi() { console.log("hi"); }\nvar greet = function () { console.log("hello"); };', out: "hi, then TypeError: greet is not a function", why: "A function declaration is ready at once. greet is a var slot that holds undefined until line 4, and you cannot call undefined." },
+  { tag: "02", code: 'console.log([] == false, Boolean([]), "0" == false, Boolean("0"));', out: "true true true true", why: "== changes types: both sides end up as the number 0. But an if only asks \"is it one of the 8 false values?\" An empty array and the text \"0\" are not on that list." },
+  { tag: "02", code: 'console.log(typeof null, typeof [], typeof function () {});', out: "object object function", why: "typeof null is an old mistake that stays for safety. Use Array.isArray to check for an array." },
+  { tag: "02", code: 'console.log(1 + "2", "3" - 1, true + 1);', out: "12 2 2", why: "+ with text joins text. - only works on numbers, so \"3\" becomes 3. true becomes 1." },
+  { tag: "03", code: 'const a = { n: 1 };\nconst b = a;\nb.n = 2;\nconsole.log(a.n, a === b, { n: 2 } === { n: 2 });', out: "2 true false", why: "a and b hold arrows to the same object. === on objects compares arrows, and two separate objects have two different arrows." },
+  { tag: "03 + 10", code: 'const orig = { name: "Ana", address: { city: "Jakarta" } };\nconst copy = { ...orig };\ncopy.name = "Budi";\ncopy.address.city = "Bandung";\nconsole.log(orig.name, orig.address.city);', out: "Ana Bandung", why: "Spread made a new outer object, so name is separate. address is still one shared object." },
+  { tag: "04 + 10", code: 'function add(a, b = 5) { return a + b; }\nconsole.log(add(1), add(1, undefined), add(1, null), add(1, 2));', out: "6 6 1 3", why: "A default is used only for undefined. null is a real value, and 1 + null is 1." },
+  { tag: "05", code: 'function makeCounter() { let c = 0; return () => ++c; }\nconst a = makeCounter(), b = makeCounter();\nconsole.log(a(), a(), b());', out: "1 2 1", why: "Two calls of makeCounter made two boxes. a and b each link to their own c." },
+  { tag: "01 + 05 + 11", code: 'for (var i = 0; i < 3; i++) setTimeout(() => console.log(i), 0);', out: "3 3 3", why: "var makes ONE i. The timers run after the loop, when i is 3. With let, each pass has its own box, so it prints 0 1 2." },
+  { tag: "06", code: '"use strict";\nconst user = { name: "Ana", hi() { return this.name; } };\nconst f = user.hi;\nconsole.log(user.hi());\nconsole.log(f());', out: "Ana, then TypeError: Cannot read properties of undefined (reading 'name')", why: "user.hi() is a dot call, so this is user. f() is a plain call, so this is undefined in strict mode." },
+  { tag: "06", code: 'const user = { name: "Ana", hi() { return this.name; } };\nconst budi = { name: "Budi" };\nconsole.log(user.hi.call(budi), user.hi.bind(budi)());', out: "Budi Budi", why: "call runs it now with the this you give. bind gives back a new function with this locked." },
+  { tag: "07", code: 'const animal = { eats: true };\nconst rex = Object.create(animal);\nconsole.log(rex.eats, Object.hasOwn(rex, "eats"));\nrex.eats = false;\nconsole.log(rex.eats, animal.eats);', out: "true false, then false true", why: "Reading walked up to animal. Writing made an own property on rex and left animal alone." },
+  { tag: "08", code: 'class Wallet { #balance = 50; get balance() { return this.#balance; } }\nconst w = new Wallet();\nconsole.log(w.balance, Object.keys(w), JSON.stringify(w), typeof Wallet);', out: "50 [] {} function", why: "#balance is a private slot, not a property, so keys and JSON do not see it. A class is a function." },
+  { tag: "09", code: 'console.log([10, 9, 1].sort());\nconsole.log([1, 2, 3].map(n => { n * 2; }));', out: "[ 1, 10, 9 ], then [ undefined, undefined, undefined ]", why: "sort compares as text unless you pass (a, b) => a - b. Curly braces with no return give undefined." },
+  { tag: "09", code: 'const nums = [1, 2, 3, 4];\nconsole.log(nums.filter(n => n % 2 === 0).map(n => n * 10).reduce((sum, n) => sum + n, 0), nums);', out: "60 [ 1, 2, 3, 4 ]", why: "filter keeps 2 and 4, map makes 20 and 40, reduce adds them. nums never changed." },
+  { tag: "10", code: 'const { size = 10 } = { size: null };\nconst { color = "red" } = {};\nconsole.log(size, color);', out: "null red", why: "Defaults only fill undefined. A missing key is undefined, null is not." },
+  { tag: "10", code: 'const [first, ...rest] = [1, 2, 3];\nconsole.log(first, rest, Math.max(...rest));', out: "1 [ 2, 3 ] 3", why: "On the left, ... collects (rest). Inside the call, ... expands (spread)." },
+  { tag: "11", code: 'console.log("A");\nsetTimeout(() => console.log("B"), 0);\nPromise.resolve().then(() => console.log("C"));\nconsole.log("D");', out: "A D C B", why: "A and D run on the stack. Then all microtasks (C), then one task (B)." },
+];
+
+const decisions = [
+  { q: "var vs let vs const", cols: [["var", "One slot per function. Ignores { }. Reads as undefined before its line. Only in old code."], ["let", "Lives in the nearest { }. Locked before its line. Use it when the value must change."], ["const", "Like let, but you cannot point the name at something else. The object inside can still change."]],
+    v: "const by default, let when it changes, never var. const locks the name, not the object." },
+  { q: "== vs ===", cols: [["==", "May change types first. [] == false is true. null == undefined is true."], ["===", "Never changes types. Same type and same value, or false."]],
+    v: "Always ===. The one common exception: x == null checks for null or undefined in one go." },
+  { q: "Declaration vs expression vs arrow", cols: [["function f() {}", "Ready before its line. Has its own this."], ["const f = function () {}", "Usable only after its line. Has its own this."], ["const f = () => {}", "Usable only after its line. No own this, it borrows it."]],
+    v: "Arrow for small callbacks and inside methods. A normal function when you need your own this, like an object method." },
+  { q: "call vs apply vs bind", cols: [["call(obj, a, b)", "Runs now. Arguments one by one."], ["apply(obj, [a, b])", "Runs now. Arguments in one array."], ["bind(obj)", "Does NOT run. Gives back a new function with this locked."]],
+    v: "call and apply run now, bind runs later. A bound this cannot be changed again." },
+  { q: "Shallow copy vs deep copy", cols: [["{ ...obj } or [...arr]", "New outer object only. Inner objects are shared."], ["structuredClone(obj)", "Every level new. Fails on functions."], ["JSON.parse(JSON.stringify(obj))", "Old trick. Loses undefined, functions, Dates become text."]],
+    v: "For React state, spread each level on the path you change. Use structuredClone only when you really need a full copy." },
+  { q: "forEach vs map vs filter vs reduce", cols: [["forEach", "Runs something for each item. Gives back undefined."], ["map / filter", "New array. map: same length. filter: fewer items."], ["reduce", "One value of any type, built with a running total."]],
+    v: "Pick the one whose name says the job. Use map only when you use the new array." },
+  { q: "Rest vs spread", cols: [["Rest (left side)", "const [a, ...others] = list. Collects leftovers into a new array or object. Must be last."], ["Spread (right side)", "[...a, ...b], { ...obj, x: 1 }, fn(...args). Expands one value into pieces."]],
+    v: "Same three dots, opposite directions. Left collects, right expands." },
+  { q: "Private data: closure vs class #field", cols: [["Closure", "Variables in the outer function's box. Only the inner functions can reach them."], ["#field", "A private slot on the instance. Only code inside the class body can reach it."], ["_name", "Just a naming habit. Anyone can still read and change it."]],
+    v: "Both closures and #fields are truly private. _name is only a polite sign." },
+  { q: "sort vs toSorted", cols: [["sort()", "Changes the original and gives back the same array. Dangerous for React state."], ["[...arr].sort()", "Copy first. Works everywhere."], ["toSorted()", "Gives a new sorted array. Node 20 or newer."]],
+    v: "Never sort state in place. Both sort and toSorted compare as text unless you pass (a, b) => a - b." },
+  { q: "Microtask vs task", cols: [["Microtask", "Promise .then, code after await. The event loop runs ALL of them first."], ["Task", "setTimeout, clicks. The event loop takes ONE, then checks microtasks again."]],
+    v: "A resolved promise always beats setTimeout 0. A long loop blocks both." },
+];
+
+const qas = [
+  { l: "01", q: "What is hoisting? What is the difference between var, let and const?",
+    s: "Before running, JavaScript makes a slot for every name in the scope. A var slot starts as undefined. A let or const slot is locked until its line, so reading it early throws a ReferenceError. A function declaration is ready at once. var belongs to the function, let and const to the nearest curly braces.",
+    t: "Do not say \"hoisting moves the code to the top\". The code stays. Only the slots are made early." },
+  { l: "02", q: "What is the difference between == and ===? Which values are falsy?",
+    s: "=== never changes types, so the type and value must both match. == may change types first, which gives surprises like [] == false being true. The 8 falsy values are false, 0, -0, 0n, empty text, null, undefined and NaN. Everything else counts as true, even [] and \"0\".",
+    t: "\"0\" == false is true, but if (\"0\") still runs. == and if use different rules." },
+  { l: "03", q: "Is JavaScript pass by value or pass by reference?",
+    s: "Always by value. But for an object, the value in the slot is an arrow to the object. So a function gets a copy of the arrow: it can change the object inside, but giving the parameter a new object does not change the caller's variable.",
+    t: "\"Objects are passed by reference\" is the common wrong answer. Say: the arrow is copied." },
+  { l: "03 + 10", q: "What is the difference between a shallow copy and a deep copy?",
+    s: "A shallow copy, like { ...obj }, makes a new outer object but shares the objects inside. A deep copy, like structuredClone(obj), makes every level new. In React I spread each level on the path I change, so untouched parts keep the same arrows.",
+    t: "JSON.parse(JSON.stringify()) loses undefined and functions, and turns Dates into text." },
+  { l: "04", q: "Declaration, expression or arrow? What does \"functions are first-class\" mean?",
+    s: "A declaration is ready before its line. An expression and an arrow are only usable after their line. Arrows also have no own this. First-class means a function is a value: I can store it, pass it to another function, and return it. That is what makes callbacks, map and closures work.",
+    t: "run(sayHi) passes the function. run(sayHi()) calls it now and passes its result." },
+  { l: "05", q: "What is a closure? What is it used for?",
+    s: "A closure is a function plus a link to the scope box where it was made. Every call makes a new box, and the box stays alive while a function points at it. I use it for data that must be remembered or kept private: counters, once, memoize, debounce, and callbacks that run later.",
+    t: "Cost: a long-living function, like a timer you never clear, keeps its whole box alive. In React, an old box gives a stale closure." },
+  { l: "06", q: "How is this decided? What do call, apply and bind do?",
+    s: "this is decided by the call. Arrow functions borrow it from where they were made. For normal functions: new gives a new object, call/apply/bind give the object you pass, obj.fn() gives obj, and a plain fn() gives undefined in strict mode. call and apply run now, bind returns a new function with this locked.",
+    t: "const f = user.hi; f() loses this. Fix with an arrow wrapper or bind." },
+  { l: "06", q: "When would you use an arrow function instead of a normal one?",
+    s: "Inside a method, for callbacks like map or setTimeout, because the arrow borrows the method's this. I do not use an arrow as an object method itself, because then it borrows this from outside the object.",
+    t: "An arrow has no own this and no arguments, and you cannot call it with new." },
+  { l: "07", q: "What is the prototype chain?",
+    s: "Every object has a hidden link to another object, or to null. When I read a property the object does not own, JavaScript follows the links until it finds it, or returns undefined at null. Writing never walks up, it always sets an own property. Sharing methods on the prototype saves memory: 1000 dogs, one bark function.",
+    t: "Dog.prototype is a normal property of the function. The hidden link of rex is something else. Read it with Object.getPrototypeOf(rex)." },
+  { l: "08", q: "Are classes in JavaScript just syntax sugar?",
+    s: "Mostly. A class makes a function and one shared prototype object for the methods, which is what I could write by hand. But it adds safety rules: you must call it with new, the code is always strict, super() must run before this in a child class, and #fields are truly private.",
+    t: "Pass a class method as a callback and this is lost. Use an arrow field or bind." },
+  { l: "09", q: "Explain map, filter and reduce. Which array methods change the array?",
+    s: "They take a small function for one item and do the loop. map gives a new array of the same length, filter a new shorter array, reduce one value with a running total. push, pop, splice, sort and reverse change the original. map, filter, slice and toSorted give a new one, which is what React state needs.",
+    t: "[10, 9, 1].sort() gives [1, 10, 9], because sort compares as text. Pass (a, b) => a - b." },
+  { l: "10", q: "What is the difference between rest and spread?",
+    s: "Same three dots, opposite directions. On the left side, in a pattern or parameter list, rest collects the leftovers into a new array or object. On the right side, spread expands one array or object into pieces. A default in a pattern is used only for undefined.",
+    t: "{ ...obj } is not a deep copy, and null does not trigger a default." },
+  { l: "11", q: "Explain the event loop. Microtask vs task?",
+    s: "JavaScript has one call stack. Slow work waits in the browser. When the stack is empty, the event loop runs all microtasks first, like promise callbacks and code after await. Then it takes one task, like a timer callback, and checks the microtasks again.",
+    t: "setTimeout(fn, 0) is not \"now\". It waits for the stack and every microtask." },
+  { l: "01 + 05 + 11", q: "Why does for (var i...) with setTimeout print 3 3 3?",
+    s: "var makes one i for the whole loop. The timer callbacks run later, after the loop, when that one i is 3. With let, every pass gets its own box with its own i, and each callback keeps a link to its pass, so it prints 0 1 2.",
+    t: "This one question tests three lessons: scope, closures and the event loop. Name all three." },
+  { l: "03 + 09", q: "Why does React not show the change after items.push(x); setItems(items)?",
+    s: "push changes the array in place, so the state still holds the same arrow. React compares old and new state by arrow, sees no change, and may skip the update. I make a new array: setItems([...items, x]).",
+    t: "sort and reverse have the same problem. Use [...items].sort() or toSorted()." },
+];
+
+const words = [
+  ["Hoisting", "Making a slot for every name before the code runs. The code does not move.", "01"],
+  ["Temporal dead zone (TDZ)", "The time a let or const slot is locked, before its line runs.", "01"],
+  ["Scope", "The part of the code where a name can be seen, like a room.", "01"],
+  ["Primitive", "A simple value: number, text, true or false, null, undefined, bigint, symbol.", "02, 03"],
+  ["Coercion", "JavaScript changing a value into another type on its own.", "02"],
+  ["Loose / strict equality", "== may change types first. === never does.", "02"],
+  ["Truthy / falsy", "Counts as true or false in an if. Only 8 values are falsy.", "02"],
+  ["Reference", "The arrow a variable holds when its value is an object.", "03"],
+  ["Mutate", "Change something in place, like push or obj.x = 1.", "03, 09"],
+  ["Shallow copy / deep copy", "New outer object only, against every level new.", "03, 10"],
+  ["Execution context / environment", "The scope box one call makes for its names.", "04, 05"],
+  ["Call stack", "The list of calls running right now. Newest on top.", "04, 11"],
+  ["First-class function", "A function is a value: store it, pass it, return it.", "04"],
+  ["Parameter / argument", "The name in the function, against the value you pass in.", "04"],
+  ["Closure", "A function plus a link to the box where it was made.", "05"],
+  ["Lexical scope", "Names are found by where the code is written, not where it is called.", "05"],
+  ["Garbage collector", "The cleaner that frees memory nothing points at.", "05"],
+  ["Stale closure", "A function that keeps reading an old box, so it sees an old value.", "05"],
+  ["this / call site", "A hidden input of a normal function, decided by where and how it is called.", "06"],
+  ["Strict mode", "A safer setting. Classes and modules always use it.", "06"],
+  ["Bound function", "The new function bind gives back, with this locked.", "06"],
+  ["[[Prototype]] / prototype chain", "The hidden link of an object, and the line of links up to null.", "07"],
+  ["Own property / inherited", "Stored on the object itself, against found by walking up the links.", "07"],
+  ["Constructor", "A function you call with new to make objects.", "07, 08"],
+  ["Instance", "An object made from a class with new.", "08"],
+  ["Base class / derived class", "Parent class and child class, in class Child extends Parent.", "08"],
+  ["Private field", "A #name slot that only code inside the class can reach.", "08"],
+  ["Higher order function", "A function that takes or returns a function, like map.", "09"],
+  ["Accumulator", "The running total in reduce.", "09"],
+  ["Destructuring", "Taking values out with a [ ] or { } pattern on the left of =.", "10"],
+  ["Rest / spread", "... that collects (left side) or expands (right side).", "10"],
+  ["Event loop", "Moves waiting callbacks onto the stack when it is empty.", "11"],
+  ["Microtask / macrotask (task)", "Promise callbacks (all first) against timers and clicks (one at a time).", "11"],
+  ["Web APIs", "The browser's helpers that do the waiting: timers, fetch.", "11"],
+];
+
+const hooks = [
+  { b: "Slots, not moving code", p: "Hoisting = the roll sheet is written before class. var: empty seat. let: red stamp, do not call yet. function: already sitting there." },
+  { b: "Eight falsy friends", p: "\"false, zero, minus zero, big zero, empty text, null, undefined, NaN.\" Everything else is true, even [] and \"0\"." },
+  { b: "Slots hold values. Objects get arrows.", p: "If it is not a simple value, the slot holds an arrow. = copies the arrow, never the object." },
+  { b: "Backpack", p: "A closure is a function wearing a backpack. The backpack is the box where it was made. It carries it everywhere." },
+  { b: "this: \"Arrow? New? Call? Dot? Plain.\"", p: "Ask in that order and stop at the first yes. A-N-C-D-P." },
+  { b: "Read walks up, write stays home", p: "Reading a property climbs the chain. Writing always lands on the object you wrote on." },
+  { b: "Class = function + shared shelf", p: "The function makes objects. The prototype is one shared shelf of methods. Every instance has an arrow to the shelf." },
+  { b: "map paints, filter inspects, reduce buckets", p: "Painter: same count. Inspector: fewer items. Bucket worker: one value at the end." },
+  { b: "Left collects, right expands", p: "Three dots on the left of = are rest. Three dots on the right are spread." },
+  { b: "VIP line first", p: "The microtask line is the VIP line. The event loop lets ALL VIPs in, then ONE normal guest, then checks the VIP line again." },
+  { b: "Four-part answer for every theory question", p: "Problem, how it works, tradeoff, my example. Then stop talking." },
+];
+
+// ---------- progress (browser storage may be blocked, so every access is guarded) ----------
+const KEY = "js-cheatsheet-known";
+let known = new Set();
+try { known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+function saveKnown() { try { localStorage.setItem(KEY, JSON.stringify([...known])); } catch (e) {} }
+function updateProgress() {
+  const pct = Math.round((known.size / lessons.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = known.size + " / " + lessons.length + " lessons I can explain";
+}
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const codeify = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+
+// ---------- map ----------
+const mapList = document.getElementById("mapList");
+let lastGroup = null, grid = null;
+lessons.forEach(c => {
+  if (c.group !== lastGroup) {
+    const h = document.createElement("div"); h.className = "group-title"; h.textContent = c.group; mapList.appendChild(h);
+    grid = document.createElement("div"); grid.className = "grid"; mapList.appendChild(grid); lastGroup = c.group;
+  }
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(c.n) ? " known" : "");
+  el.innerHTML = '<span class="num-chip">' + c.n + '</span><button class="got" title="I can explain this">✓</button>' +
+    "<h3>" + esc(c.t) + "</h3><p>" + esc(c.d) + '</p><div class="rule"><b>Rule:</b> ' + esc(c.r) + "</div>" +
+    '<div class="links"><a href="' + V(c.slug) + '">Lesson ↗</a><a href="visuals/' + c.step + '.html">Stepper ↗</a></div>';
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(c.n) ? known.delete(c.n) : known.add(c.n);
+    saveKnown(); el.classList.toggle("known", known.has(c.n)); updateProgress();
+  });
+  grid.appendChild(el);
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  known.clear(); saveKnown();
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known")); updateProgress();
+});
+updateProgress();
+
+// ---------- predict ----------
+const quizList = document.getElementById("quizList");
+quizzes.forEach((q, i) => {
+  const el = document.createElement("div"); el.className = "quiz";
+  el.innerHTML = '<h3><span class="tag">Lesson ' + q.tag + "</span> " + (i + 1) + ". What does it print?</h3><pre>" + esc(q.code) +
+    '</pre><details><summary>Show the answer</summary><div class="ans"><b class="out">' + esc(q.out) + "</b><br>" + esc(q.why) + "</div></details>";
+  quizList.appendChild(el);
+});
+
+// ---------- pick one ----------
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div"); el.className = "decision";
+  el.innerHTML = '<div class="vs"><span class="badge">VS</span> ' + esc(d.q) + '</div><div class="cols">' +
+    d.cols.map(c => '<div class="col"><b>' + esc(c[0]) + "</b>" + esc(c[1]) + "</div>").join("") +
+    '</div><div class="verdict"><b>Say:</b> ' + esc(d.v) + "</div>";
+  decisionList.appendChild(el);
+});
+
+// ---------- interview ----------
+const qaList = document.getElementById("qaList");
+qas.forEach((x, i) => {
+  const first = x.l.split(" ")[0];
+  const lesson = lessons.find(c => c.n === first);
+  const el = document.createElement("div"); el.className = "qa";
+  el.innerHTML = '<div class="q">' + (i + 1) + ". " + esc(x.q) + '</div><div class="say"><b>Say this:</b> ' + esc(x.s) +
+    '</div><div class="trap"><b>Trap:</b> ' + esc(x.t) + '</div><div class="more">Full four-part answer: <a href="' + V(lesson.slug) +
+    '">lesson ' + esc(x.l) + " ↗</a>, section 10. Add your own story from DBO, Unloan, ZWS or Skyworx there.</div>";
+  qaList.appendChild(el);
+});
+
+// ---------- words ----------
+const wordTable = document.getElementById("wordTable");
+words.forEach(w => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td class="plain">' + esc(w[0]) + "</td><td>" + esc(w[1]) + '</td><td class="where">' + esc(w[2]) + "</td>";
+  wordTable.appendChild(tr);
+});
+
+// ---------- hooks ----------
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div"); el.className = "hook";
+  el.innerHTML = "<b>" + esc(h.b) + "</b><p>" + esc(h.p) + "</p>";
+  hookList.appendChild(el);
+});
+
+// ---------- tabs (open one directly with #predict, #interview ...) ----------
+function openTab(id) {
+  if (!document.getElementById(id)) return;
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === id));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("active", s.id === id));
+}
+document.querySelectorAll("nav button").forEach(btn => btn.addEventListener("click", () => {
+  openTab(btn.dataset.tab);
+  try { history.replaceState(null, "", "#" + btn.dataset.tab); } catch (e) {}
+}));
+if (location.hash.length > 1) openTab(location.hash.slice(1));
+</script>
+</body>
+</html>

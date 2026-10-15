@@ -2,7 +2,7 @@
 
 > **Subject:** JavaScript · **Lesson:** 05 · **Made:** 2026-10-12 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
 > **You will be able to:** say what a closure is in one sentence, draw the box that stays alive after `makeCounter` is done, and explain why two counters do not share `count`.
-> **Before this:** Functions (lesson 04, not written yet) · **Next:** [this, call, apply and bind](06-this-call-apply-and-bind.md)
+> **Before this:** [Functions](04-functions.md) · **Next:** [this, call, apply and bind](06-this-call-apply-and-bind.md)
 
 ## 1. The idea in one sentence
 
@@ -595,7 +595,7 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 - [Variables, scope and hoisting](01-variables-scope-and-hoisting.md): the loop bug with `var` and the fix with `let` are closures. Picture 2f shows why.
 - [The event loop](11-the-event-loop.md): a timer keeps its callback, and so keeps the callback's box alive until the callback has run (or the timer is cleared).
-- Functions (lesson 04, not written yet): functions are values, so they can be returned. That is what makes closures possible.
+- [Functions](04-functions.md): functions are values, so they can be returned. That is what makes closures possible.
 - [this, call, apply and bind](06-this-call-apply-and-bind.md): the next lesson. Arrow functions take `this` from the box where they were made, the same way they take any other name.
 - Memory and garbage collection (lesson 17, not written yet): how JavaScript decides that a box can be freed.
 - Debounce and throttle (lesson 18, not written yet): both are closures that keep a timer in their box.

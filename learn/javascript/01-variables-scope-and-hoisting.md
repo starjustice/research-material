@@ -2,7 +2,7 @@
 
 > **Subject:** JavaScript · **Lesson:** 01 · **Made:** 2026-10-11 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
 > **You will be able to:** say what JavaScript does with `var`, `let` and `const` before line 1 runs, and explain why `var` gives `undefined` while `let` gives an error.
-> **Before this:** this is the first lesson · **Next:** Values, types and coercion (not written yet)
+> **Before this:** this is the first lesson · **Next:** [Values, types and coercion](02-values-types-and-coercion.md)
 
 ## 1. The idea in one sentence
 
@@ -378,6 +378,6 @@ Close this file. Press the **Record my explanation** button under this heading a
 ## Connected lessons
 
 - [The event loop](11-the-event-loop.md): why the timer callbacks in the loop bug run after the loop ends.
-- Values, types and coercion (not written yet): what the values `undefined` and `5` really are.
+- [Values, types and coercion](02-values-types-and-coercion.md): what the values `undefined` and `5` really are.
 - [Closures](05-closures.md): how each `let` pass keeps its own `i` after the loop is done.
-- Functions (not written yet): declarations against expressions, and why one is hoisted whole.
+- [Functions](04-functions.md): declarations against expressions, and why one is hoisted whole.

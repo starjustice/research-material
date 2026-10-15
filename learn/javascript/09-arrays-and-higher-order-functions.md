@@ -677,7 +677,7 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 ## Connected lessons
 
-- Functions (lesson 04, not written yet): a function is a value, so you can pass it to `map` or return it from another function. This is why higher order functions exist.
+- [Functions](04-functions.md): a function is a value, so you can pass it to `map` or return it from another function. This is why higher order functions exist.
 - [Closures](05-closures.md): a callback remembers the variables around it. That is how `p => p * rate` can use `rate` from outside.
 - [Classes](08-classes.md): an array is made by the built in `Array` class, and `map` and `filter` are methods on `Array.prototype`.
 - [Destructuring, spread and rest](10-destructuring-spread-and-rest.md): `[...arr]` and `{ ...obj }` are the usual way to copy before you change something.

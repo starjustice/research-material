@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Values, Types and == Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --num: #2563a8; --num-bg: #e3eefe;
+    --str: #1f7a4d; --str-bg: #e3f5ea;
+    --bool: #8b5cf6; --bool-bg: #efe8fd;
+    --obj: #b7791f; --obj-bg: #fdf0d2;
+    --nil: #6b7a86; --nil-bg: #eef1f4;
+    --no: #c0392b; --no-bg: #fdecea;
+    --yes: #2f9e6b; --yes-bg: #dff3ea;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 280px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .panel h2.gap { margin-top: 14px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  /* The == checklist and the counts-as-false list */
+  .rules { list-style: none; margin: 0; padding: 0; counter-reset: r; }
+  .rules li {
+    counter-increment: r; position: relative; padding: 6px 10px 6px 34px; margin-bottom: 5px;
+    border: 1.5px solid var(--border); border-radius: 9px; font-size: .84rem; background: #fff;
+  }
+  .rules li::before {
+    content: counter(r); position: absolute; left: 9px; top: 6px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--border); color: var(--ink); font-size: .72rem; font-weight: 800; text-align: center; line-height: 18px;
+  }
+  .rules li.no { opacity: .5; }
+  .rules li.no::after { content: "no"; position: absolute; right: 10px; top: 6px; font-size: .72rem; font-weight: 800; color: var(--no); }
+  .rules li.hit { border-color: var(--accent); background: #fff1bf; font-weight: 700; }
+  .rules li.hit::before { background: var(--accent); }
+  .rules li.hit::after { content: "this one"; position: absolute; right: 10px; top: 6px; font-size: .72rem; font-weight: 800; color: var(--ink); }
+  .falsy { display: flex; flex-wrap: wrap; gap: 6px; }
+  .falsy span { font-family: ui-monospace, Menlo, monospace; font-size: .82rem; font-weight: 700; padding: 4px 9px; border-radius: 8px; border: 1.5px solid var(--no); background: var(--no-bg); color: var(--no); }
+  .falsy-note { font-size: .82rem; color: var(--muted); margin: 8px 0 0; }
+
+  /* The two sides */
+  .sides { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 74px; }
+  .side { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .chip-v {
+    font-family: ui-monospace, Menlo, monospace; font-size: 1.05rem; font-weight: 800; border-radius: 10px; padding: 8px 14px;
+    border: 2px solid; min-width: 64px; text-align: center; background: #fff;
+  }
+  .chip-v.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .tlabel { font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .t-number  { color: var(--num); background: var(--num-bg); border-color: var(--num); }
+  .t-string  { color: var(--str); background: var(--str-bg); border-color: var(--str); }
+  .t-boolean { color: var(--bool); background: var(--bool-bg); border-color: var(--bool); }
+  .t-object  { color: var(--obj); background: var(--obj-bg); border-color: var(--obj); }
+  .t-null, .t-undefined { color: var(--nil); background: var(--nil-bg); border-color: var(--nil); }
+  .lab-number { color: var(--num); } .lab-string { color: var(--str); } .lab-boolean { color: var(--bool); }
+  .lab-object { color: var(--obj); } .lab-null, .lab-undefined { color: var(--nil); }
+  .op { font-family: ui-monospace, Menlo, monospace; font-size: 1.2rem; font-weight: 800; color: var(--muted); }
+  .verdict { font-weight: 800; font-size: .95rem; padding: 6px 12px; border-radius: 999px; }
+  .verdict.yes { background: var(--yes-bg); color: var(--yes); border: 1.5px solid var(--yes); }
+  .verdict.no { background: var(--no-bg); color: var(--no); border: 1.5px solid var(--no); }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .rounds { margin: 10px 0 10px; padding: 0; list-style: none; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; }
+  .rounds li { padding: 3px 8px; border-radius: 6px; }
+  .rounds li b { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--muted); font-size: .74rem; margin-right: 6px; }
+  .rounds li.last { background: #fff1bf; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; font-weight: 650; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.read { background: #8b5cf6; } .badge.check { background: var(--num); }
+  .badge.change { background: var(--obj); } .badge.answer { background: var(--yes); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .legend code, .result code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--yes); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .key span { font-family: ui-monospace, Menlo, monospace; font-size: .74rem; font-weight: 700; padding: 3px 8px; border-radius: 7px; border: 1.5px solid; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← JavaScript lessons</a>
+    <a href="../02-values-types-and-coercion.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>What does == do? A stepper</h1>
+  <p class="sub">Press Next and watch JavaScript change the two sides, round by round, until they have the same type. Then it compares them like <code>===</code>.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will it print, in order? Then step to the end.<br>
+    <input id="guess" placeholder="the printed values in order, with spaces" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your code</h2>
+      <pre class="code" id="code"></pre>
+      <h2 class="gap" id="listTitle">The == checklist, top to bottom</h2>
+      <div id="list"></div>
+    </div>
+    <div class="panel">
+      <h2>The two sides right now</h2>
+      <div class="sides" id="sides"></div>
+      <h2 class="gap">Rounds so far</h2>
+      <ul class="rounds" id="rounds"></ul>
+      <div class="outbox"><h3>Console output</h3><div class="items" id="out"></div></div>
+      <div class="key">
+        <span class="t-number">number</span> <span class="t-string">string (text)</span> <span class="t-boolean">boolean (true or false)</span> <span class="t-object">object</span> <span class="t-null">null or undefined</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> <code>===</code> never changes a type. If the types are different, the answer is <b>false</b>. <code>==</code> walks down the checklist and changes one side at a time until both sides have the same type. An <code>if</code> does not use the checklist at all. It only asks: is this value on the short list of values that count as false?</p>
+  <p class="legend"><b>Words on this page:</b> a <b>simple value</b> is one plain value like <code>5</code>, <code>"2"</code> or <code>true</code> (interview word: <i>primitive</i>). An <b>object</b> is a value with parts, like <code>{}</code>, <code>[]</code> or a function. A <b>string</b> is text. A <b>boolean</b> is <code>true</code> or <code>false</code>. <b>Changing the type</b> on its own is called <i>coercion</i>. A <b>round</b> is one pass down the checklist.</p>
+</div>
+
+<script>
+// ---- Small builders. A step is one snapshot. ----
+// A value on one side: what it looks like, and its type name (the typeof name, with null kept apart).
+const V = (shown, type) => ({ shown, type });
+const N = n => V(String(n), "number");
+const S = s => V('"' + s + '"', "string");
+const B = b => V(String(b), "boolean");
+const O = shown => V(shown, "object");
+const NUL = V("null", "null");
+const UND = V("undefined", "undefined");
+
+// The checklist. The order is the real order from the language rules.
+const RULES = [
+  "Same type on both sides? Compare them like ===.",
+  "null or undefined on one side? true only if the other side is null or undefined too.",
+  "A string and a number? Turn the string into a number.",
+  "true or false on one side? Turn it into a number: true is 1, false is 0.",
+  "An object on one side? Turn it into a simple value.",
+  "Nothing matched? The answer is false."
+];
+const FALSY = ["false", "0", "-0", "0n", '""', "null", "undefined", "NaN"];
+
+// ST(line, phase, note, extra). extra: { L, R, rule, rounds, out, verdict, list }
+// rule = index of the rule that matched. Every rule above it is marked "no".
+const ST = (line, phase, note, x = {}) => ({ line, phase, note, L: x.L || null, R: x.R || null, rule: x.rule ?? null,
+  rounds: x.rounds || [], out: x.out || [], verdict: x.verdict ?? null, list: x.list || "rules" });
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "Text and a number",
+    why: "The two sides have different types, a string and a number. Rule 3 turns the string \"2\" into the number 2. Now both sides are numbers, so rule 1 compares them like ===. The strict check never changes a type, so \"2\" === 2 is false.",
+    code: [
+      'console.log("2" == 2);',
+      'console.log("2" === 2);'
+    ],
+    steps: [
+      ST(0, "read", "Line 1. JavaScript looks at the two sides of <code>==</code>. The left side is the <b>string</b> <code>\"2\"</code>. The right side is the <b>number</b> <code>2</code>. They look alike, but their types are different.",
+        { L: S("2"), R: N(2), rounds: ['"2" == 2'] }),
+      ST(0, "change", "Round 1. Rule 1: same type? No. Rule 2: null or undefined? No. Rule 3: a string and a number? <b>Yes.</b> JavaScript turns <code>\"2\"</code> into the number <code>2</code>.",
+        { L: N(2), R: N(2), rule: 2, rounds: ['"2" == 2', '2 == 2'] }),
+      ST(0, "answer", "Round 2. Rule 1: same type? <b>Yes</b>, both are numbers. JavaScript compares them like <code>===</code>. 2 is 2, so the answer is <b>true</b>.",
+        { L: N(2), R: N(2), rule: 0, rounds: ['"2" == 2', '2 == 2'], verdict: true, out: ["true"] }),
+      ST(1, "answer", "Line 2 uses <code>===</code>. It does <b>not</b> walk the checklist and it never changes a type. A string is not a number, so the answer is <b>false</b> straight away.",
+        { L: S("2"), R: N(2), rounds: ['"2" === 2'], verdict: false, out: ["true", "false"] }),
+      ST(null, "done", "Finished. It printed <b>true false</b>. The same two values gave two different answers. Only <code>==</code> changed a type.",
+        { out: ["true", "false"] })
+    ]
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "true and text",
+    why: "Rule 4 turns true into 1. Then the sides are a number and a string, so rule 3 turns \"1\" into 1. Two rounds of changes, and the answer is true.",
+    code: [
+      'console.log(true == "1");'
+    ],
+    steps: [
+      ST(0, "read", "JavaScript looks at the two sides. The left side is the <b>boolean</b> <code>true</code>. The right side is the <b>string</b> <code>\"1\"</code>.",
+        { L: B(true), R: S("1"), rounds: ['true == "1"'] }),
+      ST(0, "change", "Round 1. Rules 1, 2 and 3 do not match. A boolean is not a number. Rule 4: true or false on one side? <b>Yes.</b> JavaScript turns <code>true</code> into <code>1</code>.",
+        { L: N(1), R: S("1"), rule: 3, rounds: ['true == "1"', '1 == "1"'] }),
+      ST(0, "change", "Round 2. JavaScript starts again at the top. Rule 1: same type? No. Rule 2: no. Rule 3: a string and a number? <b>Yes.</b> <code>\"1\"</code> becomes <code>1</code>.",
+        { L: N(1), R: N(1), rule: 2, rounds: ['true == "1"', '1 == "1"', '1 == 1'] }),
+      ST(0, "answer", "Round 3. Rule 1: same type? <b>Yes.</b> 1 is 1, so the answer is <b>true</b>.",
+        { L: N(1), R: N(1), rule: 0, rounds: ['true == "1"', '1 == "1"', '1 == 1'], verdict: true, out: ["true"] }),
+      ST(null, "done", "Finished. It printed <b>true</b>. Notice: <code>true</code> was turned into a <b>number</b>, not the other way round. So <code>true == \"2\"</code> is false, because 1 is not 2.",
+        { out: ["true"] })
+    ]
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "null and 0",
+    why: "Rule 2 is special. null and undefined are equal only to each other. null is never turned into 0 by ==. So null == 0 is false, and null == undefined is true.",
+    code: [
+      'console.log(null == 0);',
+      'console.log(null == undefined);',
+      'console.log(null === undefined);'
+    ],
+    steps: [
+      ST(0, "read", "Line 1. The left side is <code>null</code>, the value that means \"nothing on purpose\". The right side is the number <code>0</code>.",
+        { L: NUL, R: N(0), rounds: ['null == 0'] }),
+      ST(0, "answer", "Round 1. Rule 1: same type? No. Rule 2: null or undefined on one side? <b>Yes.</b> The other side is <code>0</code>, which is not null or undefined. So the answer is <b>false</b>. JavaScript never turns null into 0 here.",
+        { L: NUL, R: N(0), rule: 1, rounds: ['null == 0'], verdict: false, out: ["false"] }),
+      ST(1, "answer", "Line 2. Rule 2 again: null on one side, and undefined on the other. That is the one pair this rule allows. The answer is <b>true</b>.",
+        { L: NUL, R: UND, rule: 1, rounds: ['null == undefined'], verdict: true, out: ["false", "true"] }),
+      ST(2, "answer", "Line 3 uses <code>===</code>. null and undefined are two different types, so the answer is <b>false</b>.",
+        { L: NUL, R: UND, rounds: ['null === undefined'], verdict: false, out: ["false", "true", "false"] }),
+      ST(null, "done", "Finished. It printed <b>false true false</b>. This is why <code>value == null</code> is a handy check: it is true for null and for undefined, and false for 0, \"\" and false.",
+        { out: ["false", "true", "false"] })
+    ]
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "Empty array and false",
+    why: "false becomes 0. The empty array becomes the empty string \"\". The empty string becomes 0. Now 0 == 0 is true. Four rounds, and every round changes only one side.",
+    code: [
+      'console.log([] == false);'
+    ],
+    steps: [
+      ST(0, "read", "The left side is an empty array <code>[]</code>, which is an <b>object</b>. The right side is the <b>boolean</b> <code>false</code>.",
+        { L: O("[]"), R: B(false), rounds: ['[] == false'] }),
+      ST(0, "change", "Round 1. Rules 1, 2 and 3 do not match. Rule 4: true or false on one side? <b>Yes.</b> <code>false</code> becomes <code>0</code>.",
+        { L: O("[]"), R: N(0), rule: 3, rounds: ['[] == false', '[] == 0'] }),
+      ST(0, "change", "Round 2. Rule 5: an object on one side? <b>Yes.</b> JavaScript turns the array into a simple value. For an array it joins the items with commas. There are no items, so you get the empty string <code>\"\"</code>.",
+        { L: S(""), R: N(0), rule: 4, rounds: ['[] == false', '[] == 0', '"" == 0'] }),
+      ST(0, "change", "Round 3. Rule 3: a string and a number? <b>Yes.</b> The empty string becomes the number <code>0</code>.",
+        { L: N(0), R: N(0), rule: 2, rounds: ['[] == false', '[] == 0', '"" == 0', '0 == 0'] }),
+      ST(0, "answer", "Round 4. Rule 1: same type? <b>Yes.</b> 0 is 0, so the answer is <b>true</b>.",
+        { L: N(0), R: N(0), rule: 0, rounds: ['[] == false', '[] == 0', '"" == 0', '0 == 0'], verdict: true, out: ["true"] }),
+      ST(null, "done", "Finished. It printed <b>true</b>. Strange but true: an empty array is <code>== false</code>. Open program 5 to see that <code>if ([])</code> still runs.",
+        { out: ["true"] })
+    ]
+  },
+  // ---------------------------------------------------------------- 5
+  {
+    name: "if is a different check",
+    why: "An if does not use the == checklist. It only asks: is this value one of the 8 values that count as false? An empty array is not on that list, so it counts as true and the line runs. But [] == false walks the checklist and ends with 0 == 0, which is true.",
+    code: [
+      'const list = [];',
+      'if (list) console.log("runs");',
+      'console.log(list == false);'
+    ],
+    steps: [
+      ST(0, "read", "Line 1. JavaScript makes an empty array and puts it in <code>list</code>. It is an <b>object</b>, even with nothing inside.",
+        { L: O("[]"), rounds: [], list: "falsy" }),
+      ST(1, "check", "Line 2. An <code>if</code> needs true or false. It does <b>not</b> use the checklist. It only asks: <b>is this value on the short list of values that count as false?</b> The list is on the left now.",
+        { L: O("[]"), rounds: ['if ([])'], list: "falsy" }),
+      ST(1, "answer", "<code>[]</code> is not on the list. Every object counts as true, even an empty one. So the <code>if</code> runs its line and prints <b>runs</b>.",
+        { L: O("[]"), rounds: ['if ([])'], verdict: true, out: ["runs"], list: "falsy" }),
+      ST(2, "change", "Line 3 uses <code>==</code>, so JavaScript walks the checklist again. It is the same as program 4: <code>[] == false</code>, then <code>[] == 0</code>, then <code>\"\" == 0</code>, then <code>0 == 0</code>.",
+        { L: N(0), R: N(0), rule: 0, rounds: ['[] == false', '[] == 0', '"" == 0', '0 == 0'], out: ["runs"] }),
+      ST(2, "answer", "The last round is <code>0 == 0</code>, so it prints <b>true</b>.",
+        { L: N(0), R: N(0), rule: 0, rounds: ['[] == false', '[] == 0', '"" == 0', '0 == 0'], verdict: true, out: ["runs", "true"] }),
+      ST(null, "done", "Finished. It printed <b>runs true</b>. The same array counts as true in an <code>if</code>, and is also <code>== false</code>. Two different checks, two different rules. This is why you should not write <code>== true</code> or <code>== false</code>.",
+        { out: ["runs", "true"] })
+    ]
+  },
+  // ---------------------------------------------------------------- 6
+  {
+    name: "Same type, still false",
+    why: "Both lines stop at rule 1, because the types match. NaN is never equal to anything, not even NaN. Two objects are equal only when they are the very same object, and these are two different arrays.",
+    code: [
+      'console.log(NaN == NaN);',
+      'console.log([1] == [1]);',
+      'const a = [1];',
+      'console.log(a == a);'
+    ],
+    steps: [
+      ST(0, "read", "Line 1. <code>NaN</code> means \"not a number\". You get it from things like <code>Number(\"abc\")</code>. Its type is still <b>number</b>.",
+        { L: N("NaN"), R: N("NaN"), rounds: ['NaN == NaN'] }),
+      ST(0, "answer", "Rule 1: same type? <b>Yes</b>, both are numbers. Compare like <code>===</code>. But NaN is never equal to anything, not even itself. The answer is <b>false</b>. Use <code>Number.isNaN(x)</code> to check for it.",
+        { L: N("NaN"), R: N("NaN"), rule: 0, rounds: ['NaN == NaN'], verdict: false, out: ["false"] }),
+      ST(1, "read", "Line 2 makes <b>two</b> new arrays. They look the same, but they are two different objects in memory.",
+        { L: O("[1] made first"), R: O("[1] made second"), rounds: ['[1] == [1]'], out: ["false"] }),
+      ST(1, "answer", "Rule 1: same type? <b>Yes</b>, both are objects. For objects, JavaScript does not look inside. It asks: is this the <b>same object</b>? No. The answer is <b>false</b>. (Lesson 03 shows why.)",
+        { L: O("[1] made first"), R: O("[1] made second"), rule: 0, rounds: ['[1] == [1]'], verdict: false, out: ["false", "false"] }),
+      ST(2, "read", "Line 3 makes one array and puts it in <code>a</code>.",
+        { L: O("a"), rounds: [], out: ["false", "false"] }),
+      ST(3, "answer", "Line 4 compares <code>a</code> with <code>a</code>. Both sides are the same object, so the answer is <b>true</b>.",
+        { L: O("a"), R: O("a"), rule: 0, rounds: ['a == a'], verdict: true, out: ["false", "false", "true"] }),
+      ST(null, "done", "Finished. It printed <b>false false true</b>. No type changed here. Rule 1 matched every time.",
+        { out: ["false", "false", "true"] })
+    ]
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevKey = "";
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderList(s) {
+  if (s.list === "falsy") {
+    $("listTitle").textContent = "The values that count as false (only these 8)";
+    $("list").innerHTML = '<div class="falsy">' + FALSY.map(f => "<span>" + esc(f) + "</span>").join("") +
+      '</div><p class="falsy-note">Everything else counts as true. That includes <b>[]</b>, <b>{}</b>, <b>"0"</b> and <b>"false"</b>.</p>';
+    return;
+  }
+  $("listTitle").textContent = "The == checklist, top to bottom";
+  $("list").innerHTML = '<ol class="rules">' + RULES.map((r, i) => {
+    let c = "";
+    if (s.rule !== null) c = i < s.rule ? "no" : (i === s.rule ? "hit" : "");
+    return '<li class="' + c + '">' + esc(r) + "</li>";
+  }).join("") + "</ol>";
+}
+function chip(v) {
+  return '<div class="side"><div class="chip-v t-' + v.type + '">' + esc(v.shown) + '</div><div class="tlabel lab-' + v.type + '">' + v.type + "</div></div>";
+}
+function renderSides(s) {
+  const box = $("sides");
+  if (!s.L && !s.R) { box.innerHTML = '<span class="empty">nothing to compare</span>'; prevKey = ""; return; }
+  let html = s.L ? chip(s.L) : "";
+  if (s.R) html += '<span class="op">vs</span>' + chip(s.R);
+  if (s.verdict !== null) html += '<span class="op">→</span><span class="verdict ' + (s.verdict ? "yes" : "no") + '">' + s.verdict + "</span>";
+  const key = JSON.stringify([s.L, s.R]);
+  box.innerHTML = html;
+  if (key !== prevKey) box.querySelectorAll(".chip-v").forEach(c => c.classList.add("pop"));
+  prevKey = key;
+}
+function renderRounds(list) {
+  $("rounds").innerHTML = list.length
+    ? list.map((r, i) => '<li class="' + (i === list.length - 1 ? "last" : "") + '"><b>' + (list.length > 1 ? "Round " + (i + 1) : "Now") + "</b>" + esc(r) + "</li>").join("")
+    : '<li><span class="empty">none yet</span></li>';
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing printed yet</span>';
+  items.forEach(v => {
+    const c = document.createElement("div");
+    c.className = "chip";
+    c.textContent = v;
+    box.appendChild(c);
+  });
+}
+const BADGE = { read: ["Reading the two sides", "read"], check: ["Checking the list", "check"], change: ["Changing one side", "change"], answer: ["Giving the answer", "answer"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  renderList(s);
+  renderSides(s);
+  renderRounds(s.rounds);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.read;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").trim();
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = steps[idx].out.join(" ");
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + esc(PRESETS[cur].why);
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Output: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which rule matches in each round.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevKey = "";
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevKey = ""; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1900);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevKey = ""; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>

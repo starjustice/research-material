@@ -78,7 +78,7 @@
 
 <h2>Learn</h2>
 <p>One folder per subject. Open a subject to see its map, lessons, guides, cheatsheets and code.</p>
-<details class="subject"><summary><b>JavaScript</b><small>4 lessons, 8 visuals</small></summary>
+<details class="subject"><summary><b>JavaScript</b><small>11 lessons, 11 visuals, 1 cheatsheet</small></summary>
 <a class="card" href="viewer.html?note=learn/javascript/README">
   <span class="tag map">MAP</span>
   <b>JavaScript: map and lesson list</b>
@@ -89,15 +89,50 @@
   <b>01. Variables, scope and hoisting</b>
   <span>say what JavaScript does with `var`, `let` and `const` before line 1 runs, and explain why `var` gives `undefined` while `let` gives an error.</span>
 </a>
+<a class="card" href="viewer.html?note=learn/javascript/02-values-types-and-coercion">
+  <span class="tag lesson">LESSON 02</span>
+  <b>02. Values, types and coercion</b>
+  <span>say the difference between a simple value and an object, walk `[] == false` round by round, and list the 8 values that count as false.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/javascript/03-reference-vs-copy">
+  <span class="tag lesson">LESSON 03</span>
+  <b>03. Reference vs copy</b>
+  <span>draw what is in memory after `b = a` for a number and for an object, say why changing a &quot;copy&quot; can change the original, and choose between a shallow copy and a deep copy.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/javascript/04-functions">
+  <span class="tag lesson">LESSON 04</span>
+  <b>04. Functions</b>
+  <span>write a function in three ways and say which one you can call before its line, say what one call puts on the call stack, and pass a function to another function without calling it.</span>
+</a>
 <a class="card" href="viewer.html?note=learn/javascript/05-closures">
   <span class="tag lesson">LESSON 05</span>
   <b>05. Closures</b>
   <span>say what a closure is in one sentence, draw the box that stays alive after `makeCounter` is done, and explain why two counters do not share `count`.</span>
 </a>
+<a class="card" href="viewer.html?note=learn/javascript/06-this-call-apply-and-bind">
+  <span class="tag lesson">LESSON 06</span>
+  <b>06. this, call, apply and bind</b>
+  <span>look at any function call and say what `this` is, say what `call`, `apply` and `bind` each do, and explain why an arrow function behaves differently.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/javascript/07-objects-and-prototypes">
+  <span class="tag lesson">LESSON 07</span>
+  <b>07. Objects and prototypes</b>
+  <span>draw the chain of hidden links behind an object, say where JavaScript finds a property the object does not have, and explain why writing a property never changes the object above it.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/javascript/08-classes">
+  <span class="tag lesson">LESSON 08</span>
+  <b>08. Classes</b>
+  <span>draw the objects that one `class` line makes, say why `super()` must run before `this` in a child class, and explain why a `#` field is really private.</span>
+</a>
 <a class="card" href="viewer.html?note=learn/javascript/09-arrays-and-higher-order-functions">
   <span class="tag lesson">LESSON 09</span>
   <b>09. Arrays and higher order functions</b>
   <span>pick `forEach`, `map`, `filter` or `reduce` for a job, say which array methods change the original array and which give a new one, and trace `reduce` one item at a time.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/javascript/10-destructuring-spread-and-rest">
+  <span class="tag lesson">LESSON 10</span>
+  <b>10. Destructuring, spread and rest</b>
+  <span>unpack values from an array or object in one line, tell rest from spread by which side of the code the three dots are on, and say why changing a spread copy can still change the original.</span>
 </a>
 <a class="card" href="viewer.html?note=learn/javascript/11-the-event-loop">
   <span class="tag lesson">LESSON 11</span>
@@ -107,6 +142,21 @@
 <a class="card" href="learn/javascript/visuals/01-scope-and-hoisting.html">
   <span class="tag app">VISUAL</span>
   <b>01-scope-and-hoisting.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/javascript/visuals/02-values-types-and-coercion.html">
+  <span class="tag app">VISUAL</span>
+  <b>02-values-types-and-coercion.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/javascript/visuals/03-reference-vs-copy.html">
+  <span class="tag app">VISUAL</span>
+  <b>03-reference-vs-copy.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/javascript/visuals/04-functions.html">
+  <span class="tag app">VISUAL</span>
+  <b>04-functions.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="learn/javascript/visuals/05-closures.html">
@@ -143,6 +193,11 @@
   <span class="tag app">VISUAL</span>
   <b>Event loop stepper</b>
   <span>Press Next and watch the call stack and both queues change. Three programs.</span>
+</a>
+<a class="card" href="learn/javascript/javascript-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>javascript-cheatsheet.html</b>
+  <span>Visual cheatsheet</span>
 </a>
 </details>
 <details class="subject"><summary><b>TypeScript</b><small>lesson plan ready</small></summary>
