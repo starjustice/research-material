@@ -68,11 +68,17 @@ Follow `templates/study-note-template.md`. Same writing rules. Mermaid diagrams 
 
 ## Writing style (graded)
 
-- Short sentences. One idea per sentence.
-- Define every technical term the first time, in plain words.
+The full rules are in the "Simple wording" section of `my-learning/learner-profile.md`. Follow them. In short:
+
+- Everyday words first. Give the interview word after the plain one, once.
+- At most 4 new words per lesson. Never use a technical word that was not explained earlier in the file.
+- One idea per sentence, about 12 words. Name who does the work ("JavaScript puts 0 in the box").
+- Keep the main path to about 1,500 words of prose. Put engine details, versions, rare edge cases and extra links in a `<details>` "Go deeper (optional)" box.
+- No work diary in the explanation ("I ran this on Node 24..."). One "checked on <date>" line is enough.
 - One everyday analogy per big idea, and say where the analogy stops being true.
 - Problem, then solution, then why it matters. Never start from the solution.
 - No idioms, no buzzwords, no em dashes. Bullets over long paragraphs.
+- Before you save: read every paragraph and ask "would a smart 12 year old follow this?" Rewrite the ones that fail.
 
 ## Step 5: check before you finish
 

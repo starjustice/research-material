@@ -1,26 +1,27 @@
 # 11. The event loop
 
-
-
-> **Subject:** JavaScript · **Lesson:** 11 · **Made:** 2026-10-11 · **Status:** ready
+> **Subject:** JavaScript · **Lesson:** 11 · **Made:** 2026-10-11 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
 > **You will be able to:** say in what order a script with `console.log`, `setTimeout` and a promise prints, and explain why in four parts.
 > **Before this:** Destructuring, spread and rest (not written yet) · **Next:** Callbacks (not written yet)
 
 ## 1. The idea in one sentence
 
-JavaScript can only do **one thing at a time**, so when something slow starts (a timer, a request), the browser holds it outside, and the **event loop** brings its callback back only when the **call stack** is empty.
+JavaScript can do **one thing at a time**. So when something slow starts (a timer or a request), the browser holds it on the side. The **event loop** brings its callback back only when the **call stack** is empty.
 
-New words, in plain English:
+New words:
 
-- **Call stack:** the place where your code runs. It runs one function at a time, and a function that calls another goes on top.
+- **Call stack:** the place where your code runs, one function at a time. When a function calls another one, the new one goes on top.
 - **Callback:** a function you give to someone else, to be called later.
-- **Queue:** a waiting line. First in, first out.
+- **Task queue:** a waiting line for finished timers and clicks. First in, first out. JavaScript takes **one** at a time.
+- **Microtask queue:** a second, faster waiting line, for promise callbacks. JavaScript empties **all** of it before it takes the next task.
 
-## 2. The pictures (at least five)
+One more thing to know: the **browser** does the waiting for timers and requests, not JavaScript. The browser's helpers for this are called **Web APIs**.
+
+## 2. The pictures
 
 ### 2a. The big picture
 
-Notice the two waiting lines. The event loop always empties the green one first.
+Notice the two waiting lines. The event loop always empties the microtask line first.
 
 ```mermaid
 graph LR
@@ -35,7 +36,7 @@ graph LR
 
 ### 2b. The problem, drawn
 
-Without this design, waiting for data would freeze the page. Notice that the second click is lost.
+If JavaScript just waited for data, the page would freeze. Notice that the second click is lost.
 
 ```mermaid
 sequenceDiagram
@@ -72,7 +73,7 @@ sequenceDiagram
 
 ### 2d. What is in memory right now
 
-A snapshot taken right after `console.log("D")`. Notice that `B` and `C` are both waiting, in **different** lines.
+A snapshot right after `console.log("D")`. Notice that `B` and `C` are both waiting, in **different** lines.
 
 | Call stack | Browser timers | Microtask queue | Task queue | Console |
 |---|---|---|---|---|
@@ -113,7 +114,11 @@ graph TB
 
 ## 3. Real life analogy
 
-A restaurant kitchen with **one chef**. The chef is the call stack. Orders that need waiting, like a 10 minute oven timer, go to the oven (the browser). When the oven rings, the order joins a line of finished dishes (the task queue). Small notes that say "do this right after the current dish" (promises) go on a separate board, and the chef reads **all** of those first.
+A restaurant kitchen with **one chef**. The chef is the call stack.
+
+- An order that needs waiting, like a 10 minute oven timer, goes to the oven. The oven is the browser.
+- When the oven rings, the dish joins a line of finished dishes. That is the task queue.
+- Small notes that say "do this right after the current dish" (promises) go on a separate board. The chef reads **all** of those first.
 
 Where the analogy stops: a real kitchen has many cooks. JavaScript has one chef. But the browser around it can wait for many timers and requests at the same time.
 
@@ -139,26 +144,26 @@ B
 
 ## 5. What really happens, step by step
 
-| Step | Code line | What the engine does | Call stack | Browser timers | Microtasks | Tasks | Console |
+| Step | Line | What happens | Call stack | Browser timers | Microtasks | Tasks | Console |
 |---|---|---|---|---|---|---|---|
-| 1 | start | The whole file goes on the call stack | main | | | | |
-| 2 | line 1 | `console.log("A")` runs at once | main | | | | A |
-| 3 | line 2 | The timer is handed to the browser. JavaScript does not wait. | main | B | | | A |
-| 4 | line 3 | The promise is done, so its callback waits in the microtask queue | main | B | C | | A |
-| 5 | line 4 | `console.log("D")` runs | main | B | C | | A D |
+| 1 | start | The whole file goes on the call stack. | main | | | | |
+| 2 | 1 | `console.log("A")` runs at once. | main | | | | A |
+| 3 | 2 | The timer goes to the browser. JavaScript does not wait. | main | B | | | A |
+| 4 | 3 | The promise is already done, so its callback waits in the microtask queue. | main | B | C | | A |
+| 5 | 4 | `console.log("D")` runs. | main | B | C | | A D |
 | 6 | end | `main` finishes. The stack is empty. | | B | C | | A D |
 | 7 | loop | Rule 1: empty the microtasks first. `C` goes on the stack. | C | B | | | A D |
-| 8 | line 3 | `C` prints | C | B | | | A D C |
+| 8 | 3 | `C` prints. | C | B | | | A D C |
 | 9 | loop | The timer is done. Its callback moves to the task queue. | | | | B | A D C |
 | 10 | loop | Rule 2: take **one** task. `B` goes on the stack. | B | | | | A D C |
-| 11 | line 2 | `B` prints. Everything is empty. | | | | | A D C B |
+| 11 | 2 | `B` prints. Everything is empty. | | | | | A D C B |
 
 ## 6. Why it exists and what it costs
 
 - **Problem without it:** one thread plus waiting means a frozen page (picture 2b).
-- **How it solves it:** slow work is handed to the browser. Its callback comes back through a queue and runs when the stack is free.
-- **Cost or tradeoff:**
-  - The order can surprise you, which is exactly what interviewers test.
+- **How it solves it:** slow work goes to the browser. Its callback comes back through a waiting line and runs when the stack is free.
+- **Cost:**
+  - The order can surprise you. That is exactly what interviewers test.
   - A long loop on the stack blocks **everything**, including timers and clicks. A timer of 0 ms means "at least 0 ms", not "now".
   - If microtasks keep adding more microtasks, tasks and screen updates never get a turn.
 
@@ -192,14 +197,14 @@ console.log("loop finished");
 
 ## 8. Watch and play
 
-Links checked on 2026-10-11.
+Links checked on 2026-10-11. Each page opened.
 
-- **Video:** [What the heck is the event loop anyway?](https://www.youtube.com/watch?v=8aGhZQkoFbQ) Philip Roberts, JSConf EU, about 27 minutes. The classic talk, with moving pictures of the stack and queues. I confirmed the title, speaker and length through a mirror page, because YouTube itself would not open for me. If the link fails, search for the title.
-- **Play with it:** [The event loop stepper](visuals/11-event-loop.html) in this folder. Predict, then press Next.
+- **Video:** [What the heck is the event loop anyway?](https://www.youtube.com/watch?v=8aGhZQkoFbQ) by Philip Roberts, JSConf EU. About 27 minutes. The classic talk, with moving pictures of the stack and the queues. YouTube would not open for me, so I checked the title, speaker and length on a mirror page. If the link fails, search for the title.
+- **Play with it:** [The event loop stepper](visuals/11-event-loop.html) in this folder. Guess first, then press Next.
 - **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the code from section 4 and click Visualize Execution. It shows memory well, but it does not show the queues, so use the stepper for those.
-- **Read:** [Tasks, microtasks, queues and schedules](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/) by Jake Archibald. It has a click-through animation and a `setTimeout` plus promise example. Read it after you can explain section 5.
-- **Read:** [Event loop: microtasks and macrotasks](https://javascript.info/event-loop) on javascript.info. It has two diagrams and short examples.
-- **Reference:** [JavaScript execution model on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop). It uses the words "job queue" for what this lesson calls the microtask and task queues.
+- **Read:** [Tasks, microtasks, queues and schedules](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/) by Jake Archibald. It has a click-through animation. Read it after you can explain section 5.
+- **Read:** [Event loop: microtasks and macrotasks](https://javascript.info/event-loop) on javascript.info. Two diagrams and short examples.
+- **Read:** [JavaScript execution model on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop). It says "job queue" for what this lesson calls the microtask and task queues.
 
 ## 9. Practice
 
@@ -217,7 +222,7 @@ console.log("f");
 
 `a f c d b e`
 
-`a` and `f` are on the stack. Then **both** `c` and `d` run as microtasks, because `d` is added while the microtasks are still being emptied. Only then do the two timers `b` and `e` run, one task each.
+`a` and `f` run on the stack first. Then **both** `c` and `d` run as microtasks, because `d` is added while the microtasks are still being emptied. Only then do the two timers `b` and `e` run, one task each.
 
 </details>
 
@@ -278,8 +283,8 @@ function sleep(ms) {
 <details><summary>A strong answer, in four parts</summary>
 
 1. **Problem:** JavaScript has one thread. If it waited for a timer or a request, the whole page would freeze.
-2. **How it works:** slow work goes to the browser. When it finishes, its callback waits in a queue. The event loop moves a callback onto the call stack only when the stack is empty. It empties the microtask queue (promises) completely first, then takes **one** task (timers), then checks the microtasks again.
-3. **Tradeoff:** the order is not obvious, and a long synchronous loop or an endless microtask chain blocks everything else, including clicks and screen updates.
+2. **How it works:** slow work goes to the browser. When it finishes, its callback waits in a queue. The event loop moves a callback onto the call stack only when the stack is empty. It empties the microtask queue (promises) completely first. Then it takes **one** task (timers). Then it checks the microtasks again.
+3. **Tradeoff:** the order is not obvious. A long synchronous loop, or an endless chain of microtasks, blocks everything else, including clicks and screen updates.
 4. **My example:** *This is an idea, not a fact. Replace it with your own real story.* In a React Native screen, a long loop inside a button handler would freeze the whole screen, because the touches are also waiting for the stack.
 
 </details>
@@ -308,12 +313,12 @@ Close this file. Press the **Record my explanation** button under this heading a
 1. The promise callback. It is a microtask, and the event loop empties all microtasks before it takes the next task.
 2. It checks the microtask queue again and empties it, before it takes the next task.
 3. The timer callback can only run when the call stack is empty. The loop keeps the stack busy.
-4. Your code, call stack, browser Web APIs, task queue, microtask queue, and the event loop that moves callbacks onto the stack when it is empty.
+4. Your code, the call stack, the browser Web APIs, the task queue, the microtask queue, and the event loop that moves callbacks onto the stack when it is empty.
 
 </details>
 
 ## Connected lessons
 
-- Closures (not written yet): a callback remembers its variables through a closure.
+- [Closures](05-closures.md): a callback remembers its variables through a closure.
 - Promises (not written yet): the microtask queue is where promise callbacks wait.
-- Async and await (not written yet): the code after an `await` runs as a microtask. Preset 3 of the stepper shows this.
+- Async and await (not written yet): the code after an `await` runs as a microtask. Program 3 of the stepper shows this.

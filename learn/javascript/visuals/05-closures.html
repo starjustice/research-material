@@ -579,7 +579,7 @@ const PRESETS = [
       r.pop(); r.drop("c1");
       r.step(4, "run", "<code>read()</code> ends. Its call box is thrown away. S1 stays, because <code>read</code> still points at it.");
       r.set("G", val("read", "null"));
-      r.step(8, "run", "Line 9 sets <code>read = null</code>. The function is not reachable any more. <b>Nothing points at S1.</b> The box is now marked <b>can be freed</b>. The garbage collector will free the big array later, at a time it chooses. You cannot force it.");
+      r.step(8, "run", "Line 9 sets <code>read = null</code>. The function is not reachable any more. <b>Nothing points at S1.</b> The box is now marked <b>can be freed</b>. The cleaner (the garbage collector) will free the big array later, at a time it chooses. You cannot force it.");
       r.step(null, "done", "Finished. It printed <b>1000</b>. Closures are not free: a function holds on to its whole box. The usual leak is a long-living function (a listener you never remove, a timer you never clear) that keeps a big box alive. The cure is to let go of the function: remove the listener, clear the timer, or set the variable to null.");
     }
   }

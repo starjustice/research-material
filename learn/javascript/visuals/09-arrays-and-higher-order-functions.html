@@ -161,7 +161,7 @@
         <div id="call"></div>
       </div>
       <div class="panel" id="accBox">
-        <h2>The accumulator <small>(the box that carries the running answer)</small></h2>
+        <h2>The running total <small>(the value that moves from one call to the next)</small></h2>
         <div id="acc"></div>
       </div>
       <div class="panel" id="resBox">
@@ -185,7 +185,7 @@
 
   <div class="result" id="result"></div>
 
-  <p class="legend"><b>The rule to remember:</b> <b>map</b> gives a new array with the <b>same length</b> and new values. <b>filter</b> gives a new array with <b>fewer items</b> and the same values. <b>reduce</b> gives <b>one value</b>, and the return value of each call becomes the accumulator of the next call. None of them changes the original array.</p>
+  <p class="legend"><b>The rule to remember:</b> <b>map</b> gives a new array with the <b>same length</b> and new values. <b>filter</b> gives a new array with <b>fewer items</b> and the same values. <b>reduce</b> gives <b>one value</b>, and the return value of each call becomes the running total of the next call. None of them changes the original array.</p>
 </div>
 
 <script>
@@ -247,7 +247,7 @@ const PRESETS = [
       'console.log(total);'
     ],
     defLine: 0, callLine: 1, bodyLines: [2], startLine: 3, endLine: 3, printLine: 4,
-    why: "reduce starts the accumulator at the start value (0). Each call gets the accumulator and one item. What your function returns becomes the accumulator for the next call. After the last item, the accumulator is the answer."
+    why: "reduce starts the running total at the start value (0). Each call gets the running total and one item. What your function returns becomes the running total for the next call. After the last item, the running total is the answer."
   },
   // ---------------------------------------------------------------- 4
   {
@@ -262,7 +262,7 @@ const PRESETS = [
       'console.log(total);'
     ],
     defLine: 0, callLine: 1, bodyLines: [2], endLine: 3, printLine: 4,
-    why: "With no start value, reduce uses the first item as the accumulator and starts calling your function at index 1. That is one call fewer. It works, but it breaks on an empty array (see the next tab)."
+    why: "With no start value, reduce uses the first item as the running total and starts calling your function at index 1. That is one call fewer. It works, but it breaks on an empty array (see the next tab)."
   },
   // ---------------------------------------------------------------- 5
   {
@@ -276,7 +276,7 @@ const PRESETS = [
       '}',
       'console.log(empty.reduce((sum, p) => sum + p, 0));'
     ],
-    why: "Without a start value, reduce needs a first item to use as the accumulator. An empty array has none, so reduce throws a TypeError. With a start value, reduce just returns the start value. Always give reduce a start value."
+    why: "Without a start value, reduce needs a first item to use as the running total. An empty array has none, so reduce throws a TypeError. With a start value, reduce just returns the start value. Always give reduce a start value."
   },
   // ---------------------------------------------------------------- 6
   {
@@ -295,7 +295,7 @@ const PRESETS = [
       'console.log(byLetter);'
     ],
     defLine: 0, callLine: 1, bodyLines: [2, 3, 4, 5], startLine: 6, endLine: 6, printLine: 7,
-    why: "The accumulator does not have to be a number. Here it is an object that starts empty. Each call adds one word to the right group and returns the same object. After the last word, the object is the answer. One pass over the array."
+    why: "The running total does not have to be a number. Here it is an object that starts empty. Each call adds one word to the right group and returns the same object. After the last word, the object is the answer. One pass over the array."
   },
   // ---------------------------------------------------------------- 7
   {
@@ -402,23 +402,23 @@ function buildReduce(p, rec) {
     note: "<b>Start.</b> The array <code>" + p.arrName + "</code> is in memory. It has " + n + " items." }));
   if (p.hasStart) {
     steps.push(S({ line: p.startLine, phase: "setup", acc: { v: rec.startVal },
-      note: "<code>reduce</code> starts. Its second argument, " + bold(rec.startVal) + ", is the <b>start value</b>. It becomes the first <b>accumulator</b>, the box that carries the running answer from one call to the next." }));
+      note: "<code>reduce</code> starts. Its second argument, " + bold(rec.startVal) + ", is the <b>start value</b>. It becomes the first <b>running total</b>, the value that moves from one call to the next. (The interview word for it is <i>accumulator</i>.)" }));
   } else {
     steps.push(S({ line: p.callLine, phase: "setup", acc: { v: p.arr[0] }, done: 1,
-      note: "<code>reduce</code> starts with <b>no start value</b>. So it takes the first item, " + bold(p.arr[0]) + ", as the first accumulator and does not call your function for it. The first call will use index 1. That is one call fewer." }));
+      note: "<code>reduce</code> starts with <b>no start value</b>. So it takes the first item, " + bold(p.arr[0]) + ", as the first running total and does not call your function for it. The first call will use index 1. That is one call fewer." }));
   }
   rec.calls.forEach((c, j) => {
     const info = callInfo(p, c);
     steps.push(S({ line: p.bodyLines, phase: "call", cur: c.i, done: c.i, call: info, acc: { v: c.acc },
       note: j === 0
-        ? "<b>Call 1 of " + rec.calls.length + ".</b> <code>reduce</code> calls your function with the accumulator (<code>" + p.params[0] + "</code> = " + esc(fmt(c.acc)) + ") and the item (<code>" + p.params[1] + "</code> = " + esc(fmt(c.cur)) + "). It also passes the index and the array, which your function ignores."
-        : "<b>Call " + (j + 1) + " of " + rec.calls.length + ".</b> The accumulator is " + bold(c.acc) + " and the item is " + bold(c.cur) + ". Your function runs." }));
+        ? "<b>Call 1 of " + rec.calls.length + ".</b> <code>reduce</code> calls your function with the running total (<code>" + p.params[0] + "</code> = " + esc(fmt(c.acc)) + ") and the item (<code>" + p.params[1] + "</code> = " + esc(fmt(c.cur)) + "). It also passes the index and the array, which your function ignores."
+        : "<b>Call " + (j + 1) + " of " + rec.calls.length + ".</b> The running total is " + bold(c.acc) + " and the item is " + bold(c.cur) + ". Your function runs." }));
     const last = j === rec.calls.length - 1;
     steps.push(S({ line: p.bodyLines, phase: "return", cur: c.i, done: c.i, call: info, ret: { v: c.ret }, acc: { v: c.ret },
-      note: "Your function returns " + bold(c.ret) + ". That value <b>becomes the new accumulator</b>." + (last ? " This was the last item, so it is the final answer." : " It is passed into the next call.") }));
+      note: "Your function returns " + bold(c.ret) + ". That value <b>becomes the new running total</b>." + (last ? " This was the last item, so it is the final answer." : " It is passed into the next call.") }));
   });
   steps.push(S({ line: p.endLine, phase: "run", done: n, acc: { v: rec.result },
-    note: "No items left. <code>reduce</code> returns the last accumulator, " + bold(rec.result) + ", and it is stored in <code>" + p.resName + "</code>. Many items went in. One value came out." }));
+    note: "No items left. <code>reduce</code> returns the last running total, " + bold(rec.result) + ", and it is stored in <code>" + p.resName + "</code>. Many items went in. One value came out." }));
   finish(steps, p, rec, { acc: { v: rec.result } });
   return steps;
 }
@@ -431,11 +431,11 @@ function buildReduceEmpty(p) {
   return [
     S({ line: 0, phase: "setup", note: "<b>Start.</b> <code>empty</code> is an array with <b>no items</b>." }),
     S({ line: 2, phase: "error",
-      note: "The first <code>reduce</code> has <b>no start value</b>, so it wants to use the first item as the accumulator. There is no first item. It throws a <b>" + esc(err.name) + "</b>: <i>" + esc(err.message) + "</i>. Your function is never called." }),
+      note: "The first <code>reduce</code> has <b>no start value</b>, so it wants to use the first item as the running total. There is no first item. It throws a <b>" + esc(err.name) + "</b>: <i>" + esc(err.message) + "</i>. Your function is never called." }),
     S({ line: 4, phase: "run", out: [msg],
       note: "The <code>catch</code> block prints the error. (Without try and catch, the program would stop at the line above.)" }),
     S({ line: 6, phase: "run", acc: { v: zero }, out: [msg, String(zero)],
-      note: "The second <code>reduce</code> has the start value <b>0</b>. The accumulator is 0. There are no items, so your function is never called, and <code>reduce</code> returns the start value: <b>" + esc(zero) + "</b>. No error." }),
+      note: "The second <code>reduce</code> has the start value <b>0</b>. The running total is 0. There are no items, so your function is never called, and <code>reduce</code> returns the start value: <b>" + esc(zero) + "</b>. No error." }),
     S({ line: null, phase: "done", acc: { v: zero }, out: [msg, String(zero)],
       note: "Finished. It printed <b>" + esc(msg) + "</b> and then <b>" + esc(zero) + "</b>." })
   ];
@@ -492,7 +492,7 @@ function renderCall(s) {
 function renderAcc(s) {
   const p = PRESETS[cur];
   $("accBox").style.display = p.kind.indexOf("reduce") === 0 ? "block" : "none";
-  if (!s.acc) { $("acc").innerHTML = '<span class="empty-note">no accumulator yet</span>'; prevKey.acc = null; return; }
+  if (!s.acc) { $("acc").innerHTML = '<span class="empty-note">no running total yet</span>'; prevKey.acc = null; return; }
   const key = fmt(s.acc.v);
   const nameAcc = p.kind === "reduceEmpty" ? "sum" : p.params[0];
   $("acc").innerHTML = '<span class="chip2 accv' + (prevKey.acc === key ? "" : " pop") + '"><b>' + esc(nameAcc) + "</b> = " + esc(key) + "</span>";
@@ -561,7 +561,7 @@ function showResult() {
   const ok = norm(guess) === norm(steps[idx].out.join(" "));
   r.className = "result show" + (ok ? "" : " bad");
   r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real output is <code>" + esc(real) + "</code>." + why +
-    (ok ? "" : "<br>Press Reset and step through again. Watch the new array or the accumulator after each call.");
+    (ok ? "" : "<br>Press Reset and step through again. Watch the new array or the running total after each call.");
 }
 function pick(i) {
   stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevKey = {};

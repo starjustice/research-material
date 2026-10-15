@@ -1,26 +1,25 @@
 # 09. Arrays and higher order functions
 
-> **Subject:** JavaScript · **Lesson:** 09 · **Made:** 2026-10-12 · **Status:** ready
-> **You will be able to:** pick `forEach`, `map`, `filter` or `reduce` for a job, say which array methods change the original array and which return a new one, and trace `reduce` one item at a time.
+> **Subject:** JavaScript · **Lesson:** 09 · **Made:** 2026-10-12 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
+> **You will be able to:** pick `forEach`, `map`, `filter` or `reduce` for a job, say which array methods change the original array and which give a new one, and trace `reduce` one item at a time.
 > **Before this:** [Classes](08-classes.md) · **Next:** [Destructuring, spread and rest](10-destructuring-spread-and-rest.md)
 
 ## 1. The idea in one sentence
 
-`map`, `filter` and `reduce` are **higher order functions**: you give each one a small function that handles **one item**, and it does the looping and the collecting for you.
+`map`, `filter` and `reduce` do the looping for you. You give each one a small function that handles **one item**. Methods that take a function like this are called **higher order functions**.
 
-New words, in plain English:
+New words:
 
 - **Array:** an ordered list of values. The first item has index 0, not 1.
-- **Higher order function:** a function that **takes a function** as input, or **gives a function back**. `map` takes one. This works because a function is a value you can pass around (see Functions, lesson 04, not written yet).
-- **Callback:** the small function you pass in. The method calls it for you, once per item, in order. A callback also remembers the variables around it (see [Closures](05-closures.md)).
-- **Accumulator:** in `reduce`, the box that carries the running answer from one call to the next.
-- **Mutate:** change the original array in place. A method that does not mutate leaves the original alone and gives you a new array.
+- **Callback:** the small function you give to `map`, `filter` or `reduce`. They call it for you, once per item, in order. A callback also remembers the variables around it (see [Closures](05-closures.md)).
+- **Running total:** in `reduce`, the one value that moves from one call to the next. (Interview word: *accumulator*.)
+- **Change the original:** some methods change the array you call them on. Others leave it alone and give you a new array. (Interview word: *mutate*.)
 
-## 2. The pictures (at least five)
+## 2. The pictures
 
 ### 2a. The big picture
 
-Notice that the four methods take the same two inputs and give four different shapes of output.
+Notice that the four methods take the same two inputs and give four different kinds of output.
 
 ```mermaid
 graph LR
@@ -58,7 +57,7 @@ graph TB
 
 ### 2c. How it works over time
 
-This is `[10, 20, 30].reduce((acc, n) => acc + n, 0)`. Notice that the value returned by one call becomes `acc` in the next call.
+This is `[10, 20, 30].reduce((acc, n) => acc + n, 0)`. Notice that the value one call returns becomes `acc` in the next call.
 
 ```mermaid
 sequenceDiagram
@@ -75,15 +74,15 @@ sequenceDiagram
 
 ### 2d. What is in memory right now
 
-A snapshot taken **inside call 2** of `prices.reduce((sum, p) => sum + p, 0)` with `prices = [10, 20, 30, 40]`. Notice the last row: `reduce` has no answer until the last item is done.
+A snapshot **inside call 2** of `prices.reduce((sum, p) => sum + p, 0)`, with `prices = [10, 20, 30, 40]`. Notice the last row: `reduce` has no answer until the last item is done.
 
 | Name | Value | What it is |
 |---|---|---|
 | `prices` | `[10, 20, 30, 40]` | the original array. It never changes. |
 | index | `1` | which item is being handled |
-| `sum` (the accumulator) | `10` | what call 1 returned |
+| `sum` (the running total) | `10` | what call 1 returned |
 | `p` (the item) | `20` | `prices[1]` |
-| your function is computing | `sum + p` = `30` | not returned yet |
+| your function is working out | `sum + p` = `30` | not returned yet |
 | the answer so far | none | it exists only after the last call |
 
 ### 2e. Right against wrong
@@ -120,7 +119,7 @@ graph TB
     style C1 fill:#e3f5ea,stroke:#1f7a4d
 ```
 
-The same thing as a table. I ran every method in Node v24.15.0 on 2026-10-12 to check the middle column.
+The same thing as a table (checked in Node 24 on 2026-10-12):
 
 | Method | Changes the original? | What it gives back |
 |---|---|---|
@@ -134,10 +133,10 @@ The same thing as a table. I ran every method in Node v24.15.0 on 2026-10-12 to 
 | `reduce` | no | one value |
 | `find`, `findIndex`, `some`, `every`, `includes`, `indexOf`, `join`, `at` | no | an item, a number, true or false, or a string |
 
-"No" means the method itself leaves the array alone. Two limits:
+Two limits to know:
 
-- Your callback can still change things. Do not do that.
-- The new array is a **shallow copy**. It holds the **same objects** as the old one. Changing an object inside the copy also changes it in the original.
+- "No" means the method itself leaves the array alone. Your callback can still change things. Do not do that.
+- The new array holds the **same objects** as the old one. If you change an object inside the copy, the original changes too. (Interview word: *shallow copy*.)
 
 ### 2g. Chaining, and what it costs
 
@@ -162,9 +161,12 @@ A **factory belt** with items on it, and one worker at each station.
 - `forEach` is a worker who touches every item but puts nothing on a new belt.
 - `map` is a painter. Every item goes in, one painted item comes out. The new belt has the same number of items.
 - `filter` is an inspector. Items that pass are copied to a new belt. Items that fail are left out. The new belt is shorter, and the items are not changed.
-- `reduce` is a worker with one bucket (the accumulator). Each item is added to the bucket, and at the end you get the bucket.
+- `reduce` is a worker with one bucket (the running total). Each item is added to the bucket, and at the end you get the bucket.
 
-Where the analogy stops: a real belt moves the items away. An array does not lose anything. The old belt stays full, and `map` and `filter` copy the **values** to a new belt. Also, a real factory can work on many items at once. These methods handle one item at a time, in order.
+Where the analogy stops:
+
+- A real belt moves the items away. An array does not lose anything. The old belt stays full, and `map` and `filter` copy the values to a new belt.
+- A real factory can work on many items at once. These methods handle one item at a time, in order.
 
 ## 4. The smallest code that shows it
 
@@ -209,7 +211,7 @@ console.log(scores);                             // the copy was sorted, not sco
 [ 10, 9, 1 ]
 ```
 
-Snippet C. Group words by their first letter with `reduce`. The accumulator is an object.
+Snippet C. Group words by their first letter with `reduce`. The running total is an object.
 
 ```js
 const words = ["apple", "banana", "avocado", "blueberry"];
@@ -236,7 +238,7 @@ Each row is one callback call. These are the same numbers as snippet A, so you c
 
 **`prices.map(p => p * 2)`**
 
-| Step | What the engine does | index | `p` | Callback returns | New array after |
+| Step | What happens | index | `p` | Callback returns | New array after |
 |---|---|---|---|---|---|
 | 1 | `map` makes a new array with the same length | | | | 4 empty slots |
 | 2 | call 1 | 0 | 10 | 20 | `[20, empty, empty, empty]` |
@@ -247,7 +249,7 @@ Each row is one callback call. These are the same numbers as snippet A, so you c
 
 **`prices.filter(p => p > 25)`**
 
-| Step | What the engine does | index | `p` | Callback returns | New array after |
+| Step | What happens | index | `p` | Callback returns | New array after |
 |---|---|---|---|---|---|
 | 1 | `filter` makes a new **empty** array | | | | `[]` |
 | 2 | call 1 | 0 | 10 | `false`, skip | `[]` |
@@ -258,25 +260,25 @@ Each row is one callback call. These are the same numbers as snippet A, so you c
 
 **`prices.reduce((sum, p) => sum + p, 0)`**
 
-| Step | What the engine does | index | `sum` | `p` | Callback returns | Accumulator after |
+| Step | What happens | index | `sum` | `p` | Callback returns | Running total after |
 |---|---|---|---|---|---|---|
-| 1 | the start value `0` becomes the accumulator | | | | | 0 |
+| 1 | the start value `0` becomes the running total | | | | | 0 |
 | 2 | call 1 | 0 | 0 | 10 | 10 | 10 |
 | 3 | call 2 | 1 | 10 | 20 | 30 | 30 |
 | 4 | call 3 | 2 | 30 | 30 | 60 | 60 |
 | 5 | call 4 | 3 | 60 | 40 | 100 | 100 |
-| 6 | no items left, `reduce` returns the accumulator | | | | | **100** |
+| 6 | no items left, `reduce` returns the running total | | | | | **100** |
 
-Two variations, and both are in the stepper:
+Two variations. Both are in the stepper:
 
-- **No start value.** `prices.reduce((sum, p) => sum + p)`. The first item becomes the accumulator, and the first call has `sum = 10`, `p = 20`, **index 1**. That is 3 calls, not 4.
-- **Empty array and no start value.** There is no first item to use. `reduce` throws `TypeError: Reduce of empty array with no initial value`. With a start value, `[].reduce(fn, 0)` returns `0` and never calls `fn`.
+- **No start value.** `prices.reduce((sum, p) => sum + p)`. The first item becomes the running total. The first call has `sum = 10`, `p = 20`, **index 1**. That is 3 calls, not 4.
+- **Empty array and no start value.** There is no first item to use, so `reduce` throws `TypeError: Reduce of empty array with no initial value`. With a start value, `[].reduce(fn, 0)` returns `0` and never calls `fn`.
 
-**Step through it yourself:** [open the map, filter and reduce stepper](visuals/09-arrays-and-higher-order-functions.html). It has seven small programs: `map`, `filter`, `reduce` with and without a start value, `reduce` on an empty array, `reduce` that groups, and `map` with a forgotten `return`. Each one shows the array, the current index, the callback call with its arguments, the accumulator and the growing result. Write your guess first, then press Next.
+**Step through it yourself:** [open the map, filter and reduce stepper](visuals/09-arrays-and-higher-order-functions.html). It has seven small programs: `map`, `filter`, `reduce` with and without a start value, `reduce` on an empty array, `reduce` that groups, and `map` with a forgotten `return`. Each one shows the array, the current index, the callback call, the running total and the growing result. Write your guess first, then press Next.
 
 ### 5b. The question-asking methods
 
-These ask a question about the array and stop early when they know the answer. Notice what each one gives back when nothing matches. I ran all of these in Node.
+These ask a question about the array. They stop early when they know the answer. Notice what each one gives back when nothing matches. (All checked in Node.)
 
 | Method | The question | When something matches | When nothing matches |
 |---|---|---|---|
@@ -289,42 +291,46 @@ These ask a question about the array and stop early when they know the answer. N
 
 Things to remember:
 
-- `findIndex` returns `-1` when nothing is found, and `0` is a real position. So `if (index)` is wrong. Write `if (index !== -1)`.
+- `findIndex` gives `-1` when nothing is found, and `0` is a real position. So `if (index)` is wrong. Write `if (index !== -1)`.
 - `["a b", "c d"].map(s => s.split(" "))` gives `[ [ 'a', 'b' ], [ 'c', 'd' ] ]`. With `flatMap` it gives `[ 'a', 'b', 'c', 'd' ]`.
 - `includes` can find `NaN` (`[NaN].includes(NaN)` is `true`). `indexOf` cannot (`[NaN].indexOf(NaN)` is `-1`).
-- `some` stops at the first match. I checked: on `[1, 2, 3, 4]` with a test for `n === 2`, the callback ran 2 times. `forEach` always runs for every item (4 times).
+- `some` stops at the first match. On `[1, 2, 3, 4]`, testing for `n === 2` runs the callback 2 times. `forEach` always runs for every item (4 times).
 
 ### 5c. `sort`, and the copy methods that came later
 
 - `sort` **changes the original** and gives back the **same array**.
-- With no compare function, `sort` turns every item into a **string** and compares the text. `"10"` comes before `"9"` because the character `"1"` comes before `"9"`. That is why `[10, 9, 1].sort()` gives `[1, 10, 9]`.
-- Pass a compare function. `(a, b) => a - b` sorts numbers from small to large. It must return a **number**: negative means `a` goes first, positive means `b` goes first. A function that returns `true` or `false` does not work. In Node 24, `[3, 1, 2].sort((a, b) => a > b)` stays `[ 3, 1, 2 ]`.
-- To avoid changing the original, copy first: `[...arr].sort(...)` works in every environment.
+- With no compare function, `sort` turns every item into text and compares the text. `"10"` comes before `"9"` because the character `"1"` comes before `"9"`. That is why `[10, 9, 1].sort()` gives `[1, 10, 9]`.
+- To sort numbers, pass a compare function: `(a, b) => a - b` sorts from small to large. It must return a **number**. Negative means `a` goes first. Positive means `b` goes first. A function that returns `true` or `false` does not work. In Node 24, `[3, 1, 2].sort((a, b) => a > b)` stays `[ 3, 1, 2 ]`.
+- To keep the original, copy first: `[...arr].sort(...)`. This works everywhere.
+- Newer methods make the copy for you: `toSorted`, `toReversed`, `toSpliced` and `with`. They need Node 20 or newer. `toSorted` compares text the same way `sort` does, so `[10, 9, 1].toSorted()` is still `[1, 10, 9]`.
 
-New copy methods, and the version they came in:
+<details><summary>Go deeper (optional): versions, grouping, and lazy chains</summary>
 
-| Method | Does the same as | First Node version (MDN compatibility data) | Checked here |
+| Method | Does the same as | First Node version (MDN data) | Checked here |
 |---|---|---|---|
-| `toSorted(fn)` | a copy, then `sort(fn)` | 20.0.0 | exists in the installed Node v24.15.0 |
+| `toSorted(fn)` | a copy, then `sort(fn)` | 20.0.0 | exists in Node v24.15.0 |
 | `toReversed()` | a copy, then `reverse()` | 20.0.0 | exists |
 | `toSpliced(...)` | a copy, then `splice(...)` | 20.0.0 | exists |
 | `with(index, value)` | a copy with one item replaced | 20.0.0 | exists |
 | `Object.groupBy(array, fn)` | the `reduce` grouping in snippet C | **21.0.0** | exists |
 
-- `toSorted` has the **same** default text comparison as `sort`. `[10, 9, 1].toSorted()` is still `[1, 10, 9]`.
-- `Object.groupBy` returns an object with **no prototype**, so it prints as `[Object: null prototype] { ... }`. `Map.groupBy` gives a `Map`.
-- I confirmed the Node versions in MDN's browser compatibility data (the `mdn/browser-compat-data` files for `Array` and `Object`), and I confirmed with `typeof` that the installed Node has them. **I could not confirm whether Hermes (the engine in React Native) has them.** In a React Native app, run `typeof [].toSorted` and `typeof Object.groupBy` on a real build. `[...items].sort(...)` and `reduce` work everywhere.
+- `Object.groupBy` gives an object with **no prototype**, so it prints as `[Object: null prototype] { ... }`. `Map.groupBy` gives a `Map`.
+- I took the Node versions from MDN's browser compatibility data (the `mdn/browser-compat-data` files for `Array` and `Object`). I used `typeof` to check that the installed Node has them.
+- **I could not confirm whether Hermes (the engine in React Native) has them.** In a React Native app, run `typeof [].toSorted` and `typeof Object.groupBy` on a real build. `[...items].sort(...)` and `reduce` work everywhere.
+- **Lazy chains.** Iterator helpers do a whole chain in one pass: `[1, 2, 3, 4].values().filter(n => n % 2 === 0).map(n => n * 10).toArray()` gives `[ 20, 40 ]`. MDN's data says Node 22 or newer, and I ran it on Node 24.
+
+</details>
 
 ## 6. Why it exists and what it costs
 
-- **Problem without it:** the same hand written loop for every job (picture 2b). The reader must read the whole loop to learn what it does. Each copy can hide a typo.
-- **How it solves it:** the loop is written once, inside the method. The method name says the job: `map` changes each item, `filter` chooses items, `reduce` combines them. You write only the one different line, as a callback. This works because a function is a value.
-- **Cost or tradeoff:**
-  - **Every step in a chain makes a new array.** That costs time and memory. For normal lists it is fine, and it reads well. For a very large array, measure first. Then use one `reduce` or `for` loop. Or use lazy iterator helpers, which do one pass: `[1, 2, 3, 4].values().filter(n => n % 2 === 0).map(n => n * 10).toArray()` gives `[ 20, 40 ]`. MDN's data says Node 22 or newer, and I ran it on Node 24.
-  - **You cannot stop early** in `forEach`, `map`, `filter` or `reduce`. They visit every item. To stop early use `for...of` with `break`, or `some`, `every` or `find`.
+- **Problem without it:** you copy the same hand written loop for every job (picture 2b). The reader must read the whole loop to learn what it does. Each copy can hide a typo.
+- **How it solves it:** the loop is written once, inside the method. The method name tells the job: `map` changes each item, `filter` chooses items, `reduce` combines them. You write only the one different line, as a callback. This works because a function is a value that you can pass around.
+- **Cost:**
+  - **Every step in a chain makes a new array.** That costs time and memory. For normal lists it is fine, and it reads well. For a very large array, measure first. Then use one `reduce` or one `for` loop. (The Go deeper box in section 5 shows lazy chains.)
+  - **You cannot stop early** in `forEach`, `map`, `filter` or `reduce`. They visit every item. To stop early, use `for...of` with `break`, or `some`, `every` or `find`.
   - **`reduce` is easy to overuse.** If the callback is long, use a `for` loop, or two steps (`filter`, then `map`).
   - **`forEach` does not wait** for async callbacks (section 7).
-  - **Use `map` only when you want the new array.** If you do not use the result, use `forEach` or `for...of`.
+  - **Use `map` only when you want the new array.** If you ignore the result, use `forEach` or `for...of`.
 
 ## 7. Common mistakes
 
@@ -348,7 +354,7 @@ function topThree(scores) {
 // topThree([50, 9, 100, 75, 8]) gives [ 100, 75, 50 ] and scores stays the same
 ```
 
-**Why:** the default compares text, and `sort` and `reverse` both change the array they are called on.
+**Why:** the default compares text, and `sort` and `reverse` both change the array you call them on.
 
 **Wrong:** `map` with curly braces and no `return`.
 
@@ -363,7 +369,7 @@ console.log(doubled);   // [ undefined, undefined, undefined ]
 const doubled = [1, 2, 3].map(n => n * 2);   // [ 2, 4, 6 ]
 ```
 
-**Why:** a function with curly braces returns `undefined` unless it says `return`. The tab "map, forgot return" in the stepper shows `undefined` going into each slot.
+**Why:** a function with curly braces gives back `undefined` unless it says `return`. The stepper tab "map, forgot return" shows `undefined` going into each slot.
 
 **Wrong:** `reduce` with no start value, on a list that can be empty.
 
@@ -378,7 +384,7 @@ const total = [].reduce((sum, p) => sum + p);
 const total = [].reduce((sum, p) => sum + p, 0);   // 0
 ```
 
-**Why:** with no start value, `reduce` uses the first item as the accumulator. An empty array has none.
+**Why:** with no start value, `reduce` uses the first item as the running total. An empty array has no first item.
 
 **Wrong:** `forEach` with an async callback, then using the result.
 
@@ -396,7 +402,7 @@ console.log(results);   // []
 const results = await Promise.all(ids.map(async (id) => { await null; return id * 10; }));
 ```
 
-**Why:** `forEach` starts each async function and does not wait. It returns `undefined` at once. The next line runs while `results` is still empty. See [the event loop](11-the-event-loop.md) for why the code after an `await` runs later.
+**Why:** `forEach` starts each async function and does not wait. It gives back `undefined` at once. The next line runs while `results` is still empty. See [the event loop](11-the-event-loop.md) for why the code after an `await` runs later.
 
 ```mermaid
 sequenceDiagram
@@ -426,7 +432,9 @@ setTodos(todos.toSorted((a, b) => a.id - b.id));   // Node 20 or newer, check He
 setTodos([...todos].sort((a, b) => a.id - b.id));  // works everywhere
 ```
 
-**Why:** React compares the old and new state by reference. `sort` gives back the same array, so nothing looks new. The [React docs page on updating arrays](https://react.dev/learn/updating-arrays-in-state) has a table of methods to avoid and methods to prefer.
+**Why:** React compares the old and new state by checking if it is the same array. `sort` gives back the same array, so nothing looks new. The [React docs page on updating arrays](https://react.dev/learn/updating-arrays-in-state) has a table of methods to avoid and methods to prefer.
+
+<details><summary>More mistakes (optional): map(parseInt) and copies that share objects</summary>
 
 **Wrong:** `map(parseInt)`.
 
@@ -441,9 +449,9 @@ console.log(["1", "2", "3"].map(s => parseInt(s, 10)));   // [ 1, 2, 3 ]
 console.log(["1", "2", "3"].map(Number));                 // [ 1, 2, 3 ]
 ```
 
-**Why:** `map` calls the function with **three** arguments: item, index, array. `parseInt` reads the second one as the number base. So `parseInt("2", 1)` and `parseInt("3", 2)` give `NaN`.
+**Why:** `map` calls your function with **three** things: the item, the index and the array. `parseInt` reads the second one as the number base. So `parseInt("2", 1)` and `parseInt("3", 2)` give `NaN`.
 
-**Wrong:** thinking `map` makes a deep copy, and then changing an object in the copy.
+**Wrong:** thinking `map` makes a full copy of the objects, and then changing an object in the copy.
 
 ```js
 const users = [{ name: "Ana" }, { name: "Budi" }];
@@ -462,24 +470,31 @@ const updated = users.map(u => (u.id === 1 ? { ...u, name: "Ani" } : u));
 
 **Why:** the new array holds the same objects. Only the arrow to each object is copied.
 
+</details>
+
 ## 8. Watch and play
 
-Links checked on 2026-10-12.
+Links checked on 2026-10-12. Each page opened. For each video, the title and channel matched. I did not watch the videos, so their lengths are not checked.
 
-- **Video:** [Higher-order functions, Part 1 of Functional Programming in JavaScript](https://www.youtube.com/watch?v=BMUiFMZr7vk) by Fun Fun Function. I confirmed the title and channel through YouTube. I did not check the length. Watch it first, for the idea of passing a function to a function.
-- **Video:** [Reduce basics, Part 3 of Functional Programming in JavaScript](https://www.youtube.com/watch?v=Wl98eZpkp-c) by Fun Fun Function. Title and channel confirmed through YouTube, length not checked. Watch it after tab 3 of the stepper.
-- **Video:** [map, filter & reduce, Namaste JavaScript Ep. 19](https://www.youtube.com/watch?v=zdp0zrpKzIE) by Akshay Saini. Title and channel confirmed through YouTube, length not checked. Watch it for more `reduce` examples.
-- **Play with it:** [The map, filter and reduce stepper](visuals/09-arrays-and-higher-order-functions.html) in this folder. Predict, then press Next.
-- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). I confirmed the page loads and describes a step by step JavaScript visualizer. I did not run a program in it from here. Paste snippet A and see if it steps into the callback. If it does not, put a breakpoint inside the callback in your browser DevTools and step through it there.
-- **Play with it:** [JavaScript Array Explorer](https://sdras.github.io/array-explorer/) by Sarah Drasner. I confirmed the page title, and the GitHub page says it helps you pick the best array method for a job. The page runs from a script, so I could not check its inside. Use it to find a method by what you want to do.
-- **Read:** [Updating Arrays in State](https://react.dev/learn/updating-arrays-in-state) on react.dev. It has a table "avoid (mutates the array)" against "prefer (returns a new array)". It is the same idea as picture 2f.
-- **Read:** [Array on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array). Find the section "Copying methods and mutating methods". It has the `sort` to `toSorted` table.
-- **Read:** [Array.prototype.reduce() on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce). It says what the accumulator is on the first call, and when the TypeError is thrown.
-- **Read:** [Array.prototype.sort() on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort). It explains the string comparison and the `(a, b) => a - b` fix.
+- **Video:** [Higher-order functions, Part 1 of Functional Programming in JavaScript](https://www.youtube.com/watch?v=BMUiFMZr7vk) by Fun Fun Function. Watch it first, for the idea of giving a function to a function.
+- **Video:** [Reduce basics, Part 3 of Functional Programming in JavaScript](https://www.youtube.com/watch?v=Wl98eZpkp-c) by Fun Fun Function. Watch it after tab 3 of the stepper.
+- **Play with it:** [The map, filter and reduce stepper](visuals/09-arrays-and-higher-order-functions.html) in this folder. Guess first, then press Next.
+- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste snippet A. I did not run a program in it from here, so I do not know if it steps into the callback. If it does not, put a breakpoint inside the callback in your browser DevTools and step through it there.
+- **Play with it:** [JavaScript Array Explorer](https://sdras.github.io/array-explorer/) by Sarah Drasner. The page loads, but I could not test it. Use it to find a method by what you want to do.
+- **Read:** [Updating Arrays in State](https://react.dev/learn/updating-arrays-in-state) on react.dev. A table of "avoid" against "prefer" methods. It is the same idea as picture 2f.
+- **Read:** [Array on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array). Find the section "Copying methods and mutating methods".
+
+<details><summary>More links (optional)</summary>
+
+- **Video:** [map, filter & reduce, Namaste JavaScript Ep. 19](https://www.youtube.com/watch?v=zdp0zrpKzIE) by Akshay Saini. More `reduce` examples.
+- **Read:** [Array.prototype.reduce() on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce). It says what the running total is on the first call, and when the TypeError is thrown.
+- **Read:** [Array.prototype.sort() on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort). It explains the text comparison and the `(a, b) => a - b` fix.
 - **Read:** [Array.prototype.forEach() on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach). It says `forEach` "expects a synchronous function" and does not wait for promises.
-- **Read:** [Array methods](https://javascript.info/array-methods) on javascript.info. Short examples of `map`, `filter`, `reduce` and `sort`, with the line "The items are sorted as strings by default".
-- **Read:** [Higher-Order Functions](https://eloquentjavascript.net/05_higher_order.html) in Eloquent JavaScript. Chapter 5, with sections on filtering, `map` and `reduce`. It is text with code, not diagrams.
+- **Read:** [Array methods](https://javascript.info/array-methods) on javascript.info. Short examples, with the line "The items are sorted as strings by default".
+- **Read:** [Higher-Order Functions](https://eloquentjavascript.net/05_higher_order.html) in Eloquent JavaScript. Chapter 5. It is text with code, not diagrams.
 - **Read:** [50+ Must-know JavaScript Interview Questions by Ex-interviewers (2026)](https://www.greatfrontend.com/blog/50-must-know-javascript-interview-questions-by-ex-interviewers) on GreatFrontEnd. It has a question on `toSorted`, `toReversed`, `toSpliced` and `with`, so interviewers do ask about them now.
+
+</details>
 
 ## 9. Practice
 
@@ -603,21 +618,31 @@ const predictions = {
 };
 ```
 
-Notes on the predictions: `s5` is `0` because each async callback stops at its `await`, so `sum` is still `0` when `console.log` runs. `s6` works because `n % 2` gives `1` or `0`, and `filter` keeps truthy values.
+Notes on the predictions:
+
+- `s5` is `0` because each async callback stops at its `await`, so `sum` is still `0` when `console.log` runs.
+- `s6` works because `n % 2` gives `1` or `0`. `filter` keeps the item when the callback gives `1` (counts as true), and drops it for `0` (counts as false).
 
 </details>
 
 ## 10. Interview question
 
-**Q:** "What is a higher order function? Explain `map`, `filter` and `reduce`. Which array methods mutate the array? Why does `[10, 9, 1].sort()` give `[1, 10, 9]`? Then write your own `reduce`."
+**Q:** "What is a higher order function? Explain `map`, `filter` and `reduce`. Which array methods change the array? Why does `[10, 9, 1].sort()` give `[1, 10, 9]`? Then write your own `reduce`."
 
 Interviewers often ask you to write `map`, `filter` or `reduce` yourself. Recent question lists also ask about `toSorted`, `toReversed`, `toSpliced` and `with`.
 
 <details><summary>A strong answer, in four parts</summary>
 
-1. **Problem:** without these methods you copy the same hand written loop for every job. Only one line changes each time, and each copy can hide a typo. The loop also hides the job from the reader.
-2. **How it works:** a higher order function takes a function or returns one. `map`, `filter` and `reduce` take a callback and call it once per item, in order, with the item, the index and the array. `map` returns a new array of the same length with the return values. `filter` returns a new array with only the items where the callback is truthy. `reduce` carries an accumulator: the return value of each call becomes the accumulator of the next call, and the last one is the result. Give it a start value, because without one an empty array throws a `TypeError`. `push`, `pop`, `splice`, `sort` and `reverse` change the original. `map`, `filter`, `slice` and the newer `toSorted`, `toReversed`, `toSpliced` and `with` return a new array. `sort` compares as text by default, so `10` comes before `9`. Pass `(a, b) => a - b`.
-3. **Tradeoff:** every step in a chain makes a new array, so on very large lists, measure and think about one pass. You cannot `break` out of them, and `forEach` does not wait for async callbacks. The copies are shallow, so objects inside are shared. `toSorted` and `Object.groupBy` need Node 20 and Node 21, so check the runtime.
+1. **Problem:** without these methods you copy the same hand written loop for every job. Only one line changes each time, and each copy can hide a typo. The loop also hides the real job from the reader.
+2. **How it works:**
+   - A higher order function takes a function, or gives one back.
+   - `map`, `filter` and `reduce` take a callback. They call it once per item, in order, with the item, the index and the array.
+   - `map` gives a new array of the same length, made from the return values.
+   - `filter` gives a new array with only the items where the callback gives a true value.
+   - `reduce` carries a running total. The value one call returns becomes the running total of the next call. The last one is the result. Always give a start value, because an empty array with no start value throws a `TypeError`.
+   - `push`, `pop`, `splice`, `sort` and `reverse` change the original. `map`, `filter`, `slice` and the newer `toSorted`, `toReversed`, `toSpliced` and `with` give a new array.
+   - `sort` compares as text by default, so `10` comes before `9`. Pass `(a, b) => a - b`.
+3. **Tradeoff:** every step in a chain makes a new array, so on very large lists, measure and think about one pass. You cannot `break` out of them, and `forEach` does not wait for async callbacks. The copies share the same objects. `toSorted` needs Node 20 and `Object.groupBy` needs Node 21, so check where your code runs.
 4. **My example:** *This is an idea, not a fact. Replace it with your own real story from DBO, Unloan, ZWS or Skyworx.* In a cart screen, the total is `items.reduce((sum, item) => sum + item.price * item.qty, 0)`. In a React list, sorting the state with `sort()` gives back the same array, so the screen may not update. Using `[...items].sort(...)` makes a new array.
 
 </details>
@@ -636,25 +661,25 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 ## 12. Review questions (day 1, 3, 7, 21)
 
-1. What does `map` return, what does `filter` return, and what does `reduce` return? Say it with the length and the values.
+1. What does `map` give back, what does `filter` give back, and what does `reduce` give back? Say it with the length and the values.
 2. In `[10, 20, 30].reduce((sum, n) => sum + n, 0)`, what is `sum` in call 2? What happens with no start value on an empty array?
 3. Why does `[10, 9, 1].sort()` give `[1, 10, 9]`? Name two ways to sort without changing the original.
 4. Draw the picture from section 2f from memory: three groups of methods, and which group is dangerous for React state.
 
 <details><summary>Answers</summary>
 
-1. `map` returns a new array with the **same length** and new values. `filter` returns a new array with **fewer items** (or the same number) and the **same values**. `reduce` returns **one value** of any type.
-2. `sum` is `10`, the value call 1 returned. With no start value on an empty array, `reduce` throws a `TypeError`, because there is no first item to use as the accumulator.
+1. `map` gives a new array with the **same length** and new values. `filter` gives a new array with **fewer items** (or the same number) and the **same values**. `reduce` gives **one value** of any type.
+2. `sum` is `10`, the value call 1 returned. With no start value on an empty array, `reduce` throws a `TypeError`, because there is no first item to start with.
 3. With no compare function, `sort` turns each number into text and compares the text, so `"10"` is before `"9"`. It also changes the original array. Use `[...arr].sort((a, b) => a - b)` (works everywhere) or `arr.toSorted((a, b) => a - b)` (Node 20 or newer).
-4. Red: methods that change the original (`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `fill`, `copyWithin`). Green: methods that return a new array (`map`, `filter`, `slice`, `concat`, `flat`, `flatMap`, `toSorted`, `toReversed`, `toSpliced`, `with`). Grey: methods that return something else and change nothing (`forEach`, `reduce`, `find`, `findIndex`, `some`, `every`, `includes`, `indexOf`, `join`, `at`). Red is dangerous for React state.
+4. Red: methods that change the original (`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, `fill`, `copyWithin`). Green: methods that give a new array (`map`, `filter`, `slice`, `concat`, `flat`, `flatMap`, `toSorted`, `toReversed`, `toSpliced`, `with`). Grey: methods that give something else and change nothing (`forEach`, `reduce`, `find`, `findIndex`, `some`, `every`, `includes`, `indexOf`, `join`, `at`). Red is dangerous for React state.
 
 </details>
 
 ## Connected lessons
 
-- Functions (lesson 04, not written yet): a function is a value, so you can pass it to `map` or return it from another function. This is the reason higher order functions exist.
+- Functions (lesson 04, not written yet): a function is a value, so you can pass it to `map` or return it from another function. This is why higher order functions exist.
 - [Closures](05-closures.md): a callback remembers the variables around it. That is how `p => p * rate` can use `rate` from outside.
-- [Classes](08-classes.md): an array is an instance of the built in `Array` class, and `map` and `filter` are methods on `Array.prototype`.
+- [Classes](08-classes.md): an array is made by the built in `Array` class, and `map` and `filter` are methods on `Array.prototype`.
 - [Destructuring, spread and rest](10-destructuring-spread-and-rest.md): `[...arr]` and `{ ...obj }` are the usual way to copy before you change something.
 - [The event loop](11-the-event-loop.md): why `forEach` with an async callback does not wait, and when the code after an `await` runs.
 - Promises (lesson 13, not written yet): `Promise.all(array.map(async ...))` is the usual way to run many async jobs and wait for all of them.

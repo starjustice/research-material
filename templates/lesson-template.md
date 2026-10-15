@@ -6,7 +6,13 @@
 
 ## 1. The idea in one sentence
 
-<One plain sentence. No jargon. If a term is needed, define it right here.>
+<One plain sentence, in everyday words. Say what it does, not what it is called.>
+
+New words, at most 4. One short line each, in everyday words. Give the interview word in brackets.
+
+- **<word>:** <meaning in plain words> (interview word: <term>)
+
+Simple wording rules: see `my-learning/learner-profile.md`. Keep the main path to about 1,500 words of prose. Put engine details, version numbers, rare edge cases and extra links inside `<details><summary>Go deeper (optional)</summary>`.
 
 ## 2. The pictures (at least five)
 
@@ -89,7 +95,7 @@ graph LR
 
 ## 8. Watch and play
 
-<2 to 4 links, each checked to be real and working on the day the lesson was made. Prefer a short video, an interactive visualizer, and one doc page with good diagrams. Say why each is worth opening.>
+<Say once how the links were checked and on what date. 4 to 7 links, each checked to be real and working. Prefer a short video, an interactive visualizer, and one doc page with good diagrams. One short line per link: why to open it and what to try. Extra links go in a Go deeper box.>
 
 - **Video:** [<title>](<url>) <channel, length> - <what it shows>
 - **Play with it:** [<tool>](<url>) - <what to try, e.g. "paste the code from section 4 and step through it">
