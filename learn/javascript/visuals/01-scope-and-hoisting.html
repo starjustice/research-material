@@ -147,7 +147,7 @@
     </div>
   </div>
 
-  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
   <div class="note" id="note"></div>
 
   <div class="bar"><i id="bar"></i></div>
@@ -161,7 +161,7 @@
 
   <div class="result" id="result"></div>
 
-  <p class="legend"><b>The rule to remember:</b> before line 1 runs, every name is set up. <b>var</b> starts as <b>undefined</b>. <b>let</b> and <b>const</b> start <b>locked</b> until their line runs. A <b>function declaration</b> starts as the <b>whole function</b>. Your code is never moved. Only the names are registered early.</p>
+  <p class="legend"><b>The rule to remember:</b> before line 1 runs, JavaScript makes a slot for every name. <b>var</b> starts as <b>undefined</b>. <b>let</b> and <b>const</b> start <b>locked</b> until their line runs. A <b>function declaration</b> starts as the <b>whole function</b>. Your code is never moved. Only the slots are made early.</p>
 </div>
 
 <script>
@@ -187,7 +187,7 @@ const PRESETS = [
       'console.log(a);'
     ],
     steps: [
-      ST(null, "setup", "<b>Setup.</b> Before any line runs, the engine reads the scope. It finds <code>var a</code> and creates the name <b>a</b> with the value <b>undefined</b>. Notice that line 2 has not run yet.",
+      ST(null, "setup", "<b>Setup.</b> Before any line runs, JavaScript reads the scope. It sees <code>var a</code> and makes a slot <b>a</b> holding <b>undefined</b>. Notice that line 2 has not run yet.",
         [GL(un("a"))]),
       ST(0, "run", "Line 1 reads <code>a</code>. The slot exists and holds <b>undefined</b>. So it prints <b>undefined</b>. There is no error.",
         [GL(un("a"))], ["undefined"]),
@@ -201,20 +201,20 @@ const PRESETS = [
   // ---------------------------------------------------------------- 2
   {
     name: "let has a dead zone",
-    why: "A let is set up early too, but it is locked until its line runs. Reading it in that time (the temporal dead zone) throws a ReferenceError. The try and catch is only here so the program can keep going.",
+    why: "A let slot is made early too, but it is locked until its line runs. Reading it while it is locked throws a ReferenceError. (Interview word for this locked time: temporal dead zone.) The try and catch is only here so the program can keep going.",
     code: [
       'try { console.log(b); } catch (e) { console.log(e.name); }',
       'let b = 5;',
       'console.log(b);'
     ],
     steps: [
-      ST(null, "setup", "<b>Setup.</b> The engine finds <code>let b</code> and creates the name <b>b</b>, but it <b>locks</b> it. The locked time is called the <b>temporal dead zone</b>.",
+      ST(null, "setup", "<b>Setup.</b> JavaScript sees <code>let b</code> and makes a slot <b>b</b>, but it <b>locks</b> it. (Interview word for the locked time: <b>temporal dead zone</b>.)",
         [GL(tdz("b"))]),
-      ST(0, "error", "Line 1 tries to read <code>b</code>. It is locked, so the engine throws a <b>ReferenceError</b>: <i>Cannot access 'b' before initialization</i>. Compare with the last program, where <code>var</code> gave a quiet <code>undefined</code>.",
+      ST(0, "error", "Line 1 tries to read <code>b</code>. It is locked, so JavaScript throws a <b>ReferenceError</b>: <i>Cannot access 'b' before initialization</i>. Compare with the last program, where <code>var</code> gave a quiet <code>undefined</code>.",
         [GL(tdz("b"))]),
       ST(0, "run", "The <code>catch</code> block catches the error and prints its name. (Without try and catch, the whole program would stop here.)",
         [GL(tdz("b"))], [ERR + "ReferenceError"]),
-      ST(1, "run", "Line 2 runs. The declaration is reached, so the lock opens: the dead zone <b>ends</b> and <code>b</code> gets the value 5.",
+      ST(1, "run", "Line 2 runs. JavaScript reaches the <code>let</code> line, so the lock <b>opens</b> and <code>b</code> gets the value 5.",
         [GL(val("b", 5))], [ERR + "ReferenceError"]),
       ST(2, "run", "Line 3 reads <code>b</code>. It works now.",
         [GL(val("b", 5))], [ERR + "ReferenceError", "5"]),
@@ -233,15 +233,15 @@ const PRESETS = [
       'greet();'
     ],
     steps: [
-      ST(null, "setup", "<b>Setup.</b> <code>function hello</code> is a declaration, so <b>hello</b> is created as the <b>whole function</b>. <code>var greet</code> is created as <b>undefined</b>, because the function on the right side is only an assignment.",
+      ST(null, "setup", "<b>Setup.</b> <code>function hello</code> is a declaration, so the slot <b>hello</b> holds the <b>whole function</b>. The slot <b>greet</b> holds <b>undefined</b>. The function on the right is only put into it when line 4 runs.",
         [GL(fnv("hello"), un("greet"))]),
       ST(0, "run", "Line 1 calls <code>hello()</code>. It is ready, even though its line is further down. It prints <b>hello</b>.",
         [GL(fnv("hello"), un("greet"))], ["hello"]),
-      ST(1, "error", "Line 2 calls <code>greet()</code>. But <b>greet</b> holds <b>undefined</b>, and you cannot call undefined. The engine throws a <b>TypeError</b>: <i>greet is not a function</i>.",
+      ST(1, "error", "Line 2 calls <code>greet()</code>. But <b>greet</b> holds <b>undefined</b>, and you cannot call undefined. JavaScript throws a <b>TypeError</b>: <i>greet is not a function</i>.",
         [GL(fnv("hello"), un("greet"))], ["hello"]),
       ST(1, "run", "The <code>catch</code> prints the error name.",
         [GL(fnv("hello"), un("greet"))], ["hello", ERR + "TypeError"]),
-      ST(2, "run", "Line 3: nothing to do. This declaration was already handled in setup.",
+      ST(2, "run", "Line 3: nothing to do. This function was already put in its slot during setup.",
         [GL(fnv("hello"), un("greet"))], ["hello", ERR + "TypeError"]),
       ST(3, "run", "Line 4 runs the assignment. Now <b>greet</b> holds the function.",
         [GL(fnv("hello"), fnv("greet"))], ["hello", ERR + "TypeError"]),
@@ -263,9 +263,9 @@ const PRESETS = [
       'try { console.log(y); } catch (e) { console.log(e.message); }'
     ],
     steps: [
-      ST(null, "setup", "<b>Setup of the global scope.</b> <code>var x</code> is created as <b>undefined</b>. There is no <b>y</b> here, because <code>let y</code> belongs to the curly braces, not to the global scope.",
+      ST(null, "setup", "<b>Setup of the global scope.</b> The slot <code>x</code> starts as <b>undefined</b>. There is no <b>y</b> here, because <code>let y</code> belongs to the curly braces, not to the global scope.",
         [GL(un("x"))]),
-      ST(0, "run", "Line 1 enters the curly braces. The engine makes a <b>new block scope</b> and sets up <code>let y</code> inside it, <b>locked</b>.",
+      ST(0, "run", "Line 1 enters the curly braces. JavaScript makes a <b>new block scope</b> and makes the slot <code>y</code> inside it, <b>locked</b>.",
         [GL(un("x")), BL("Block scope", tdz("y"))]),
       ST(1, "run", "<code>var x = 1</code> ignores the curly braces. It writes into the <b>global</b> <code>x</code>.",
         [GL(val("x", 1)), BL("Block scope", tdz("y"))]),
@@ -275,7 +275,7 @@ const PRESETS = [
         [GL(val("x", 1))]),
       ST(4, "run", "Line 5 reads <code>x</code>. It is in the global scope, so it prints <b>1</b>. The curly braces did not hide it.",
         [GL(val("x", 1))], ["1"]),
-      ST(5, "error", "Line 6 reads <code>y</code>. The engine searches the current scope, then the global scope. <b>y</b> is not in either, so it throws a <b>ReferenceError</b>: <i>y is not defined</i>. This is different from the dead zone: here the name does not exist at all.",
+      ST(5, "error", "Line 6 reads <code>y</code>. JavaScript searches the current scope, then the global scope. <b>y</b> is not in either, so it throws a <b>ReferenceError</b>: <i>y is not defined</i>. This is different from a locked slot: here there is no slot at all.",
         [GL(val("x", 1))], ["1"]),
       ST(5, "run", "The <code>catch</code> prints the message.",
         [GL(val("x", 1))], ["1", ERR + "y is not defined"]),
@@ -292,7 +292,7 @@ const PRESETS = [
       '}'
     ],
     steps: [
-      ST(null, "setup", "<b>Setup.</b> <code>var i</code> is created once, as <b>undefined</b>, in the global scope. Remember: there will be only one <b>i</b>.",
+      ST(null, "setup", "<b>Setup.</b> The slot <code>i</code> is made once, holding <b>undefined</b>, in the global scope. Remember: there will be only one <b>i</b>.",
         [GL(un("i"))]),
       ST(0, "run", "The loop starts. <code>i = 0</code>. The test <code>0 &lt; 3</code> is true.",
         [GL(val("i", 0))]),
@@ -333,7 +333,7 @@ const PRESETS = [
         [GL(), LP("Loop pass 1", val("i", 0))]),
       ST(1, "run", "Callback 1 is handed to the browser. It remembers <b>pass 1</b>, so it will read the <b>i</b> of pass 1.",
         [GL(), LP("Loop pass 1", val("i", 0))], [], ["callback 1 sees pass 1"]),
-      ST(0, "run", "Before <code>i++</code>, the engine makes a <b>new scope for pass 2</b> and copies <b>i</b> into it. Then it adds one: <code>i = 1</code>. Pass 1 is untouched.",
+      ST(0, "run", "Before <code>i++</code>, JavaScript makes a <b>new scope for pass 2</b> and copies <b>i</b> into it. Then it adds one: <code>i = 1</code>. Pass 1 is untouched.",
         [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1))], [], ["callback 1 sees pass 1"]),
       ST(1, "run", "Callback 2 is handed to the browser. It remembers <b>pass 2</b>.",
         [GL(), LP("Loop pass 1", val("i", 0)), LP("Loop pass 2", val("i", 1))], [], ["callback 1 sees pass 1", "callback 2 sees pass 2"]),

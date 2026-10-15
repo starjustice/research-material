@@ -165,7 +165,7 @@
     <a href="../07-objects-and-prototypes.md" id="lessonLink">Open the lesson ↗</a>
   </div>
   <h1>Objects and prototypes stepper</h1>
-  <p class="sub">Every object has a hidden link to another object. Press Next and watch the engine ask one object at a time. It follows the link only when the property is not there.</p>
+  <p class="sub">Every object has a hidden link to another object. Press Next and watch JavaScript ask one object at a time. It follows the link only when the property is not there.</p>
 
   <div class="tabs" id="tabs"></div>
 
@@ -206,7 +206,7 @@
     </div>
   </div>
 
-  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
   <div class="note" id="note"></div>
 
   <div class="bar"><i id="bar"></i></div>
@@ -221,6 +221,7 @@
   <div class="result" id="result"></div>
 
   <p class="legend"><b>The rule to remember:</b> reading a property <b>walks up</b> the chain, one object at a time, and stops at the first object that owns the name. If it reaches <b>null</b>, the answer is <b>undefined</b>. Writing a property never walks up. It always changes the object you wrote it on.</p>
+  <p class="legend"><b>Words on this page:</b> an <b>own property</b> is stored on the object itself. An <b>inherited</b> property is one the object finds by walking up the hidden links. The line of hidden links is the <b>chain</b> (interview word: <i>prototype chain</i>). A <b>constructor</b> is a normal function that you call with <code>new</code> to make objects.</p>
 </div>
 
 <script>
@@ -321,11 +322,11 @@ function lookupPreset(key) {
   for (let i = 0; i < CHAIN.length; i++) {
     const name = TITLES[i];
     steps.push(ST(5, "run",
-      "<b>Level " + (i + 1) + ": " + name + ".</b> The engine asks only this object: does it have " + k + " as its <b>own</b> property? It does not look at the objects above or below yet.",
+      "<b>Level " + (i + 1) + ": " + name + ".</b> JavaScript asks only this object: does it have " + k + " as its <b>own</b> property? It does not look at the objects above or below yet.",
       boxes(i, "ask"), [], 0));
     if (owner === i) {
       steps.push(ST(5, "found",
-        "<b>Yes.</b> <b>" + name + "</b> owns " + k + ". The engine <b>stops</b> and returns its value: <b>" + esc(show(real)) + "</b>." +
+        "<b>Yes.</b> <b>" + name + "</b> owns " + k + ". JavaScript <b>stops</b> and returns its value: <b>" + esc(show(real)) + "</b>." +
         (i === 0 ? " It was on rex itself, so the hidden link was not used." : " The levels after " + name + " are never looked at."),
         boxes(i, "yes"), [], 1));
       const lvlName = TITLES[i];
@@ -336,11 +337,11 @@ function lookupPreset(key) {
     }
     const next = i + 1 < CHAIN.length ? TITLES[i + 1] : "null";
     steps.push(ST(5, "run",
-      "<b>No.</b> " + name + " does not own " + k + ". The engine follows the hidden link <b>[[Prototype]]</b> to <b>" + next + "</b>.",
+      "<b>No.</b> " + name + " does not own " + k + ". JavaScript follows the hidden link <b>[[Prototype]]</b> to <b>" + next + "</b>.",
       boxes(i, "no"), [], 2));
     if (i === CHAIN.length - 1) {
       steps.push(ST(5, "miss",
-        "The link of <b>Object.prototype</b> is <b>null</b>. This is the end of the chain. There is nothing left to ask, so the engine returns <b>undefined</b>. It does <b>not</b> throw an error.",
+        "The link of <b>Object.prototype</b> is <b>null</b>. This is the end of the chain. There is nothing left to ask, so JavaScript returns <b>undefined</b>. It does <b>not</b> throw an error.",
         boxes(CHAIN.length, "", "ask"), [], 3));
       steps.push(ST(null, "done",
         "Finished. <b>result = undefined</b>. All four objects were asked, and none of them owns " + k + ". (Calling it, like <code>" + esc(access) + "()</code>, would throw a <b>TypeError</b>, because you cannot call undefined.)",
@@ -354,9 +355,9 @@ function lookupPreset(key) {
   return {
     name: "1. Look up a property", picker: true, code,
     why: owner === -1
-      ? "A missing property is not an error. The engine asks every object in the chain, reaches null, and answers undefined."
-      : "The engine asks one object at a time, starting at rex, and stops at the first owner. That is why a closer object can hide a farther one (shadowing).",
-    rulesTitle: "What the engine does for a read",
+      ? "A missing property is not an error. JavaScript asks every object in the chain, reaches null, and answers undefined."
+      : "JavaScript asks one object at a time, starting at rex, and stops at the first owner. That is why a closer object can hide a farther one (shadowing).",
+    rulesTitle: "What JavaScript does for a read",
     rules: [
       "Look at the <b>own</b> properties of this object.",
       "Found it? <b>Stop</b> and return the value.",
@@ -364,7 +365,7 @@ function lookupPreset(key) {
       "The link is <code>null</code>? <b>Stop</b> and return <code>undefined</code>."
     ],
     outLabel: "Result",
-    predict: { type: "level", label: "At which level will the engine find <b>" + esc(key) + "</b>, or will it never find it?", answer, answerText },
+    predict: { type: "level", label: "At which level will JavaScript find <b>" + esc(key) + "</b>, or will it never find it?", answer, answerText },
     steps
   };
 }
@@ -377,7 +378,7 @@ const animalBox = (o = {}) => B("animal", "animal", "mine", "your object", [P("e
 
 const PRESET_RW = {
   name: "2. Reading and writing",
-  why: "Reading walks up the chain. Writing never does: it creates or changes an own property on the object you wrote on. The inherited value is hidden (shadowed), not changed. Deleting the own property lets the inherited value show again.",
+  why: "Reading walks up the chain. Writing never does: it makes or changes an own property on the object you wrote on. The inherited value is only hidden, not changed. (Interview word: shadowed.) Deleting the own property lets the inherited value show again.",
   code: [
     'const animal = { eats: true };',
     'const rex = Object.create(animal);',
@@ -397,13 +398,13 @@ const PRESET_RW = {
   outLabel: "Console output",
   predict: { type: "text", label: "What do the four <code>console.log</code> lines print, in order?", placeholder: "the printed values in order, with spaces", answer: "true false true true" },
   steps: [
-    ST(0, "run", "Line 1 creates <b>animal</b> with one own property, <code>eats: true</code>. Its hidden link points to the built-in Object.prototype.",
+    ST(0, "run", "Line 1 makes <b>animal</b> with one own property, <code>eats: true</code>. Its hidden link points to the built-in Object.prototype.",
       [B("animal", "animal", "mine", "your object", [P("eats", "true")], { link: "hidden link [[Prototype]] → Object.prototype", state: "changed" }), OBJP()]),
     ST(1, "run", "Line 2 creates <b>rex</b> with <code>Object.create(animal)</code>. rex has <b>no</b> own properties. Its hidden link points to animal.",
       [rexBox([], { state: "changed" }), animalBox(), OBJP()]),
     ST(2, "run", "<b>Reading</b> <code>rex.eats</code>. Does rex own <code>eats</code>? No. Follow the link. Does animal own it? <b>Yes</b>, the value is <b>true</b>. It prints <b>true</b>.",
       [rexBox([], { state: "no", verdict: "No. Not here." }), animalBox({ state: "yes", verdict: "Yes. Found it here." }), OBJP()], ["true"], 0),
-    ST(3, "run", "<b>Writing</b> <code>rex.eats = false</code>. The engine does <b>not</b> walk up the chain to change animal. It creates a new <b>own</b> property on <b>rex</b>. This is <b>shadowing</b>: rex's own <code>eats</code> now hides the one on animal.",
+    ST(3, "run", "<b>Writing</b> <code>rex.eats = false</code>. JavaScript does <b>not</b> walk up the chain to change animal. It makes a new <b>own</b> property on <b>rex</b>. This is <b>shadowing</b>: rex's own <code>eats</code> now hides the one on animal.",
       [rexBox([P("eats", "false", "hit")], { state: "changed" }), animalBox(), OBJP()], ["true"], 1),
     ST(4, "run", "<b>Reading</b> <code>rex.eats</code> again. rex owns <code>eats</code> now, so the lookup stops at level 1. It prints <b>false</b>. The animal is never asked.",
       [rexBox([P("eats", "false", "hit")], { state: "yes", verdict: "Yes. Found it here." }), animalBox(), OBJP()], ["true", "false"], 0),
@@ -411,7 +412,7 @@ const PRESET_RW = {
       [rexBox([P("eats", "false")]), animalBox({ state: "yes", verdict: "Own property: true" }), OBJP()], ["true", "false", "true"], 1),
     ST(6, "run", "<b>Deleting</b> <code>delete rex.eats</code>. This removes only rex's <b>own</b> property. rex is empty again.",
       [rexBox([], { state: "changed" }), animalBox(), OBJP()], ["true", "false", "true"], 2),
-    ST(7, "run", "<b>Reading</b> <code>rex.eats</code>. rex has no own property, so the engine walks up to animal and finds <b>true</b>. The hidden value shows again.",
+    ST(7, "run", "<b>Reading</b> <code>rex.eats</code>. rex has no own property, so JavaScript walks up to animal and finds <b>true</b>. The hidden value shows again.",
       [rexBox([], { state: "no", verdict: "No. Not here." }), animalBox({ state: "yes", verdict: "Yes. Found it here." }), OBJP()], ["true", "false", "true", "true"], 0),
     ST(null, "done", "Finished. It printed <b>true false true true</b>. One object was shadowed, and nothing above it ever changed.",
       [rexBox([]), animalBox(), OBJP()], ["true", "false", "true", "true"], 0)
@@ -445,7 +446,7 @@ const PRESET_COPY = {
   outLabel: "Console output",
   predict: { type: "text", label: "What does the last line print?", placeholder: "true or false", answer: "false" },
   steps: [
-    ST(null, "setup", "<b>Setup.</b> The function declaration <code>Dog</code> is ready. The engine also made <b>Dog.prototype</b>, a plain object that only holds <code>constructor</code>. Nothing has called Dog yet, so there are <b>0</b> bark functions.",
+    ST(null, "setup", "<b>Setup.</b> The function declaration <code>Dog</code> is ready. JavaScript also made <b>Dog.prototype</b>, a plain object that only holds <code>constructor</code>. Nothing has called Dog yet, so there are <b>0</b> bark functions.",
       [dpBox([CTOR])], [], -1, { n: 0, label: COUNT }),
     ST(4, "run", "<code>new Dog(\"Rex\")</code> makes a new object and links it to Dog.prototype. Then the constructor body runs with <code>this</code> = the new object. Line 2 gives it <code>name</code>. Line 3 makes a <b>new function object</b> and gives it to rex as <code>bark</code>. The count is <b>1</b>.",
       [dpBox([CTOR]), dogObj("rex", "rex", [P("name", "\"Rex\""), P("bark", "ƒ #1", "ptr")], { state: "changed" })], [], 0, { n: 1, label: COUNT }),
@@ -460,7 +461,7 @@ const PRESET_COPY = {
 
 const PRESET_SHARED = {
   name: "4. One shared method",
-  why: "The method lives once on Dog.prototype. Each dog keeps only its own data (name) and a hidden link. rex.bark and fido.bark both walk up and find the very same function, so === says true, and a fix to the method is made in one place.",
+  why: "The method lives once on Dog.prototype. Each dog keeps only its own data (name) and a hidden link. rex.bark and fido.bark both walk up and find the very same function. So === says true. And a fix to the method is made in one place.",
   code: [
     'function Dog(name) { this.name = name; }',
     'Dog.prototype.bark = function () { return this.name + " says woof"; };',
@@ -504,7 +505,7 @@ const NEW_RULES = [
 ];
 const PRESET_NEW = {
   name: "5. What new does",
-  why: "new does four things: make a blank object, link it to F.prototype, run F with this set to that object, and return the object. The link in step 2 is the only reason rex can find bark later.",
+  why: "new does four things. 1: make a blank object. 2: link it to F.prototype. 3: run F with this set to that object. 4: return the object. The link in step 2 is the only reason rex can find bark later.",
   code: [
     'function Dog(name) { this.name = name; }',
     'Dog.prototype.bark = function () { return this.name + " says woof"; };',
@@ -516,15 +517,15 @@ const PRESET_NEW = {
   outLabel: "Console output",
   predict: { type: "text", label: "What does the last line print?", placeholder: "the printed text", answer: "Rex says woof" },
   steps: [
-    ST(null, "setup", "<b>Setup.</b> <code>function Dog</code> is a declaration, so it exists before line 1. For every normal function the engine also makes a plain object called <b>Dog.prototype</b>, with <code>constructor</code> pointing back to Dog. The function's <code>prototype</code> property points to it. Notice that this is <b>not</b> Dog's own hidden link.",
+    ST(null, "setup", "<b>Setup.</b> <code>function Dog</code> is a declaration, so it exists before line 1. For every normal function JavaScript also makes a plain object called <b>Dog.prototype</b>, with <code>constructor</code> pointing back to Dog. The function's <code>prototype</code> property points to it. Notice that this is <b>not</b> Dog's own hidden link.",
       [dogFn(), dpBox([CTOR])]),
     ST(1, "run", "Line 2 adds <code>bark</code> to <b>Dog.prototype</b>. It is stored once.",
       [dogFn(), dpBox(DP_BARK, { state: "changed" })]),
-    ST(2, "run", "<b>new, thing 1.</b> The engine creates a <b>blank object</b>. It has no properties yet, and it is not linked to Dog.prototype yet.",
+    ST(2, "run", "<b>new, thing 1.</b> JavaScript makes a <b>blank object</b>. It has no properties yet, and it is not linked to Dog.prototype yet.",
       [dogFn(), dpBox(DP_BARK), newObj("(blank object)", [], "hidden link [[Prototype]] → not set yet", { state: "changed" })], [], 0),
-    ST(2, "run", "<b>new, thing 2.</b> The engine reads <code>Dog.prototype</code> and sets the new object's hidden link <code>[[Prototype]]</code> to it. This is where the link is made. Look at the arrow: it points up.",
+    ST(2, "run", "<b>new, thing 2.</b> JavaScript reads <code>Dog.prototype</code> and sets the new object's hidden link <code>[[Prototype]]</code> to it. This is where the link is made. Look at the arrow: it points up.",
       [dogFn(), dpBox(DP_BARK), newObj("(blank object)", [], "hidden link [[Prototype]] → Dog.prototype", { state: "changed" })], [], 1),
-    ST(0, "run", "<b>new, thing 3.</b> The engine runs the body of <code>Dog</code> with <code>this</code> = the new object. <code>this.name = name</code> writes an <b>own</b> property on the new object.",
+    ST(0, "run", "<b>new, thing 3.</b> JavaScript runs the body of <code>Dog</code> with <code>this</code> = the new object. <code>this.name = name</code> writes an <b>own</b> property on the new object.",
       [dogFn(), dpBox(DP_BARK), newObj("(new object)", [P("name", "\"Rex\"", "hit")], "hidden link [[Prototype]] → Dog.prototype", { state: "changed" })], [], 2),
     ST(2, "run", "<b>new, thing 4.</b> Dog did not return anything, so <code>new</code> returns the new object. <code>const rex</code> now points to it.",
       [dogFn(), dpBox(DP_BARK), newObj("rex", [P("name", "\"Rex\"")], "hidden link [[Prototype]] → Dog.prototype", { state: "changed" })], [], 3),
@@ -639,7 +640,7 @@ function showResult() {
     const ok = g === p.predict.answer;
     r.className = "result show" + (ok ? "" : " bad");
     r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "The answer: " + real + "." + why +
-      (ok ? "" : "<br>Press Reset and watch each level. The engine stops at the first object that owns the name.");
+      (ok ? "" : "<br>Press Reset and watch each level. JavaScript stops at the first object that owns the name.");
     return;
   }
   const real = p.predict.answer;

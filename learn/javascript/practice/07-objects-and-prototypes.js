@@ -3,7 +3,7 @@
 
 // 1. FIX THE BUG. Every dog gets its own COPY of speak, so 1000 dogs make 1000 functions.
 //    Make speak live ONCE, on Dog.prototype. Each dog keeps only its own name.
-//    Then say out loud: when rex.speak() runs, where does the engine find speak?
+//    Then say out loud: when rex.speak() runs, where does JavaScript find speak?
 function Dog(name) {
   this.name = name;
   this.speak = function () {
@@ -21,7 +21,8 @@ Cart.prototype.add = function (item) {
 };
 
 // 3. WRITE IT YOURSELF. Write your own Object.create. Do NOT call Object.create.
-//    myCreate(proto) returns a new empty object whose hidden link [[Prototype]] is proto.
+//    myCreate(proto) returns a new empty object whose hidden link points to proto.
+//    (Interview word for the hidden link: [[Prototype]].)
 //    It must also work for myCreate(null).
 //    Hint A: new F() links the new object to F.prototype.
 //    Hint B: an object literal can set the link: { __proto__: proto }.
@@ -30,9 +31,9 @@ function myCreate(proto) {
   // TODO
 }
 
-// 4. WRITE IT YOURSELF. findOwner(obj, key) walks the prototype chain, starting at obj itself.
-//    It returns the OBJECT that owns key as an own property, or null if no object in the chain does.
-//    Do not use the in operator or a truthy check. A property whose value is undefined still counts.
+// 4. WRITE IT YOURSELF. findOwner(obj, key) walks up the hidden links (the prototype chain), starting at obj itself.
+//    It returns the OBJECT that has key stored on itself (an own property), or null if none does.
+//    Do not use the in operator, and do not check if the value is true-like. A property whose value is undefined still counts.
 function findOwner(obj, key) {
   // TODO
 }

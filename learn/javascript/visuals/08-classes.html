@@ -155,7 +155,7 @@
     <a href="../08-classes.md" id="lessonLink">Open the lesson ↗</a>
   </div>
   <h1>Classes stepper</h1>
-  <p class="sub">Press Next and watch the objects a class builds in memory. Follow the arrows: they are the links the engine uses to find things.</p>
+  <p class="sub">Press Next and watch the objects a class builds in memory. Follow the arrows: they are the links JavaScript uses to find things.</p>
 
   <div class="tabs" id="tabs"></div>
 
@@ -164,7 +164,7 @@
     <input id="guess" placeholder="the printed lines in order, separated by commas" autocomplete="off">
   </div>
 
-  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
   <div class="note" id="note"></div>
   <div class="bar"><i id="bar"></i></div>
   <div class="controls">
@@ -211,11 +211,11 @@
         <span class="k2"><b></b>constructor chain: the prototype link of a class</span>
         <span class="k3"><b></b>prototype and constructor pair</span>
       </div>
-      <div class="keyline"><span>🔒 private slot (not a property)</span><span>hidden = not enumerable, so <code>Object.keys</code> and <code>for...in</code> skip it</span></div>
+      <div class="keyline"><span>🔒 private slot (not a property)</span><span>hidden = <code>Object.keys</code> and <code>for...in</code> skip it (interview word: not enumerable)</span></div>
     </div>
   </div>
 
-  <p class="legend"><b>The rule to remember:</b> a class is a <b>function</b>. Its methods sit on <b>one shared prototype object</b>. Every instance has an arrow to that object. <b>extends</b> adds two more arrows. In a derived class, <b>super()</b> must run before <b>this</b> is unlocked, because the base class builds the object.</p>
+  <p class="legend"><b>The rule to remember:</b> a class is a <b>function</b>. Its methods sit on <b>one shared prototype object</b>. Every <b>instance</b> (an object made from the class with <code>new</code>) has an arrow to that object. <b>extends</b> adds two more arrows. In a <b>child class</b> (a class that uses <code>extends</code>), <b>super()</b> must run before <b>this</b> is unlocked, because the parent class builds the object.</p>
 </div>
 
 <script>
@@ -256,7 +256,7 @@ const D1 = [OBJP(), DOG1({ proto: true }), DOGP1({ bark: true })];
 
 const P1 = {
   name: "A class is a function",
-  why: "A class creates a function (typeof says function) and one shared prototype object that holds the methods. new makes an empty object, links it to that prototype, and runs the constructor on it. bark is found through the link, and it is not an own property, so Object.keys does not list it.",
+  why: "A class makes a function (typeof says function) and one shared prototype object that holds the methods. new makes an empty object, links it to that prototype, and runs the constructor on it. bark is found through the link, and it is not an own property, so Object.keys does not list it.",
   layout: L1,
   code: [
     'class Dog {',
@@ -269,17 +269,17 @@ const P1 = {
     'console.log(Object.keys(rex).join());'
   ],
   steps: [
-    ST(null, "setup", `<b>Setup.</b> Before line 1, the engine sets up the names, like in lesson 01. <code>class Dog</code> behaves like <code>let</code>: the name <b>Dog</b> exists but is <b>locked</b> until the class line has run. <b>rex</b> is locked too. In memory there is only the built-in <b>Object.prototype</b>.`,
+    ST(null, "setup", `<b>Setup.</b> Before line 1, JavaScript sets up the names, like in lesson 01. <code>class Dog</code> behaves like <code>let</code>: the name <b>Dog</b> exists but is <b>locked</b> until the class line has run. <b>rex</b> is locked too. In memory there is only the built-in <b>Object.prototype</b>.`,
       { names: [tdz("Dog"), tdz("rex")], cards: [OBJP()] }),
-    ST([0, 1], "run", `The engine reaches <code>class Dog</code>. It creates a <b>function</b>. The code of the <code>constructor</code> becomes the code of that function. A class <b>is</b> a function. That is why <code>typeof Dog</code> will say <i>function</i>.`,
+    ST([0, 1], "run", `JavaScript reaches <code>class Dog</code>. It makes a <b>function</b>. The code of the <code>constructor</code> becomes the code of that function. A class <b>is</b> a function. That is why <code>typeof Dog</code> will say <i>function</i>.`,
       { names: [tdz("Dog"), tdz("rex")], cards: [OBJP(), DOG1()] }),
-    ST([0], "run", `With the function, the engine makes <b>one more object: Dog.prototype</b>. The two point at each other (brown dashed arrows): <code>Dog.prototype</code> goes to the object, and <code>Dog.prototype.constructor</code> comes back to the class. The new object has its own prototype link (blue) to <b>Object.prototype</b>.`,
+    ST([0], "run", `With the function, JavaScript makes <b>one more object: Dog.prototype</b>. The two point at each other (brown dashed arrows): <code>Dog.prototype</code> goes to the object, and <code>Dog.prototype.constructor</code> comes back to the class. The new object has its own prototype link (blue) to <b>Object.prototype</b>.`,
       { names: [tdz("Dog"), tdz("rex")], cards: mark([OBJP(), DOG1({ proto: true }), DOGP1()], { dog: { prototype: { active: true } }, dogp: { constructor: { active: true } } }) }),
     ST([2], "run", `The method <code>bark</code> is stored on <b>Dog.prototype</b>, not on each future dog. There is only <b>one copy</b>. It is marked <b>hidden</b> (not enumerable), so <code>for...in</code> and <code>Object.keys</code> skip it.`,
       { names: [tdz("Dog"), tdz("rex")], cards: mark([OBJP(), DOG1({ proto: true }), DOGP1({ bark: true })], { dogp: { bark: { hit: true } } }) }),
     ST([3], "run", `The closing brace. The class is complete, so the lock opens. The name <b>Dog</b> now points to the function.`,
       { names: [cls("Dog"), tdz("rex")], cards: D1 }),
-    ST([4], "run", `<code>new Dog("Rex")</code>, part 1. <code>new</code> creates an <b>empty object</b> and sets its prototype link to <b>Dog.prototype</b>. This link is how a dog will find <code>bark</code> later.`,
+    ST([4], "run", `<code>new Dog("Rex")</code>, part 1. <code>new</code> makes an <b>empty object</b> and sets its prototype link to <b>Dog.prototype</b>. This link is how a dog will find <code>bark</code> later.`,
       { names: [cls("Dog"), tdz("rex")], cards: mark([...D1, REX1([])], { rex: { "[[Prototype]]": { active: true } } }) }),
     ST([1], "run", `<code>new Dog("Rex")</code>, part 2. <code>new</code> calls the constructor function. Inside it, <b>this</b> is the new object, and <code>name</code> is "Rex". A frame is added to the call stack.`,
       { names: [cls("Dog"), tdz("rex")], cards: [...D1, REX1([])],
@@ -291,7 +291,7 @@ const P1 = {
       { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])] }),
     ST([5], "run", `<code>typeof Dog</code> asks about the thing inside the name <b>Dog</b>. That is the function in the Dog card. So it prints <b>function</b>. There is no separate type called class.`,
       { names: [cls("Dog"), ref("rex", "the object")], cards: [...D1, REX1([R("name", '"Rex"')])], out: ["function"] }),
-    ST([6], "run", `<code>rex.bark()</code>. Does <b>rex</b> have its own <b>bark</b>? No, only <b>name</b>. The engine follows the blue link to <b>Dog.prototype</b> and finds <b>bark</b> there. It runs it with <b>this</b> = rex, the object before the dot.`,
+    ST([6], "run", `<code>rex.bark()</code>. Does <b>rex</b> have its own <b>bark</b>? No, only <b>name</b>. JavaScript follows the blue link to <b>Dog.prototype</b> and finds <b>bark</b> there. It runs it with <b>this</b> = rex, the object before the dot.`,
       { names: [cls("Dog"), ref("rex", "the object")], out: ["function"],
         cards: mark([OBJP(), DOG1({ proto: true }), DOGP1({ bark: true }), REX1([R("name", '"Rex"')])], { rex: { "[[Prototype]]": { active: true } }, dogp: { bark: { hit: true } } }),
         frames: [MAIN, { t: "bark", vars: [ref("this", "rex")] }] }),
@@ -330,7 +330,7 @@ const LOCKED = tdz("this");
 
 const P2 = {
   name: "extends and super()",
-  why: "extends sets two links: Dog.prototype to Animal.prototype (for instance methods) and Dog to Animal (for static methods). In a derived class the object is not made by new. It is made by the base constructor when super() runs, so this stays locked until then. super.speak() searches one step above the method's own prototype, but keeps this = rex.",
+  why: "extends sets two links: Dog.prototype to Animal.prototype (for instance methods) and Dog to Animal (for static methods, the ones you call on the class itself). In a child class the object is not made by new. It is made by the base constructor when super() runs, so this stays locked until then. super.speak() searches one step above the method's own prototype, but keeps this = rex.",
   layout: L2,
   code: [
     'class Animal {',
@@ -346,7 +346,7 @@ const P2 = {
     'console.log(rex instanceof Animal);'
   ],
   steps: [
-    ST(null, "setup", `<b>Setup.</b> The engine sets up three names. <b>Animal</b>, <b>Dog</b> and <b>rex</b> are all locked until their lines run. In memory there is only <b>Object.prototype</b>.`,
+    ST(null, "setup", `<b>Setup.</b> JavaScript sets up three names. <b>Animal</b>, <b>Dog</b> and <b>rex</b> are all locked until their lines run. In memory there is only <b>Object.prototype</b>.`,
       { names: [tdz("Animal"), tdz("Dog"), tdz("rex")], cards: [OBJP()] }),
     ST([0, 1, 2, 3], "run", `<code>class Animal</code> runs. This is the same work as in the last program, done in one step: a function <b>Animal</b>, an object <b>Animal.prototype</b> holding <code>speak</code>, the pair of brown links between them, and a blue link up to <b>Object.prototype</b>.`,
       { names: [cls("Animal"), tdz("Dog"), tdz("rex")], cards: A2 }),
@@ -374,7 +374,7 @@ const P2 = {
         frames: [MAIN, dogCtor(ref("this", "the object"))] }),
     ST([8], "run", `Dog's constructor ends and <code>new</code> returns the object. The lock on <b>rex</b> opens.`,
       { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")], cards: [...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])] }),
-    ST([9], "run", `<code>rex.speak()</code>. The object <b>rex</b> has no own speak. The engine follows the blue link to <b>Dog.prototype</b> and finds <b>speak</b> there. Animal's speak is hidden behind it. It runs with <b>this</b> = rex.`,
+    ST([9], "run", `<code>rex.speak()</code>. The object <b>rex</b> has no own speak. JavaScript follows the blue link to <b>Dog.prototype</b> and finds <b>speak</b> there. Animal's speak is hidden behind it. It runs with <b>this</b> = rex.`,
       { names: [cls("Animal"), cls("Dog"), ref("rex", "the object")],
         cards: mark([...BOTH2, REX2([R("name", '"Rex"'), R("tricks", "0")])], { rex: { "[[Prototype]]": { active: true } }, dogp: { speak: { hit: true } } }),
         frames: [MAIN, { t: "Dog speak", vars: [ref("this", "rex")] }] }),
@@ -407,7 +407,7 @@ const B3 = [...A3, DOG3(), DOGP3()];
 
 const P3 = {
   name: "super() forgotten",
-  why: "In a derived class, this is locked until super() has returned, because the base constructor is the one that creates the object. Touching this first throws a ReferenceError, and no object is ever made. Put super(name) on the first line and it works.",
+  why: "In a child class, this is locked until super() has returned. The parent constructor is the one that makes the object. Touching this first throws a ReferenceError, and no object is ever made. Put super(name) on the first line and it works.",
   layout: { objp: [2, 1], animal: [1, 2], animalp: [2, 2], dog: [1, 3], dogp: [2, 3] },
   code: [
     'class Animal {',
@@ -430,11 +430,11 @@ const P3 = {
       { names: [cls("Animal"), cls("Dog")], cards: B3 }),
     ST([9], "run", `<code>new Dog("Rex")</code>. Dog is derived, so <code>new</code> does not make an object. Dog's constructor starts with <b>this locked</b>.`,
       { names: [cls("Animal"), cls("Dog")], cards: B3, frames: [MAIN, dogCtor(LOCKED)] }),
-    ST([5], "error", `<code>this.tricks = 0</code> uses <b>this</b> while it is locked. The engine throws a <b>ReferenceError</b>: <i>Must call super constructor in derived class before accessing &#39;this&#39; or returning from derived constructor</i>. Look at the memory: <b>no object exists</b>. Line 7, the <code>super(name)</code>, never ran.`,
+    ST([5], "error", `<code>this.tricks = 0</code> uses <b>this</b> while it is locked. JavaScript throws a <b>ReferenceError</b>: <i>Must call super constructor in derived class before accessing &#39;this&#39; or returning from derived constructor</i>. Look at the memory: <b>no object exists</b>. Line 7, the <code>super(name)</code>, never ran.`,
       { names: [cls("Animal"), cls("Dog")], cards: B3, frames: [MAIN, dogCtor(LOCKED)] }),
     ST([9], "run", `The error leaves the constructor, so its frame is removed. The <code>catch</code> prints the error name. Fix: put <code>super(name)</code> on the first line. A constructor that never calls <code>super()</code> at all fails the same way when it ends.`,
       { names: [cls("Animal"), cls("Dog")], cards: B3, out: [ERR + "ReferenceError"] }),
-    ST(null, "done", `Finished. It printed <b>ReferenceError</b>. In a derived class, always call <b>super()</b> before you touch <b>this</b>.`,
+    ST(null, "done", `Finished. It printed <b>ReferenceError</b>. In a child class, always call <b>super()</b> before you touch <b>this</b>.`,
       { names: [cls("Animal"), cls("Dog")], cards: B3, out: [ERR + "ReferenceError"] })
   ]
 };
@@ -452,7 +452,7 @@ const cC = ref("c", "object c");
 
 const P4 = {
   name: "Lost this and arrow fields",
-  why: "A method is stored once on the prototype. Copying it into a variable removes the object before the dot, so this is undefined in class code (strict mode) and this.count throws a TypeError. An arrow function field is created again for every instance and remembers that instance as this, so it keeps working when detached. The price is one function per instance.",
+  why: "A method is stored once on the prototype. Copying it into a variable removes the object before the dot. Class code always runs in strict mode, so this is undefined, and this.count throws a TypeError. An arrow function field is made again for every object, and it remembers that object as this. So it keeps working when it is copied out. The price is one function per instance.",
   layout: L4,
   code: [
     'class Counter {',
@@ -474,13 +474,13 @@ const P4 = {
       { names: N4(), cards: [OBJP()] }),
     ST([0, 1, 2, 3, 4], "run", `<code>class Counter</code> runs. The method <code>inc</code> is stored <b>once</b> on <b>Counter.prototype</b>. But look: <code>count</code> and <code>incArrow</code> are <b>not</b> on the prototype. They are <b>class fields</b>. A field is a recipe that runs again for every new object.`,
       { names: N4({ cls: true }), cards: mark(K4, { counterp: { inc: { hit: true } } }) }),
-    ST([5], "run", `<code>new Counter()</code>. <code>new</code> makes an empty object and links it to Counter.prototype. There is no written constructor, so the engine uses an empty one. Before its body, it runs the <b>field recipes</b>, in order.`,
+    ST([5], "run", `<code>new Counter()</code>. <code>new</code> makes an empty object and links it to Counter.prototype. There is no written constructor, so JavaScript uses an empty one. Before its body, it runs the <b>field recipes</b>, in order.`,
       { names: N4({ cls: true }), cards: [...K4, CNT("c", "c", [])],
         frames: [MAIN, { t: "Counter constructor", vars: [ref("this", "the new object")] }] }),
     ST([1], "run", `The first recipe, <code>count = 0</code>, writes an own property <b>count</b> on the new object.`,
       { names: N4({ cls: true }), cards: [...K4, CNT("c", "c", [R("count", "0", { chg: true })])],
         frames: [MAIN, { t: "Counter constructor", vars: [ref("this", "the new object")] }] }),
-    ST([3], "run", `The second recipe, <code>incArrow = () =&gt; ...</code>, creates a <b>new arrow function now</b>. An arrow function has no <b>this</b> of its own. It uses the <b>this</b> of the place where it was written. Here that is the constructor, where <b>this</b> is the new object. So this copy is tied to <b>c</b> for good.`,
+    ST([3], "run", `The second recipe, <code>incArrow = () =&gt; ...</code>, makes a <b>new arrow function now</b>. An arrow function has no <b>this</b> of its own. It uses the <b>this</b> of the place where it was written. Here that is the constructor, where <b>this</b> is the new object. So this copy is tied to <b>c</b> for good.`,
       { names: N4({ cls: true }), cards: [...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c", { chg: true })])],
         frames: [MAIN, { t: "Counter constructor", vars: [ref("this", "the new object")] }] }),
     ST([5], "run", `The constructor ends. The name <b>c</b> now points to the object, which has its own <b>count</b> and its own <b>incArrow</b>.`,
@@ -488,7 +488,7 @@ const P4 = {
     ST([6], "run", `<code>const f = c.inc</code>. Reading <code>c.inc</code> finds the function on <b>Counter.prototype</b> (through the blue link). <b>f</b> receives the <b>function only</b>. Nothing in it remembers that it came from c.`,
       { names: N4({ cls: true, c: cC, f: ref("f", "function inc") }),
         cards: mark([...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])], { c: { "[[Prototype]]": { active: true } }, counterp: { inc: { hit: true } } }) }),
-    ST([7], "error", `<code>f()</code> has <b>no object before the dot</b>. Code inside a class is always strict, so <b>this</b> is <b>undefined</b>. Then <code>this.count++</code> tries to read <i>count</i> of undefined, and the engine throws a <b>TypeError</b>. In Node the message is: <i>Cannot read properties of undefined (reading &#39;count&#39;)</i>.`,
+    ST([7], "error", `<code>f()</code> has <b>no object before the dot</b>. Code inside a class is always strict, so <b>this</b> is <b>undefined</b>. Then <code>this.count++</code> tries to read <i>count</i> of undefined, and JavaScript throws a <b>TypeError</b>. In Node the message is: <i>Cannot read properties of undefined (reading &#39;count&#39;)</i>.`,
       { names: N4({ cls: true, c: cC, f: ref("f", "function inc") }), cards: [...K4, CNT("c", "c", [R("count", "0"), R("incArrow", "function, this is c")])],
         frames: [MAIN, { t: "inc", vars: [undf("this")] }] }),
     ST([7], "run", `The <code>catch</code> prints the error name. The count of <b>c</b> did not change.`,
@@ -530,7 +530,7 @@ const N5 = (c, a) => [c, a];
 
 const P5 = {
   name: "Private field #",
-  why: "A # field is stored in a hidden slot of each object. It is not a property, so it has no name that outside code can use: a string key, Object.keys and JSON.stringify do not see it. Only code written inside the class body can use #balance. Writing a.#balance outside the class is a SyntaxError, so the program does not even start.",
+  why: "A # field is stored in a hidden slot of each object. It is not a property, so outside code has no name to reach it. A string key, Object.keys and JSON.stringify do not see it. Only code written inside the class body can use #balance. Writing a.#balance outside the class is a SyntaxError, so the program does not even start.",
   layout: { objp: [2, 1], account: [1, 2], accountp: [2, 2], a: [3, 2] },
   code: [
     'class Account {',
@@ -554,14 +554,14 @@ const P5 = {
       { names: N5(cls("Account"), tdz("a")), cards: [...K5, ACCI([PRV("#balance", "0", { chg: true })])] }),
     ST([5], "run", `The lock on <b>a</b> opens. It points to the object.`,
       { names: N5(cls("Account"), ref("a", "the object")), cards: [...K5, ACCI([PRV("#balance", "0")])] }),
-    ST([6], "run", `<code>a.deposit(50)</code>. <b>a</b> has no own deposit, so the engine follows the blue link to <b>Account.prototype</b> and finds it. It runs with <b>this</b> = a.`,
+    ST([6], "run", `<code>a.deposit(50)</code>. <b>a</b> has no own deposit, so JavaScript follows the blue link to <b>Account.prototype</b> and finds it. It runs with <b>this</b> = a.`,
       { names: N5(cls("Account"), ref("a", "the object")),
         cards: mark([...K5, ACCI([PRV("#balance", "0")])], { a: { "[[Prototype]]": { active: true } }, accountp: { deposit: { hit: true } } }),
         frames: [MAIN, { t: "deposit", vars: [ref("this", "a"), val("n", "50")] }] }),
     ST([2], "run", `<code>this.#balance += n</code>. This line is written inside the class body, so it may use the private name. The slot changes from 0 to 50.`,
       { names: N5(cls("Account"), ref("a", "the object")), cards: [...K5, ACCI([PRV("#balance", "50", { chg: true })])],
         frames: [MAIN, { t: "deposit", vars: [ref("this", "a"), val("n", "50")] }] }),
-    ST([7], "run", `<code>a.balance</code> looks like a property, but the engine finds a <b>getter</b> on Account.prototype and calls it with <b>this</b> = a. The getter is inside the class, so it can read <code>#balance</code>. It returns 50, which is printed.`,
+    ST([7], "run", `<code>a.balance</code> looks like a property, but JavaScript finds a <b>getter</b> on Account.prototype and calls it with <b>this</b> = a. The getter is inside the class, so it can read <code>#balance</code>. It returns 50, which is printed.`,
       { names: N5(cls("Account"), ref("a", "the object")),
         cards: mark([...K5, ACCI([PRV("#balance", "50")])], { accountp: { balance: { hit: true } } }),
         frames: [MAIN, { t: "balance getter", vars: [ref("this", "a")] }], out: ["50"] }),
@@ -602,7 +602,7 @@ const P6 = {
       { names: [cls("Animal"), cls("Dog"), tdz("d")], cards: [OBJP(), ANIMAL6(), ANIMALP3(), DOG6(), DOGP3()] }),
     ST([2], "run", `<code>new Dog()</code>. There is no written constructor. A derived class gets a default one, <code>constructor(...args) { super(...args) }</code>, so <b>super()</b> is called for you. The base class makes the object and links it to <b>Dog.prototype</b>.`,
       { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: W6(D6(link6a)) }),
-    ST([3], "run", `<code>d instanceof Dog</code>. The engine takes <b>Dog.prototype</b> and looks for it on d's blue chain. Step 1: d links to Dog.prototype. <b>Found.</b> The answer is <b>true</b>.`,
+    ST([3], "run", `<code>d instanceof Dog</code>. JavaScript takes <b>Dog.prototype</b> and looks for it on d's blue chain. Step 1: d links to Dog.prototype. <b>Found.</b> The answer is <b>true</b>.`,
       { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6a)), { d: { "[[Prototype]]": { active: true } } }), visit: ["d"], found: "dogp" }),
     ST([3], "run", `<code>d instanceof Animal</code>. Look for <b>Animal.prototype</b>. Step 1: Dog.prototype, not it. Step 2: the next link goes to Animal.prototype. <b>Found.</b> The answer is <b>true</b>.`,
       { names: [cls("Animal"), cls("Dog"), ref("d", "the object")], cards: mark(W6(D6(link6a)), { d: { "[[Prototype]]": { active: true } }, dogp: { "[[Prototype]]": { active: true } } }), visit: ["d", "dogp"], found: "animalp" }),

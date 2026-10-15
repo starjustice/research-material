@@ -87,7 +87,7 @@ test("myReduce: calls fn with acc, item, index and array", () => {
   assert.deepStrictEqual(seen, [[0, 10, 0, true], [10, 20, 1, true]]);
 });
 
-test("myReduce: with no start value, the first item is the accumulator and the first call has index 1", () => {
+test("myReduce: with no start value, the first item is the running total and the first call has index 1", () => {
   const seen = [];
   const total = myReduce(guarded([10, 20, 30]), (acc, item, index) => { seen.push([acc, item, index]); return acc + item; });
   assert.strictEqual(total, 60);
@@ -104,7 +104,7 @@ test("myReduce: an empty array with no start value throws a TypeError", () => {
   assert.throws(() => myReduce(guarded([]), (a, b) => a + b), TypeError);
 });
 
-test("myReduce: the accumulator can be an object", () => {
+test("myReduce: the running total can be an object", () => {
   const out = myReduce(guarded(["a", "b", "a"]), (acc, w) => { acc[w] = (acc[w] || 0) + 1; return acc; }, {});
   assert.deepStrictEqual(out, { a: 2, b: 1 });
 });

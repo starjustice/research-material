@@ -149,7 +149,7 @@
     <a href="../06-this-call-apply-and-bind.md" id="lessonLink">Open the lesson ↗</a>
   </div>
   <h1>this, call, apply and bind stepper</h1>
-  <p class="sub">Look at <b>how the function is called</b>, not at where it is written. Each call has two steps: first <b>you</b> guess the rule, then the engine shows its answer.</p>
+  <p class="sub">Look at <b>how the function is called</b>, not at where it is written. Each call has two steps: first <b>you</b> guess the rule, then JavaScript shows its answer.</p>
 
   <div class="tabs" id="tabs"></div>
 
@@ -195,7 +195,7 @@
     </div>
   </div>
 
-  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
   <div class="note" id="note"></div>
 
   <div class="bar"><i id="bar"></i></div>
@@ -209,7 +209,9 @@
 
   <div class="result" id="result"></div>
 
-  <p class="legend"><b>The rule to remember:</b> <code>this</code> is decided by the <b>call</b>, not by where the function is written. Ask in this order: <b>1 new</b>, <b>2 call, apply or bind</b>, <b>3 a dot call</b> (<code>obj.fn()</code>), <b>4 a plain call</b> (<code>undefined</code> in strict mode, <code>globalThis</code> in sloppy mode). <b>Arrow functions</b> skip all four and borrow <code>this</code> from the code around them. You can open one program directly, for example <code>#5</code> for call, apply and bind, or <code>#2.4</code> for program 2, step 4.</p>
+  <p class="legend"><b>The rule to remember:</b> <code>this</code> is decided by the <b>call</b>, not by where the function is written. Ask in this order: <b>1 new</b>, <b>2 call, apply or bind</b>, <b>3 a dot call</b> (<code>obj.fn()</code>), <b>4 a plain call</b> (<code>undefined</code> in strict mode, <code>globalThis</code> in sloppy mode). <b>Arrow functions</b> skip all four and borrow <code>this</code> from the code around them.</p>
+  <p class="legend"><b>Words on this page:</b> <b>strict mode</b> is a safer setting that you turn on with <code>"use strict"</code>. Code inside a class, and code in a module, always use it. <b>Sloppy mode</b> is the old default without it. <b>globalThis</b> is the one global object (in a browser it is <code>window</code>). A <b>bound</b> function is the new function that <code>bind</code> gives back, with <code>this</code> locked.</p>
+  <p class="legend">You can open one program directly, for example <code>#5</code> for call, apply and bind, or <code>#2.4</code> for program 2, step 4.</p>
 </div>
 
 <!-- Block 1: data only. No page code here, so a test can run it on its own. -->
@@ -239,15 +241,15 @@ const PRESETS = [
       'console.log(admin.hi());'
     ],
     steps: [
-      { line: 0, note: `Line 1 turns on <b>strict mode</b> for this file. It matters only for rule 4. Remember that.` },
+      { line: 0, note: `Line 1 turns on <b>strict mode</b> for this file. Strict mode is a safer setting: some quiet mistakes become loud errors. It matters only for rule 4. Remember that.` },
       { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])],
-        note: `The object <code>user</code> is created. It has a property <b>name</b> and a property <b>hi</b>. The property <b>hi</b> holds a function. Notice that the function is only stored there. It does not know which object holds it.` },
+        note: `The object <code>user</code> is made. It has a property <b>name</b> and a property <b>hi</b>. The property <b>hi</b> holds a function. Notice that the function is only stored there. It does not know which object holds it.` },
       { line: 2, phase: "call", call: `<u>user</u>.hi()`, rules: ["method", `The name before the dot is <b>user</b>`], thisTo: "user", frame: "hi",
-        note: `The engine reads the <b>call site</b> and asks the questions in order. Arrow function? No. <b>1 new</b>? No. <b>2 call, apply or bind</b>? No. <b>3 a dot</b>? <b>Yes</b>, and the object left of the dot is <code>user</code>. Rule 3 wins, so <code>this</code> is <code>user</code>. The engine never asked where <code>hi</code> was written.` },
+        note: `JavaScript reads the <b>call site</b> and asks the questions in order. Arrow function? No. <b>1 new</b>? No. <b>2 call, apply or bind</b>? No. <b>3 a dot</b>? <b>Yes</b>, and the object left of the dot is <code>user</code>. Rule 3 wins, so <code>this</code> is <code>user</code>. JavaScript never asked where <code>hi</code> was written.` },
       { line: 1, keep: true, print: ["Ana"],
         note: `Inside <code>hi</code>, <code>this.name</code> follows the purple arrow to <code>user</code> and reads <b>Ana</b>. The function returns it, and <code>console.log</code> prints it.` },
       { line: 3, heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("admin", "admin", ['name: "Budi"', "hi: the same function"])],
-        note: `A second object <code>admin</code> is created. Its <b>hi</b> holds <b>the very same function</b>. There is still only one function in memory, and two objects point to it. This is why the function needs <code>this</code>: it must find out which object it is working for.` },
+        note: `A second object <code>admin</code> is made. Its <b>hi</b> holds <b>the very same function</b>. There is still only one function in memory, and two objects point to it. This is why the function needs <code>this</code>: it must find out which object it is working for.` },
       { line: 4, phase: "call", call: `<u>admin</u>.hi()`, rules: ["method", `The name before the dot is <b>admin</b>`], thisTo: "admin", frame: "hi",
         note: `The same function, but a different call site. Now the object left of the dot is <code>admin</code>, so rule 3 gives <code>this = admin</code>.` },
       { line: 1, keep: true, print: ["Budi"],
@@ -269,13 +271,13 @@ const PRESETS = [
     steps: [
       { line: 0, note: `Strict mode is on for this file.` },
       { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])],
-        note: `The object <code>user</code> is created with a name and a method <b>hi</b>.` },
+        note: `The object <code>user</code> is made with a name and a method <b>hi</b>.` },
       { line: 2, heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("f", "f", ["holds only the function hi", "no link back to user"], "fn")],
         note: `<code>const f = user.hi</code> copies the function out of the object. Look at the memory: <b>f</b> holds only the function. Nothing in it points back to <code>user</code>. The link to the object is gone.` },
       { line: 3, phase: "call", call: `f()`, rules: ["plain", `There is no dot. Nothing is left of the name <b>f</b>`], thisTo: "undef", frame: "hi",
         note: `Arrow function? No. <b>1 new</b>? No. <b>2 call, apply or bind</b>? No. <b>3 a dot</b>? <b>No</b>. So rule 4, the plain call. Strict mode is ON, so <code>this</code> is <b>undefined</b>. It is not <code>user</code>, even though it is the same function.` },
       { line: 1, phase: "error", keep: true,
-        note: `Inside <code>hi</code>, <code>this.name</code> tries to read <b>name</b> from <b>undefined</b>. The engine throws a <b>TypeError</b>: <i>Cannot read properties of undefined (reading 'name')</i>.` },
+        note: `Inside <code>hi</code>, <code>this.name</code> tries to read <b>name</b> from <b>undefined</b>. JavaScript throws a <b>TypeError</b>: <i>Cannot read properties of undefined (reading 'name')</i>.` },
       { line: 3, print: [ERR + "TypeError"],
         note: `The <code>catch</code> block catches the error and prints its name.` },
       { phase: "done", note: `Finished. It printed <b>TypeError</b>. This is the famous bug: a method that is pulled out of its object <b>loses this</b>.` }
@@ -293,7 +295,7 @@ const PRESETS = [
     ],
     steps: [
       { line: 0, heap: [O("user", "user", ['name: "Ana"', "hi: function"])],
-        note: `There is no <code>"use strict"</code> in this file, so it runs in <b>sloppy mode</b> (the old default). The object <code>user</code> is created.` },
+        note: `There is no <code>"use strict"</code> in this file, so it runs in <b>sloppy mode</b> (the old default). The object <code>user</code> is made.` },
       { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("f", "f", ["holds only the function hi", "no link back to user"], "fn")],
         note: `The function is copied out. <b>f</b> holds only the function, not the object.` },
       { line: 2, phase: "call", call: `f()`, rules: ["plain", `There is no dot. Nothing is left of the name <b>f</b>`], thisTo: "global", frame: "hi",
@@ -318,10 +320,10 @@ const PRESETS = [
     steps: [
       { line: 0, note: `Strict mode is on.` },
       { line: 1, heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn")],
-        note: `The function <code>User</code> is created. It is a normal function. Nothing about it says "constructor". What happens depends on how it is called.` },
+        note: `The function <code>User</code> is made. It is a normal function. Nothing about it says "constructor". What happens depends on how it is called.` },
       { line: 2, phase: "call", call: `<u>new</u> User("Ana")`, rules: ["new", `The call starts with the word <b>new</b>`], thisTo: "fresh", frame: "User",
         heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn"), O("fresh", "new empty object", [], "fresh")],
-        note: `Rule 1 is asked first. The call starts with <b>new</b>, so the engine makes a brand new empty object and sets <code>this</code> to it. The other rules are never asked.` },
+        note: `Rule 1 is asked first. The call starts with <b>new</b>, so JavaScript makes a brand new empty object and sets <code>this</code> to it. The other rules are never asked.` },
       { line: 1, keep: true,
         heap: [O("User", "function User", ["a normal function", "writes this.name"], "fn"), O("fresh", "new empty object", ['name: "Ana"'], "fresh")],
         note: `<code>this.name = name</code> writes the property <b>name</b> onto the new object.` },
@@ -331,7 +333,7 @@ const PRESETS = [
       { line: 4, phase: "call", call: `User("Budi")`, rules: ["plain", `No <b>new</b>, no dot. It is a plain call`], thisTo: "undef", frame: "User",
         note: `The same function is called <b>without new</b>. No new object is made. It is a plain call, strict mode is ON, so <code>this</code> is <b>undefined</b>.` },
       { line: 1, phase: "error", keep: true,
-        note: `<code>this.name = name</code> tries to write onto <b>undefined</b>. The engine throws a <b>TypeError</b>: <i>Cannot set properties of undefined (setting 'name')</i>.` },
+        note: `<code>this.name = name</code> tries to write onto <b>undefined</b>. JavaScript throws a <b>TypeError</b>: <i>Cannot set properties of undefined (setting 'name')</i>.` },
       { line: 4, print: [ERR + "TypeError"], note: `The <code>catch</code> prints the error name.` },
       { phase: "done", note: `Finished. It printed <b>Ana TypeError</b>. In sloppy mode, forgetting <code>new</code> would not throw. It would silently write <b>name</b> onto <code>globalThis</code>.` }
     ]
@@ -355,9 +357,9 @@ const PRESETS = [
     steps: [
       { line: 0, note: `Strict mode is on.` },
       { line: 1, heap: [O("hi", "function hi", ["uses this.name"], "fn")],
-        note: `The function <code>hi</code> is created. It is not inside any object. It reads <code>this.name</code>.` },
-      { line: 2, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"'])], note: `The object <code>ana</code> is created.` },
-      { line: 3, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"']), O("budi", "budi", ['name: "Budi"'])], note: `The object <code>budi</code> is created. Notice that neither object has <code>hi</code> as a property.` },
+        note: `The function <code>hi</code> is made. It is not inside any object. It reads <code>this.name</code>.` },
+      { line: 2, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"'])], note: `The object <code>ana</code> is made.` },
+      { line: 3, heap: [O("hi", "function hi", ["uses this.name"], "fn"), O("ana", "ana", ['name: "Ana"']), O("budi", "budi", ['name: "Budi"'])], note: `The object <code>budi</code> is made. Notice that neither object has <code>hi</code> as a property.` },
       { line: 4, phase: "call", call: `hi.call(<u>ana</u>, "Hello")`, rules: ["explicit", `<b>call</b> says: use <b>ana</b> as this`], thisTo: "ana", frame: "hi",
         note: `<code>call</code> runs <code>hi</code> <b>now</b>. Rule 2 beats the dot rule and the plain rule. The first argument, <code>ana</code>, becomes <code>this</code>. The other arguments are passed one by one, separated by commas.` },
       { line: 1, keep: true, print: ["Hello Ana"],
@@ -393,15 +395,15 @@ const PRESETS = [
     steps: [
       { line: 0, note: `Strict mode is on.` },
       { line: [1, 2, 3, 4, 5], heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana", "Budi"]', "show: function"])],
-        note: `The object <code>team</code> is created with a name, a list and a method <b>show</b>.` },
+        note: `The object <code>team</code> is made with a name, a list and a method <b>show</b>.` },
       { line: 6, phase: "call", call: `<u>team</u>.show()`, rules: ["method", `The name before the dot is <b>team</b>`], thisTo: "team", frame: "show",
         note: `A dot call. Rule 3 gives <code>this = team</code> inside <code>show</code>.` },
       { line: 4, keep: true,
         heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana", "Budi"]', "show: function"]), O("arrow", "arrow function  m => ...", ["written inside show", "has NO this of its own"], "fn")],
-        note: `Inside <code>show</code>, <code>map</code> receives an <b>arrow function</b> that is written right here. An arrow function does not get a <code>this</code> when it is created. Watch what happens when <code>map</code> calls it.` },
+        note: `Inside <code>show</code>, <code>map</code> receives an <b>arrow function</b> that is written right here. An arrow function does not get a <code>this</code> when it is made. Watch what happens when <code>map</code> calls it.` },
       { line: 4, phase: "call", call: `map calls the arrow with "Ana"`, inside: true, rules: ["arrow", `An arrow ignores the four rules. It takes this from <b>show</b>, the code around it`], thisTo: "team", lex: true, frame: "the arrow",
         heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana", "Budi"]', "show: function"]), O("arrow", "arrow function  m => ...", ["written inside show", "has NO this of its own"], "fn")],
-        note: `The first question is: <b>is it an arrow function?</b> Yes. So the four rules are skipped. The engine looks <b>outward</b> for a <code>this</code>, the same way a closure looks outward for a variable (lesson 05). The nearest <code>this</code> belongs to <code>show</code>: it is <code>team</code>. The arrow is dashed orange because the value is <b>borrowed</b>.` },
+        note: `The first question is: <b>is it an arrow function?</b> Yes. So the four rules are skipped. JavaScript looks <b>outward</b> for a <code>this</code>, the same way a closure looks outward for a variable (lesson 05). The nearest <code>this</code> belongs to <code>show</code>: it is <code>team</code>. The arrow is dashed orange because the value is <b>borrowed</b>.` },
       { line: 4, keep: true,
         note: `<code>this.name</code> reads <b>Blue</b>. The arrow returns <b>Ana in Blue</b>. Then <code>map</code> calls it again for Budi. The arrow still borrows the same <code>this</code>, so it returns <b>Budi in Blue</b>.` },
       { line: 6, print: ["Ana in Blue, Budi in Blue"], note: `<code>join</code> glues the two results together, and <code>console.log</code> prints them.` },
@@ -435,7 +437,7 @@ const PRESETS = [
         heap: [O("team", "team", ['name: "Blue"', 'members: ["Ana"]', "show: function"]), O("cb", "function (m) ...", ["a normal function", "gets its OWN this"], "fn")],
         note: `Here is the difference from the arrow. This is a normal function, so the four rules apply. <code>map</code> calls it as a plain call. Strict mode is ON, so <code>this</code> is <b>undefined</b>. The <code>this</code> of <code>show</code> is not used.` },
       { line: 4, phase: "error", keep: true,
-        note: `<code>this.name</code> reads <b>name</b> of <b>undefined</b>. The engine throws a <b>TypeError</b>.` },
+        note: `<code>this.name</code> reads <b>name</b> of <b>undefined</b>. JavaScript throws a <b>TypeError</b>.` },
       { line: 6, print: [ERR + "TypeError"], note: `The <code>catch</code> prints the error name.` },
       { phase: "done", note: `Finished. It printed <b>TypeError</b>. Three fixes: use an arrow function (the last program), pass <code>this</code> as the second argument of <code>map</code>, or write <code>.bind(this)</code> after the function.` }
     ]
@@ -444,14 +446,14 @@ const PRESETS = [
   {
     name: "Arrow as a method",
     mode: "sloppy",
-    why: "An arrow function takes this from where it is written. Curly braces of an object do not make a this. The arrow is written at the top of the file, so it gets the this of the file, which in a Node CommonJS file is module.exports.",
+    why: "An arrow function takes this from where it is written. Curly braces of an object do not make a this. This arrow is written at the top of the file, so it gets the this of the file. In a Node file that uses require (a CommonJS file), that this is module.exports.",
     code: [
       'const user = { name: "Ana", hi: () => this.name };',
       'console.log(user.hi());'
     ],
     steps: [
       { line: 0, heap: [O("user", "user", ['name: "Ana"', "hi: arrow function"]), SPECIAL.modexp],
-        note: `The object <code>user</code> is created. Its <b>hi</b> is an <b>arrow function</b>. The arrow is written at the top of the file, not inside another function. So the <code>this</code> it borrows is the one of the file. In a Node CommonJS file that is <b>module.exports</b>, an empty object. Curly braces of an object do not create a <code>this</code>.` },
+        note: `The object <code>user</code> is made. Its <b>hi</b> is an <b>arrow function</b>. The arrow is written at the top of the file, not inside another function. So the <code>this</code> it borrows is the one of the file. In a Node CommonJS file that is <b>module.exports</b>, an empty object. Curly braces of an object do not create a <code>this</code>.` },
       { line: 1, phase: "call", call: `<u>user</u>.hi()`, rules: ["arrow", `The dot does not count. An arrow uses the this of the file: <b>module.exports</b>`], thisTo: "modexp", lex: true, frame: "the arrow",
         heap: [O("user", "user", ['name: "Ana"', "hi: arrow function"]), SPECIAL.modexp],
         note: `This looks like a dot call, so you may expect rule 3: <code>this = user</code>. But the function is an <b>arrow function</b>. It ignores the dot and all four rules. Its <code>this</code> is the one from where it was written: the top of the file.` },
@@ -474,7 +476,7 @@ const PRESETS = [
     ],
     steps: [
       { line: 0, note: `Strict mode is on.` },
-      { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])], note: `The object <code>user</code> is created. Its method <b>hi</b> prints whether <code>this</code> is <code>user</code>.` },
+      { line: 1, heap: [O("user", "user", ['name: "Ana"', "hi: function"])], note: `The object <code>user</code> is made. Its method <b>hi</b> prints whether <code>this</code> is <code>user</code>.` },
       { line: 2, timers: ["timer 1: the function hi, alone"],
         note: `<code>setTimeout(user.hi, 0)</code> hands <b>only the function</b> to the timer. The object is not part of the deal. This is the same as <code>const f = user.hi</code>.` },
       { line: 3, timers: ["timer 1: the function hi, alone", "timer 2: an arrow that will call user.hi()"],

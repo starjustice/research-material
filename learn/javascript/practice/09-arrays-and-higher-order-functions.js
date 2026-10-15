@@ -21,8 +21,9 @@ function totalPrice(prices) {
 //    Do NOT call the built in map, filter, reduce or forEach inside them. The test arrays
 //    throw an error if you do.
 //    - myMap(array, fn): fn gets (item, index, array). Return a NEW array with every result.
-//    - myFilter(array, fn): fn gets (item, index, array). Return a NEW array with the items where fn is truthy.
-//    - myReduce(array, fn, start): fn gets (acc, item, index, array). Return the last acc.
+//    - myFilter(array, fn): fn gets (item, index, array). Return a NEW array with the items where fn gives a true-like value (truthy).
+//    - myReduce(array, fn, start): fn gets (acc, item, index, array). acc is the running total.
+//      Return the last acc.
 //        With a start value: acc starts as the start value and the first call has index 0.
 //        With NO start value: acc starts as array[0] and the first call has index 1.
 //        An empty array with no start value must throw a TypeError.

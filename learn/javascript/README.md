@@ -1,8 +1,8 @@
 # JavaScript
 
-How the language really works: values, scope, functions, objects, and the async machinery that runs your code.
+How the language really works: values, scope, functions, objects, and how JavaScript runs code that waits (async code).
 
-**Why it matters in interviews:** Almost every frontend and Node interview starts here. Questions like "what is a closure", "what does this print" and "explain the event loop" test whether you understand the engine, not whether you can use a framework.
+**Why it matters in interviews:** Almost every frontend and Node interview starts here. Questions like "what is a closure", "what does this print" and "explain the event loop" test whether you understand how JavaScript runs your code, not whether you can use a framework.
 
 ## The map
 
@@ -30,9 +30,9 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 01 | [Variables, scope and hoisting](01-variables-scope-and-hoisting.md) | var, let, const, block scope, hoisting and the temporal dead zone | ready |
-| 02 | Values, types and coercion `02-values-types-and-coercion.md` | primitive vs object, typeof, == vs ===, truthy and falsy | planned |
-| 03 | Reference vs copy `03-reference-vs-copy.md` | why changing a copied object changes the original, shallow vs deep copy | planned |
-| 04 | Functions `04-functions.md` | declaration vs expression vs arrow, parameters, return, functions as values | planned |
+| 02 | Values, types and coercion `02-values-types-and-coercion.md` | simple values against objects, typeof, == against ===, and which values count as true or false (truthy and falsy) | planned |
+| 03 | Reference vs copy `03-reference-vs-copy.md` | why changing a copied object changes the original, and copying one level against copying everything (shallow and deep copy) | planned |
+| 04 | Functions `04-functions.md` | the three ways to write a function, parameters, return, and passing functions around like values | planned |
 
 ### Core ideas
 
@@ -40,8 +40,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 |---|---|---|---|
 | 05 | [Closures](05-closures.md) | how a function remembers variables after its outer function finished | ready |
 | 06 | this, call, apply and bind `06-this-call-apply-and-bind.md` | what decides the value of this, and how arrow functions differ | planned |
-| 07 | Objects and prototypes `07-objects-and-prototypes.md` | the prototype chain, how property lookup walks up it | planned |
-| 08 | Classes `08-classes.md` | class syntax on top of prototypes, extends, super, private fields | planned |
+| 07 | Objects and prototypes `07-objects-and-prototypes.md` | how an object finds a property it does not have, by following hidden links (the prototype chain) | planned |
+| 08 | Classes `08-classes.md` | what a class really builds in memory, extends, super, and private # fields | planned |
 | 09 | [Arrays and higher order functions](09-arrays-and-higher-order-functions.md) | map, filter, reduce, find, and when to use each | ready |
 | 10 | Destructuring, spread and rest `10-destructuring-spread-and-rest.md` | unpacking values and copying with ... | planned |
 
@@ -50,7 +50,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 11 | [The event loop](11-the-event-loop.md) | call stack, Web APIs, task queue, microtask queue, and the order they run | ready |
-| 12 | Callbacks `12-callbacks.md` | the first async style and why it led to callback hell | planned |
+| 12 | Callbacks `12-callbacks.md` | the first way to write async code, and why deep nesting (callback hell) made it hard | planned |
 | 13 | Promises `13-promises.md` | states, then and catch chains, Promise.all, allSettled, race, any | planned |
 | 14 | Async and await `14-async-and-await.md` | what await really pauses, error handling with try and catch, running in parallel | planned |
 
@@ -59,7 +59,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 15 | Error handling `15-error-handling.md` | throw, try catch finally, custom errors, errors in async code | planned |
-| 16 | Modules `16-modules.md` | ES modules vs CommonJS, import and export, tree shaking | planned |
+| 16 | Modules `16-modules.md` | import and export against require, and how unused code is dropped from the bundle (tree shaking) | planned |
 | 17 | Memory and garbage collection `17-memory-and-garbage-collection.md` | how memory is freed, and common leaks in apps | planned |
 | 18 | Debounce and throttle `18-debounce-and-throttle.md` | limiting how often a function runs, written from scratch | planned |
 

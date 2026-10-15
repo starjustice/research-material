@@ -180,7 +180,7 @@
     </div>
   </div>
 
-  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
   <div class="note" id="note"></div>
 
   <div class="bar"><i id="bar"></i></div>
@@ -195,9 +195,9 @@
   <div class="result" id="result"></div>
 
   <div class="legend">
-    <p><b>The rule to remember:</b> a function carries a <b>link</b> to the scope box where it was created. A scope box is kept for as long as something points at it: a running call, a function, or a waiting callback. When nothing points at it, it can be freed.</p>
+    <p><b>The rule to remember:</b> a function carries a <b>link</b> to the scope box where it was made. A scope box is kept for as long as something points at it: a running call, a function, or a waiting callback. When nothing points at it, it can be freed.</p>
     <p><b>How to read the colors:</b> <span class="lk" style="--c:#3b82f6;--cbg:#e3eefe">G</span> is the Global box. <span class="lk" style="--c:#8b5cf6;--cbg:#efe8fd">S1</span>, <span class="lk" style="--c:#e8890c;--cbg:#fdecd2">S2</span> and <span class="lk" style="--c:#0e8f9b;--cbg:#dcf3f5">S3</span> are boxes made by the outer function (or by a loop pass). Gray boxes are the short boxes made for one call. The labels G, S1, S2 are only names I added so you can follow the links. A pill like <span class="lk" style="--c:#8b5cf6;--cbg:#efe8fd">link → S1</span> means "this function carries a link to box S1".</p>
-    <p>A box with no function pointing at it, like a finished call box, disappears at once in this page. In a real engine the memory is freed a little later, at a time the garbage collector chooses.</p>
+    <p>A box with no function pointing at it, like a finished call box, disappears at once in this page. In real JavaScript the memory is freed a little later, when the cleaner (the garbage collector) chooses.</p>
   </div>
 </div>
 
@@ -262,7 +262,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 1
   {
     name: "Written, not called",
-    why: "A function looks for a name starting in the box where it was created, then follows its outer link. It does not use the box of whoever called it. This rule is called lexical scope.",
+    why: "A function looks for a name starting in the box where it was made, then follows its outer link. It does not use the box of whoever called it. The interview word for this rule is lexical scope.",
     code: [
       'const name = "global";',
       'function show() {',
@@ -277,7 +277,7 @@ const PRESETS = [
     build(r) {
       r.box("G", "Global scope", "global", null, [tdz("name"), fn("show", "G"), fn("run", "G")]);
       r.push(MAIN, "G");
-      r.step(null, "setup", "<b>Setup.</b> The engine makes the Global box. <code>show</code> and <code>run</code> are function declarations, so they exist at once. Both are created while the engine is in the Global box, so <b>each one gets a link to Global</b>. The link is made when the function is created, and it never changes. (<code>name</code> is locked until line 1 runs, like in lesson 01.)");
+      r.step(null, "setup", "<b>Setup.</b> JavaScript makes the Global box. <code>show</code> and <code>run</code> are function declarations, so they exist at once. Both are made while JavaScript is in the Global box, so <b>each one gets a link to Global</b>. The link is made when the function is created, and it never changes. (<code>name</code> is locked until line 1 runs, like in lesson 01.)");
       r.set("G", val("name", "global"));
       r.step(0, "run", "Line 1 gives the global <code>name</code> the value <b>global</b>.");
       r.push("run()", "c1"); r.box("c1", "run() call", "call", "G", [tdz("name")]);
@@ -299,7 +299,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 2
   {
     name: "Two counters",
-    why: "Each call of makeCounter makes a new box. The returned function keeps a link to its box, so the box stays alive after makeCounter has finished, and count keeps its value between calls. Two counters have two boxes, so they do not share count.",
+    why: "Each call of makeCounter makes a new box. The returned function keeps a link to its box. So the box stays alive after makeCounter has finished, and count keeps its value between calls. Two counters have two boxes, so they do not share count.",
     code: [
       'function makeCounter() {',
       '  let count = 0;',
@@ -322,11 +322,11 @@ const PRESETS = [
 
       // first makeCounter call
       r.push("makeCounter()", "S1"); r.box("S1", "makeCounter call 1", "call", "G", [tdz("count")]);
-      r.step(7, "run", "Line 8 calls <code>makeCounter()</code>. It goes on the call stack, and the engine makes a <b>brand new box S1 for this call</b>. Its outer link is Global. <code>count</code> is locked for a moment.");
+      r.step(7, "run", "Line 8 calls <code>makeCounter()</code>. It goes on the call stack, and JavaScript makes a <b>brand new box S1 for this call</b>. Its outer link is Global. <code>count</code> is locked for a moment.");
       r.set("S1", val("count", 0));
       r.step(1, "run", "Line 2 puts <code>count = 0</code> into box <b>S1</b>.");
       r.ret("a new function", "S1", "the function being returned");
-      r.step(2, "run", "Line 3 creates a new function. Where is the engine right now? <b>Inside S1</b>. So the new function gets a <b>link to S1</b>. That link is the closure. The function is on its way out as the return value.");
+      r.step(2, "run", "Line 3 makes a new function. Where is JavaScript right now? <b>Inside S1</b>. So the new function gets a <b>link to S1</b>. That link is the closure. The function is on its way out as the return value.");
       r.pop();
       r.step(6, "run", "<b>makeCounter finishes.</b> It leaves the call stack, and the stack holds only <code>main</code> again. Normally S1 would be thrown away now. But look at S1: it is still here, marked <b>kept alive</b>, because the returned function points at it.");
       r.ret(null); r.set("G", fn("a", "S1"));
@@ -338,7 +338,7 @@ const PRESETS = [
       r.set("S2", val("count", 0));
       r.step(1, "run", "Line 2 puts <code>count = 0</code> into <b>S2</b>. There are now two different variables called <code>count</code>, in two different boxes.");
       r.ret("a new function", "S2", "the function being returned");
-      r.step(2, "run", "Line 3 creates another new function. This one is created inside S2, so it carries a <b>link to S2</b>.");
+      r.step(2, "run", "Line 3 makes another new function. This one is made inside S2, so it carries a <b>link to S2</b>.");
       r.pop();
       r.step(6, "run", "The second <code>makeCounter</code> finishes and leaves the stack. S2 stays, kept by the returned function.");
       r.ret(null); r.set("G", fn("b", "S2"));
@@ -380,13 +380,13 @@ const PRESETS = [
       r.pop(); r.drop("c4"); r.log("3");
       r.step(4, "run", "Returns 3. Prints <b>3</b>.");
       r.pop();
-      r.step(null, "done", "Finished. It printed <b>1 2 1 3</b>. The outer function ran only twice, and finished both times, yet the boxes S1 and S2 are still alive. That is a closure: <b>a function plus the link to the box where it was created</b>.");
+      r.step(null, "done", "Finished. It printed <b>1 2 1 3</b>. The outer function ran only twice, and finished both times, yet the boxes S1 and S2 are still alive. That is a closure: <b>a function plus the link to the box where it was made</b>.");
     }
   },
   // ---------------------------------------------------------------- 3
   {
     name: "Private state",
-    why: "Both functions were created inside the same call, so they share one box. Outside code has no name that points into that box, so balance can only be changed through deposit and read. That is data hiding.",
+    why: "Both functions were made inside the same call, so they share one box. Outside code has no name that points into that box, so balance can only be changed through deposit and read. That is how a closure keeps data private.",
     code: [
       'function makeAccount() {',
       '  let balance = 0;',
@@ -409,7 +409,7 @@ const PRESETS = [
       r.set("S1", val("balance", 0));
       r.step(1, "run", "Line 2 puts <code>balance = 0</code> in S1.");
       r.ret("an object with deposit and read", "S1", "the returned object");
-      r.step(2, "run", "Lines 3 to 6 build an object with <b>two functions</b>. Both are created while the engine is inside S1, so <b>both carry a link to the same box S1</b>. One box, two functions.");
+      r.step(2, "run", "Lines 3 to 6 build an object with <b>two functions</b>. Both are made while JavaScript is inside S1, so <b>both carry a link to the same box S1</b>. One box, two functions.");
       r.pop();
       r.step(6, "run", "<code>makeAccount</code> finishes and leaves the stack. S1 stays, kept alive by the two functions inside the returned object.");
       r.ret(null); r.set("G", obj("acc", "{ deposit: ƒ, read: ƒ }", "S1", ["acc.deposit", "acc.read"]));
@@ -417,7 +417,7 @@ const PRESETS = [
       r.push("deposit(50)", "c1"); r.box("c1", "deposit() call", "call", "S1", [val("n", 50)]);
       r.step(8, "run", "Line 9 calls <code>acc.deposit(50)</code>. The call box has <code>n = 50</code>. Its outer link is <b>S1</b>.");
       r.set("S1", val("balance", 50));
-      r.step(3, "run", "<code>balance = balance + n</code>. <code>n</code> is in the call box. <code>balance</code> is not, so the engine follows the link to <b>S1</b> and finds 0. It becomes 50.",
+      r.step(3, "run", "<code>balance = balance + n</code>. <code>n</code> is in the call box. <code>balance</code> is not, so JavaScript follows the link to <b>S1</b> and finds 0. It becomes 50.",
         [["c1", "1st: found n, but no balance"], ["S1", "2nd: found balance"]]);
       r.pop(); r.drop("c1");
       r.step(3, "run", "<code>deposit</code> ends. Its call box is thrown away. S1 keeps <code>balance = 50</code>.");
@@ -436,7 +436,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 4
   {
     name: "Loop with let",
-    why: "Each pass of a let loop makes a new box with its own i. Each timer callback is created inside one pass, so it keeps a link to that pass and prints its own number. This is the fix from lesson 01, and now you can see the closures that make it work.",
+    why: "Each pass of a let loop makes a new box with its own i. Each timer callback is made inside one pass, so it keeps a link to that pass and prints its own number. This is the fix from lesson 01, and now you can see the closures that make it work.",
     code: [
       'for (let i = 0; i < 3; i++) {',
       '  setTimeout(function () {',
@@ -451,11 +451,11 @@ const PRESETS = [
       r.box("S1", "loop pass 1", "call", "G", [val("i", 0)]); r.mark("S1", "the loop is in this pass");
       r.step(0, "run", "Pass 1 starts. A new box <b>S1</b> with <code>i = 0</code>.");
       r.timer("callback 1", "S1");
-      r.step(1, "run", "<code>setTimeout</code> creates a callback function. The engine is inside S1, so the callback <b>carries a link to S1</b>. The browser holds it and will call it later. It does not run now.");
+      r.step(1, "run", "<code>setTimeout</code> makes a callback function. JavaScript is inside S1, so the callback <b>carries a link to S1</b>. The browser holds it and will call it later. It does not run now.");
       r.mark("S1", null); r.box("S2", "loop pass 2", "call", "G", [val("i", 1)]); r.mark("S2", "the loop is in this pass");
-      r.step(0, "run", "Before <code>i++</code>, the engine makes a <b>new box S2</b>, copies <code>i</code> into it and adds one: <code>i = 1</code>. Pass 1 is left alone. S1 is no longer in use by the loop, but the callback still points at it, so it stays.");
+      r.step(0, "run", "Before <code>i++</code>, JavaScript makes a <b>new box S2</b>, copies <code>i</code> into it and adds one: <code>i = 1</code>. Pass 1 is left alone. S1 is no longer in use by the loop, but the callback still points at it, so it stays.");
       r.timer("callback 2", "S2");
-      r.step(1, "run", "Callback 2 is created inside S2, so it carries a <b>link to S2</b>.");
+      r.step(1, "run", "Callback 2 is made inside S2, so it carries a <b>link to S2</b>.");
       r.mark("S2", null); r.box("S3", "loop pass 3", "call", "G", [val("i", 2)]); r.mark("S3", "the loop is in this pass");
       r.step(0, "run", "Pass 3. New box <b>S3</b>, <code>i = 2</code>.");
       r.timer("callback 3", "S3");
@@ -488,7 +488,7 @@ const PRESETS = [
         [["c3", "1st: no i here"], ["S3", "2nd: found i = 2"]]);
       r.pop(); r.drop("c3");
       r.step(3, "run", "Callback 3 ends. The stack is empty, and all three boxes can be freed.");
-      r.step(null, "done", "Finished. It printed <b>0 1 2</b>. With <code>var</code> there would be only one box and one <code>i</code>, and all three callbacks would link to it and print 3 3 3. (Try the 5th program in the stepper of lesson 01.)");
+      r.step(null, "done", "Finished. It printed <b>0 1 2</b>. With <code>var</code> there would be only one box and one <code>i</code>. All three callbacks would link to it and print 3 3 3. (Try the 5th program in the stepper of lesson 01.)");
     }
   },
   // ---------------------------------------------------------------- 5
@@ -513,7 +513,7 @@ const PRESETS = [
       r.push("render(0)", "S1"); r.box("S1", "render 1", "call", "G", [val("count", 0)]);
       r.step(5, "run", "Line 6 calls <code>render(0)</code>. Box <b>S1</b> (render 1) holds <code>count = 0</code>.");
       r.ret("onClick function", "S1", "the function being returned");
-      r.step(1, "run", "The <code>onClick</code> function is created inside S1, so it carries a <b>link to S1</b>.");
+      r.step(1, "run", "The <code>onClick</code> function is made inside S1, so it carries a <b>link to S1</b>.");
       r.pop();
       r.step(4, "run", "Render 1 is over. S1 stays alive, kept by <code>onClick</code>.");
       r.ret(null); r.set("G", fn("first", "S1"));
@@ -539,13 +539,13 @@ const PRESETS = [
       r.step(2, "run", "Found <code>count</code> in S2: 1. It prints <b>count is 1</b>.",
         [["c2", "1st: no count here"], ["S2", "2nd: found count = 1"]]);
       r.pop(); r.drop("c2");
-      r.step(null, "done", "Finished. It printed <b>count is 0 count is 1</b>. In real React the same thing happens when an effect that runs only once (an empty dependency list) creates a timer: the timer callback keeps the box of the first render, so it reads the first count forever. The fix is to let the callback ask React for the latest value instead, for example <code>setCount(c => c + 1)</code>.");
+      r.step(null, "done", "Finished. It printed <b>count is 0 count is 1</b>. Real React does the same thing. Take an effect that runs only once (an empty dependency list) and makes a timer. The timer callback keeps the box of the first render, so it reads the first count forever. The fix is to let the callback ask React for the latest value instead, for example <code>setCount(c => c + 1)</code>.");
     }
   },
   // ---------------------------------------------------------------- 6
   {
     name: "The memory cost",
-    why: "A function keeps its whole box alive, and everything in it. If the function lives for a long time (an event listener, a timer, a global variable), the big data in the box lives just as long. Let go of the function, and the box can be freed.",
+    why: "A function keeps its whole box alive, and everything in it. Some functions live a long time: an event listener, a timer, a global variable. Then the big data in their box lives just as long. Let go of the function, and the box can be freed.",
     code: [
       'function makeReader() {',
       '  const big = new Array(1000).fill("x");',
@@ -566,7 +566,7 @@ const PRESETS = [
       r.set("S1", val("big", "array with 1000 items"));
       r.step(1, "run", "Line 2 puts a big array into S1. Pretend it is a huge list of products. It takes real memory.");
       r.ret("a new function", "S1", "the function being returned");
-      r.step(2, "run", "The returned function is created inside S1, so it carries a link to S1.");
+      r.step(2, "run", "The returned function is made inside S1, so it carries a link to S1.");
       r.pop();
       r.step(5, "run", "<code>makeReader</code> finishes. S1 stays alive. The big array is still in memory.");
       r.ret(null); r.set("G", fn("read", "S1"));
@@ -579,8 +579,8 @@ const PRESETS = [
       r.pop(); r.drop("c1");
       r.step(4, "run", "<code>read()</code> ends. Its call box is thrown away. S1 stays, because <code>read</code> still points at it.");
       r.set("G", val("read", "null"));
-      r.step(8, "run", "Line 9 sets <code>read = null</code>. The function is not reachable any more. <b>Nothing points at S1.</b> The box is now marked <b>can be freed</b>. The cleaner (the garbage collector) will free the big array later, at a time it chooses. You cannot force it.");
-      r.step(null, "done", "Finished. It printed <b>1000</b>. Closures are not free: a function holds on to its whole box. The usual leak is a long-living function (a listener you never remove, a timer you never clear) that keeps a big box alive. The cure is to let go of the function: remove the listener, clear the timer, or set the variable to null.");
+      r.step(8, "run", "Line 9 sets <code>read = null</code>. Nothing can reach the function any more. <b>Nothing points at S1.</b> The box is now marked <b>can be freed</b>. The cleaner (the garbage collector) will free the big array later, at a time it chooses. You cannot force it.");
+      r.step(null, "done", "Finished. It printed <b>1000</b>. Closures are not free: a function holds on to its whole box. The usual leak is a long-living function that keeps a big box alive. For example, a listener you never remove, or a timer you never clear. The cure is to let go of the function: remove the listener, clear the timer, or set the variable to null.");
     }
   }
 ];

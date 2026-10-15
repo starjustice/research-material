@@ -1,7 +1,7 @@
 "use strict";
 // Lesson 06: this, call, apply and bind. Do the three tasks below, then run:
 //   node --test learn/javascript/practice/06-this-call-apply-and-bind.test.js
-// This file is in strict mode, so a lost this is undefined and gives a loud TypeError.
+// This file uses strict mode (a safer setting). So a lost this is undefined, and you get a loud TypeError.
 
 // 1. FIX THE BUG. Change ONE line.
 //    callLater calls the function it receives as a plain call, like setTimeout or forEach do.

@@ -206,7 +206,7 @@
 
   <div class="dots" id="dots" style="display:none"></div>
 
-  <div class="loop-line">Engine: <span class="badge" id="badge">ready</span></div>
+  <div class="loop-line">JavaScript: <span class="badge" id="badge">ready</span></div>
   <div class="note" id="note"></div>
 
   <div class="bar"><i id="bar"></i></div>
@@ -220,7 +220,8 @@
 
   <div class="result" id="result"></div>
 
-  <p class="legend"><b>The rule to remember:</b> the same three dots, opposite directions. On the <b>left side</b> (a pattern or a parameter list), <b>...</b> is <b>rest</b>: it <b>collects</b> the leftovers into one new array or object, and it must be last. On the <b>right side</b> (a call, an array literal or an object literal), <b>...</b> is <b>spread</b>: it <b>expands</b> one value into separate pieces. A default applies only to <b>undefined</b>. Spread copies only <b>one level</b>.</p>
+  <p class="legend"><b>The rule to remember:</b> the same three dots, opposite directions. On the <b>left side</b> (a pattern, or a function's parameter list), <b>...</b> is <b>rest</b>: it <b>collects</b> the leftovers into one new array or object, and it must be last. On the <b>right side</b> (inside a call, inside <code>[ ]</code> or inside <code>{ }</code>), <b>...</b> is <b>spread</b>: it <b>expands</b> one value into separate pieces. A default applies only to <b>undefined</b>. Spread copies only <b>one level</b>.</p>
+  <p class="legend"><b>Words on this page:</b> a <b>pattern</b> is the <code>[ ]</code> or <code>{ }</code> on the left of <code>=</code> that says which values go into which variables. A <b>default</b> is the value after <code>=</code> inside a pattern, used when the value is missing. A <b>shallow copy</b> copies only the top level, so objects inside are shared.</p>
 </div>
 
 <script>
@@ -267,7 +268,7 @@ const PRESETS = [
     steps: build([
       [0, "run", "", "Line 1 makes an array with five slots. Notice that slot 2 holds the value <code>undefined</code>.",
         { src: SRC("array", "nums", [0, "10"], [1, "20"], [2, "undefined"], [3, "40"], [4, "50"]), vars: [V("nums", "[10, 20, undefined, 40, 50]", "the array")] }],
-      [1, "run", "[first, , third = 0, ...tail]", "Line 2 is a <b>pattern</b>. It looks like an array, so the engine matches <b>by position</b>, from left to right. It only reads <code>nums</code>. It does not change it.", {}],
+      [1, "run", "[first, , third = 0, ...tail]", "Line 2 is a <b>pattern</b>. It looks like an array, so JavaScript matches <b>by position</b>, from left to right. It only reads <code>nums</code>. It does not change it.", {}],
       [1, "run", "first", "<b>first</b> matches position 0. The value is 10. So <code>first = 10</code>.",
         { read: ["0"], mark: { 0: "taken" }, vars: [V("first", "10", "position 0")] }],
       [1, "run", ", ,", "The empty place between the two commas matches position 1 (the value 20) and <b>throws it away</b>. No variable is made.",
@@ -285,7 +286,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 2
   {
     name: "Object: by name",
-    why: "An object pattern matches by name, so the order in the pattern does not matter. A colon renames: age: years reads the key age and makes a variable called years. A nested pattern goes one level down. Only the names that end up inside the pattern as variables are created.",
+    why: "An object pattern matches by name, so the order in the pattern does not matter. A colon renames: age: years reads the key age and makes a variable called years. A nested pattern goes one level down. Only the names that end up as variables in the pattern are made.",
     code: [
       'const user = { name: "Ana", age: 30, address: { city: "Jakarta" } };',
       'const { name, age: years, role = "guest", address: { city } } = user;',
@@ -294,7 +295,7 @@ const PRESETS = [
     steps: build([
       [0, "run", "", "Line 1 makes an object with three keys. The key <code>address</code> holds another object.",
         { src: SRC("object", "user", ["name", '"Ana"'], ["age", "30"], ["address", '{ city: "Jakarta" }']), vars: [V("user", '{ name: "Ana", age: 30, address: { city: "Jakarta" } }', "the object")] }],
-      [1, "run", '{ name, age: years, role = "guest", address: { city } }', "Line 2 is a pattern that looks like an object, so the engine matches <b>by name</b>. The order inside the braces does not matter. It reads <code>user</code> and does not change it.", {}],
+      [1, "run", '{ name, age: years, role = "guest", address: { city } }', "Line 2 is a pattern that looks like an object, so JavaScript matches <b>by name</b>. The order inside the braces does not matter. It reads <code>user</code> and does not change it.", {}],
       [1, "run", "name", "<b>name</b> reads the key <code>name</code>. The value is \"Ana\". So <code>name = \"Ana\"</code>.",
         { read: ["name"], mark: { name: "taken" }, vars: [V("name", '"Ana"', "user.name")] }],
       [1, "run", "age: years", "<code>age: years</code> means: read the key <b>age</b>, and put the value in a variable called <b>years</b>. The colon <b>renames</b>. No variable called <code>age</code> is made.",
@@ -369,7 +370,7 @@ const PRESETS = [
         { ghost: [["secure", "(no such key)"]], vars: [V("secure", "false", "key missing, default used", "def")] }],
       [4, "run", "", "It prints <b>b.com:null false</b>. The text says null for the port. Probably not what you wanted. A default does not catch null.",
         { out: ["b.com:null false"], drop: ["host", "port", "secure"], noSrc: true }],
-      [5, "error", "connect(null)", "<b>Call 3.</b> The argument is <code>null</code>. The default <code>= {}</code> is used only for <code>undefined</code>, so it is skipped. The engine now tries to destructure <code>null</code>, and that throws a <b>TypeError</b>. (The exact message words differ between engines.)",
+      [5, "error", "connect(null)", "<b>Call 3.</b> The argument is <code>null</code>. The default <code>= {}</code> is used only for <code>undefined</code>, so it is skipped. JavaScript now tries to destructure <code>null</code>, and that throws a <b>TypeError</b>. (The exact message words differ between engines.)",
         { src: SRC("object", "argument 1", ["", "null"]) }],
       [5, "run", "console.log(e.name)", "The <code>catch</code> prints the error name.",
         { out: [ERR + "TypeError"], noSrc: true }],
@@ -405,7 +406,7 @@ const PRESETS = [
         { setVars: [V("total", "function", "", "fn"), V("label", '"none"', "argument 1"), V("nums", "[]", "rest, nothing left", "rest")],
           dots: { mode: "rest", where: "in a parameter list", from: BOX("1 argument", [CH('"none"', "taken")], false), to: BOX("nums, a NEW array", [], true) } }],
       [1, "run", "", "It prints the label and the empty array.", { out: ["none []"], dots: null }],
-      [5, "run", "{ id, ...others }", "Line 6 uses the same idea in an <b>object pattern</b>. The object on the right has three keys. The engine matches by name.",
+      [5, "run", "{ id, ...others }", "Line 6 uses the same idea in an <b>object pattern</b>. The object on the right has three keys. JavaScript matches by name.",
         { setVars: [V("total", "function", "", "fn")], src: SRC("object", "the object on the right", ["id", "7"], ["name", '"Ana"'], ["age", "30"]) }],
       [5, "run", "id", "<b>id</b> reads the key <code>id</code>. The value is 7.",
         { read: ["id"], mark: { id: "taken" }, vars: [V("id", "7", "key id")] }],
@@ -419,7 +420,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 6
   {
     name: "Spread: expand into pieces",
-    why: "Spread takes ONE array or object and expands it into separate pieces, in an array literal, a function call or an object literal. It always builds something new. The source is not changed.",
+    why: "Spread takes ONE array or object and expands it into separate pieces. You can use it inside [ ], inside a function call, or inside { }. It always builds something new. The source is not changed.",
     code: [
       'const a = [1, 2];',
       'const b = [0, ...a, 3];',
@@ -453,7 +454,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 7
   {
     name: "Later keys win",
-    why: "Spread copies keys in order, and a later key with the same name replaces the earlier value (the key keeps its first position). So put the defaults first and the overrides last. If you flip the order, the defaults win and the user's choice is lost.",
+    why: "Spread copies keys in order. A later key with the same name replaces the earlier value. (The key keeps its first position.) So put the defaults first and the overrides last. If you flip the order, the defaults win and the user's choice is lost.",
     code: [
       'const defaults = { theme: "light", size: 10 };',
       'const mine = { size: 14, lang: "id" };',
@@ -483,7 +484,7 @@ const PRESETS = [
   // ---------------------------------------------------------------- 8
   {
     name: "Shallow copy trap",
-    why: "Spread copies only the top level. A field that holds an object really holds an arrow to it, and the arrow is copied, not the object. So the copy and the original share the nested object. To change a nested value safely, spread each level on the path.",
+    why: "Spread copies only the top level (interview word: shallow copy). A field that holds an object really holds an arrow to it, and the arrow is copied, not the object. So the copy and the original share the nested object. To change a nested value safely, spread each level on the path.",
     code: [
       'const orig = { name: "Ana", address: { city: "Jakarta" } };',
       'const copy = { ...orig };',

@@ -20,7 +20,8 @@ function getPort({ port = 3000 } = {}) {
   return port;
 }
 
-// 3. WRITE IT. Immutable updates, the way React state is updated. Never change the input.
+// 3. WRITE IT. Update without changing the input, the way React state is updated.
+//    (Interview word: immutable updates.)
 //    state looks like: { filter: "all", todos: [{ id: 1, text: "read", done: false }] }
 //    addTodo(state, todo)  returns a new state with the todo added at the END of todos.
 //    toggleTodo(state, id) returns a new state where the todo with that id has done flipped.
