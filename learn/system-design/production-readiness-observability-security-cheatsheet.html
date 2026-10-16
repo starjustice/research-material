@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production Readiness Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>PRODUCTION READINESS CHEATSHEET</h1>
+  <p class="sub">See it · Measure it · Ship it safely · Protect it · Survive it · Pay for it</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">The last 5 minutes of a design round. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · One request, one name tag (trace id)</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 250" role="img" aria-label="Next.js creates a trace id, the API passes it in a header to Postgres and inside job data to the queue and worker">
+      <rect class="box box-blue" x="10" y="30" width="130" height="54" rx="10"/><text class="lbl" x="75" y="52">Next.js</text><text class="lbl-s" x="75" y="72">creates abc123</text>
+      <rect class="box box-blue" x="185" y="30" width="140" height="54" rx="10"/><text class="lbl" x="255" y="52">API</text><text class="lbl-s" x="255" y="72">span: 87 ms</text>
+      <rect class="box" x="185" y="130" width="140" height="54" rx="10"/><text class="lbl" x="255" y="152">Postgres</text><text class="lbl-s" x="255" y="172">span: 12 ms</text>
+      <rect class="box box-yellow" x="390" y="30" width="140" height="54" rx="10"/><text class="lbl" x="460" y="52">Queue</text><text class="lbl-s" x="460" y="72">job.data.traceId</text>
+      <rect class="box box-yellow" x="575" y="30" width="135" height="54" rx="10"/><text class="lbl" x="642" y="52">Worker</text><text class="lbl-s" x="642" y="72">span: 900 ms</text>
+      <path class="arrow" d="M142,57 L183,57" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="162" y="22">traceparent</text>
+      <path class="arrow" d="M255,86 L255,128" marker-end="url(#arr)"/>
+      <path class="arrow" d="M327,57 L388,57" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="357" y="22">in job data</text>
+      <path class="arrow" d="M532,57 L573,57" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="390" y="130" width="320" height="54" rx="10"/>
+      <text class="lbl" x="550" y="152">search abc123</text><text class="lbl-s" x="550" y="172">every log line and span of this one request</text>
+      <text class="lbl-s" x="360" y="226">Metrics say something is wrong. Traces say where. Logs say why.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Every request gets a trace id at the edge. It rides in the traceparent header over HTTP and inside the job data through the queue. Every JSON log line carries it, so one search shows the whole path."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Why averages lie</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 240" role="img" aria-label="90 requests at 100 ms, 8 at 400 ms, 2 at 3000 ms; average 182 ms, p50 100, p95 400, p99 3000">
+      <text class="lbl-l" x="14" y="44">90 requests</text>
+      <rect class="box box-green" x="120" y="28" width="14" height="22" rx="3"/><text class="lbl-sl" x="142" y="44">100 ms each</text>
+      <text class="lbl-l" x="14" y="84">8 requests</text>
+      <rect class="box box-yellow" x="120" y="68" width="54" height="22" rx="3"/><text class="lbl-sl" x="182" y="84">400 ms each</text>
+      <text class="lbl-l" x="14" y="124">2 requests</text>
+      <rect class="box box-pink" x="120" y="108" width="400" height="22" rx="3"/><text class="lbl-sl" x="528" y="124">3000 ms each</text>
+      <rect class="box box-pink" x="10" y="156" width="165" height="56" rx="10"/><text class="lbl" x="92" y="178">average 182 ms</text><text class="lbl-s t-pink" x="92" y="198">nobody felt this</text>
+      <rect class="box" x="190" y="156" width="165" height="56" rx="10"/><text class="lbl" x="272" y="178">p50 = 100 ms</text><text class="lbl-s" x="272" y="198">half were faster</text>
+      <rect class="box" x="370" y="156" width="165" height="56" rx="10"/><text class="lbl" x="452" y="178">p95 = 400 ms</text><text class="lbl-s" x="452" y="198">95 of 100 faster</text>
+      <rect class="box box-yellow" x="550" y="156" width="160" height="56" rx="10"/><text class="lbl" x="630" y="178">p99 = 3000 ms</text><text class="lbl-s" x="630" y="198">2 users waited 3 s</text>
+      <text class="lbl-s" x="360" y="232">A page that calls 10 services hits someone's p99 about 1 time in 10.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I alert on p95 and p99, not the average. The average mixes fast and slow users into a number nobody felt, and slow tails add up when one page calls many services."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · The error budget and burn rate</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="30 days is 43,200 minutes; 99.9 percent leaves 43.2 minutes; burn rate tiers">
+      <rect class="box box-green" x="20" y="40" width="650" height="36" rx="6"/><text class="lbl" x="345" y="63">30 days = 43,200 minutes, target 99.9% good</text>
+      <rect class="box box-pink" x="670" y="40" width="30" height="36" rx="4"/>
+      <text class="lbl t-pink" x="600" y="28">budget: 43.2 min</text>
+      <rect class="box" x="20" y="104" width="210" height="62" rx="10"/><text class="lbl" x="125" y="126">burn rate 1</text><text class="lbl-s" x="125" y="146">budget lasts exactly 30 days</text>
+      <rect class="box box-pink" x="255" y="104" width="210" height="62" rx="10"/><text class="lbl" x="360" y="126">burn rate 14.4 for 1 h</text><text class="lbl-s" x="360" y="146">2% gone in an hour: page</text>
+      <rect class="box box-yellow" x="490" y="104" width="210" height="62" rx="10"/><text class="lbl" x="595" y="126">burn rate 6 for 6 h</text><text class="lbl-s" x="595" y="146">5% gone: page</text>
+      <text class="lbl-s" x="360" y="198">Two windows: the long one proves it is real, the short one proves it is still happening.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "99.9% over 30 days leaves about 43 minutes. I page on fast budget burn, a symptom users feel, not on CPU, which is a cause."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Canary deploy with automatic rollback</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Load balancer sends 95 percent to v1 and 5 percent to v2; compare errors and p99; promote or roll back">
+      <rect class="box" x="10" y="75" width="120" height="54" rx="10"/><text class="lbl" x="70" y="98">Load</text><text class="lbl" x="70" y="116">balancer</text>
+      <rect class="box box-blue" x="190" y="25" width="160" height="50" rx="10"/><text class="lbl" x="270" y="46">v1 stable</text><text class="lbl-s" x="270" y="64">95% of traffic</text>
+      <rect class="box box-yellow" x="190" y="130" width="160" height="50" rx="10"/><text class="lbl" x="270" y="151">v2 canary</text><text class="lbl-s" x="270" y="169">5% of traffic</text>
+      <rect class="box" x="410" y="75" width="150" height="54" rx="10"/><text class="lbl" x="485" y="98">Compare</text><text class="lbl-s" x="485" y="117">errors and p99</text>
+      <rect class="box box-green" x="600" y="25" width="110" height="50" rx="10"/><text class="lbl" x="655" y="46">Promote</text><text class="lbl-s" x="655" y="64">25% then 100%</text>
+      <rect class="box box-pink" x="600" y="130" width="110" height="50" rx="10"/><text class="lbl" x="655" y="151">Roll back</text><text class="lbl-s" x="655" y="169">automatically</text>
+      <path class="arrow" d="M132,95 L188,55" marker-end="url(#arr)"/>
+      <path class="arrow" d="M132,110 L188,150" marker-end="url(#arr)"/>
+      <path class="arrow-dash" d="M352,55 L408,90" marker-end="url(#arrm)"/>
+      <path class="arrow-dash" d="M352,150 L408,115" marker-end="url(#arrm)"/>
+      <path class="arrow-green" d="M562,92 L598,55" marker-end="url(#arrg)"/>
+      <path class="arrow-pink" d="M562,112 L598,150" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="360" y="208">Schema changes ship first as expand steps, so v1 and v2 both work on one database.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I deploy as a canary and roll back automatically if errors or p99 get worse. Risky features sit behind a flag, so release is separate from deploy."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Four disaster recovery plans</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 240" role="img" aria-label="Backup and restore, pilot light, warm standby, active-active: more cost, less downtime">
+      <rect class="box box-green" x="10" y="120" width="165" height="70" rx="10"/><text class="lbl" x="92" y="142">Backup + restore</text><text class="lbl-s" x="92" y="162">RTO: hours</text><text class="lbl-s" x="92" y="178">cost: $</text>
+      <rect class="box box-blue" x="190" y="90" width="165" height="100" rx="10"/><text class="lbl" x="272" y="112">Pilot light</text><text class="lbl-s" x="272" y="132">data copied, core off</text><text class="lbl-s" x="272" y="152">RTO: tens of minutes</text><text class="lbl-s" x="272" y="168">cost: $$</text>
+      <rect class="box box-yellow" x="370" y="60" width="165" height="130" rx="10"/><text class="lbl" x="452" y="82">Warm standby</text><text class="lbl-s" x="452" y="102">small working copy</text><text class="lbl-s" x="452" y="122">RTO: minutes</text><text class="lbl-s" x="452" y="138">cost: $$$</text>
+      <rect class="box box-pink" x="550" y="30" width="160" height="160" rx="10"/><text class="lbl" x="630" y="52">Active-active</text><text class="lbl-s" x="630" y="72">both regions serve</text><text class="lbl-s" x="630" y="92">RTO: near zero</text><text class="lbl-s" x="630" y="108">cost: $$$$</text><text class="lbl-s t-pink" x="630" y="130">write conflicts!</text>
+      <path class="arrow" d="M20,210 L700,210" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="230">more money every month, less downtime. Most systems: multi-AZ plus tested backups.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I ask the business for RPO and RTO first, then pick the cheapest plan that meets them. A replica is not a backup, and a backup is only real after a restore drill."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · A security check at every arrow</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="User to edge to gateway to service to database, each hop checked, with an audit log">
+      <rect class="box" x="10" y="50" width="110" height="60" rx="10"/><text class="lbl" x="65" y="85">User</text>
+      <rect class="box box-blue" x="155" y="50" width="125" height="60" rx="10"/><text class="lbl" x="217" y="74">Edge</text><text class="lbl-s" x="217" y="94">WAF + rate limit</text>
+      <rect class="box box-blue" x="315" y="50" width="125" height="60" rx="10"/><text class="lbl" x="377" y="74">Gateway</text><text class="lbl-s" x="377" y="94">is the token real?</text>
+      <rect class="box box-yellow" x="475" y="50" width="120" height="60" rx="10"/><text class="lbl" x="535" y="74">Service</text><text class="lbl-s" x="535" y="94">may you touch it?</text>
+      <rect class="box box-green" x="625" y="50" width="85" height="60" rx="10"/><text class="lbl" x="667" y="74">DB</text><text class="lbl-s" x="667" y="94">encrypted</text>
+      <path class="arrow" d="M122,80 L153,80" marker-end="url(#arr)"/><text class="lbl-s" x="137" y="42">TLS</text>
+      <path class="arrow" d="M282,80 L313,80" marker-end="url(#arr)"/><text class="lbl-s" x="297" y="42">TLS</text>
+      <path class="arrow" d="M442,80 L473,80" marker-end="url(#arr)"/><text class="lbl-s" x="457" y="42">mTLS</text>
+      <path class="arrow" d="M597,80 L623,80" marker-end="url(#arr)"/><text class="lbl-s" x="610" y="42">TLS</text>
+      <rect class="box" x="475" y="140" width="120" height="50" rx="10"/><text class="lbl" x="535" y="161">Audit log</text><text class="lbl-s" x="535" y="179">who did what</text>
+      <path class="arrow" d="M535,112 L535,138" marker-end="url(#arr)"/>
+      <text class="lbl-sl t-pink" x="20" y="160">BOLA = the service forgets</text>
+      <text class="lbl-sl t-pink" x="20" y="176">"may you touch it?"</text>
+      <text class="lbl-s" x="360" y="218">Zero trust: being inside the network proves nothing. Every hop proves who it is.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The gateway checks the token is real. Each service checks this user may touch this object, which stops BOLA, the number one OWASP API risk. Services prove who they are with mTLS or short lived tokens."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · A rough monthly bill, out loud</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Egress about 270 dollars, logs about 150, cross-AZ about 30, compute and database a few hundred">
+      <text class="lbl-l" x="14" y="44">Egress 3 TB</text>
+      <rect class="box box-pink" x="170" y="28" width="324" height="22" rx="3"/><text class="lbl-sl" x="502" y="44">~$270 at $0.09 per GB</text>
+      <text class="lbl-l" x="14" y="84">Logs 300 GB</text>
+      <rect class="box box-yellow" x="170" y="68" width="180" height="22" rx="3"/><text class="lbl-sl" x="358" y="84">~$150 at $0.50 per GB</text>
+      <text class="lbl-l" x="14" y="124">Cross-AZ 1.5 TB</text>
+      <rect class="box box-blue" x="170" y="108" width="36" height="22" rx="3"/><text class="lbl-sl" x="214" y="124">~$30 at $0.01 each way</text>
+      <text class="lbl-l" x="14" y="164">Compute + DB</text>
+      <rect class="box" x="170" y="148" width="324" height="22" rx="3" style="stroke-dasharray:5 4"/><text class="lbl-sl" x="502" y="164">a few hundred: check calculator</text>
+      <text class="lbl-s" x="360" y="204">5 million requests a day at 20 KB each. Logs cost half as much as all user traffic.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "At this scale the bill is mostly egress, logs and the database. A CDN, log sampling with short retention, and keeping app and DB in one zone are my first three levers."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">Three tools, three questions</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Tool</th><th>Answers</th><th>Cost</th></tr>
+    <tr><td class="val">Metric</td><td>Is something wrong? How much?</td><td class="why">Cheap: a few numbers per minute</td></tr>
+    <tr><td class="val">Trace</td><td>Which box was slow?</td><td class="why">Costly: keep a sample, all errors, all slow ones</td></tr>
+    <tr><td class="val">Log</td><td>What exactly happened to this request?</td><td class="why">Costly: one line per event, the fastest growing bill line</td></tr>
+  </table></div>
+
+  <h2 class="block">What to watch</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>List</th><th>For</th><th>Numbers</th></tr>
+    <tr><td class="val">Golden signals</td><td>any service users touch</td><td class="why">latency (p99), traffic, errors, saturation</td></tr>
+    <tr><td class="val">RED</td><td>APIs, GraphQL, workers</td><td class="why">rate, errors, duration</td></tr>
+    <tr><td class="val">USE</td><td>CPU, disk, DB pool, Redis</td><td class="why">utilization, saturation, errors</td></tr>
+    <tr><td class="val">Queue</td><td>BullMQ, SQS, Kafka consumers</td><td class="why">age of the oldest waiting job</td></tr>
+    <tr><td class="val">Business</td><td>the product</td><td class="why">orders per minute, OTPs sent per minute</td></tr>
+  </table></div>
+
+  <h2 class="block">The nines (30 day month = 43,200 minutes)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>SLO</th><th>Budget per 30 days</th><th>Failures allowed in 10M requests</th></tr>
+    <tr><td class="val">99%</td><td>7.2 hours</td><td>100,000</td></tr>
+    <tr><td class="val">99.9%</td><td>43.2 minutes</td><td>10,000</td></tr>
+    <tr><td class="val">99.95%</td><td>21.6 minutes</td><td>5,000</td></tr>
+    <tr><td class="val">99.99%</td><td>4.3 minutes</td><td>1,000</td></tr>
+  </table></div>
+
+  <h2 class="block">Burn rate alerts (Google SRE Workbook)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Action</th><th>Burn rate</th><th>Long and short window</th><th>Budget used</th></tr>
+    <tr><td class="val">Page</td><td>14.4</td><td>1 hour and 5 minutes</td><td class="why">2%</td></tr>
+    <tr><td class="val">Page</td><td>6</td><td>6 hours and 30 minutes</td><td class="why">5%</td></tr>
+    <tr><td class="val">Ticket</td><td>1</td><td>3 days and 6 hours</td><td class="why">10%</td></tr>
+  </table></div>
+
+  <h2 class="block">Deploy strategies</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Strategy</th><th>Rollback</th><th>Extra cost</th><th>Pick when</th></tr>
+    <tr><td class="val">Rolling</td><td>slow, one by one</td><td>almost none</td><td class="why">default for stateless services</td></tr>
+    <tr><td class="val">Blue green</td><td>instant flip</td><td>double servers for a while</td><td class="why">you need instant rollback</td></tr>
+    <tr><td class="val">Canary</td><td>fast, only 5% saw it</td><td>traffic splitting, good metrics</td><td class="why">risky change, high traffic</td></tr>
+    <tr><td class="val">Feature flag</td><td>instant, no deploy</td><td>flag service, old flags to delete</td><td class="why">separate deploy from release</td></tr>
+  </table></div>
+
+  <h2 class="block">Disaster recovery (AWS whitepaper names)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Plan</th><th>RPO</th><th>RTO</th><th>Cost</th></tr>
+    <tr><td class="val">Backup and restore</td><td>hours</td><td>hours</td><td class="why">$</td></tr>
+    <tr><td class="val">Pilot light</td><td>minutes</td><td>tens of minutes</td><td class="why">$$</td></tr>
+    <tr><td class="val">Warm standby</td><td>seconds to minutes</td><td>minutes</td><td class="why">$$$</td></tr>
+    <tr><td class="val">Multi-site active-active</td><td>near zero</td><td>near zero</td><td class="why">$$$$</td></tr>
+  </table></div>
+
+  <h2 class="block">OWASP API Security Top 10 2023, in Express and GraphQL</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Risk</th><th>Your mistake</th><th>Fix</th></tr>
+    <tr><td class="val">API1 BOLA</td><td><code>order(id)</code> returns anyone's order</td><td class="why">owner check in the query</td></tr>
+    <tr><td class="val">API2 Broken auth</td><td>no limit on login or OTP, JWT alg not pinned</td><td class="why">rate limit, pin alg, short expiry</td></tr>
+    <tr><td class="val">API3 Property auth</td><td>exposes passwordHash, accepts role in update</td><td class="why">allow list of fields</td></tr>
+    <tr><td class="val">API4 Resource use</td><td>deep nested query, first: 1000000</td><td class="why">depth and cost limits, max page size</td></tr>
+    <tr><td class="val">API5 Function auth</td><td>store owner calls an admin mutation</td><td class="why">role check per mutation</td></tr>
+    <tr><td class="val">API6 Business flows</td><td>bots request thousands of paid OTPs</td><td class="why">per number and per IP limits</td></tr>
+    <tr><td class="val">API7 SSRF</td><td>server fetches a user given URL</td><td class="why">allow list, block internal addresses</td></tr>
+    <tr><td class="val">API8 Misconfig</td><td>introspection and stack traces on in prod</td><td class="why">turn off, strict CORS</td></tr>
+    <tr><td class="val">API9 Inventory</td><td>old /v1 still live</td><td class="why">list and remove old endpoints</td></tr>
+    <tr><td class="val">API10 Unsafe use</td><td>trusts webhook body without signature</td><td class="why">verify signatures</td></tr>
+  </table></div>
+
+  <h2 class="block">Cost lines (AWS us-east-1 list prices from 2026 pricing guides)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Line</th><th>Rough price</th><th>Lever</th></tr>
+    <tr><td class="val">Internet egress</td><td>~$0.09 per GB (first 10 TB)</td><td class="why">CDN, compression</td></tr>
+    <tr><td class="val">Cross-AZ</td><td>~$0.01 per GB each way</td><td class="why">same zone reads</td></tr>
+    <tr><td class="val">NAT gateway</td><td>~$0.045 per GB plus hourly</td><td class="why">VPC endpoints</td></tr>
+    <tr><td class="val">CloudWatch logs</td><td>~$0.50 per GB ingested</td><td class="why">info level, sampling, short retention</td></tr>
+  </table></div>
+
+  <h2 class="block">Severity levels</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Level</th><th>Meaning</th><th>Response</th></tr>
+    <tr><td class="val">SEV1</td><td>core product down or data at risk</td><td class="why">page now, status page, updates every 30 min</td></tr>
+    <tr><td class="val">SEV2</td><td>big feature broken for many</td><td class="why">page on-call, status page</td></tr>
+    <tr><td class="val">SEV3</td><td>small feature, workaround exists</td><td class="why">ticket, working hours</td></tr>
+    <tr><td class="val">SEV4</td><td>cosmetic</td><td class="why">backlog</td></tr>
+  </table></div>
+
+  <h2 class="block">The checklist to say at the end</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>#</th><th>Item</th></tr>
+    <tr><td class="val">1</td><td>SLO, for example 99.9% of checkouts under 1 s (about 43 min budget)</td></tr>
+    <tr><td class="val">2</td><td>Golden signals with p95 and p99, queue age, one business metric</td></tr>
+    <tr><td class="val">3</td><td>Trace id across services and queue jobs, JSON logs, no secrets</td></tr>
+    <tr><td class="val">4</td><td>Alerts on symptoms and budget burn, each with a runbook</td></tr>
+    <tr><td class="val">5</td><td>Health checks and graceful shutdown</td></tr>
+    <tr><td class="val">6</td><td>Canary or rolling deploys, automatic rollback, flags</td></tr>
+    <tr><td class="val">7</td><td>Expand and contract for schema changes</td></tr>
+    <tr><td class="val">8</td><td>Secret manager, rotation, least access</td></tr>
+    <tr><td class="val">9</td><td>Owner check on every object, rate limits, GraphQL depth and cost limits</td></tr>
+    <tr><td class="val">10</td><td>TLS everywhere, encryption at rest, audit log</td></tr>
+    <tr><td class="val">11</td><td>Point in time backups in another region, restore drill</td></tr>
+    <tr><td class="val">12</td><td>RPO and RTO agreed, multi-AZ by default</td></tr>
+    <tr><td class="val">13</td><td>On-call, severity levels, status page, blameless postmortems</td></tr>
+    <tr><td class="val">14</td><td>Rough monthly cost and the top three cost lines</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every choice buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">▶️ Watch and play</h2>
+  <p class="hint">Opened or found in web search on 2026-10-16. No video is listed: video sites could not be reached to confirm one.</p>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/open-telemetry/opentelemetry-demo">OpenTelemetry Demo (Astronomy Shop)</a></b><p>Run it with Docker Compose, buy something, then follow one trace across many services.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://sre.google/sre-book/monitoring-distributed-systems/">Google SRE book: Monitoring Distributed Systems</a></b><p>The original four golden signals, and why you page on symptoms.</p></div>
+  <div class="case"><span class="topic">Diagrams</span><b><a href="https://sre.google/workbook/alerting-on-slos/">Google SRE Workbook: Alerting on SLOs</a></b><p>Charts of each alert type, ending with the multi-window burn rate alert.</p></div>
+  <div class="case"><span class="topic">Diagrams</span><b><a href="https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html">AWS: Disaster recovery options in the cloud</a></b><p>The four recovery plans drawn side by side.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://owasp.org/API-Security/editions/2023/en/0x00-toc/">OWASP API Security Top 10 2023</a></b><p>Each risk with an attack example. Start with API1 and API4.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/pinojs/pino/blob/main/docs/redaction.md">pino redaction docs</a></b><p>Copy the example, run it with Node, then try <code>remove: true</code>.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Production Readiness: Observability, Deploys, Security and Cost"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-production",
+  concepts: [
+    { t: "Trace id", d: "A random name tag made at the first box. It rides in the <code>traceparent</code> header over HTTP and inside job data through a queue. One search shows one request's whole path." },
+    { t: "Span", d: "One timed step inside a trace: one SQL query, one HTTP call. A trace is a tree of spans." },
+    { t: "Structured log", d: "A JSON log line with fields, like <code>{orderId: 42, traceId}</code>. Machines can filter it. Pino writes these fast." },
+    { t: "Never log secrets or PII", d: "No passwords, tokens, Authorization header, OTP codes, card or ID numbers. Log the id of a thing, not the thing. <code>redact</code> is a safety net, not the plan." },
+    { t: "Golden signals", d: "Latency, traffic, errors, saturation. The first three are what users feel. Saturation warns before they feel it." },
+    { t: "RED and USE", d: "RED for services: rate, errors, duration. USE for resources: utilization, saturation, errors. Add queue age and one business number." },
+    { t: "Percentiles", d: "Sort the times. p99 is the time 99 of 100 requests beat. The average hides the slow users. You cannot average two p99s." },
+    { t: "OpenTelemetry", d: "One open standard and SDK for traces, metrics and logs. Code speaks OTLP to a Collector. Change vendors by changing the Collector, not the code." },
+    { t: "Sampling", d: "Head: decide at the start, keep 10%. Tail: decide at the end, keep every error and every slow trace plus a small share." },
+    { t: "SLI, SLO, SLA", d: "SLI: what you measure. SLO: your target, like 99.9% over 30 days. SLA: a contract promise with a penalty, set looser than the SLO." },
+    { t: "Error budget", d: "100% minus the SLO. 99.9% leaves 43.2 minutes in 30 days. Budget left: ship. Budget spent: fix reliability first." },
+    { t: "Burn rate alert", d: "How fast you spend the budget. 14.4 for 1 hour means 2% of the month is gone: page. Two windows: long proves it is real, short proves it is still on." },
+    { t: "Canary deploy", d: "Send 1 to 5% of traffic to the new version, compare errors and p99 with the old one, then grow or roll back automatically." },
+    { t: "Feature flag and kill switch", d: "An <code>if</code> around new code, controlled from outside. Deploy is not release. Turn it off in seconds. Delete old flags." },
+    { t: "Expand and contract", d: "Old and new code share one database during a deploy. Add first, write both, backfill, switch reads, drop the old part later. Roll back code without rolling back the schema." },
+    { t: "Secret manager and rotation", d: "Secrets live outside code, with access per service and an audit log. Rotate with two valid versions for a short overlap. JWT keys rotate with a key id (kid)." },
+    { t: "RPO and RTO", d: "RPO: how much data you may lose. RTO: how long you may be down. The business sets them; your plan meets them. A replica is not a backup." },
+    { t: "Blameless postmortem", d: "Ask how the system let a person make the mistake, not who did it. Timeline, impact, cause, action items with owners and dates." },
+    { t: "BOLA", d: "OWASP API1: the user is logged in but reads someone else's object by changing an id. Fix: <code>where: { id, storeId: ctx.user.storeId }</code>, return 404." },
+    { t: "Zero trust and mTLS", d: "Being inside the network proves nothing. Each hop proves who it is (mTLS or short lived tokens) and each service checks permission per action." }
+  ],
+  decisions: [
+    { q: "Rolling vs canary", a: "Rolling when", at: "Stateless service, normal change, you want the simplest deploy with almost no extra cost.", b: "Canary when", bt: "Risky change at high traffic, and you have metrics good enough to compare old against new.", v: "Rolling is the default. Canary adds traffic splitting and automatic rollback for changes where 100% exposure would hurt." },
+    { q: "Blue green vs canary", a: "Blue green when", at: "You need an instant full rollback and can pay for double servers during the switch.", b: "Canary when", bt: "You want only a few users to see a bad version, and to learn from real traffic first.", v: "Blue green limits time of exposure. Canary limits number of users exposed. Both still need expand and contract for the database." },
+    { q: "Head vs tail sampling", a: "Head when", at: "Low traffic or tight budget; decide at the start, simple and cheap.", b: "Tail when", bt: "You must keep every error and slow trace; the Collector waits for the end of each trace.", v: "Tail sampling gives better data for debugging but needs Collector memory. Start with head, move to tail as traffic grows." },
+    { q: "Sessions vs JWT", a: "Sessions when", at: "One web app, and you need instant logout or ban.", b: "JWT when", bt: "Many services must check the user without calling a central store.", v: "Common senior answer: short JWT access tokens (5 to 15 min) plus a revocable refresh token on the server." },
+    { q: "RBAC vs ReBAC", a: "RBAC when", at: "A small fixed set of roles, like admin and store owner in a CMS.", b: "ReBAC when", bt: "Sharing, teams and nested folders: permission comes from a chain of links. OpenFGA, SpiceDB.", v: "Start with roles plus owner checks in code. Move to a ReBAC service when sharing rules get deep." },
+    { q: "Multi-AZ vs multi-region", a: "Multi-AZ when", at: "You must survive one data center failing. Cheap, synchronous copies, failover in a minute or two.", b: "Multi-region when", bt: "The RTO must survive a region failure, or a regulator requires it.", v: "Multi-AZ plus backups copied to another region covers most systems. Multi-region adds async lag, DNS failover and much more testing." },
+    { q: "Self-hosted Grafana stack vs a vendor", a: "Self-host when", at: "Cost control at high volume, data must stay in your account or country, and you have people to run it.", b: "Vendor when", bt: "A small team that wants dashboards and alerts on day one.", v: "OpenTelemetry keeps this choice open: switch the Collector's destination, not your code." }
+  ],
+  cases: [
+    { topic: "Deploys and flags", b: "Knight Capital (2012)", p: "Servers ran different versions and an old flag was reused for new code. Old code woke up and traded. Loss about 460 million dollars. Source: danluu/post-mortems on GitHub." },
+    { topic: "Config is code", b: "Cloudflare (July 2019)", p: "One bad regular expression in a firewall rule was deployed globally and used up the CPU. Config needs canaries too. Source: danluu/post-mortems." },
+    { topic: "Blast radius", b: "AWS S3 (February 2017)", p: "During debugging, a mistyped command removed more servers than intended in us-east-1. Tools should limit what one command can remove. Source: danluu/post-mortems." },
+    { topic: "Backups", b: "GitLab (January 2017)", p: "The wrong database directory was deleted and backups did not work as expected. About six hours of data lost. Test restores in drills. Source: danluu/post-mortems." },
+    { topic: "Staged rollout", b: "CrowdStrike (July 2024)", p: "A content update with errors passed a broken validator and was sent to customer machines. Every kind of change needs a staged rollout. Source: danluu/post-mortems." },
+    { topic: "Supply chain", b: "npm chalk, debug and Shai-Hulud (September 2025)", p: "A phished maintainer, then a worm that stole tokens and published more bad packages. npm revoked classic tokens on 2025-12-09 and pushes trusted publishing." }
+  ],
+  hooks: [
+    { b: "Metrics, traces, logs = smoke alarm, map, diary", p: "The alarm says something is wrong. The map shows which room. The diary says what happened there." },
+    { b: "The average is a fake person", p: "Nobody felt 182 ms. Ninety felt 100 ms and two waited 3 seconds. Ask for p99." },
+    { b: "43 minutes", p: "99.9% of a 30 day month leaves 43 minutes. Each extra nine divides it by ten and multiplies the cost." },
+    { b: "Taste before you serve", p: "A canary is a cook tasting one spoon before serving the whole pot. A flag is a lid you can put back on." },
+    { b: "A replica is a mirror, a backup is a photo", p: "A mirror copies your mistake instantly. A photo shows the room before the mistake. Only a restore drill proves the photo is good." },
+    { b: "Two questions at every door", p: "Who are you (authentication)? May you touch this one thing (authorization)? BOLA is forgetting the second question." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
