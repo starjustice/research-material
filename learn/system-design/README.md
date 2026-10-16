@@ -47,7 +47,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 01 | [The interview framework](01-the-interview-framework.md) | requirements, estimates, API, data, high level design, deep dive | ready |
 | 02 | [Scaling up vs out](02-scaling-up-vs-out.md) | vertical vs horizontal, stateless servers | ready |
 | 03 | [Load balancers](03-load-balancers.md) | L4 vs L7, algorithms, health checks | ready |
-| 04 | Caching `04-caching.md` | cache aside, write through, TTL, invalidation | planned |
+| 04 | [Caching](04-caching.md) | cache aside, write through, TTL, invalidation | ready |
 | 05 | [CDN](05-cdn.md) | what it caches and where | ready |
 | 06 | Message queues `06-message-queues.md` | why async, at least once, dead letter queues | planned |
 | 07 | Consistency and CAP `07-consistency-and-cap.md` | strong vs eventual, what CAP really says | planned |
