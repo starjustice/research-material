@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design Roadmap</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>SYSTEM DESIGN ROADMAP</h1>
+  <p class="sub">Six layers · Six stages · The seven steps · Mid vs senior · The 10 week plan</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">✅ I can...</button>
+  <button data-tab="numbers" type="button">🗓️ Route and plan</button>
+  <button data-tab="decisions" type="button">⚖️ Mid vs senior</button>
+  <button data-tab="cases" type="button">🧠 Hooks and links</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Redraw each picture from memory before you start a new stage.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Every system has six layers</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 250" role="img" aria-label="Users, then screen, network, API, then data and async work; the running system watches all of them">
+      <rect class="box" x="270" y="8" width="180" height="32" rx="8"/><text class="lbl" x="360" y="29">Users, web and mobile</text>
+      <rect class="box box-blue" x="270" y="56" width="180" height="32" rx="8"/><text class="lbl" x="360" y="77">6 · The screen</text>
+      <rect class="box box-blue" x="270" y="104" width="180" height="32" rx="8"/><text class="lbl" x="360" y="125">1 · The network</text>
+      <rect class="box box-blue" x="270" y="152" width="180" height="32" rx="8"/><text class="lbl" x="360" y="173">2 · The API</text>
+      <rect class="box box-green" x="130" y="204" width="180" height="32" rx="8"/><text class="lbl" x="220" y="225">3 · The data</text>
+      <rect class="box box-green" x="410" y="204" width="180" height="32" rx="8"/><text class="lbl" x="500" y="225">4 · Async work</text>
+      <path class="arrow" d="M360,40 L360,54" marker-end="url(#arr)"/>
+      <path class="arrow" d="M360,88 L360,102" marker-end="url(#arr)"/>
+      <path class="arrow" d="M360,136 L360,150" marker-end="url(#arr)"/>
+      <path class="arrow" d="M330,184 L250,202" marker-end="url(#arr)"/>
+      <path class="arrow" d="M390,184 L470,202" marker-end="url(#arr)"/>
+      <path class="arrow" d="M408,220 L312,220" marker-end="url(#arr)"/>
+      <rect class="box box-yellow" x="560" y="80" width="150" height="70" rx="10"/><text class="lbl" x="635" y="108">5 · Running it</text><text class="lbl-s" x="635" y="128">logs, deploys, failure</text>
+      <path class="arrow-dash" d="M560,120 L452,168" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="110" y="80">screen: React, RN</text>
+      <text class="lbl-s" x="110" y="125">network: DNS, CDN, LB</text>
+      <text class="lbl-s" x="110" y="173">API: REST, GraphQL, auth</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I think about a system in layers: the screen, the network, the API, the data, the work done later, and how we keep it running. Each layer has its own failure points."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · The six stages, in order</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 150" role="img" aria-label="Stage 0 foundations, 1 building blocks, 2 design method, 3 correctness, 4 senior topics, 5 interview mode">
+      <rect class="box box-blue" x="6" y="30" width="105" height="56" rx="10"/><text class="lbl" x="58" y="54">Stage 0</text><text class="lbl-s" x="58" y="72">foundations</text>
+      <rect class="box box-blue" x="125" y="30" width="105" height="56" rx="10"/><text class="lbl" x="177" y="54">Stage 1</text><text class="lbl-s" x="177" y="72">building blocks</text>
+      <rect class="box box-green" x="244" y="30" width="105" height="56" rx="10"/><text class="lbl" x="296" y="54">Stage 2</text><text class="lbl-s" x="296" y="72">design method</text>
+      <rect class="box box-green" x="363" y="30" width="105" height="56" rx="10"/><text class="lbl" x="415" y="54">Stage 3</text><text class="lbl-s" x="415" y="72">correctness</text>
+      <rect class="box box-yellow" x="482" y="30" width="105" height="56" rx="10"/><text class="lbl" x="534" y="54">Stage 4</text><text class="lbl-s" x="534" y="72">senior topics</text>
+      <rect class="box box-pink" x="601" y="30" width="113" height="56" rx="10"/><text class="lbl" x="657" y="54">Stage 5</text><text class="lbl-s" x="657" y="72">interview mode</text>
+      <path class="arrow" d="M111,58 L123,58" marker-end="url(#arr)"/>
+      <path class="arrow" d="M230,58 L242,58" marker-end="url(#arr)"/>
+      <path class="arrow" d="M349,58 L361,58" marker-end="url(#arr)"/>
+      <path class="arrow" d="M468,58 L480,58" marker-end="url(#arr)"/>
+      <path class="arrow" d="M587,58 L599,58" marker-end="url(#arr)"/>
+      <path class="arrow-dash" d="M296,88 C320,130 600,130 650,90" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="470" y="132">from Stage 2 on, practice a design every week</text>
+      <text class="lbl-s" x="360" y="16">Move on only when you can do the "I can..." checks with the notes closed</text>
+    </svg></div>
+    <div class="say"><b>Say this to yourself:</b> "Parts first, then the method, then correctness, then running it. Practice from Stage 2 on, every week."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · The seven steps of a design round (45 minutes)</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 120" role="img" aria-label="Requirements, estimate, API, data model, high level, deep dive, failure and ops, with minutes">
+      <rect class="box box-blue" x="6" y="30" width="92" height="50" rx="8"/><text class="lbl" x="52" y="52">Require</text><text class="lbl-s" x="52" y="70">5 min</text>
+      <rect class="box box-blue" x="108" y="30" width="92" height="50" rx="8"/><text class="lbl" x="154" y="52">Estimate</text><text class="lbl-s" x="154" y="70">5 min</text>
+      <rect class="box box-blue" x="210" y="30" width="92" height="50" rx="8"/><text class="lbl" x="256" y="52">API</text><text class="lbl-s" x="256" y="70">5 min</text>
+      <rect class="box box-blue" x="312" y="30" width="92" height="50" rx="8"/><text class="lbl" x="358" y="52">Data</text><text class="lbl-s" x="358" y="70">5 min</text>
+      <rect class="box box-green" x="414" y="30" width="92" height="50" rx="8"/><text class="lbl" x="460" y="52">High level</text><text class="lbl-s" x="460" y="70">8 min</text>
+      <rect class="box box-yellow" x="516" y="30" width="92" height="50" rx="8"/><text class="lbl" x="562" y="52">Deep dive</text><text class="lbl-s" x="562" y="70">15 min</text>
+      <rect class="box box-pink" x="618" y="30" width="96" height="50" rx="8"/><text class="lbl" x="666" y="52">Failure, ops</text><text class="lbl-s" x="666" y="70">5 min</text>
+      <text class="lbl-s" x="562" y="100">the round is won here</text>
+      <text class="lbl-s" x="205" y="100">never skip: it decides everything after</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Before I draw, let me agree on what we are building and how big it is. Then the API and the data, then the boxes, then the hard part, then what breaks."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The same idea, said two ways</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Mid level sentences on the left, senior sentences with numbers, reasons and failure on the right">
+      <rect class="box box-pink" x="10" y="10" width="250" height="190" rx="12"/>
+      <text class="lbl t-pink" x="135" y="34">Sounds mid level</text>
+      <text class="lbl-sl" x="26" y="70">"I will use Redis."</text>
+      <text class="lbl-sl" x="26" y="110">"I will add Kafka."</text>
+      <text class="lbl-sl" x="26" y="150">"It scales horizontally."</text>
+      <rect class="box box-green" x="290" y="10" width="420" height="190" rx="12"/>
+      <text class="lbl t-green" x="500" y="34">Sounds senior</text>
+      <text class="lbl-sl" x="306" y="62">"Reads are 50 to 1 over writes,</text>
+      <text class="lbl-sl" x="306" y="78">so I cache product pages for 60 seconds."</text>
+      <text class="lbl-sl" x="306" y="104">"Emails can wait, so they go to a queue.</text>
+      <text class="lbl-sl" x="306" y="120">The worker skips an order id it already sent."</text>
+      <text class="lbl-sl" x="306" y="146">"Sessions live in Redis, so app servers are stateless.</text>
+      <text class="lbl-sl" x="306" y="162">If Redis dies, users log in again. No data lost."</text>
+      <text class="lbl-s" x="500" y="190">a number, a reason, a cost, a failure</text>
+    </svg></div>
+    <div class="say"><b>Say this to yourself:</b> "Every choice gets a number, a reason, a cost, and what happens when it fails."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Your week</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 130" role="img" aria-label="Tuesday theory, Wednesday design from blank, Friday say it, weekend review">
+      <rect class="box box-blue" x="10" y="30" width="160" height="64" rx="10"/><text class="lbl" x="90" y="56">Tuesday</text><text class="lbl-s" x="90" y="76">one building block</text>
+      <rect class="box box-green" x="190" y="30" width="160" height="64" rx="10"/><text class="lbl" x="270" y="56">Wednesday</text><text class="lbl-s" x="270" y="76">one design, blank page</text>
+      <rect class="box box-yellow" x="370" y="30" width="160" height="64" rx="10"/><text class="lbl" x="450" y="56">Friday</text><text class="lbl-s" x="450" y="76">say it: mock or drill</text>
+      <rect class="box" x="550" y="30" width="160" height="64" rx="10"/><text class="lbl" x="630" y="56">Weekend</text><text class="lbl-s" x="630" y="76">review list only</text>
+      <path class="arrow" d="M170,62 L188,62" marker-end="url(#arr)"/>
+      <path class="arrow" d="M350,62 L368,62" marker-end="url(#arr)"/>
+      <path class="arrow" d="M530,62 L548,62" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="118">Monday and Thursday stay for coding practice</text>
+    </svg></div>
+    <div class="say"><b>Say this to yourself:</b> "Read one thing, draw one thing, say one thing. Every week."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Tick ✓ only when you can do it with the notes closed. The number shows the stage.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">The route: what to open, in order</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Stage</th><th>Open these</th><th>Done when</th></tr>
+    <tr><td class="val">0 · Foundations</td><td><a href="../networking/networking-url-to-page-step-by-step.md">URL to page</a>, <a href="../backend-api/express-graphql-auth-tutorial.md">Express and GraphQL auth</a>, <a href="../database/database-design-and-why.md">Database design</a></td><td class="why">you can draw one request from browser to Postgres and back</td></tr>
+    <tr><td class="val">1 · Building blocks</td><td><a href="../networking/networking-for-system-design.md">Networking for design</a>, <a href="system-design-basics-senior-fullstack-interview.md">Basics</a>, <a href="load-balancers-microservices-online-shop.md">Load balancers</a>, <a href="caching-and-cdn-in-depth.md">Caching</a>, <a href="queues-streams-and-event-driven-design.md">Queues</a>, <a href="data-storage-choices-for-system-design.md">Storage</a></td><td class="why">each part in four parts: problem, how, cost, example</td></tr>
+    <tr><td class="val">2 · Design method</td><td><a href="system-design-step-by-step-walkthrough.md">Seven steps</a>, <a href="design-workbook-part-1-classic-designs.md">Workbook part 1</a>, <a href="choosing-the-right-tool-frontend-backend-decisions.md">Choosing tools</a></td><td class="why">URL shortener from blank in 35 minutes</td></tr>
+    <tr><td class="val">3 · Correctness</td><td><a href="../database/database-scaling-and-correctness.md">Scaling and correctness</a>, <a href="distributed-systems-and-reliability-patterns.md">Distributed systems</a>, <a href="design-workbook-part-2-correctness-designs.md">Workbook part 2</a></td><td class="why">seat booking with no double booking, defended</td></tr>
+    <tr><td class="val">4 · Senior topics</td><td><a href="architecture-patterns-2026.md">Architecture 2026</a>, <a href="production-readiness-observability-security.md">Production readiness</a>, <a href="frontend-system-design.md">Frontend design</a>, <a href="performance-optimization-web-mobile-backend.md">Performance</a>, <a href="../../interview/my-projects/dbo-b2b-platform-system-design-case-study.md">DBO case</a></td><td class="why">you end every design with how you would run it</td></tr>
+    <tr><td class="val">5 · Interview mode</td><td><a href="senior-system-design-interview-questions.md">Question bank</a>, <a href="senior-system-design-interview-questions-cheatsheet.html">flashcard drill</a>, /mock-interview, /advanced-interview</td><td class="why">a full 45 minute round out loud, alone</td></tr>
+  </table></div>
+
+  <h2 class="block">The 10 week plan</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Week</th><th>Tuesday: theory</th><th>Wednesday: design from blank</th><th>Friday: say it</th></tr>
+    <tr><td class="val">1</td><td>URL to page</td><td>One request through your Express app</td><td class="why">Sessions vs JWT out loud</td></tr>
+    <tr><td class="val">2</td><td>Networking for design, parts 1 to 3</td><td>Network for the online shop</td><td class="why">Drill: networking</td></tr>
+    <tr><td class="val">3</td><td>Caching and CDN</td><td>URL shortener plus a cache</td><td class="why">Drill: caching</td></tr>
+    <tr><td class="val">4</td><td>Queues and events</td><td>Notification system</td><td class="why">/explain-check</td></tr>
+    <tr><td class="val">5</td><td>Data storage choices</td><td>File upload service</td><td class="why">Drill: data</td></tr>
+    <tr><td class="val">6</td><td>The seven steps, again</td><td>Rate limiter, then chat</td><td class="why">/mock-interview URL shortener</td></tr>
+    <tr><td class="val">7</td><td>Scaling and correctness</td><td>Seat booking</td><td class="why">Drill: async, correctness</td></tr>
+    <tr><td class="val">8</td><td>Distributed systems</td><td>Wallet with a ledger</td><td class="why">/mock-interview chat</td></tr>
+    <tr><td class="val">9</td><td>Architecture, production</td><td>Loan workflow or RAG assistant</td><td class="why">DBO story, 5 minutes</td></tr>
+    <tr><td class="val">10</td><td>Frontend design, weak spots</td><td>News feed, web and mobile</td><td class="why">/advanced-interview</td></tr>
+  </table></div>
+
+  <h2 class="block">The four part answer</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Part</th><th>Question</th><th>Example: cache</th></tr>
+    <tr><td class="val">Problem</td><td>What hurts without it?</td><td class="why">Same product page hits Postgres 1,000 times a second</td></tr>
+    <tr><td class="val">How it works</td><td>The picture in words</td><td class="why">Check Redis first; on a miss read Postgres and save it</td></tr>
+    <tr><td class="val">Tradeoff</td><td>What does it cost?</td><td class="why">Users can see old data until the key expires</td></tr>
+    <tr><td class="val">My example</td><td>Where would I use it?</td><td class="why">Idea: a product list that changes a few times a day</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">The same moment in a round, answered at two levels.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">🔗 Watch and play</h2>
+  <div id="caseList"></div>
+</section>
+
+<script>
+window.SHEET = {
+  key: "sd-roadmap",
+  concepts: [
+    { t: "0 · One request, end to end", d: "Draw browser to Postgres and back: DNS, TCP, TLS, HTTP, middleware, resolver, query, response." },
+    { t: "0 · Index in four parts", d: "Problem, how it works, what it costs, where I would use it." },
+    { t: "0 · Sessions vs JWT", d: "Where the login state lives, and what each choice costs when you scale out." },
+    { t: "1 · Latency numbers", d: "Memory read, same region call, cross continent call. Rough sizes, and why distance matters." },
+    { t: "1 · Stateless servers", d: "Why servers must keep no user data in memory before you add a load balancer." },
+    { t: "1 · Cache aside and its bug", d: "Draw the flow, then the moment a user sees old data, and two fixes." },
+    { t: "1 · Queue and at least once", d: "Why a job can run twice, and how the worker makes that safe." },
+    { t: "1 · Pick a store", d: "Orders, sessions, product search, invoice PDFs: which store, and why." },
+    { t: "1 · Presigned upload", d: "Client gets a URL from the API, uploads straight to S3, a worker processes it." },
+    { t: "2 · The seven steps", d: "In order, with minutes, and what the interviewer scores in each." },
+    { t: "2 · Back of the envelope", d: "Requests per second from daily users, storage per year from row size." },
+    { t: "2 · URL shortener from blank", d: "Full design in 35 minutes with a timer, no notes." },
+    { t: "3 · Lost update, three fixes", d: "Atomic update, row lock, version check. When each one fits." },
+    { t: "3 · Idempotency key", d: "A payment retried after a timeout charges once. Show how." },
+    { t: "3 · CAP said correctly", d: "Only during a network split: answer with an error or answer with maybe old data." },
+    { t: "3 · Circuit breaker", d: "Closed, open, half open. Why it protects the caller and the callee." },
+    { t: "3 · Retry with jitter", d: "Why retries at the same moment make an outage worse." },
+    { t: "4 · Modular monolith vs microservices", d: "When each wins, with team size and one public case." },
+    { t: "4 · RAG pipeline", d: "Ingest, chunk, embed, store, retrieve, generate. Where it fails." },
+    { t: "4 · SLO to minutes", d: "99.9% a month is about 43 minutes down. Say what you alert on." },
+    { t: "4 · Safe deploys", d: "Canary, feature flags, expand and contract migrations, rollback." },
+    { t: "4 · Rough cost", d: "A monthly cost for a simple design, and the biggest line in it." },
+    { t: "5 · Full round alone", d: "45 minutes out loud with a timer, ending with how you would run it." },
+    { t: "5 · Changed requirement", d: "Adapt the design in the middle without starting over." }
+  ],
+  decisions: [
+    { q: "Interviewer: design a chat app", a: "Mid", at: "Starts drawing servers and Kafka right away.", b: "Senior", bt: "Asks: 1 to 1 or groups? How many users? Must old messages sync to a new phone? Writes the answers down.", v: "Requirements first. The questions you ask decide the design." },
+    { q: "Why Redis here?", a: "Mid", at: "\"Because it is fast.\"", b: "Senior", bt: "\"This read happens 2,000 times a second and changes once an hour. A 60 second cache removes most of the load. Users may see a price up to a minute old, which product agreed to.\"", v: "A number, a reason, a cost." },
+    { q: "Microservices?", a: "Mid", at: "\"Yes, so each part can scale.\"", b: "Senior", bt: "\"With 6 engineers I start with a modular monolith. I split checkout out later if its load or release speed needs it.\"", v: "Team size and real numbers pick the architecture, not fashion." },
+    { q: "What if the database dies?", a: "Mid", at: "\"We have backups.\"", b: "Senior", bt: "\"A standby takes over in about a minute. We lose at most a few seconds of writes. Backups with point in time restore cover a bad DELETE, which a replica cannot.\"", v: "Say what the user sees, how long, and how much data is lost." },
+    { q: "End of the round", a: "Mid", at: "Stops when the boxes are drawn.", b: "Senior", bt: "Gives 60 seconds on metrics, alerts, deploys, security and rough cost without being asked.", v: "Running the system is part of the design." },
+    { q: "The interviewer changes a requirement", a: "Mid", at: "Starts again from scratch, or argues.", b: "Senior", bt: "Says which parts still hold, which box changes, and what the new tradeoff is.", v: "Show the design bends instead of breaking." }
+  ],
+  hooks: [
+    { b: "Six layers", p: "Screen, network, API, data, later work, running it. Walk them top to bottom and nothing is forgotten." },
+    { b: "Number, reason, cost, failure", p: "Four things every choice needs out loud. If one is missing, the interviewer will ask for it." },
+    { b: "Read one, draw one, say one", p: "Tuesday, Wednesday, Friday. Reading three guides in one week feels good and teaches little." },
+    { b: "Default first", p: "One app, one Postgres. Add a box only when a number asks for it." },
+    { b: "Break it yourself", p: "Before the interviewer does: what if this box is slow, dies, or gets ten times the traffic?" }
+  ],
+  cases: [
+    { topic: "Read", b: "The System Design Primer", p: "<a href=\"https://github.com/donnemartin/system-design-primer\">github.com/donnemartin/system-design-primer</a> Free, many diagrams, Anki flashcards. Look up any part you do not know." },
+    { topic: "Levels", b: "Hello Interview: expectations by level", p: "<a href=\"https://hellointerview.com/blog/the-system-design-interview-what-is-expected-at-each-level\">hellointerview.com blog</a> Depth, breadth and how much you lead, by level." },
+    { topic: "Method", b: "Hello Interview: System Design in a Hurry", p: "<a href=\"https://www.hellointerview.com/learn/system-design/in-a-hurry/introduction\">hellointerview.com</a> A short framework that matches the seven steps." },
+    { topic: "Draw", b: "Excalidraw", p: "<a href=\"https://excalidraw.com/\">excalidraw.com</a> Draw every Wednesday design here." },
+    { topic: "Book, later", b: "Designing Data-Intensive Applications, 2nd edition (2026)", p: "<a href=\"https://www.oreilly.com/library/view/designing-data-intensive-applications/9781098119058/\">O'Reilly</a> The deep version of Stage 3. One chapter after each related guide." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
