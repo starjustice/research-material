@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Correctness Designs Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>SIX DESIGNS WHERE CORRECTNESS MATTERS</h1>
+  <p class="sub">Seat booking · Wallet ledger · Loan workflow · Job scheduler · Nearby drivers · RAG assistant</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">First list what must never go wrong. Then name the database tool that keeps it true. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Seat booking: put the "is it free?" rule inside the UPDATE</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="Wrong: two fans read then write and both get the seat. Right: one UPDATE with the rule in the WHERE, one fan gets 1 row and the other 0 rows">
+      <rect class="box box-pink" x="10" y="20" width="330" height="130" rx="12"/>
+      <text class="lbl" x="175" y="42">Wrong: read, then write</text>
+      <text class="lbl-sl" x="26" y="66">A: SELECT A1 → AVAILABLE</text>
+      <text class="lbl-sl" x="26" y="84">B: SELECT A1 → AVAILABLE</text>
+      <text class="lbl-sl" x="26" y="102">A: UPDATE A1 = HELD for A</text>
+      <text class="lbl-sl" x="26" y="120">B: UPDATE A1 = HELD for B</text>
+      <text class="lbl-sl t-pink" x="26" y="140">✗ two fans pay for one seat</text>
+      <path class="arrow-green" d="M342,85 L376,85" marker-end="url(#arrg)"/>
+      <rect class="box box-green" x="380" y="20" width="330" height="130" rx="12"/>
+      <text class="lbl" x="545" y="42">Right: rule inside the UPDATE</text>
+      <text class="lbl-ml" x="396" y="66">UPDATE seats SET status='HELD'</text>
+      <text class="lbl-ml" x="396" y="84">WHERE seat_id = 'A1'</text>
+      <text class="lbl-ml" x="396" y="102">  AND status = 'AVAILABLE'</text>
+      <text class="lbl-sl t-green" x="396" y="126">✓ A gets 1 row. B gets 0 rows.</text>
+      <text class="lbl-sl t-green" x="396" y="142">✓ Postgres re-checks the WHERE for B</text>
+      <text class="lbl-s" x="360" y="178">Expired holds count as free: OR (status = 'HELD' AND held_until &lt; now())</text>
+      <text class="lbl-s" x="360" y="194">Flash sale: a waiting room at the edge lets in 2,000 fans a minute</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Two fans can read 'free' at the same moment. So I do not read and then write. One UPDATE checks the status in its WHERE. The row lock makes the second fan wait, and then they get zero rows."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Wallet: double entry ledger, every transfer adds up to zero</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="A transfer row with a unique idempotency key has two entries, minus 2500 and plus 2500, which sum to zero">
+      <rect class="box box-blue" x="10" y="62" width="190" height="60" rx="10"/>
+      <text class="lbl" x="105" y="86">Transfer 9001</text>
+      <text class="lbl-s" x="105" y="106">key k-77 is UNIQUE</text>
+      <rect class="box box-yellow" x="260" y="20" width="200" height="44" rx="8"/>
+      <text class="lbl-m" x="360" y="47">entry: Ana -2500</text>
+      <rect class="box box-yellow" x="260" y="120" width="200" height="44" rx="8"/>
+      <text class="lbl-m" x="360" y="147">entry: Budi +2500</text>
+      <rect class="box box-green" x="520" y="62" width="190" height="60" rx="10"/>
+      <text class="lbl" x="615" y="86">Sum = 0</text>
+      <text class="lbl-s" x="615" y="106">for every transfer</text>
+      <path class="arrow" d="M200,82 L258,48" marker-end="url(#arr)"/>
+      <path class="arrow" d="M200,102 L258,136" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M462,42 L518,78" marker-end="url(#arrg)"/>
+      <path class="arrow-green" d="M462,142 L518,108" marker-end="url(#arrg)"/>
+      <text class="lbl-s" x="360" y="186">Only INSERT. A refund is a new transfer that reverses the old one. Money is BIGINT cents, never floats.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Money never appears or disappears: every transfer is two entries that add up to zero. Rows are only added, so any balance can be explained. The idempotency key is unique, so a retry cannot pay twice."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Loan workflow: a state machine with maker checker</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="DRAFT to SUBMITTED to CREDIT_CHECK, then APPROVED, REJECTED or MANUAL_REVIEW, then PENDING_CHECKER, then APPROVED and DISBURSED">
+      <rect class="box box-blue" x="10" y="92" width="90" height="30" rx="7"/><text class="lbl-m" x="55" y="111">DRAFT</text>
+      <rect class="box box-blue" x="120" y="92" width="110" height="30" rx="7"/><text class="lbl-m" x="175" y="111">SUBMITTED</text>
+      <rect class="box box-blue" x="250" y="92" width="120" height="30" rx="7"/><text class="lbl-m" x="310" y="111">CREDIT_CHECK</text>
+      <rect class="box box-yellow" x="400" y="22" width="130" height="30" rx="7"/><text class="lbl-m" x="465" y="41">MANUAL_REVIEW</text>
+      <rect class="box box-yellow" x="560" y="22" width="150" height="30" rx="7"/><text class="lbl-m" x="635" y="41">PENDING_CHECKER</text>
+      <rect class="box box-pink" x="560" y="92" width="150" height="30" rx="7"/><text class="lbl-m" x="635" y="111">REJECTED</text>
+      <rect class="box box-green" x="400" y="152" width="130" height="30" rx="7"/><text class="lbl-m" x="465" y="171">APPROVED</text>
+      <rect class="box box-green" x="580" y="152" width="130" height="30" rx="7"/><text class="lbl-m" x="645" y="171">DISBURSED</text>
+      <path class="arrow" d="M100,107 L118,107" marker-end="url(#arr)"/>
+      <path class="arrow" d="M230,107 L248,107" marker-end="url(#arr)"/>
+      <path class="arrow" d="M370,98 L398,44" marker-end="url(#arr)"/>
+      <path class="arrow-pink" d="M370,107 L558,107" marker-end="url(#arrp)"/>
+      <path class="arrow-green" d="M370,116 L398,162" marker-end="url(#arrg)"/>
+      <path class="arrow" d="M530,37 L558,37" marker-end="url(#arr)"/>
+      <path class="arrow-pink" d="M520,52 L560,92" marker-end="url(#arrp)"/>
+      <path class="arrow-pink" d="M650,52 L650,90" marker-end="url(#arrp)"/>
+      <path class="arrow-green" d="M580,52 L515,150" marker-end="url(#arrg)"/>
+      <path class="arrow-green" d="M530,167 L578,167" marker-end="url(#arrg)"/>
+      <text class="lbl-s" x="290" y="200">Each move: UPDATE ... WHERE status = 'from' AND version = seen AND maker_id &lt;&gt; checker</text>
+      <text class="lbl-s" x="290" y="218">Same transaction: insert the audit row. Payout key disb-55 is UNIQUE, so it pays once.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The loan is a state machine. A move only happens if the row is still in the right state and version, and the checker is not the maker. The audit row is written in the same transaction, and the payout carries an idempotency key."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Job scheduler: claim with SKIP LOCKED, and no exactly once</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Worker 1 locks run 17, worker 2 skips it and takes run 18; a frozen worker is refused by the attempt number">
+      <rect class="box box-blue" x="20" y="40" width="170" height="50" rx="10"/><text class="lbl" x="105" y="62">Worker 1</text><text class="lbl-s" x="105" y="80">locks 17, lease 60 s</text>
+      <rect class="box box-blue" x="20" y="110" width="170" height="50" rx="10"/><text class="lbl" x="105" y="132">Worker 2</text><text class="lbl-s" x="105" y="150">skips 17, takes 18</text>
+      <rect class="box" x="250" y="20" width="230" height="140" rx="10"/>
+      <text class="lbl" x="365" y="40">job_runs</text>
+      <rect class="box box-yellow" x="258" y="52" width="214" height="22" rx="5"/><text class="lbl-ml" x="266" y="67">17  RUNNING  attempt 1</text>
+      <rect class="box box-green" x="258" y="78" width="214" height="22" rx="5"/><text class="lbl-ml" x="266" y="93">18  RUNNING  attempt 1</text>
+      <text class="lbl-ml" x="266" y="119">19  PENDING  08:01</text>
+      <text class="lbl-ml" x="266" y="143">20  PENDING  09:00</text>
+      <path class="arrow" d="M190,64 L256,63" marker-end="url(#arr)"/>
+      <path class="arrow" d="M190,134 L256,90" marker-end="url(#arr)"/>
+      <rect class="box box-pink" x="510" y="20" width="200" height="140" rx="10"/>
+      <text class="lbl" x="610" y="42">Exactly once? No.</text>
+      <text class="lbl-s" x="610" y="66">A frozen worker can wake up</text>
+      <text class="lbl-s" x="610" y="82">after its lease ended.</text>
+      <text class="lbl-s t-green" x="610" y="108">Fix: the attempt number</text>
+      <text class="lbl-s t-green" x="610" y="124">refuses late writes, and</text>
+      <text class="lbl-s t-green" x="610" y="140">jobs are safe to repeat.</text>
+      <text class="lbl-m" x="360" y="186">SELECT id ... FOR UPDATE SKIP LOCKED LIMIT 100</text>
+      <text class="lbl-s" x="360" y="204">Store cron + IANA time zone (Asia/Jakarta). Compute next_run_at in UTC. Test summer time days.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Workers claim due runs with FOR UPDATE SKIP LOCKED, so they never wait on each other and never take the same row. A lease lets another worker take over after a crash. Nothing can promise exactly one runner, so I promise at least once and make jobs safe to repeat."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Nearby drivers: cut the map into cells, search 9 cells</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="A 3 by 3 grid; the rider is near the edge of the middle cell and the nearest driver is in the next cell, so search all 9 cells">
+      <rect class="box" x="20" y="20" width="80" height="56"/><rect class="box" x="100" y="20" width="80" height="56"/><rect class="box" x="180" y="20" width="80" height="56"/>
+      <rect class="box" x="20" y="76" width="80" height="56"/><rect class="box box-green" x="100" y="76" width="80" height="56"/><rect class="box box-yellow" x="180" y="76" width="80" height="56"/>
+      <rect class="box" x="20" y="132" width="80" height="56"/><rect class="box" x="100" y="132" width="80" height="56"/><rect class="box" x="180" y="132" width="80" height="56"/>
+      <text class="lbl" x="135" y="100">rider</text>
+      <circle class="box box-pink" cx="170" cy="112" r="6"/>
+      <circle class="box box-blue" cx="196" cy="112" r="6"/>
+      <text class="lbl-s" x="230" y="100">driver</text>
+      <text class="lbl-s" x="230" y="124">80 m</text>
+      <text class="lbl-l" x="290" y="38">The nearest driver is in the next cell.</text>
+      <text class="lbl-ml" x="290" y="66">GEOADD drivers:jakarta 106.84 -6.20 driver:42</text>
+      <text class="lbl-ml" x="290" y="86">GEOSEARCH drivers:jakarta FROMLONLAT 106.84 -6.20</text>
+      <text class="lbl-ml" x="290" y="104">  BYRADIUS 2 km ASC COUNT 20 WITHDIST</text>
+      <text class="lbl-sl" x="290" y="132">One offer per driver: SET offer:driver:42 ride:1 NX EX 15</text>
+      <text class="lbl-sl" x="290" y="154">Geohash = boxes. Quadtree = split busy squares. H3 = hexagons.</text>
+      <text class="lbl-sl t-pink" x="290" y="180">250,000 writes a second of 4 second old data:</text>
+      <text class="lbl-sl t-pink" x="290" y="196">keep it in memory (Redis), not in an indexed table.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Live locations change every 4 seconds, so they live in Redis GEO, one key per city. I search the rider's cell and its neighbors, because the closest driver may sit just across the edge. A SET NX lock makes sure a driver gets one offer at a time."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · RAG assistant: filter by permission inside the search</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Wrong: search all documents then hide secret text. Right: filter by the user's groups inside the vector query">
+      <rect class="box box-pink" x="10" y="20" width="340" height="150" rx="12"/>
+      <text class="lbl" x="180" y="42">Wrong: search all, filter after</text>
+      <rect class="box" x="30" y="56" width="300" height="28" rx="6"/><text class="lbl-s" x="180" y="74">top 8 chunks from ALL documents</text>
+      <rect class="box" x="30" y="96" width="300" height="28" rx="6"/><text class="lbl-s" x="180" y="114">the model reads the salary chunk</text>
+      <rect class="box" x="30" y="136" width="300" height="28" rx="6"/><text class="lbl-s t-pink" x="180" y="154">✗ code tries to hide it in the answer</text>
+      <path class="arrow-pink" d="M180,84 L180,94" marker-end="url(#arrp)"/>
+      <path class="arrow-pink" d="M180,124 L180,134" marker-end="url(#arrp)"/>
+      <rect class="box box-green" x="370" y="20" width="340" height="150" rx="12"/>
+      <text class="lbl" x="540" y="42">Right: filter inside the search</text>
+      <text class="lbl-ml" x="386" y="70">WHERE allowed_groups &amp;&amp; $groups</text>
+      <text class="lbl-ml" x="386" y="90">ORDER BY embedding &lt;=&gt; $question</text>
+      <text class="lbl-ml" x="386" y="110">LIMIT 8</text>
+      <text class="lbl-sl t-green" x="386" y="138">✓ the model only sees allowed text</text>
+      <text class="lbl-sl t-green" x="386" y="156">✓ iterative scans keep searching</text>
+      <text class="lbl-s" x="360" y="192">Document text is data, not orders: block unknown links, no write tools (OWASP LLM01).</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I copy each document's allowed groups onto its chunks and filter inside the vector query, so secret text never reaches the model. Documents can carry prompt injection, so the model has no write tools and I block unknown links in answers."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud in two sentences: the problem, then the fix. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">The correctness toolbox: which tool, which design</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Tool</th><th>What it stops</th><th>Used in</th></tr>
+    <tr><td class="val">UNIQUE constraint</td><td>The same thing twice</td><td class="why">1 booking key · 2 idempotency key · 3 one payout per loan · 4 one run per time</td></tr>
+    <tr><td class="val">Conditional UPDATE</td><td>Two writers both winning</td><td class="why">1 hold · 2 balance ≥ amount · 3 guarded moves · 4 finish only if mine · 5 ride gets one driver</td></tr>
+    <tr><td class="val">FOR UPDATE / SKIP LOCKED</td><td>Deciding on old news</td><td class="why">1 option for holds · 2 accounts in id order · 4 claiming runs</td></tr>
+    <tr><td class="val">Idempotency key</td><td>A retry doing it again</td><td class="why">1 checkout · 2 transfers, top ups · 3 payout · 4 run now · 5 ride request</td></tr>
+    <tr><td class="val">State machine</td><td>Skipped or illegal steps</td><td class="why">3 the whole design · also seat, top up, run and driver status</td></tr>
+    <tr><td class="val">Outbox</td><td>Lost messages after commit</td><td class="why">3 starting outside checks · 2 webhook follow up · 6 ingest jobs (idea)</td></tr>
+    <tr><td class="val">Lease / expiring lock</td><td>A dead owner holding work</td><td class="why">1 hold expiry · 3 SLA timers · 4 run leases · 5 15 s driver offer</td></tr>
+    <tr><td class="val">Ledger</td><td>Money from nothing, edited history</td><td class="why">2 the whole design · 3 payout record</td></tr>
+    <tr><td class="val">Filter inside the query</td><td>Seeing rows you may not see</td><td class="why">6 allowed groups · 3 staff see their branch</td></tr>
+  </table></div>
+
+  <h2 class="block">Estimation per design (the driver is in bold)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Design</th><th>Arithmetic</th><th>Driver</th></tr>
+    <tr><td class="val">1 Seats</td><td>1M fans / 5 s refresh = 200,000 reads/s · 2M tries / 600 s ≈ 3,300 holds/s on 50,000 rows</td><td class="why"><b>Contention</b> on one event + read spike</td></tr>
+    <tr><td class="val">2 Wallet</td><td>10M transfers/day / 100,000 = 100/s, payday 1,000/s · 3 rows x 200 B x 10M = 6 GB/day</td><td class="why"><b>Correctness and audit</b>, one hot fee account</td></tr>
+    <tr><td class="val">3 Loan</td><td>50,000 apps/month ≈ 0.02/s · 20 MB docs each = 1 TB/month</td><td class="why"><b>Not traffic:</b> audit, slow checks, deadlines</td></tr>
+    <tr><td class="val">4 Scheduler</td><td>10M schedules / 3,600 ≈ 2,800 runs/s · 3M at 08:00 over 60 s = 50,000/s</td><td class="why"><b>Top of the hour spike</b>, safe claiming</td></tr>
+    <tr><td class="val">5 Drivers</td><td>1M drivers / 4 s = 250,000 writes/s · latest only: 1M x 100 B = 100 MB</td><td class="why"><b>Write rate</b> of short lived data</td></tr>
+    <tr><td class="val">6 RAG</td><td>50,000 questions/day ≈ 0.5/s · 1M chunks x 6 KB = 6 GB · 5,000 tokens in per question</td><td class="why"><b>Permissions, cost, quality</b></td></tr>
+  </table></div>
+
+  <h2 class="block">Alerts worth saying out loud</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Design</th><th>Alert</th><th>Why</th></tr>
+    <tr><td class="val">Seats</td><td>Any seat with two bookings &gt; 0</td><td class="why">Should never happen; check query every minute</td></tr>
+    <tr><td class="val">Wallet</td><td>Any transaction whose entries do not sum to 0</td><td class="why">A broken ledger; page someone</td></tr>
+    <tr><td class="val">Loan</td><td>APPROVED older than 30 min with no payout</td><td class="why">A stuck worker or core banking issue</td></tr>
+    <tr><td class="val">Scheduler</td><td>Lag over 30 s for 5 min · daily job with no DONE by deadline</td><td class="why">Silence is a failure too</td></tr>
+    <tr><td class="val">Drivers</td><td>Match p99 over 10 s · location updates drop by half</td><td class="why">Gateway losing drivers</td></tr>
+    <tr><td class="val">RAG</td><td>Daily cost over budget by 20% · test set hit rate down 5 points</td><td class="why">Cost and quality drift silently</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Say both sides, then pick, then say what would change your mind.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">▶️ Watch and play</h2>
+  <p class="hint">Links opened or found in web search on 2026-10-16.</p>
+  <div class="case"><span class="topic">Video · design 1</span><b><a href="https://www.youtube.com/watch?v=fhdPyoO6aXI">System Design Interview: Design Ticketmaster w/ a Ex-Meta Staff Engineer</a></b><p>Hello Interview on YouTube. Try design 1 first, then watch the deep dive part.</p></div>
+  <div class="case"><span class="topic">Video · design 5</span><b><a href="https://www.youtube.com/watch?v=lsKU38RKQSo">System Design Interview: Design Uber w/ a Ex-Meta Staff Engineer</a></b><p>Hello Interview on YouTube. Compare its deep dives with design 5.</p></div>
+  <div class="case"><span class="topic">Video · design 6</span><b><a href="https://www.ibm.com/think/videos/rag">What is Retrieval-Augmented Generation (RAG)?</a></b><p>IBM, a short lightboard video by Marina Danilevsky. Watch before design 6.</p></div>
+  <div class="case"><span class="topic">Play · design 5</span><b><a href="https://qubittool.com/tools/geohash-tool">Geohash Encoder/Decoder</a></b><p>Type a latitude and longitude, see its cell and the 8 neighbor cells.</p></div>
+  <div class="case"><span class="topic">Draw · all</span><b><a href="https://excalidraw.com">Excalidraw</a></b><p>Draw each design with a 45 minute timer before you open the answer.</p></div>
+  <div class="case"><span class="topic">Read · design 2</span><b><a href="https://stripe.com/blog/idempotency">Stripe: Designing robust and predictable APIs with idempotency</a></b><p>See where a request can fail, then redraw it for the wallet.</p></div>
+  <div class="case"><span class="topic">Read · design 6</span><b><a href="https://github.com/pgvector/pgvector">pgvector README</a></b><p>Read "Filtering" and "Iterative index scans".</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Design Workbook, Part 2: Six Designs Where Correctness Matters"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-workbook-2",
+  concepts: [
+    { t: "Hold with expiry", d: "A seat kept for one buyer for 10 minutes. The hold UPDATE treats an expired hold as free, so no timer job is needed to release seats." },
+    { t: "Conditional update", d: "Put the rule in the WHERE: <code>SET status = 'HELD' WHERE status = 'AVAILABLE'</code>. 1 row back = you won. 0 rows = someone else did. No read-then-write race." },
+    { t: "Virtual waiting room", d: "A page at the edge gives each fan a place in line and lets in a fixed number per minute with a signed token. The spike never reaches your servers." },
+    { t: "Idempotency key", d: "A unique label per button press, sent on every retry. Stored with a UNIQUE constraint next to the saved answer. A retry gets the same answer, the work happens once." },
+    { t: "Double entry ledger", d: "Every money move is two or more entries that add up to zero. Rows are only added. A refund is a new reversing transfer, never an edit." },
+    { t: "Money as whole numbers", d: "<code>0.1 + 0.2</code> is <code>0.30000000000000004</code> in JavaScript. Store BIGINT cents and the currency next to every amount." },
+    { t: "Webhook + reconciliation", d: "Webhooks can be late, doubled or lost. A nightly job asks the provider about old PENDING payments and runs the same guarded update. It also compares ledger, provider and bank." },
+    { t: "Hot account", d: "One row touched by every transfer (the fee account) makes everyone wait on its lock. Split it into sub-accounts or post fees in batches." },
+    { t: "State machine", d: "A fixed list of states and allowed moves. Each move is a guarded UPDATE on the from-state and the version. Any move not on the picture is refused." },
+    { t: "Maker checker", d: "One person prepares, a different person approves. Enforced in the WHERE: <code>AND maker_id &lt;&gt; $checker</code>." },
+    { t: "Audit trail", d: "An insert-only events table: who, from, to, when, why. Written in the same transaction as the move. The app user has no UPDATE or DELETE rights on it." },
+    { t: "Slow outside checks", d: "Never call the credit bureau while a user waits or a transaction is open. Write the state change plus an outbox row; a worker calls out; a webhook or poll brings the result." },
+    { t: "SKIP LOCKED", d: "<code>SELECT ... FOR UPDATE SKIP LOCKED</code>: each worker skips rows another worker locked, so many workers claim different due jobs without waiting." },
+    { t: "Lease", d: "A lock with an end time. If the worker dies, the lease runs out and a sweeper hands the job to another worker. Long jobs must renew it." },
+    { t: "Fencing token", d: "A number that goes up on each new claim (the attempt). Late writes with an older number are refused. Needed because a paused worker can wake up after its lease." },
+    { t: "At least once", d: "No lock can promise exactly one runner. Promise at least once and make each job's effect unique, so running it twice changes nothing." },
+    { t: "Time zones in schedules", d: "Store cron plus an IANA zone like Asia/Jakarta, compute next_run_at in UTC, and decide what happens on summer time days when 02:30 is missing or doubled." },
+    { t: "Geo cells", d: "Geohash boxes, quadtree squares or H3 hexagons cut the map into cells. Search the rider's cell and its neighbors, because the nearest driver may be across the edge." },
+    { t: "Permission-aware retrieval", d: "Copy allowed groups onto each chunk at ingest and filter inside the vector query. Secret text never reaches the model. Keep permissions in sync." },
+    { t: "Prompt injection", d: "Text in a document tries to give the model orders. You cannot fully stop it, so limit damage: user's own access only, no write tools, block unknown links, log." }
+  ],
+  decisions: [
+    { q: "Seat holds: Postgres vs Redis", a: "Postgres conditional update when", at: "Normal to large events. One source of truth, one round trip, strong rules.", b: "Redis SET NX EX when", bt: "Postgres is measured as the bottleneck during huge sales.", v: "Start with Postgres. Even with Redis holds, the final SOLD write keeps the same WHERE rule in Postgres." },
+    { q: "Balance: saved total vs sum of entries", a: "Saved total when", at: "Balances are read often and must be fast; the 'not below zero' check needs one row.", b: "Sum of entries when", bt: "Accounts are small and you want one truth with nothing to keep in step.", v: "Common: saved total updated in the same transaction as the entries, plus reconciliation that compares them." },
+    { q: "Loan workflow: status column vs workflow engine", a: "Status column when", at: "Low load, a handful of states, a timer job is enough.", b: "Workflow engine when", bt: "Many long waits, many timers, many teams changing the flow (Temporal, Step Functions).", v: "Start with a status column, guarded updates and an events table. Move when timers and waits multiply." },
+    { q: "Job claiming: Postgres SKIP LOCKED vs a Redis queue", a: "Postgres when", at: "Up to a few thousand claims a second; claims inside a transaction with your data.", b: "Redis queue (BullMQ) when", bt: "Very high rates, delays and retries built in, Redis already running.", v: "Both are at least once. The job must be safe to repeat either way." },
+    { q: "Live locations: Redis GEO vs PostGIS", a: "Redis GEO when", at: "Hundreds of thousands of updates a second of data that is old in seconds.", b: "PostGIS when", bt: "Slow updates (a fleet of vans), shapes, joins and exact SQL.", v: "Redis GEO for the live map, Postgres for rides. PostGIS for zones and slower fleets." },
+    { q: "RAG store: pgvector vs a dedicated vector database", a: "pgvector when", at: "Up to millions of chunks, permissions in Postgres, one backup story.", b: "Dedicated store when", bt: "Far more vectors, or search load that should not share your main database.", v: "Start with pgvector next to your data. Filtering with permissions is simpler in one database." },
+    { q: "Trust the webhook vs reconcile", a: "Webhook alone when", at: "Never for money.", b: "Webhook + reconciliation when", bt: "Always for money: webhooks are fast, reconciliation never misses.", v: "Both paths run the same guarded update, so whichever arrives second changes nothing." }
+  ],
+  cases: [
+    { topic: "Idempotency", b: "Stripe", p: "Every write request can carry an Idempotency-Key. The same key returns the same result, so clients retry safely after timeouts." },
+    { topic: "Geo cells", b: "Uber H3 (2018)", p: "A hexagon grid with 16 sizes, built for pricing and dispatch by area, then open sourced." },
+    { topic: "Waiting room", b: "Cloudflare Waiting Room", p: "Built on Workers and Durable Objects at the edge, so traffic spikes are queued before they reach the origin." },
+    { topic: "Ledgers", b: "Modern Treasury", p: "Teaches double entry for developers with a wallet and a lending example; its ledger product is immutable and auditable." },
+    { topic: "Vector search", b: "pgvector", p: "Vector search inside Postgres. Since 0.8.0, iterative index scans fix filtered searches that return too few rows." },
+    { topic: "Postgres queues", b: "pg-boss", p: "A Node job queue built on SKIP LOCKED, with cron schedules, retries and dead letter queues." }
+  ],
+  hooks: [
+    { b: "The rule lives in the WHERE", p: "If the check is in your code, two requests can both pass. If it is in the WHERE, the database decides once." },
+    { b: "Same key, same answer", p: "A coat check ticket: hand in the same ticket twice, you get the same coat, not two coats." },
+    { b: "Money only moves, never appears", p: "Every transfer is a pair: minus here, plus there. If a pair does not sum to zero, something is broken." },
+    { b: "No arrow, no move", p: "If a move is not on the state machine picture, the database refuses it." },
+    { b: "Skip the busy till", p: "SKIP LOCKED is a shop with many tills: you go to a free one instead of waiting behind someone." },
+    { b: "Look over the fence", p: "Always search the neighbor cells. The nearest driver may be just over the line." },
+    { b: "Filter before the model reads", p: "Once secret text is in the prompt, you cannot take it back out." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
