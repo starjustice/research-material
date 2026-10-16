@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Storage Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>DATA STORAGE CHOICES CHEATSHEET</h1>
+  <p class="sub">The storage menu · File uploads · Search · Reports · Copies · Splits · IDs · Data life</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Pick storage by the question it answers. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The storage menu: one job each</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Ten kinds of storage, each with an example product and its main job">
+      <rect class="box box-green" x="11" y="20" width="130" height="74" rx="10"/><text class="lbl" x="76" y="42">Relational</text><text class="lbl-s" x="76" y="62">Postgres</text><text class="lbl-s" x="76" y="78">money, orders, rules</text>
+      <rect class="box box-blue" x="153" y="20" width="130" height="74" rx="10"/><text class="lbl" x="218" y="42">Key-value</text><text class="lbl-s" x="218" y="62">Redis, DynamoDB</text><text class="lbl-s" x="218" y="78">get by key, fast</text>
+      <rect class="box box-blue" x="295" y="20" width="130" height="74" rx="10"/><text class="lbl" x="360" y="42">Document</text><text class="lbl-s" x="360" y="62">MongoDB</text><text class="lbl-s" x="360" y="78">whole JSON object</text>
+      <rect class="box box-blue" x="437" y="20" width="130" height="74" rx="10"/><text class="lbl" x="502" y="42">Wide column</text><text class="lbl-s" x="502" y="62">Cassandra, Scylla</text><text class="lbl-s" x="502" y="78">huge write streams</text>
+      <rect class="box box-yellow" x="579" y="20" width="130" height="74" rx="10"/><text class="lbl" x="644" y="42">Search index</text><text class="lbl-s" x="644" y="62">OpenSearch, Meili</text><text class="lbl-s" x="644" y="78">find by words</text>
+      <rect class="box box-yellow" x="11" y="110" width="130" height="74" rx="10"/><text class="lbl" x="76" y="132">Object storage</text><text class="lbl-s" x="76" y="152">S3, R2</text><text class="lbl-s" x="76" y="168">photos, videos, PDFs</text>
+      <rect class="box box-green" x="153" y="110" width="130" height="74" rx="10"/><text class="lbl" x="218" y="132">Time series</text><text class="lbl-s" x="218" y="152">TimescaleDB</text><text class="lbl-s" x="218" y="168">values over time</text>
+      <rect class="box box-blue" x="295" y="110" width="130" height="74" rx="10"/><text class="lbl" x="360" y="132">Graph</text><text class="lbl-s" x="360" y="152">Neo4j</text><text class="lbl-s" x="360" y="168">friends of friends</text>
+      <rect class="box box-green" x="437" y="110" width="130" height="74" rx="10"/><text class="lbl" x="502" y="132">Vector</text><text class="lbl-s" x="502" y="152">pgvector</text><text class="lbl-s" x="502" y="168">similar meaning</text>
+      <rect class="box box-yellow" x="579" y="110" width="130" height="74" rx="10"/><text class="lbl" x="644" y="132">Analytics</text><text class="lbl-s" x="644" y="152">ClickHouse, BigQuery</text><text class="lbl-s" x="644" y="168">sums over billions</text>
+      <text class="lbl-s t-green" x="360" y="212">Green = Postgres or a Postgres extension. Postgres is the source of truth; every other store has one job.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I pick storage by the question it must answer. Postgres is the source of truth. Files go to S3, search to a search index, big reports to a column store. Each extra store has one named job."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · File upload with a presigned URL</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 240" role="img" aria-label="App asks API for a signed link, uploads straight to S3, S3 event starts a worker, worker saves the row in Postgres, CDN serves reads">
+      <rect class="box box-blue" x="10" y="95" width="110" height="50" rx="10"/><text class="lbl" x="65" y="117">Phone app</text><text class="lbl-s" x="65" y="135">has the photo</text>
+      <rect class="box" x="180" y="15" width="150" height="50" rx="10"/><text class="lbl" x="255" y="37">Your API</text><text class="lbl-s" x="255" y="55">checks user, signs link</text>
+      <rect class="box box-yellow" x="380" y="95" width="130" height="50" rx="10"/><text class="lbl" x="445" y="117">S3 bucket</text><text class="lbl-s" x="445" y="135">private</text>
+      <rect class="box" x="570" y="15" width="140" height="50" rx="10"/><text class="lbl" x="640" y="37">Worker</text><text class="lbl-s" x="640" y="55">check type, thumbnail</text>
+      <rect class="box box-green" x="570" y="165" width="140" height="50" rx="10"/><text class="lbl" x="640" y="187">Postgres</text><text class="lbl-s" x="640" y="205">key, size, status</text>
+      <rect class="box box-blue" x="180" y="170" width="150" height="45" rx="10"/><text class="lbl" x="255" y="190">CDN</text><text class="lbl-s" x="255" y="206">serves reads nearby</text>
+      <path class="arrow" d="M100,93 L190,67" marker-end="url(#arr)" marker-start="url(#arr)"/><text class="lbl-sl" x="20" y="62">1 ask, 2 get link</text>
+      <path class="arrow-green" d="M122,120 L376,120" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="250" y="112">3 PUT file straight to S3</text>
+      <path class="arrow" d="M512,105 L580,67" marker-end="url(#arr)"/><text class="lbl-sl" x="548" y="100">4 event</text>
+      <path class="arrow" d="M640,67 L640,161" marker-end="url(#arr)"/><text class="lbl-sl" x="646" y="118">5 save row</text>
+      <path class="arrow-dash" d="M378,135 L334,180" marker-end="url(#arrm)"/><text class="lbl-sl" x="362" y="172">on a miss</text>
+      <text class="lbl-s" x="360" y="233">The API never carries the file bytes. Link valid 5 minutes, one key, one file type.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The client gets a presigned URL from my API, uploads straight to S3, and an S3 event starts a worker that checks the file and marks it ready in Postgres. A CDN serves reads."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Search: the inverted index</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 250" role="img" aria-label="Products are cut into words; each word points to the products that contain it">
+      <text class="lbl" x="125" y="18">Products</text>
+      <rect class="box" x="10" y="28" width="230" height="36" rx="8"/><text class="lbl-m" x="125" y="50">1 Red running shoes</text>
+      <rect class="box" x="10" y="74" width="230" height="36" rx="8"/><text class="lbl-m" x="125" y="96">2 Blue shirt</text>
+      <rect class="box" x="10" y="120" width="230" height="36" rx="8"/><text class="lbl-m" x="125" y="142">3 Shoe rack, red shoes</text>
+      <path class="arrow" d="M250,92 L460,92" marker-end="url(#arr)"/><text class="lbl-s" x="355" y="82">cut into words, lowercase,</text><text class="lbl-s" x="355" y="110">cut to the root: shoes = shoe</text>
+      <text class="lbl" x="590" y="12">Word list</text>
+      <rect class="box box-green" x="470" y="20" width="240" height="32" rx="8"/><text class="lbl-m" x="590" y="40">red   → 1, 3</text>
+      <rect class="box box-green" x="470" y="58" width="240" height="32" rx="8"/><text class="lbl-m" x="590" y="78">shoe  → 1, 3</text>
+      <rect class="box box-green" x="470" y="96" width="240" height="32" rx="8"/><text class="lbl-m" x="590" y="116">run   → 1</text>
+      <rect class="box box-green" x="470" y="134" width="240" height="32" rx="8"/><text class="lbl-m" x="590" y="154">shirt → 2</text>
+      <rect class="box box-pink" x="10" y="186" width="330" height="34" rx="8"/><text class="lbl-m" x="175" y="207">ILIKE '%shoe%' reads every row</text>
+      <rect class="box box-green" x="380" y="186" width="330" height="34" rx="8"/><text class="lbl-m" x="545" y="207">'red shoes' → 2 lists → 1 and 3</text>
+      <text class="lbl-s" x="360" y="242">Postgres full text + GIN first. Search engine later, fed by outbox or CDC, never a dual write.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A search index is a list from each word to the records that hold it. I start with Postgres full text and a GIN index. If I add OpenSearch, it is a copy fed by an outbox or CDC, and I can rebuild it."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Row store for the app, column store for reports</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="A row store reads one whole row; a column store reads only the columns a report needs">
+      <rect class="box" x="10" y="20" width="330" height="150" rx="12"/>
+      <text class="lbl" x="175" y="42">Row store: Postgres</text>
+      <rect class="box box-blue" x="25" y="54" width="300" height="28" rx="6"/><text class="lbl-m" x="175" y="72">7 | store 42 | JAWA | 120 | Oct</text>
+      <rect class="box box-green" x="25" y="88" width="300" height="28" rx="6"/><text class="lbl-m" x="175" y="106">8 | store 51 | BALI | 75  | Oct</text>
+      <rect class="box box-blue" x="25" y="122" width="300" height="28" rx="6"/><text class="lbl-m" x="175" y="140">9 | store 42 | JAWA | 30  | Oct</text>
+      <text class="lbl-s t-green" x="175" y="164">"get order 8" reads one row</text>
+      <rect class="box" x="380" y="20" width="330" height="150" rx="12"/>
+      <text class="lbl" x="545" y="42">Column store: ClickHouse</text>
+      <rect class="box" x="395" y="54" width="70" height="96" rx="6"/><text class="lbl-s" x="430" y="72">id</text><text class="lbl-m" x="430" y="100">7 8 9</text>
+      <rect class="box" x="473" y="54" width="70" height="96" rx="6"/><text class="lbl-s" x="508" y="72">store</text><text class="lbl-m" x="508" y="100">42 51 42</text>
+      <rect class="box box-green" x="551" y="54" width="70" height="96" rx="6"/><text class="lbl-s" x="586" y="72">region</text><text class="lbl-m" x="586" y="100">JAWA</text><text class="lbl-m" x="586" y="116">BALI</text><text class="lbl-m" x="586" y="132">JAWA</text>
+      <rect class="box box-green" x="629" y="54" width="70" height="96" rx="6"/><text class="lbl-s" x="664" y="72">total</text><text class="lbl-m" x="664" y="100">120 75 30</text>
+      <text class="lbl-s t-green" x="545" y="164">SUM total BY region reads 2 columns</text>
+      <text class="lbl-s" x="360" y="200">Order: read replica first → ClickHouse or BigQuery for billions of rows, fed by CDC or a nightly job.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "User traffic and reports have different shapes. Reports go to a replica first, then to a column store fed by CDC. Postgres stays fast for users."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Quorum: R + W &gt; N</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Three copies; a write saved on two, a read asking two; they always overlap on one node">
+      <rect class="box box-blue" x="20" y="80" width="120" height="50" rx="10"/><text class="lbl" x="80" y="102">Writer</text><text class="lbl-s" x="80" y="120">W = 2</text>
+      <rect class="box box-green" x="300" y="20" width="120" height="44" rx="10"/><text class="lbl" x="360" y="40">Node A</text><text class="lbl-s t-green" x="360" y="56">has v2</text>
+      <rect class="box box-green" x="300" y="84" width="120" height="44" rx="10"/><text class="lbl" x="360" y="104">Node B</text><text class="lbl-s t-green" x="360" y="120">has v2</text>
+      <rect class="box box-pink" x="300" y="148" width="120" height="44" rx="10"/><text class="lbl" x="360" y="168">Node C</text><text class="lbl-s t-pink" x="360" y="184">still v1</text>
+      <path class="arrow-green" d="M142,96 L296,44" marker-end="url(#arrg)"/><path class="arrow-green" d="M142,105 L296,105" marker-end="url(#arrg)"/>
+      <rect class="box box-blue" x="580" y="80" width="120" height="50" rx="10"/><text class="lbl" x="640" y="102">Reader</text><text class="lbl-s" x="640" y="120">R = 2</text>
+      <path class="arrow" d="M578,100 L424,106" marker-end="url(#arr)"/><path class="arrow" d="M578,115 L424,168" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="500" y="88">gets v2</text><text class="lbl-s" x="500" y="160">gets v1</text>
+      <text class="lbl-s" x="360" y="205">N = 3. 2 + 2 = 4 &gt; 3, so the read always touches one node with v2. Newest wins. W = 1, R = 1 can miss it.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "In a leaderless store like Cassandra I pick N, W and R. With N equal to 3, W and R of 2 overlap on at least one node, so reads see the newest write."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Consistent hashing: the ring and virtual nodes</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 250" role="img" aria-label="Machines and keys on a ring; a key goes to the next machine clockwise; a new machine takes only its slice">
+      <circle cx="180" cy="125" r="90" class="arrow-dash"/>
+      <circle cx="180" cy="35" r="16" class="box box-blue"/><text class="lbl" x="180" y="40">A</text>
+      <circle cx="270" cy="125" r="16" class="box box-blue"/><text class="lbl" x="270" y="130">B</text>
+      <circle cx="180" cy="215" r="16" class="box box-blue"/><text class="lbl" x="180" y="220">C</text>
+      <circle cx="90" cy="125" r="16" class="box box-blue"/><text class="lbl" x="90" y="130">D</text>
+      <circle cx="244" cy="61" r="16" class="box box-green"/><text class="lbl" x="244" y="66">E</text>
+      <circle cx="220" cy="43" r="5" class="box box-yellow"/><circle cx="263" cy="88" r="5" class="box box-yellow"/>
+      <text class="lbl-sl t-green" x="266" y="52">new E takes only</text><text class="lbl-sl t-green" x="266" y="66">the keys between A and E</text>
+      <text class="lbl-s" x="180" y="128">key → next</text><text class="lbl-s" x="180" y="142">machine clockwise</text>
+      <rect class="box box-pink" x="420" y="20" width="290" height="44" rx="8"/><text class="lbl-m" x="565" y="40">hash % N, 4 → 5 machines</text><text class="lbl-s t-pink" x="565" y="56">about 80% of keys move</text>
+      <rect class="box box-green" x="420" y="74" width="290" height="44" rx="8"/><text class="lbl-m" x="565" y="94">ring, 4 → 5 machines</text><text class="lbl-s t-green" x="565" y="110">about 20% move: the fair share</text>
+      <rect class="box box-pink" x="420" y="128" width="290" height="44" rx="8"/><text class="lbl-m" x="565" y="148">1 spot per machine</text><text class="lbl-s t-pink" x="565" y="164">uneven: loads from 1% to 55%</text>
+      <rect class="box box-green" x="420" y="182" width="290" height="44" rx="8"/><text class="lbl-m" x="565" y="202">100 virtual spots each</text><text class="lbl-s t-green" x="565" y="218">even: 24% to 26% each</text>
+      <text class="lbl-s" x="360" y="246">Numbers from a 100,000 key test. A single hot key still needs a cache or a split key.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "With hash mod N, adding one server moves most keys. On a ring, a new server takes only its slice, about one Nth. Virtual nodes give each server many spots, so load stays even."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · The life of data: hot, warm, cold, deleted</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="Data moves from hot Postgres to warm partitions to cold S3 archive to deleted">
+      <rect class="box box-pink" x="10" y="30" width="160" height="80" rx="10"/><text class="lbl" x="90" y="54">Hot</text><text class="lbl-s" x="90" y="74">0 to 3 months</text><text class="lbl-s" x="90" y="92">Postgres, fast disk</text>
+      <rect class="box box-yellow" x="190" y="30" width="160" height="80" rx="10"/><text class="lbl" x="270" y="54">Warm</text><text class="lbl-s" x="270" y="74">3 months to 2 years</text><text class="lbl-s" x="270" y="92">older partitions</text>
+      <rect class="box box-blue" x="370" y="30" width="160" height="80" rx="10"/><text class="lbl" x="450" y="54">Cold</text><text class="lbl-s" x="450" y="74">older than 2 years</text><text class="lbl-s" x="450" y="92">Parquet in S3 archive</text>
+      <rect class="box" x="550" y="30" width="160" height="80" rx="10"/><text class="lbl" x="630" y="54">Deleted</text><text class="lbl-s" x="630" y="74">after the legal period</text><text class="lbl-s" x="630" y="92">or a privacy request</text>
+      <path class="arrow" d="M172,70 L186,70" marker-end="url(#arr)"/><path class="arrow" d="M352,70 L366,70" marker-end="url(#arr)"/><path class="arrow" d="M532,70 L546,70" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="138">Cheaper per GB to the right, slower and costlier to read back.</text>
+      <text class="lbl-s t-pink" x="360" y="160">A replica copies a bad DELETE at once. A backup is a copy from before the mistake.</text>
+      <text class="lbl-s" x="360" y="182">Ask early: which data is personal, which country must it stay in, how long do we keep it?</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I plan the data's life on day one: hot in Postgres, old partitions archived to S3 as Parquet, deleted after the retention period. For banks I ask about data residency and personal data first."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">The storage menu</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Kind</th><th>Examples</th><th>Best for</th><th>Bad for</th></tr>
+    <tr><td class="val">Relational</td><td>Postgres, MySQL</td><td>money, orders, rules, joins</td><td class="why">huge files, fuzzy search, sums over billions</td></tr>
+    <tr><td class="val">Key-value</td><td>Redis, DynamoDB</td><td>cache, sessions, counters, get by key</td><td class="why">questions you did not plan for</td></tr>
+    <tr><td class="val">Document</td><td>MongoDB</td><td>whole JSON objects with changing fields</td><td class="why">many links and rules across records</td></tr>
+    <tr><td class="val">Wide column</td><td>Cassandra, ScyllaDB</td><td>very many writes: messages, events</td><td class="why">joins, changing queries later</td></tr>
+    <tr><td class="val">Search index</td><td>OpenSearch, Elasticsearch, Meilisearch, Typesense</td><td>words, typos, facets</td><td class="why">being the source of truth</td></tr>
+    <tr><td class="val">Object storage</td><td>S3, GCS, R2</td><td>photos, videos, exports, backups</td><td class="why">small fast updates</td></tr>
+    <tr><td class="val">Time series</td><td>TimescaleDB, InfluxDB, Prometheus</td><td>metrics, readings over time</td><td class="why">general business data</td></tr>
+    <tr><td class="val">Graph</td><td>Neo4j</td><td>many hops: fraud rings, recommendations</td><td class="why">simple lists and totals</td></tr>
+    <tr><td class="val">Vector</td><td>pgvector, vector databases</td><td>similar meaning, AI search</td><td class="why">exact match, totals</td></tr>
+    <tr><td class="val">Analytics</td><td>ClickHouse, BigQuery, Snowflake, DuckDB</td><td>reports over billions of rows</td><td class="why">many small writes, one-row lookups</td></tr>
+  </table></div>
+  <h2 class="block">IDs at scale</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>ID</th><th>Size</th><th>Sorted by time?</th><th>Watch out</th></tr>
+    <tr><td class="val">bigint identity</td><td>8 bytes</td><td>yes</td><td class="why">needs one counter, guessable</td></tr>
+    <tr><td class="val">UUIDv4</td><td>16 bytes</td><td>no</td><td class="why">random inserts across the whole B-tree</td></tr>
+    <tr><td class="val">UUIDv7</td><td>16 bytes</td><td>yes, by ms</td><td class="why">shows creation time. Postgres 18: <code>uuidv7()</code></td></tr>
+    <tr><td class="val">ULID</td><td>16 bytes, 26 chars</td><td>yes</td><td class="why">not a built-in Postgres type</td></tr>
+    <tr><td class="val">Snowflake</td><td>8 bytes</td><td>roughly</td><td class="why">41 bits time, 10 machine, 12 counter. Clock must not go back</td></tr>
+  </table></div>
+  <h2 class="block">Replication shapes</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Shape</th><th>Who writes</th><th>Good</th><th>Problem</th></tr>
+    <tr><td class="val">Leader + followers</td><td>one leader</td><td>simple, no conflicts</td><td class="why">writes limited to one machine; lag on followers</td></tr>
+    <tr><td class="val">Many leaders</td><td>one per region</td><td>fast local writes</td><td class="why">two regions change the same row</td></tr>
+    <tr><td class="val">No leader</td><td>any node</td><td>survives node loss</td><td class="why">needs R + W &gt; N and repair of old copies</td></tr>
+  </table></div>
+  <h2 class="block">Estimate: storage per year</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Step</th><th>Example (made-up shop app)</th></tr>
+    <tr><td class="val">records per day</td><td>10,000 stores x 20 orders = 200,000</td></tr>
+    <tr><td class="val">x 365</td><td>73 million orders a year</td></tr>
+    <tr><td class="val">x bytes per row (+50% indexes)</td><td>x 0.5 KB = about 37 GB</td></tr>
+    <tr><td class="val">x copies</td><td>primary + 2 replicas = about 110 GB</td></tr>
+    <tr><td class="val">files</td><td>2,000 photos x 2 MB a day = about 1.5 TB a year in S3</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every store buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">▶️ Watch and play</h2>
+  <div class="case"><span class="topic">Video</span><b><a href="https://www.youtube.com/watch?v=W2Z7fbCLSTw">7 Database Paradigms</a> · Fireship</b><p>About 10 minutes. Key-value, wide column, document, relational, graph, search.</p></div>
+  <div class="case"><span class="topic">Video</span><b><a href="https://www.youtube.com/watch?v=kkeFE6iRfMM">How To Choose The Right Database?</a> · ByteByteGo</b><p>Short. Database types with pictures.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://gallery.selfboot.cn/en/algorithms/hashring">Consistent Hash Ring</a></b><p>Add and remove nodes, change virtual nodes, watch keys move.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://dsys2-iiith.vlabs.ac.in/exp/consistent-hashing/procedure.html">Consistent hashing virtual lab</a> · IIIT Hyderabad</b><p>Set machines, items and virtual nodes; count how many items move.</p></div>
+  <div class="case"><span class="topic">Pictures</span><b><a href="https://bytebytego.com/guides/consistent-hashing/">Consistent Hashing Explained</a> · ByteByteGo</b><p>The ring, step by step.</p></div>
+  <div class="case"><span class="topic">Pictures</span><b><a href="https://bytebytego.com/guides/a-crash-course-in-database-sharding/">A Crash Course in Database Sharding</a> · ByteByteGo</b><p>Range and hash splits drawn.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://github.com/donnemartin/system-design-primer#database">System Design Primer, Database</a></b><p>Replication, sharding and NoSQL types with diagrams.</p></div>
+  <p class="hint">Links opened or found in web search on 2026-10-16.</p>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Data storage choices for system design"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-storage",
+  concepts: [
+    { t: "Access pattern", d: "One question the app asks, with how often. \"Orders for store 42, newest first, 500 per second.\" Choose storage from these, not from product names." },
+    { t: "Source of truth", d: "The one store with the correct copy, usually Postgres. Search indexes, caches and warehouses are copies you can rebuild from it." },
+    { t: "Postgres as the default", d: "Transactions for money, plus JSONB, full text, pgvector, TimescaleDB, PostGIS. One system to back up and watch. Each extra store costs sync work, running it, a new failure case and a bill." },
+    { t: "Object storage", d: "Files in a bucket, found by a key like <code>uploads/store-42/abc.jpg</code>. Postgres keeps the key, size, type and status, not the bytes." },
+    { t: "Presigned URL", d: "A link with a signature that allows one PUT or GET on one key for a short time. <code>getSignedUrl(s3, new PutObjectCommand(...), { expiresIn: 300 })</code>. Default 900 s." },
+    { t: "S3 event + worker", d: "When a file lands, S3 sends an event. A worker checks size and type, makes thumbnails, and marks the row ready. A lifecycle rule deletes files never confirmed." },
+    { t: "CDN in front of S3", d: "Copies of files in cities near users. The bucket stays private; only the CDN reads it. Private files use short signed GET links." },
+    { t: "Inverted index", d: "A list from each word to the records that hold it. Postgres has it as <code>tsvector</code> + GIN. <code>ILIKE '%x%'</code> without <code>pg_trgm</code> reads every row." },
+    { t: "Dual write problem", d: "Writing Postgres and a search engine in one request can half fail. They then disagree forever." },
+    { t: "Outbox and CDC", d: "Outbox: write the change and a message row in one transaction; a relay sends it. CDC: a tool like Debezium reads the database change log. Both feed a retrying worker." },
+    { t: "OLTP vs OLAP", d: "Many small user queries against few huge report queries. Row stores serve users; column stores read only the needed columns for reports." },
+    { t: "ETL vs ELT", d: "ETL cleans before loading. ELT loads raw data into the warehouse and cleans with SQL there. CDC keeps it minutes behind." },
+    { t: "Leader and followers", d: "One leader takes writes and streams them to followers. Simple, no conflicts. Followers lag, so watch read-your-own-writes." },
+    { t: "Quorum R + W > N", d: "N copies, W must save, R are asked. If R + W > N the two sets share a node, so reads see the newest write." },
+    { t: "Split by range, hash or tenant", d: "Range keeps ranges together but piles new data on one node. Hash spreads evenly but range queries hit all. Tenant keeps one customer together." },
+    { t: "Consistent hashing", d: "Machines and keys on a ring; a key goes to the next machine clockwise. Adding a machine moves about 1/N of keys, not about 80%." },
+    { t: "Virtual nodes", d: "Each machine gets many spots on the ring. In a test: 1 spot each gave loads of 1% to 55%; 100 spots gave 24% to 26%." },
+    { t: "Hot partition / celebrity key", d: "One key gets most traffic. Cache it, split it into sub keys (<code>post99#0..9</code>) and add on read, or treat it differently." },
+    { t: "Time-sorted IDs", d: "UUIDv7, ULID and Snowflake put time first, so new IDs go to the end of the B-tree. Postgres 18: <code>DEFAULT uuidv7()</code>." },
+    { t: "Data residency and PII", d: "Some customers, often banks, need data in one country. Personal data stays in few places, out of logs and analytics, masked in test copies." }
+  ],
+  decisions: [
+    { q: "Files in Postgres vs S3", a: "Postgres bytea when", at: "Tiny files, very few, and you want one transaction with the row.", b: "S3 when", bt: "Photos, videos, PDFs, anything users upload. Presigned upload, metadata row in Postgres.", v: "S3 almost always. The database stays small, backups stay fast, and the API never carries bytes." },
+    { q: "Postgres full text vs a search engine", a: "Postgres full text when", at: "Up to millions of rows, simple ranking, one system to run.", b: "OpenSearch or Meilisearch when", bt: "Strong typo tolerance, facet counts, heavy search traffic, fine ranking.", v: "Start in Postgres. Move with a clear reason, and feed the engine with an outbox or CDC." },
+    { q: "Read replica vs column store for reports", a: "Read replica when", at: "Reports over millions of rows, same SQL, no new system.", b: "ClickHouse or BigQuery when", bt: "Billions of rows, many sources, dashboards that must be fast.", v: "Replica first. Column store when the replica is still too slow or reports join many systems." },
+    { q: "Sync vs async replication", a: "Synchronous when", at: "No data loss on failover matters: payments, ledgers.", b: "Asynchronous when", bt: "Fast writes matter and losing the last moment of data on failover is acceptable.", v: "Common: one sync standby nearby for safety, async followers for reads." },
+    { q: "hash % N vs consistent hashing", a: "hash % N when", at: "The number of machines never changes.", b: "A ring when", bt: "Machines join and leave: caches, partitioned stores.", v: "Ring with virtual nodes. Adding a machine moves its fair share, not most keys." },
+    { q: "UUIDv4 vs UUIDv7", a: "UUIDv4 when", at: "The creation time must stay secret and the table is small.", b: "UUIDv7 when", bt: "IDs are made in many places and the table is big.", v: "UUIDv7 for big tables: inserts go to the end of the B-tree. Keep bigint inside one database if nothing else needs the ID." },
+    { q: "Postgres vs DynamoDB", a: "Postgres when", at: "Rules, joins, reports, questions that change.", b: "DynamoDB when", bt: "Every question is a known key lookup, at huge or spiky scale, with no servers to run.", v: "Postgres by default. DynamoDB for a clean key-value job like sessions, with keys designed for today's questions." },
+    { q: "Postgres vs NewSQL", a: "One Postgres when", at: "Writes fit one primary, one region is enough.", b: "CockroachDB, Spanner or Aurora DSQL when", bt: "SQL and transactions beyond one primary, or strong correctness across regions.", v: "Each NewSQL write waits for a vote, so pay that cost only when one Postgres truly is not enough." }
+  ],
+  cases: [
+    { topic: "Sharding SQL", b: "YouTube and Vitess", p: "Vitess split MySQL into many shards and was a core part of YouTube's databases from 2011. Slack, Square and JD.com adopted it from 2015. Source: github.com/vitessio/vitess." },
+    { topic: "IDs at scale", b: "Twitter Snowflake (2010)", p: "64-bit IDs made on many machines: 41 bits time, 10 bits machine, 12 bits counter. Roughly sorted by time. Source: github.com/twitter-archive/snowflake, tag snowflake-2010." },
+    { topic: "Consistent hashing", b: "Vimeo", p: "Used consistent hashing with bounded loads in HAProxy so no server takes too many keys. Source: Vimeo engineering blog on Medium." },
+    { topic: "A question about your system", b: "DBO: KTP photo upload", p: "The DBO app has a profile and KTP photo upload that a verification admin approves. Ask yourself: does the photo pass through the API or go straight to storage, and could you defend it?" }
+  ],
+  hooks: [
+    { b: "A shop with many shelves", p: "Do not put the fridge, the books and the shoes on one shelf. Each store holds one kind of thing. Postgres is the cash desk: the truth about money." },
+    { b: "The valet ticket", p: "A presigned URL is a valet ticket: it opens one car, for a short time. You never hand over the master key." },
+    { b: "The book index", p: "An inverted index is the index at the back of a book: word, then page numbers." },
+    { b: "Two out of three agree", p: "R + W > N: if two of three friends got the note and you ask two, at least one of them knows." },
+    { b: "Clock face, walk clockwise", p: "Consistent hashing: each key walks clockwise to the next machine. A new machine only takes the keys just before it." },
+    { b: "Time first, sort last", p: "UUIDv7, ULID, Snowflake start with the time, so new IDs line up at the end, like auto increment." },
+    { b: "A mirror is not a photo", p: "A replica copies your mistakes at once. A backup is a photo from before the mistake." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
