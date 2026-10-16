@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributed Reliability Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>DISTRIBUTED SYSTEMS &amp; RELIABILITY</h1>
+  <p class="sub">Nines · Safe calls · Breakers and bulkheads · Health checks · Raft · Clocks and locks · Failure thinking</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Every picture answers one question: what happens when a part dies or gets slow? Redraw each one from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The nines: parts in a row vs copies side by side</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Three parts in a row give 99.7 percent; two copies side by side give 99.99 percent">
+      <text class="lbl" x="175" y="22">In a row: ALL must work</text>
+      <rect class="box box-blue" x="20" y="44" width="90" height="40" rx="8"/><text class="lbl" x="65" y="69">Web 99.9%</text>
+      <rect class="box box-blue" x="130" y="44" width="90" height="40" rx="8"/><text class="lbl" x="175" y="69">API 99.9%</text>
+      <rect class="box box-blue" x="240" y="44" width="90" height="40" rx="8"/><text class="lbl" x="285" y="69">DB 99.9%</text>
+      <path class="arrow" d="M110,64 L128,64" marker-end="url(#arr)"/><path class="arrow" d="M220,64 L238,64" marker-end="url(#arr)"/>
+      <text class="lbl-m" x="175" y="124">0.999 × 0.999 × 0.999 = 99.7%</text>
+      <text class="lbl-s t-pink" x="175" y="146">about 2.2 hours down per month</text>
+      <line x1="360" y1="10" x2="360" y2="170" class="arrow-dash"/>
+      <text class="lbl" x="545" y="22">Side by side: ONE must work</text>
+      <rect class="box" x="390" y="74" width="80" height="40" rx="8"/><text class="lbl" x="430" y="99">LB</text>
+      <rect class="box box-green" x="540" y="36" width="150" height="40" rx="8"/><text class="lbl" x="615" y="61">API copy 99%</text>
+      <rect class="box box-green" x="540" y="112" width="150" height="40" rx="8"/><text class="lbl" x="615" y="137">API copy 99%</text>
+      <path class="arrow" d="M470,88 L538,58" marker-end="url(#arr)"/><path class="arrow" d="M470,100 L538,130" marker-end="url(#arr)"/>
+      <text class="lbl-m" x="545" y="180">1 − 0.01 × 0.01 = 99.99%</text>
+      <text class="lbl-s t-green" x="545" y="200">about 4.4 minutes down per month</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Availability multiplies along the request path, so a long chain is fragile. Copies side by side, in different zones, remove the single points of failure."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Retries multiply through layers, and the jitter formula</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="One request becomes 27 calls through three layers with three tries each">
+      <rect class="box box-blue" x="10" y="30" width="110" height="50" rx="8"/><text class="lbl" x="65" y="60">1 request</text>
+      <rect class="box" x="155" y="30" width="110" height="50" rx="8"/><text class="lbl" x="210" y="52">Gateway</text><text class="lbl-s" x="210" y="70">3 tries</text>
+      <rect class="box" x="300" y="30" width="110" height="50" rx="8"/><text class="lbl" x="355" y="52">API</text><text class="lbl-s" x="355" y="70">3 tries each</text>
+      <rect class="box" x="445" y="30" width="110" height="50" rx="8"/><text class="lbl" x="500" y="52">Service</text><text class="lbl-s" x="500" y="70">3 tries each</text>
+      <rect class="box box-pink" x="590" y="30" width="120" height="50" rx="8"/><text class="lbl" x="650" y="60">Sick DB</text>
+      <path class="arrow" d="M120,55 L153,55" marker-end="url(#arr)"/>
+      <path class="arrow-pink" d="M265,55 L298,55" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="282" y="22">3</text>
+      <path class="arrow-pink" d="M410,55 L443,55" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="427" y="22">9</text>
+      <path class="arrow-pink" d="M555,55 L588,55" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="572" y="22">27 calls</text>
+      <rect class="box box-green" x="60" y="112" width="600" height="72" rx="10"/>
+      <text class="lbl-m" x="360" y="138">wait = random(0, min(cap, base × 2^attempt))</text>
+      <text class="lbl-s" x="360" y="162">retry in ONE layer · 2 to 3 tries · retry budget about 10% · only safe errors</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Retries in every layer multiply load on the sick part. I retry in one layer, two or three times, with exponential backoff and full jitter, under a retry budget."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Circuit breaker: closed, open, half open</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 215" role="img" aria-label="Closed goes to open after too many failures, open goes to half open after cool down, half open goes back to closed or open">
+      <rect class="box box-green" x="30" y="60" width="170" height="70" rx="12"/><text class="lbl" x="115" y="84">CLOSED</text><text class="lbl-s" x="115" y="102">calls go through</text><text class="lbl-s" x="115" y="118">count failures</text>
+      <rect class="box box-pink" x="275" y="60" width="170" height="70" rx="12"/><text class="lbl" x="360" y="84">OPEN</text><text class="lbl-s" x="360" y="102">fail fast</text><text class="lbl-s" x="360" y="118">no calls at all</text>
+      <rect class="box box-yellow" x="520" y="60" width="170" height="70" rx="12"/><text class="lbl" x="605" y="84">HALF OPEN</text><text class="lbl-s" x="605" y="102">let 1 to 5</text><text class="lbl-s" x="605" y="118">test calls through</text>
+      <path class="arrow-pink" d="M200,85 L273,85" marker-end="url(#arrp)"/><text class="lbl-s" x="237" y="48">too many failures</text>
+      <path class="arrow" d="M445,85 L518,85" marker-end="url(#arr)"/><text class="lbl-s" x="482" y="48">cool down ends</text>
+      <path class="arrow-pink" d="M520,115 L447,115" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="482" y="146">a test fails</text>
+      <path class="arrow-green" d="M605,130 C605,195 115,195 115,132" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="360" y="186">tests pass</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "One breaker per dependency. When half the recent calls fail, it opens and we fail fast, so we stop waiting on timeouts and the sick service gets quiet time. After a cool down, a few test calls decide."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The readiness trap: one slow database takes out every copy</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 280" role="img" aria-label="Readiness checks call the database; when it is slow all API copies are removed and users get errors">
+      <rect class="box" x="20" y="80" width="120" height="50" rx="8"/><text class="lbl" x="80" y="110">Load balancer</text>
+      <rect class="box box-pink" x="230" y="20" width="160" height="40" rx="8"/><text class="lbl" x="310" y="45">API 1 not ready</text>
+      <rect class="box box-pink" x="230" y="85" width="160" height="40" rx="8"/><text class="lbl" x="310" y="110">API 2 not ready</text>
+      <rect class="box box-pink" x="230" y="150" width="160" height="40" rx="8"/><text class="lbl" x="310" y="175">API 3 not ready</text>
+      <rect class="box box-yellow" x="510" y="80" width="170" height="50" rx="8"/><text class="lbl" x="595" y="102">Postgres</text><text class="lbl-s" x="595" y="120">slow for 20 s</text>
+      <path class="arrow-dash" d="M140,98 L228,42" marker-end="url(#arrm)"/><path class="arrow-dash" d="M140,105 L228,105" marker-end="url(#arrm)"/><path class="arrow-dash" d="M140,112 L228,168" marker-end="url(#arrm)"/>
+      <path class="arrow-pink" d="M390,40 L508,95" marker-end="url(#arrp)"/><path class="arrow-pink" d="M390,105 L508,105" marker-end="url(#arrp)"/><path class="arrow-pink" d="M390,170 L508,115" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="450" y="202">SELECT 1 times out</text>
+      <text class="lbl t-pink" x="360" y="222">0 backends = every user gets an error, even on pages without the DB</text>
+      <rect class="box box-green" x="60" y="234" width="600" height="36" rx="8"/>
+      <text class="lbl-m" x="360" y="257">/livez: process only · /readyz: own state only · DB: per request</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Liveness decides restarts, readiness decides traffic. Neither checks a shared dependency, because when it blips every copy fails together and a partial outage becomes a full one."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Raft: a write commits when a majority stored it</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 235" role="img" aria-label="Leader sends slot 42 to four followers; two store it so three of five have it and it commits">
+      <rect class="box box-green" x="30" y="85" width="160" height="60" rx="10"/><text class="lbl" x="110" y="110">Leader, term 5</text><text class="lbl-s" x="110" y="130">adds slot 42 to its log</text>
+      <rect class="box box-blue" x="320" y="10" width="170" height="40" rx="8"/><text class="lbl" x="405" y="35">Follower 1 stored ✓</text>
+      <rect class="box box-blue" x="320" y="65" width="170" height="40" rx="8"/><text class="lbl" x="405" y="90">Follower 2 stored ✓</text>
+      <rect class="box" x="320" y="120" width="170" height="40" rx="8"/><text class="lbl" x="405" y="145">Follower 3 slow</text>
+      <rect class="box box-pink" x="320" y="175" width="170" height="40" rx="8"/><text class="lbl" x="405" y="200">Follower 4 cut off ✗</text>
+      <path class="arrow" d="M190,105 L318,32" marker-end="url(#arr)"/><path class="arrow" d="M190,110 L318,86" marker-end="url(#arr)"/>
+      <path class="arrow" d="M190,120 L318,140" marker-end="url(#arr)"/><path class="arrow-dash" d="M190,128 L318,193" marker-end="url(#arrm)"/>
+      <rect class="box box-yellow" x="540" y="75" width="170" height="80" rx="10"/><text class="lbl" x="625" y="100">3 of 5 have it</text><text class="lbl-s" x="625" y="120">a majority</text><text class="lbl-s" x="625" y="138">commit, then reply OK</text>
+      <path class="arrow-green" d="M490,60 L538,100" marker-end="url(#arrg)"/>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Raft gives one leader per term, chosen by a majority vote, and commits a write once a majority stored it. Two majorities always overlap, so a cut off old leader can never commit. Use 3 or 5 nodes."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Fencing token: the storage rejects the paused client</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 240" role="img" aria-label="Client 1 gets token 33 and pauses, lock expires, client 2 gets 34 and writes, storage rejects 33">
+      <text class="lbl-l" x="6" y="44">Client 1</text><text class="lbl-l" x="6" y="94">Lock</text><text class="lbl-l" x="6" y="144">Client 2</text><text class="lbl-l" x="6" y="204">Storage</text>
+      <line x1="80" y1="40" x2="710" y2="40" class="arrow-dash"/><line x1="80" y1="90" x2="710" y2="90" class="arrow-dash"/><line x1="80" y1="140" x2="710" y2="140" class="arrow-dash"/><line x1="80" y1="200" x2="710" y2="200" class="arrow-dash"/>
+      <rect class="box box-green" x="100" y="24" width="90" height="32" rx="6"/><text class="lbl-m" x="145" y="44">token 33</text>
+      <rect class="box box-pink" x="200" y="24" width="320" height="32" rx="6"/><text class="lbl-s" x="360" y="44">frozen 40 s by a GC pause</text>
+      <rect class="box box-yellow" x="290" y="74" width="110" height="32" rx="6"/><text class="lbl-s" x="345" y="94">lock expires</text>
+      <rect class="box box-green" x="410" y="124" width="90" height="32" rx="6"/><text class="lbl-m" x="455" y="144">token 34</text>
+      <path class="arrow-green" d="M470,156 L470,182" marker-end="url(#arrg)"/>
+      <rect class="box box-green" x="420" y="184" width="110" height="32" rx="6"/><text class="lbl-m" x="475" y="204">accept 34</text>
+      <path class="arrow-pink" d="M590,56 L615,182" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="655" y="72">writes with 33</text>
+      <rect class="box box-pink" x="560" y="184" width="130" height="32" rx="6"/><text class="lbl-m" x="625" y="204">reject 33 &lt; 34</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A lock with a timer cannot stop a client that froze and woke up late. The storage must check an increasing token. A plain Redis lock is fine for avoiding duplicate work, not for correctness."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Worked example: the payment provider is slow</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="Save pending order, call with timeout and key, retry once, breaker or full pool sends to queue, honest message">
+      <rect class="box box-blue" x="10" y="20" width="130" height="80" rx="10"/><text class="lbl" x="75" y="46">Save order</text><text class="lbl-m" x="75" y="68">PENDING_PAYMENT</text>
+      <rect class="box" x="152" y="20" width="130" height="80" rx="10"/><text class="lbl" x="217" y="46">Call provider</text><text class="lbl-s" x="217" y="66">timeout 3 s</text><text class="lbl-s" x="217" y="84">key = order id</text>
+      <rect class="box" x="294" y="20" width="130" height="80" rx="10"/><text class="lbl" x="359" y="46">Retry once</text><text class="lbl-s" x="359" y="66">with jitter</text><text class="lbl-s" x="359" y="84">same key</text>
+      <rect class="box box-yellow" x="436" y="20" width="130" height="80" rx="10"/><text class="lbl" x="501" y="46">Breaker open</text><text class="lbl-s" x="501" y="66">or pool full</text><text class="lbl-s" x="501" y="84">then queue the job</text>
+      <rect class="box box-green" x="578" y="20" width="130" height="80" rx="10"/><text class="lbl" x="643" y="46">Tell the user</text><text class="lbl-s" x="643" y="66">order saved,</text><text class="lbl-s" x="643" y="84">payment confirming</text>
+      <path class="arrow" d="M140,60 L150,60" marker-end="url(#arr)"/><path class="arrow" d="M282,60 L292,60" marker-end="url(#arr)"/><path class="arrow" d="M424,60 L434,60" marker-end="url(#arr)"/><path class="arrow" d="M566,60 L576,60" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="60" y="130" width="600" height="50" rx="10"/>
+      <text class="lbl" x="360" y="152">Final truth: webhook + a reconciliation job</text>
+      <text class="lbl-s" x="360" y="170">alert on breaker open, payment p99, queue depth, oldest pending payment</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Save the order as pending first. Then a 3 second timeout, one jittered retry with the order id as key, a bulkhead for payment calls, and a breaker that sends checkouts to a queue. The user gets an honest message; webhooks and reconciliation decide the end state."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can say the problem, the fix, and the cost.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">The nines</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Availability</th><th>Down per year</th><th>Down per month</th><th>Plain meaning</th></tr>
+    <tr><td class="val">99%</td><td>3.65 days</td><td>7.3 hours</td><td class="why">a bad day every month</td></tr>
+    <tr><td class="val">99.9%</td><td>8.8 hours</td><td>44 minutes</td><td class="why">one bad deploy</td></tr>
+    <tr><td class="val">99.95%</td><td>4.4 hours</td><td>22 minutes</td><td class="why">common cloud database promise</td></tr>
+    <tr><td class="val">99.99%</td><td>53 minutes</td><td>4.4 minutes</td><td class="why">needs automatic takeover, no humans</td></tr>
+    <tr><td class="val">99.999%</td><td>5.3 minutes</td><td>26 seconds</td><td class="why">very hard, very expensive</td></tr>
+  </table></div>
+  <h2 class="block">Quorum sizes</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Nodes</th><th>Majority</th><th>Failures survived</th></tr>
+    <tr><td class="val">3</td><td>2</td><td>1</td></tr>
+    <tr><td class="val">4</td><td>3</td><td>1 (no better than 3)</td></tr>
+    <tr><td class="val">5</td><td>3</td><td>2</td></tr>
+    <tr><td class="val">7</td><td>4</td><td>3</td></tr>
+  </table></div>
+  <h2 class="block">Retry or not</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Retry</th><th>Do not retry</th></tr>
+    <tr><td class="val">timeout, connection reset</td><td class="why">400, 401, 403, 404, validation errors</td></tr>
+    <tr><td class="val">503</td><td class="why">a write without an idempotency key</td></tr>
+    <tr><td class="val">429 after Retry-After</td><td class="why">when the retry budget is empty</td></tr>
+  </table></div>
+  <h2 class="block">Consistency promises</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Model</th><th>Promise</th><th>Use for</th></tr>
+    <tr><td class="val">Strong (linearizable)</td><td>acts like one copy</td><td class="why">payments, stock at checkout, points</td></tr>
+    <tr><td class="val">Read your writes</td><td>you see your own changes</td><td class="why">profile, settings, my orders</td></tr>
+    <tr><td class="val">Monotonic reads</td><td>never go back in time</td><td class="why">feeds, comments</td></tr>
+    <tr><td class="val">Eventual</td><td>copies agree later</td><td class="why">counters, search, analytics</td></tr>
+  </table></div>
+  <h2 class="block">Health checks</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Check</th><th>Failing means</th><th>Should check</th></tr>
+    <tr><td class="val">Liveness</td><td>restart it</td><td class="why">only that the process answers</td></tr>
+    <tr><td class="val">Readiness</td><td>stop sending traffic</td><td class="why">own state: warmed up, not shutting down</td></tr>
+    <tr><td class="val">Startup</td><td>wait longer</td><td class="why">slow start finished</td></tr>
+  </table></div>
+  <h2 class="block">Starting numbers</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Setting</th><th>Start with</th><th>Why</th></tr>
+    <tr><td class="val">Timeout</td><td>the dependency's p99.9</td><td class="why">about 1 false timeout per 1,000 calls</td></tr>
+    <tr><td class="val">Tries</td><td>2 to 3</td><td class="why">more tries multiply load</td></tr>
+    <tr><td class="val">Backoff</td><td>base 100 ms, cap 5 s, full jitter</td><td class="why">spread retries out</td></tr>
+    <tr><td class="val">Breaker</td><td>open at 50% of last 20 calls, 30 s</td><td class="why">fail fast, give quiet time</td></tr>
+    <tr><td class="val">Raft election timeout</td><td>150 to 300 ms, random</td><td class="why">one node usually starts first</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every pattern buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">▶ Watch and play</h2>
+  <p class="hint">Links opened or found in web search on 2026-10-16. No video is listed yet: none could be confirmed.</p>
+  <div class="case"><span class="topic">Play</span><b><a href="http://thesecretlivesofdata.com/raft">The Secret Lives of Data: Raft</a></b><p>Guided animation. Click through an election and a write being copied.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://raft.github.io/">Raft Consensus Algorithm site</a></b><p>A live cluster. Stop the leader and watch a new term start.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter">AWS Builders' Library: Timeouts, retries and backoff with jitter</a></b><p>How Amazon picks timeouts and limits retries in layers.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html">Martin Kleppmann: How to do distributed locking</a></b><p>The paused client and the fencing token. Redraw his timelines.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://sre.google/sre-book/addressing-cascading-failures/">Google SRE book: Addressing cascading failures</a></b><p>How overload spreads, and how to stop it.</p></div>
+  <div class="case"><span class="topic">Read</span><b><a href="https://brooker.co.za/blog/2021/05/24/metastable/">Marc Brooker: Metastable failures</a></b><p>Short post on systems that stay broken after the trigger is gone.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the guide "Distributed Systems and Reliability Patterns"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-distributed",
+  concepts: [
+    { t: "Three new problems", d: "Many machines means: machines die while others run, the network drops or delays or repeats messages, and clocks disagree. You cannot tell slow from dead. The 8 false beliefs start with: the network never fails, latency is zero." },
+    { t: "Single point of failure and the nines", d: "A part with no copy takes everything down. In a row: multiply (0.999³ = 99.7%). Side by side: two 99% copies = 99.99%. Assumes copies fail independently." },
+    { t: "Consistency ladder", d: "Strong (acts like one copy) → read your writes → monotonic reads (never back in time) → eventual (agree later). Weaker = faster and more available." },
+    { t: "CAP and PACELC", d: "Only during a network split: refuse (C) or answer with maybe old data (A). P is not optional. Else, on a normal day: latency or consistency. CAP's C is not ACID's C." },
+    { t: "Timeouts", d: "Every network call gets one. Start at the dependency's p99.9. Inner timeouts shorter than outer. In Node: <code>AbortSignal.timeout(2000)</code>." },
+    { t: "Backoff with full jitter", d: "<code>wait = random(0, min(cap, base × 2^attempt))</code>. Backoff spaces tries out; jitter stops clients from retrying in step." },
+    { t: "Retry budget", d: "Retries multiply through layers (3 layers × 3 tries = 27). Retry in one layer, 2 to 3 tries, retries at most about 10% of traffic." },
+    { t: "Idempotency key", d: "A unique label (order id) sent with every try. The server saves key + result and returns the saved result for a repeat. Makes retries after a timeout safe." },
+    { t: "Circuit breaker", d: "Closed (count failures) → open (fail fast) → half open (few test calls). One per dependency. Gives you speed and gives the sick service quiet time." },
+    { t: "Bulkhead", d: "Separate pools per dependency so one slow provider cannot use every connection. Like walls inside a ship." },
+    { t: "Load shedding", d: "When full, say no early with a fast 503, before doing work. Shed low priority traffic first. Better than every request timing out." },
+    { t: "Backpressure", d: "A full buffer tells the producer to slow down. A queue does not remove work, it moves the waiting. Watch queue depth and oldest job age." },
+    { t: "Graceful degradation", d: "Decide which parts are required. Hide or serve old data for the rest. Test the fallback, because code that only runs in outages breaks quietly." },
+    { t: "Liveness vs readiness", d: "Liveness = restart me (process only). Readiness = send me traffic (own state only). A shared DB in either check can take the whole fleet down." },
+    { t: "Split brain and quorum", d: "A cut off leader still accepts writes while a new one is elected. A majority rule stops it: two majorities always overlap. Use 3 or 5 nodes." },
+    { t: "Raft", d: "Terms, one vote per node per term, random election timeouts, leader copies its log, commit at majority. Used by etcd, Consul, Kafka KRaft, CockroachDB." },
+    { t: "Clocks and last write wins", d: "Wall clocks drift and NTP can jump them. Last write wins can silently drop the newer write. Use versions, one leader, or merging. Lamport counters give cause order." },
+    { t: "Fencing token", d: "The lock gives an increasing number; the storage rejects lower ones. A Redis lock alone is fine for efficiency, not for correctness." },
+    { t: "2PC, sagas and exactly once", d: "2PC blocks if the coordinator dies and needs all services up. Sagas run local steps with undo steps. Exactly once = at least once delivery + skip repeats by message id." },
+    { t: "Cascades, metastable, cells", d: "Retries and removed copies feed overload. Metastable: stays broken after the trigger, so cut load hard. Cells: independent full copies, so one failure hurts one cell." }
+  ],
+  decisions: [
+    { q: "Strong vs eventual reads", a: "Strong when", at: "A wrong read costs money or trust: stock at checkout, points balance, payments.", b: "Eventual when", bt: "A few seconds old is fine: like counts, feeds, search, analytics.", v: "Choose per feature, not per system. Use read your writes for a user's own changes." },
+    { q: "Retry vs fail fast", a: "Retry when", at: "The error is temporary (timeout, 503, 429) and the call is safe to repeat or has an idempotency key.", b: "Fail fast when", bt: "The error is permanent (400, 404), the budget is empty, the breaker is open, or you are not the retrying layer.", v: "Retry in one layer only, 2 to 3 tries, backoff with jitter, under a budget." },
+    { q: "Bigger queue vs load shedding", a: "Bigger queue when", at: "The spike is short and work can wait (emails, reports).", b: "Shed load when", bt: "Users are waiting and requests would time out in the queue anyway.", v: "For user facing paths, a fast 503 on low priority routes beats slow timeouts for everyone." },
+    { q: "Health check includes the DB vs not", a: "Include a dependency when", at: "Almost never in liveness. In readiness only if this one instance can fix its own problem, like a broken local connection.", b: "Keep it out when", bt: "The dependency is shared by all copies (database, Redis, a provider).", v: "Keep shared dependencies out. Handle them per request; watch them with alerts." },
+    { q: "Redis lock vs database guard", a: "Redis lock when", at: "Efficiency: avoid two workers doing the same job, and doing it twice is only wasteful.", b: "Database guard when", bt: "Correctness: two holders would corrupt data (balances, stock). Use a row lock, unique constraint, version check or fencing token.", v: "The storage must make the final check. A lock with a timer cannot stop a paused client." },
+    { q: "2PC vs saga", a: "2PC when", at: "Rare: a few databases you control, inside one team, and blocking is acceptable.", b: "Saga when", bt: "Services or third parties (Stripe) are involved and must stay available.", v: "Services use sagas with undo steps, outbox, and idempotent consumers." },
+    { q: "3 nodes vs 5 nodes for consensus", a: "3 nodes when", at: "Survive 1 failure, lower cost, faster majority.", b: "5 nodes when", bt: "Survive 2 failures, for example one failure during planned maintenance.", v: "Always odd. 4 nodes survive no more than 3 do." }
+  ],
+  cases: [
+    { topic: "Split brain", b: "GitHub (Oct 2018)", p: "43 seconds of network trouble. Failover moved writes to the West Coast before East Coast writes were copied. 24 hours 11 minutes of degraded service." },
+    { topic: "Missing jitter", b: "Google Cloud (Jun 2025)", p: "A bad policy record crashed a core service worldwide. Restarts lacked randomized exponential backoff and overloaded a database." },
+    { topic: "Hidden dependency", b: "AWS us-east-1 (Oct 2025)", p: "DynamoDB DNS lookups failed. Network Load Balancer health checks failed too. Recovery took most of a day." },
+    { topic: "Rush after quiet", b: "Slack (Jan 2021)", p: "First work day of the year: cold client caches pulled more data, network problems hit, and Slack's own dashboards went down." },
+    { topic: "Blast radius", b: "Cloudflare (Nov 2025)", p: "A bug in generating a Bot Management feature file produced a bad file that spread across the network fast." },
+    { topic: "Safe retries", b: "Stripe", p: "Every request that changes money accepts an Idempotency-Key, so a retry after a timeout cannot charge twice." }
+  ],
+  hooks: [
+    { b: "A row of light bulbs", p: "Old string lights: one bulb dies, the whole row goes dark. That is parts in a row. Copies side by side are two lamps in a room." },
+    { b: "Everyone runs for the same door", p: "Without jitter, all clients retry at the same second. Jitter lets them leave the room one by one." },
+    { b: "The house breaker", p: "It cuts power before the wire burns. Unlike your house, this one tests and closes by itself (half open)." },
+    { b: "Walls inside a ship", p: "Bulkheads: one hole floods one room, not the whole ship." },
+    { b: "A term of office", p: "Raft terms are numbered periods in office. One leader per term. A leader that hears of a newer term steps down." },
+    { b: "The ticket number at the door", p: "Fencing token: the door remembers the highest number it has seen and turns away anyone with a lower one." },
+    { b: "A fire in the building", p: "What happens when X dies: smoke alarm (who notices), people (what users see), fire doors (spread), papers (data), firefighters (recover), moving back in (when it returns)." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
