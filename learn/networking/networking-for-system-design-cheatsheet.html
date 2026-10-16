@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design Networking</title>
+<link rel="stylesheet" href="../system-design/sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>NETWORKING FOR SYSTEM DESIGN</h1>
+  <p class="sub">Latency and trips · Connections and pools · DNS · Proxies and gateways · Real time · Cloud layout · Timeouts and retries · Regions</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">Pictures</button>
+  <button data-tab="concepts" type="button">Concepts</button>
+  <button data-tab="numbers" type="button">Tables</button>
+  <button data-tab="decisions" type="button">Decisions</button>
+  <button data-tab="cases" type="button">Cases, hooks, links</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Every arrow costs time and can fail. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · How long one round trip takes</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Round trip times from same machine to across the world">
+      <text class="lbl-l" x="10" y="39">Same machine</text>
+      <rect class="box box-green" x="170" y="20" width="20" height="28" rx="5"/><text class="lbl-sl" x="198" y="39">well under 0.1 ms</text>
+      <text class="lbl-l" x="10" y="77">Same zone</text>
+      <rect class="box box-green" x="170" y="58" width="60" height="28" rx="5"/><text class="lbl-sl" x="238" y="77">about 0.1 to 0.5 ms</text>
+      <text class="lbl-l" x="10" y="115">Across zones</text>
+      <rect class="box box-blue" x="170" y="96" width="110" height="28" rx="5"/><text class="lbl-sl" x="288" y="115">about 1 to 2 ms</text>
+      <text class="lbl-l" x="10" y="153">Same continent</text>
+      <rect class="box box-yellow" x="170" y="134" width="260" height="28" rx="5"/><text class="lbl-sl" x="438" y="153">about 10 to 50 ms</text>
+      <text class="lbl-l" x="10" y="191">Across the world</text>
+      <rect class="box box-pink" x="170" y="172" width="400" height="28" rx="5"/><text class="lbl-sl" x="578" y="191">150 ms or more</text>
+      <text class="lbl-s" x="360" y="222">Light in fiber: about 200 km per ms. Each 1,000 km adds at least 10 ms to a round trip.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Same zone calls are under a millisecond, across the world is 150 ms or more. So I count round trips on the user's path and keep chatty parts close together."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Reuse connections: setup is paid once</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 175" role="img" aria-label="Three requests with new connections take nine round trips, with keep-alive five">
+      <text class="lbl-l" x="10" y="28">New connection every time</text>
+      <rect class="box box-pink" x="10" y="38" width="40" height="30" rx="5"/><text class="lbl-m" x="30" y="57">TCP</text>
+      <rect class="box box-pink" x="52" y="38" width="40" height="30" rx="5"/><text class="lbl-m" x="72" y="57">TLS</text>
+      <rect class="box box-green" x="94" y="38" width="46" height="30" rx="5"/><text class="lbl-m" x="117" y="57">GET</text>
+      <rect class="box box-pink" x="150" y="38" width="40" height="30" rx="5"/><text class="lbl-m" x="170" y="57">TCP</text>
+      <rect class="box box-pink" x="192" y="38" width="40" height="30" rx="5"/><text class="lbl-m" x="212" y="57">TLS</text>
+      <rect class="box box-green" x="234" y="38" width="46" height="30" rx="5"/><text class="lbl-m" x="257" y="57">GET</text>
+      <rect class="box box-pink" x="290" y="38" width="40" height="30" rx="5"/><text class="lbl-m" x="310" y="57">TCP</text>
+      <rect class="box box-pink" x="332" y="38" width="40" height="30" rx="5"/><text class="lbl-m" x="352" y="57">TLS</text>
+      <rect class="box box-green" x="374" y="38" width="46" height="30" rx="5"/><text class="lbl-m" x="397" y="57">GET</text>
+      <text class="lbl-l t-pink" x="450" y="58">9 round trips</text>
+      <text class="lbl-l" x="10" y="100">Keep-alive: one open connection</text>
+      <rect class="box box-pink" x="10" y="110" width="40" height="30" rx="5"/><text class="lbl-m" x="30" y="129">TCP</text>
+      <rect class="box box-pink" x="52" y="110" width="40" height="30" rx="5"/><text class="lbl-m" x="72" y="129">TLS</text>
+      <rect class="box box-green" x="94" y="110" width="46" height="30" rx="5"/><text class="lbl-m" x="117" y="129">GET</text>
+      <rect class="box box-green" x="142" y="110" width="46" height="30" rx="5"/><text class="lbl-m" x="165" y="129">GET</text>
+      <rect class="box box-green" x="190" y="110" width="46" height="30" rx="5"/><text class="lbl-m" x="213" y="129">GET</text>
+      <text class="lbl-l t-green" x="450" y="130">5 round trips</text>
+      <text class="lbl-s" x="360" y="166">At 150 ms per trip: 1,350 ms against 750 ms. A database pool does the same for Postgres.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A new HTTPS connection costs about two round trips before any work. I reuse connections with keep-alive and share database connections through a pool sized from the database limit."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · DNS failover waits for the TTL</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 185" role="img" aria-label="Timeline where users keep going to the dead region until DNS caches expire">
+      <path class="arrow-dash" d="M20,95 L700,95" marker-end="url(#arrm)"/>
+      <circle cx="80" cy="95" r="9" class="box box-pink"/>
+      <circle cx="200" cy="95" r="9" class="box box-yellow"/>
+      <circle cx="620" cy="95" r="9" class="box box-green"/>
+      <text class="lbl-s" x="80" y="125">region A dies</text><text class="lbl-s" x="80" y="141">10:00</text>
+      <text class="lbl-s" x="200" y="125">DNS now says B</text><text class="lbl-s" x="200" y="141">10:05</text>
+      <text class="lbl-s" x="620" y="125">old caches expire</text><text class="lbl-s" x="620" y="141">about 11:05</text>
+      <path class="arrow-pink" d="M212,60 L606,60" marker-end="url(#arrp)" marker-start="url(#arrp)"/>
+      <text class="lbl t-pink" x="410" y="48">users still sent to the dead region</text>
+      <text class="lbl-s" x="410" y="80">resolvers keep the old answer for the TTL, 3600 s</text>
+      <text class="lbl-s" x="360" y="176">Failover time is about health check time plus TTL. Use TTL 60 to 300 s, or anycast with a fixed IP.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "DNS failover is only as fast as the TTL, and some clients keep answers longer. For fast failover I use a global load balancer with a fixed anycast IP."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Four ways for the server to tell the client</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 235" role="img" aria-label="Short polling, long polling, SSE and WebSocket with what each is for">
+      <rect class="box box-yellow" x="10" y="14" width="150" height="42" rx="8"/><text class="lbl" x="85" y="40">Short polling</text>
+      <text class="lbl-ml" x="178" y="40">ask, no. ask, no. ask, yes.</text>
+      <rect class="box" x="480" y="14" width="230" height="42" rx="8"/><text class="lbl-s" x="595" y="39">dashboards every 30 s or more</text>
+      <rect class="box box-yellow" x="10" y="64" width="150" height="42" rx="8"/><text class="lbl" x="85" y="90">Long polling</text>
+      <text class="lbl-ml" x="178" y="90">ask. server waits. news.</text>
+      <rect class="box" x="480" y="64" width="230" height="42" rx="8"/><text class="lbl-s" x="595" y="89">fallback when nothing else works</text>
+      <rect class="box box-green" x="10" y="114" width="150" height="42" rx="8"/><text class="lbl" x="85" y="140">SSE</text>
+      <text class="lbl-ml" x="178" y="140">one request, many events down</text>
+      <rect class="box" x="480" y="114" width="230" height="42" rx="8"/><text class="lbl-s" x="595" y="139">order status, alerts, AI text</text>
+      <rect class="box box-blue" x="10" y="164" width="150" height="42" rx="8"/><text class="lbl" x="85" y="190">WebSocket</text>
+      <text class="lbl-ml" x="178" y="190">one connection, both ways</text>
+      <rect class="box" x="480" y="164" width="230" height="42" rx="8"/><text class="lbl-s" x="595" y="189">chat, live editing, games</text>
+      <text class="lbl-s t-pink" x="360" y="226">App closed on a phone? None of these reach it. Use push: FCM on Android, APNs on iPhone.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I pick the simplest option that fits: SSE when only the server talks, WebSockets when both sides talk often, and push notifications when the phone app is closed."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Scaling WebSockets with pub/sub fan out</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 225" role="img" aria-label="User A on server 1, user B on server 2, Redis pub/sub carries the message between servers">
+      <rect class="box" x="10" y="22" width="120" height="36" rx="8"/><text class="lbl" x="70" y="45">User A</text>
+      <rect class="box" x="10" y="152" width="120" height="36" rx="8"/><text class="lbl" x="70" y="175">User B</text>
+      <rect class="box box-yellow" x="170" y="80" width="140" height="50" rx="10"/><text class="lbl" x="240" y="102">Load balancer</text><text class="lbl-s" x="240" y="120">L7, WebSocket on</text>
+      <rect class="box box-blue" x="350" y="18" width="150" height="46" rx="10"/><text class="lbl" x="425" y="38">WS server 1</text><text class="lbl-s" x="425" y="55">holds A</text>
+      <rect class="box box-blue" x="350" y="148" width="150" height="46" rx="10"/><text class="lbl" x="425" y="168">WS server 2</text><text class="lbl-s" x="425" y="185">holds B</text>
+      <rect class="box box-green" x="560" y="78" width="150" height="56" rx="10"/><text class="lbl" x="635" y="102">Redis pub/sub</text><text class="lbl-s" x="635" y="120">channel room 7</text>
+      <path class="arrow" d="M132,42 L168,90" marker-end="url(#arr)"/>
+      <path class="arrow" d="M132,168 L168,122" marker-end="url(#arr)"/>
+      <path class="arrow" d="M312,96 L348,52" marker-end="url(#arr)"/>
+      <path class="arrow" d="M312,116 L348,160" marker-end="url(#arr)"/>
+      <path class="arrow" d="M502,44 L572,78" marker-end="url(#arr)"/><text class="lbl-s" x="560" y="52">publish</text>
+      <path class="arrow-green" d="M600,136 L504,166" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="580" y="168">deliver</text>
+      <path class="arrow-pink" d="M425,196 C380,214 200,214 132,182" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="360" y="219">Servers never call each other. Ping every 20 to 30 s. Reconnect with jitter after deploys.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Each WebSocket server subscribes to the rooms of its own users. A message is published once to Redis, and every server that holds a member pushes it on."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · AWS layout for Express and Postgres</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 310" role="img" aria-label="VPC with public subnet for load balancer and NAT, private app subnet, private data subnet">
+      <rect class="box" x="300" y="4" width="120" height="28" rx="8"/><text class="lbl" x="360" y="23">Internet</text>
+      <rect class="box" x="10" y="40" width="700" height="244" rx="12" style="stroke-dasharray:6 4"/>
+      <text class="lbl-l" x="24" y="58">VPC in one region, spread over AZ a and AZ b</text>
+      <rect class="box box-yellow" x="24" y="66" width="672" height="62" rx="8"/>
+      <text class="lbl-sl" x="34" y="101">Public subnets</text>
+      <rect class="box" x="210" y="76" width="160" height="42" rx="8"/><text class="lbl" x="290" y="94">Load balancer</text><text class="lbl-s" x="290" y="110">443 from anywhere</text>
+      <rect class="box" x="470" y="76" width="160" height="42" rx="8"/><text class="lbl" x="550" y="94">NAT gateway</text><text class="lbl-s" x="550" y="110">outbound only</text>
+      <rect class="box box-blue" x="24" y="140" width="672" height="62" rx="8"/>
+      <text class="lbl-sl" x="34" y="175">Private app subnets</text>
+      <rect class="box" x="180" y="150" width="160" height="42" rx="8"/><text class="lbl" x="260" y="168">Express AZ a</text><text class="lbl-s" x="260" y="184">3000 from LB only</text>
+      <rect class="box" x="400" y="150" width="160" height="42" rx="8"/><text class="lbl" x="480" y="168">Express AZ b</text><text class="lbl-s" x="480" y="184">3000 from LB only</text>
+      <rect class="box box-green" x="24" y="214" width="672" height="62" rx="8"/>
+      <text class="lbl-sl" x="34" y="249">Private data subnets</text>
+      <rect class="box" x="180" y="224" width="160" height="42" rx="8"/><text class="lbl" x="260" y="242">Postgres primary</text><text class="lbl-s" x="260" y="258">5432 from app only</text>
+      <rect class="box" x="400" y="224" width="160" height="42" rx="8"/><text class="lbl" x="480" y="242">Postgres standby</text><text class="lbl-s" x="480" y="258">AZ b, copy</text>
+      <path class="arrow" d="M340,32 L300,74" marker-end="url(#arr)"/>
+      <path class="arrow" d="M270,118 L260,148" marker-end="url(#arr)"/>
+      <path class="arrow" d="M320,118 L460,148" marker-end="url(#arr)"/>
+      <path class="arrow" d="M260,192 L260,222" marker-end="url(#arr)"/>
+      <path class="arrow" d="M440,192 L320,222" marker-end="url(#arr)"/>
+      <path class="arrow-dash" d="M342,245 L398,245" marker-end="url(#arrm)"/>
+      <path class="arrow-dash" d="M530,150 L550,120" marker-end="url(#arrm)"/>
+      <path class="arrow-dash" d="M560,76 L410,32" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="302">Only the load balancer is public. Cross-zone traffic costs $0.01 per GB each way. NAT charges per GB too.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Only the load balancer sits in public subnets. App and database are private across two zones. Security groups chain load balancer to app to database, so nothing else can reach Postgres."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Timeouts shrink inward, retries multiply</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 240" role="img" aria-label="Timeouts 10, 8, 5, 2 seconds from outside in, and three retry layers making 27 database calls">
+      <rect class="box box-green" x="10" y="20" width="150" height="46" rx="8"/><text class="lbl" x="85" y="40">Client</text><text class="lbl-s" x="85" y="57">gives up at 10 s</text>
+      <rect class="box box-green" x="190" y="20" width="150" height="46" rx="8"/><text class="lbl" x="265" y="40">Gateway</text><text class="lbl-s" x="265" y="57">8 s</text>
+      <rect class="box box-green" x="370" y="20" width="150" height="46" rx="8"/><text class="lbl" x="445" y="40">API</text><text class="lbl-s" x="445" y="57">5 s</text>
+      <rect class="box box-green" x="550" y="20" width="150" height="46" rx="8"/><text class="lbl" x="625" y="40">DB query</text><text class="lbl-s" x="625" y="57">2 s</text>
+      <path class="arrow" d="M162,43 L188,43" marker-end="url(#arr)"/><path class="arrow" d="M342,43 L368,43" marker-end="url(#arr)"/><path class="arrow" d="M522,43 L548,43" marker-end="url(#arr)"/>
+      <text class="lbl-s t-green" x="360" y="88">Inner timeouts are shorter, so the inner part gives up first and returns a clear error.</text>
+      <rect class="box box-yellow" x="10" y="124" width="150" height="46" rx="8"/><text class="lbl" x="85" y="144">Client</text><text class="lbl-s" x="85" y="161">3 tries</text>
+      <rect class="box box-yellow" x="190" y="124" width="150" height="46" rx="8"/><text class="lbl" x="265" y="144">Gateway</text><text class="lbl-s" x="265" y="161">3 tries each</text>
+      <rect class="box box-yellow" x="370" y="124" width="150" height="46" rx="8"/><text class="lbl" x="445" y="144">API</text><text class="lbl-s" x="445" y="161">3 tries each</text>
+      <rect class="box box-pink" x="550" y="124" width="150" height="46" rx="8"/><text class="lbl" x="625" y="144">Database</text><text class="lbl-s" x="625" y="161">already slow</text>
+      <path class="arrow-pink" d="M162,147 L188,147" marker-end="url(#arrp)"/><path class="arrow-pink" d="M342,147 L368,147" marker-end="url(#arrp)"/><path class="arrow-pink" d="M522,147 L548,147" marker-end="url(#arrp)"/>
+      <text class="lbl-s t-pink" x="175" y="116">3 calls</text><text class="lbl-s t-pink" x="355" y="116">9 calls</text><text class="lbl-s t-pink" x="535" y="116">27 calls</text>
+      <text class="lbl-s" x="360" y="204">Retry at ONE layer, with backoff and jitter, only for calls that are safe to repeat.</text>
+      <text class="lbl-s" x="360" y="224">A timeout does not mean the work did not happen. Send an idempotency key.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Every call gets a timeout, shorter on the inside. I retry at one layer only, with backoff and jitter, and only for idempotent calls, because retries at every layer turn one click into 27 calls."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick it only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">Round trip rules of thumb (2026)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Trip</th><th>Round trip</th><th>Design meaning</th></tr>
+    <tr><td>Same machine</td><td class="val">well under 0.1 ms</td><td class="why">almost free</td></tr>
+    <tr><td>Same data center or zone</td><td class="val">0.1 to 0.5 ms</td><td class="why">100 database calls is still fast</td></tr>
+    <tr><td>Across zones in one region</td><td class="val">1 to 2 ms</td><td class="why">AWS: single digit ms, zones within about 100 km</td></tr>
+    <tr><td>Same continent</td><td class="val">10 to 50 ms</td><td class="why">users feel many trips</td></tr>
+    <tr><td>Across the world</td><td class="val">150 ms or more</td><td class="why">CDN, fewer trips, maybe a nearer region</td></tr>
+    <tr><td>New HTTPS connection</td><td class="val">about 2 round trips</td><td class="why">reuse connections</td></tr>
+  </table></div>
+  <h2 class="block">HTTP versions: what changes for your system</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Version</th><th>Runs on</th><th>Change</th></tr>
+    <tr><td class="val">HTTP/1.1</td><td>TCP</td><td class="why">one request at a time per connection; browsers open about 6 per site</td></tr>
+    <tr><td class="val">HTTP/2</td><td>TCP</td><td class="why">many requests on one connection; one lost packet still stalls all</td></tr>
+    <tr><td class="val">HTTP/3</td><td>QUIC on UDP</td><td class="why">a loss stalls only its stream; survives Wi-Fi to 4G; about 38 to 41% of sites in 2026</td></tr>
+  </table></div>
+  <h2 class="block">API styles on the wire</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Style</th><th>Fits</th><th>Network cost</th></tr>
+    <tr><td class="val">REST JSON</td><td>public APIs, CRUD</td><td class="why">many round trips for nested data; caches well</td></tr>
+    <tr><td class="val">GraphQL</td><td>many screens, flexible shapes</td><td class="why">one POST endpoint, hard to cache at a CDN</td></tr>
+    <tr><td class="val">gRPC</td><td>service to service</td><td class="why">HTTP/2 and protobuf; browsers need gRPC-Web</td></tr>
+    <tr><td class="val">Webhooks</td><td>third parties tell you</td><td class="why">check signature, answer fast, skip repeats</td></tr>
+  </table></div>
+  <h2 class="block">Security group chain</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Group</th><th>Allows in</th><th>From</th></tr>
+    <tr><td class="val">alb-sg</td><td>443</td><td class="why">anywhere</td></tr>
+    <tr><td class="val">app-sg</td><td>3000</td><td class="why">only alb-sg</td></tr>
+    <tr><td class="val">db-sg</td><td>5432</td><td class="why">only app-sg</td></tr>
+  </table></div>
+  <h2 class="block">Costs designers forget (AWS, 2026)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Traffic</th><th>Price</th><th>Fix</th></tr>
+    <tr><td>Inside one zone</td><td class="val">free</td><td class="why">keep chatty pairs together</td></tr>
+    <tr><td>Across zones</td><td class="val">$0.01 per GB each way</td><td class="why">fewer, bigger calls; same-zone cache</td></tr>
+    <tr><td>NAT gateway</td><td class="val">$0.045 per hour + $0.045 per GB (AWS example)</td><td class="why">VPC endpoint for S3</td></tr>
+    <tr><td>Postgres connections</td><td class="val">100 by default</td><td class="why">copies x pool size must fit; PgBouncer</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every choice buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">Watch and play (opened or found in web search on 2026-10-16)</h2>
+  <div class="hook"><b><a href="https://samwho.dev/numbers">Latency Numbers Every Programmer Should Know (samwho.dev)</a></b><p>Interactive. Compare a same data center trip with a cross-world trip.</p></div>
+  <div class="hook"><b><a href="https://www.youtube.com/watch?v=-3rFgUiKKG4">Long Polling vs SSE vs WebSockets vs Webhooks (YouTube, AlgoMaster)</a></b><p>The four real time options side by side. Pause after each and draw it.</p></div>
+  <div class="hook"><b><a href="https://bytebytego.com/guides/proxy-vs-reverse-proxy/">Proxy vs Reverse Proxy (ByteByteGo guide)</a></b><p>One clear picture of the two sides.</p></div>
+  <div class="hook"><b><a href="https://bytebytego.com/guides/http1-http2-http3/">HTTP/1 to HTTP/2 to HTTP/3 (ByteByteGo guide)</a></b><p>One picture of what each version changed.</p></div>
+  <div class="hook"><b><a href="https://github.com/ByteByteGoHq/system-design-101">System Design 101 (GitHub)</a></b><p>Visual guides on CDN, API gateway, gRPC, polling vs webhooks, NAT and DNS records.</p></div>
+  <div class="hook"><b><a href="https://caniuse.com/webtransport">WebTransport support (Can I use)</a></b><p>Check live browser support before you suggest it.</p></div>
+  <div class="hook"><b><a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter">Timeouts, retries and backoff with jitter (Amazon Builders' Library)</a></b><p>Read the retry section, then count the calls in picture 7 again.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Networking for System Design"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-networking",
+  concepts: [
+    { t: "Round trip", d: "A message goes to the other machine and the answer comes back. Designers count round trips on the user's path, not only server speed." },
+    { t: "Latency, bandwidth, throughput", d: "Latency is how long one trip takes. Bandwidth is how wide the pipe is. Throughput is what really arrives. For small API calls, latency matters most." },
+    { t: "Distance rule", d: "Light in fiber goes about 200 km per ms. Each 1,000 km adds at least 10 ms to a round trip. Only moving closer or fewer trips helps." },
+    { t: "Cost of a hop", d: "Each network hop adds time, one more place to fail, and one more log to search. 50 calls in a loop: 50 ms in one zone, 4 s across regions." },
+    { t: "Keep-alive", d: "Keep a connection open and reuse it. A new HTTPS connection costs about 2 round trips (TCP and TLS) before any work." },
+    { t: "Connection pool", d: "A few open connections shared by many requests. Size it from the database limit: copies x pool size must fit under <code>max_connections</code> (100 by default in Postgres)." },
+    { t: "DNS TTL", d: "How long resolvers may keep an answer. Short TTL: faster changes, more lookups. Lower it before a planned move." },
+    { t: "GeoDNS and latency routing", d: "DNS gives each user the IP of the nearest or fastest region. It sees the user's resolver, not the user." },
+    { t: "Anycast", d: "Many sites share one IP and internet routing picks the nearest. Failover moves in seconds or minutes without waiting for DNS caches." },
+    { t: "HTTP/2 vs HTTP/3", d: "HTTP/2: many requests on one TCP connection, but one lost packet stalls all. HTTP/3: QUIC on UDP, a loss stalls only its stream. Helps most on mobile." },
+    { t: "Reverse proxy and TLS termination", d: "A reverse proxy receives requests for your servers and hides them. TLS often ends there; inside traffic is plain or encrypted again for strict rules." },
+    { t: "API gateway", d: "The shared front door: TLS, token check, rate limits, routing by path, request IDs, timeouts. No business logic, or it becomes a second app." },
+    { t: "Service mesh", d: "A sidecar proxy next to every service does encryption, retries and metrics the same way everywhere. Worth it with many services and teams." },
+    { t: "Edge function trap", d: "Code at the edge is near the user but far from the database. Three database calls from the edge can be slower than running in the region." },
+    { t: "SSE vs WebSocket", d: "SSE: one long HTTP response, server to client only, easy through proxies. WebSocket: two ways, stateful, harder to scale and deploy." },
+    { t: "Scaling WebSockets", d: "Many servers behind an L7 balancer. Each subscribes to its users' rooms in Redis pub/sub. Ping to beat idle timeouts. Reconnect with jitter." },
+    { t: "Push for phones", d: "Background apps lose their sockets. Send a push through FCM (Android) or APNs (iPhone). Push says 'something changed'; the app fetches the truth." },
+    { t: "Public and private subnets", d: "Only the load balancer and NAT gateway are public. App and database are private across two zones. Security groups chain LB to app to DB." },
+    { t: "Timeouts and retry storms", d: "Timeouts on every call, shorter inside. Retry at one layer with backoff and jitter. 3 tries at 3 layers = 27 calls to a slow database." },
+    { t: "Active-passive vs active-active", d: "Passive: one region serves, one waits, failover limited by DNS TTL. Active: both serve, but writes in two places need a plan, like a home region per user." }
+  ],
+  decisions: [
+    { q: "SSE vs WebSocket", a: "SSE when", at: "Only the server sends: order status, notifications, streaming AI text.", b: "WebSocket when", bt: "Both sides send often: chat, live editing, games.", v: "Start with SSE. Move to WebSockets when the client must talk back often. Plan push notifications for closed phone apps either way." },
+    { q: "Short TTL vs long TTL", a: "Short (60 to 300 s) when", at: "You may need to move or fail over the record.", b: "Long (hours) when", bt: "The record never changes and you want fewer lookups.", v: "Short for anything you might move. Lower the TTL a day before a planned change." },
+    { q: "DNS failover vs anycast global load balancer", a: "DNS failover when", at: "Minutes of failover are fine and you want it simple and cheap.", b: "Anycast global LB when", bt: "You need failover in seconds and fixed IPs for clients.", v: "DNS is the cheap start. Anycast costs more and adds a vendor, but does not wait for caches." },
+    { q: "End TLS at the edge vs encrypt again inside", a: "Edge only when", at: "Inside traffic stays in a private network and rules allow it.", b: "Encrypt again when", bt: "Banks, health data, or rules that demand encryption everywhere.", v: "Edge termination is simpler and faster. Regulated systems often encrypt again to the app." },
+    { q: "REST or GraphQL vs gRPC between services", a: "REST or GraphQL when", at: "Few internal calls, easy debugging, one style for the team.", b: "gRPC when", bt: "Services talk a lot, need strict contracts, or stream data.", v: "A small team is fine with one style plus webhooks. Add gRPC when call volume and contracts justify it." },
+    { q: "One zone vs two zones", a: "One zone when", at: "Dev, test, or a tiny app where an hour of downtime is acceptable.", b: "Two zones when", bt: "Production that must survive a data center failure.", v: "Two zones for production. Pay the cross-zone cost, and keep chatty pairs in one zone where you can." },
+    { q: "Active-passive vs active-active regions", a: "Active-passive when", at: "You must survive a region outage, but users are mostly in one area.", b: "Active-active when", bt: "Users are far apart and need low latency everywhere.", v: "One region with two zones first. Passive second region for disaster. Active-active only with a clear plan for where each write goes." }
+  ],
+  cases: [
+    { topic: "Scaling WebSockets", b: "Slack: real-time messaging (2023)", p: "Clients open a WebSocket to Envoy in the nearest edge region. Gateway servers hold connections in many regions. Channel servers are picked by consistent hashing." },
+    { topic: "Proxies for long connections", b: "Slack: HAProxy to Envoy", p: "Moved millions of live WebSocket connections to a new proxy without downtime." },
+    { topic: "The network is not infinite", b: "Slack outage, 4 January 2021", p: "First workday after the holidays, cold client caches pulled more data. The cloud network between servers struggled, and adding servers fast hit its own limits." },
+    { topic: "HTTP/3 on mobile", b: "Uber: QUIC (2019)", p: "HTTP/2 over TCP did poorly on lossy mobile networks. QUIC cut slow-tail latency by 10 to 30% in the rider and driver apps." },
+    { topic: "Retry storms", b: "Amazon Builders' Library", p: "Pick timeouts from latency data, retry with capped backoff and jitter, and remember retries at many layers multiply load." }
+  ],
+  hooks: [
+    { b: "Light has a speed limit", p: "200 km per ms in fiber. No server upgrade beats geography." },
+    { b: "Water pipe", p: "Latency is how long one drop takes. Bandwidth is the pipe width. A wider pipe does not make the drop arrive sooner." },
+    { b: "TTL is a promise to be stale", p: "TTL 3600 means: the world may use the old address for an hour after you change it." },
+    { b: "Forward hides clients, reverse hides servers", p: "Same word, opposite sides of the internet." },
+    { b: "Push says knock knock", p: "A push only tells the phone something changed. The app then asks the API for the real data." },
+    { b: "Timeouts shrink inward, retries live in one place", p: "Like Russian dolls: each inner timeout is smaller. One layer retries, or 3 x 3 x 3 becomes 27." }
+  ]
+};
+</script>
+<script src="../system-design/sheet.js"></script>
+</body>
+</html>
