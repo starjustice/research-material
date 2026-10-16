@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queues and Events</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>QUEUES, STREAMS &amp; EVENTS CHEATSHEET</h1>
+  <p class="sub">Sync vs async · At least once · Retries and DLQ · Queue vs log vs pub/sub · Lag · Outbox, inbox, sagas</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Picture first. Redraw each one from memory, then say the "Say this" line out loud.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Sync vs async: do not make the user wait for slow work</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 215" role="img" aria-label="Top row: the API calls email and PDF inside the request and the user waits 6 seconds. Bottom row: the API adds a job to a queue and answers in 60 ms; a worker does the slow work.">
+      <text class="lbl-sl t-pink" x="10" y="22">✗ Sync: the user waits for every slow call</text>
+      <rect class="box box-blue" x="10" y="34" width="110" height="36" rx="8"/><text class="lbl" x="65" y="57">Store owner</text>
+      <rect class="box" x="160" y="34" width="110" height="36" rx="8"/><text class="lbl" x="215" y="57">API</text>
+      <rect class="box box-pink" x="310" y="34" width="150" height="36" rx="8"/><text class="lbl" x="385" y="57">email 2 s</text>
+      <rect class="box box-pink" x="500" y="34" width="200" height="36" rx="8"/><text class="lbl" x="600" y="57">PDF 4 s</text>
+      <path class="arrow" d="M122,52 L158,52" marker-end="url(#arr)"/><path class="arrow" d="M272,52 L308,52" marker-end="url(#arr)"/><path class="arrow" d="M462,52 L498,52" marker-end="url(#arr)"/>
+      <text class="lbl-s t-pink" x="360" y="92">the user waits 6 s, and the order looks failed if the email provider fails</text>
+      <text class="lbl-sl t-green" x="10" y="122">✓ Async: answer after the save, a worker does the rest</text>
+      <rect class="box box-blue" x="10" y="134" width="110" height="36" rx="8"/><text class="lbl" x="65" y="157">Store owner</text>
+      <rect class="box" x="160" y="134" width="110" height="36" rx="8"/><text class="lbl" x="215" y="157">API 60 ms</text>
+      <rect class="box box-yellow" x="310" y="134" width="150" height="36" rx="8"/><text class="lbl-m" x="385" y="156">queue: job 42</text>
+      <rect class="box box-green" x="500" y="134" width="200" height="36" rx="8"/><text class="lbl" x="600" y="157">Worker: email + PDF</text>
+      <path class="arrow" d="M122,152 L158,152" marker-end="url(#arr)"/><path class="arrow-green" d="M272,152 L308,152" marker-end="url(#arrg)"/><path class="arrow-green" d="M462,152 L498,152" marker-end="url(#arrg)"/>
+      <text class="lbl-s" x="360" y="200">Retries happen in the worker. The user never waits for them.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "If the user is waiting for the answer, I call it directly. If nobody is waiting, I add a job to a queue, answer in milliseconds, and let a worker do it with retries."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Ack and visibility timeout: why a job can run twice</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 235" role="img" aria-label="The queue gives job 42 to worker A and hides it for 30 seconds. If A acks in time, the job is deleted. If A crashes, the job comes back and worker B runs it again.">
+      <rect class="box box-yellow" x="10" y="85" width="130" height="60" rx="10"/><text class="lbl" x="75" y="110">Queue</text><text class="lbl-s" x="75" y="128">job 42</text>
+      <rect class="box box-blue" x="230" y="20" width="180" height="50" rx="10"/><text class="lbl" x="320" y="42">Worker A</text><text class="lbl-s" x="320" y="60">job hidden for 30 s</text>
+      <rect class="box box-green" x="480" y="20" width="230" height="50" rx="10"/><text class="lbl" x="595" y="42">ack in time</text><text class="lbl-s" x="595" y="60">job deleted, runs once</text>
+      <rect class="box box-pink" x="480" y="100" width="230" height="50" rx="10"/><text class="lbl" x="595" y="122">crash or too slow</text><text class="lbl-s" x="595" y="140">30 s pass, no ack</text>
+      <rect class="box box-blue" x="230" y="165" width="180" height="50" rx="10"/><text class="lbl" x="320" y="187">Worker B</text><text class="lbl-s" x="320" y="205">gets job 42 again</text>
+      <path class="arrow" d="M142,100 L228,52" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M412,45 L478,45" marker-end="url(#arrg)"/>
+      <path class="arrow-pink" d="M412,62 L478,115" marker-end="url(#arrp)"/>
+      <path class="arrow-pink" d="M478,140 L412,182" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="360" y="230">Ack after the work = at least once. So the worker must be idempotent.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A worker can crash after the work and before the ack, so the queue delivers again. Delivery is at least once. Exactly once is at least once plus an idempotent worker."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Retries with backoff and jitter, then the dead letter queue</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 165" role="img" aria-label="Try 1, wait 1 s, try 2, wait 2 s, try 3, wait 4 s, try 4, then the dead letter queue">
+      <rect class="box box-yellow" x="10" y="40" width="110" height="46" rx="8"/><text class="lbl" x="65" y="60">Try 1</text><text class="lbl-s" x="65" y="77">fails</text>
+      <rect class="box box-yellow" x="150" y="40" width="110" height="46" rx="8"/><text class="lbl" x="205" y="60">Try 2</text><text class="lbl-s" x="205" y="77">fails</text>
+      <rect class="box box-yellow" x="290" y="40" width="110" height="46" rx="8"/><text class="lbl" x="345" y="60">Try 3</text><text class="lbl-s" x="345" y="77">fails</text>
+      <rect class="box box-yellow" x="430" y="40" width="110" height="46" rx="8"/><text class="lbl" x="485" y="60">Try 4</text><text class="lbl-s" x="485" y="77">fails</text>
+      <rect class="box box-pink" x="580" y="40" width="130" height="46" rx="8"/><text class="lbl" x="645" y="60">Dead letter</text><text class="lbl-s" x="645" y="77">queue + alert</text>
+      <path class="arrow" d="M122,63 L148,63" marker-end="url(#arr)"/><path class="arrow" d="M262,63 L288,63" marker-end="url(#arr)"/><path class="arrow" d="M402,63 L428,63" marker-end="url(#arr)"/><path class="arrow-pink" d="M542,63 L578,63" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="135" y="28">wait 1 s</text><text class="lbl-s" x="275" y="28">wait 2 s</text><text class="lbl-s" x="415" y="28">wait 4 s</text><text class="lbl-s t-pink" x="560" y="28">out of tries</text>
+      <text class="lbl-s" x="360" y="118">BullMQ: wait = 2^(attemptsMade − 1) × delay. jitter 0.5 = a random wait between half and full.</text>
+      <text class="lbl-s t-pink" x="360" y="142">Permanent errors (400, bad data) skip retries and go straight to the DLQ.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Temporary errors get a few tries with exponential backoff and jitter, so workers do not retry all at once. After the last try the job goes to a dead letter queue, I alert on its size, and I replay after the fix."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Three shapes: work queue, log, pub/sub</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 215" role="img" aria-label="Work queue gives each job to one worker and deletes it. A log keeps messages in partitions and each group has its own offset. Pub/sub copies one message to every listener.">
+      <rect class="box" x="6" y="8" width="228" height="200" rx="12"/>
+      <text class="lbl" x="120" y="30">Work queue</text><text class="lbl-s" x="120" y="47">SQS · RabbitMQ · BullMQ</text>
+      <rect class="box box-yellow" x="20" y="60" width="200" height="32" rx="6"/><text class="lbl-m" x="120" y="81">j1 j2 j3 j4</text>
+      <rect class="box box-green" x="20" y="120" width="90" height="32" rx="6"/><text class="lbl-s" x="65" y="141">Worker 1</text>
+      <rect class="box box-green" x="130" y="120" width="90" height="32" rx="6"/><text class="lbl-s" x="175" y="141">Worker 2</text>
+      <path class="arrow" d="M70,94 L66,118" marker-end="url(#arr)"/><path class="arrow" d="M170,94 L174,118" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="120" y="176">each job goes to ONE worker</text><text class="lbl-s" x="120" y="194">deleted after the ack</text>
+
+      <rect class="box" x="246" y="8" width="228" height="200" rx="12"/>
+      <text class="lbl" x="360" y="30">Log you can replay</text><text class="lbl-s" x="360" y="47">Kafka · Kinesis · Redpanda</text>
+      <rect class="box box-blue" x="260" y="58" width="200" height="26" rx="6"/><text class="lbl-m" x="360" y="75">P0 | 0 1 2 3 4</text>
+      <rect class="box box-blue" x="260" y="90" width="200" height="26" rx="6"/><text class="lbl-m" x="360" y="107">P1 | 0 1 2 3</text>
+      <rect class="box box-green" x="260" y="128" width="95" height="30" rx="6"/><text class="lbl-s" x="307" y="147">email at 4</text>
+      <rect class="box box-yellow" x="365" y="128" width="95" height="30" rx="6"/><text class="lbl-s" x="412" y="147">analytics at 2</text>
+      <text class="lbl-s" x="360" y="178">kept for days, read by many groups</text><text class="lbl-s" x="360" y="196">replay = move the offset back</text>
+
+      <rect class="box" x="486" y="8" width="228" height="200" rx="12"/>
+      <text class="lbl" x="600" y="30">Pub/sub fan out</text><text class="lbl-s" x="600" y="47">SNS · Google Pub/Sub · Redis</text>
+      <rect class="box box-yellow" x="540" y="60" width="120" height="30" rx="6"/><text class="lbl-m" x="600" y="80">order.paid</text>
+      <rect class="box box-green" x="496" y="120" width="66" height="30" rx="6"/><text class="lbl-s" x="529" y="139">email</text>
+      <rect class="box box-green" x="567" y="120" width="66" height="30" rx="6"/><text class="lbl-s" x="600" y="139">points</text>
+      <rect class="box box-green" x="638" y="120" width="66" height="30" rx="6"/><text class="lbl-s" x="671" y="139">stats</text>
+      <path class="arrow" d="M580,92 L533,118" marker-end="url(#arr)"/><path class="arrow" d="M600,92 L600,118" marker-end="url(#arr)"/><path class="arrow" d="M620,92 L667,118" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="600" y="176">every listener gets a copy</text><text class="lbl-s t-pink" x="600" y="194">Redis pub/sub keeps nothing</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A work queue hands each job to one worker and deletes it. A log like Kafka keeps events, so many groups read them and I can replay. Pub/sub copies one event to every listener. Order is kept only per key."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Outbox and inbox: no lost events, no double events</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 190" role="img" aria-label="One transaction writes the order row and an outbox row. A relay or Debezium sends it to a queue. The worker inserts the message id into an inbox table and skips duplicates.">
+      <rect class="box" x="10" y="20" width="200" height="120" rx="12" style="stroke-dasharray:6 4"/>
+      <text class="lbl" x="110" y="40">ONE transaction</text>
+      <rect class="box box-blue" x="22" y="52" width="176" height="32" rx="6"/><text class="lbl-m" x="110" y="73">orders: PAID</text>
+      <rect class="box box-yellow" x="22" y="94" width="176" height="32" rx="6"/><text class="lbl-m" x="110" y="115">outbox: OrderPaid 42</text>
+      <rect class="box box-green" x="240" y="55" width="100" height="56" rx="10"/><text class="lbl" x="290" y="79">Relay</text><text class="lbl-s" x="290" y="97">or Debezium</text>
+      <rect class="box" x="370" y="55" width="100" height="56" rx="10"/><text class="lbl" x="420" y="79">Queue</text><text class="lbl-s" x="420" y="97">or Kafka</text>
+      <rect class="box box-yellow" x="500" y="45" width="210" height="76" rx="10"/><text class="lbl" x="605" y="68">Worker inbox</text><text class="lbl-m" x="605" y="88">INSERT id ON CONFLICT</text><text class="lbl-s" x="605" y="108">0 rows = duplicate, skip</text>
+      <path class="arrow" d="M212,83 L238,83" marker-end="url(#arr)"/><path class="arrow" d="M342,83 L368,83" marker-end="url(#arr)"/><path class="arrow" d="M472,83 L498,83" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="165">Outbox stops LOST events. Inbox stops DOUBLE events. The relay is at least once, so you need both.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I save the event in the same transaction as the order, so it can never be lost. The receiver inserts the message id into an inbox table first, so a second copy does nothing."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Lag: the queue grows quietly</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 185" role="img" aria-label="600 jobs arrive per minute, 10 workers finish 300 per minute, the queue grows by 300 every minute">
+      <rect class="box box-blue" x="10" y="40" width="150" height="56" rx="10"/><text class="lbl" x="85" y="64">Arrive</text><text class="lbl-s" x="85" y="82">600 per minute</text>
+      <rect class="box box-pink" x="210" y="30" width="200" height="76" rx="10"/><text class="lbl" x="310" y="54">Queue grows</text><text class="lbl-s" x="310" y="74">+300 every minute</text><text class="lbl-s t-pink" x="310" y="92">oldest job: 60 min old</text>
+      <rect class="box box-green" x="460" y="40" width="250" height="56" rx="10"/><text class="lbl" x="585" y="64">10 workers × 30 per min</text><text class="lbl-s" x="585" y="82">= 300 per minute</text>
+      <path class="arrow" d="M162,68 L208,68" marker-end="url(#arr)"/><path class="arrow" d="M412,68 L458,68" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="135">Need 600 / 30 = 20 workers, plus room. Scale on queue depth or oldest age, not CPU.</text>
+      <text class="lbl-s t-pink" x="360" y="160">Kafka: workers above the partition count sit idle. Third party limit: one shared limiter.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Queues fail quietly. I alert on the age of the oldest message and consumer lag, and I autoscale workers on queue depth, capped by partitions and by the partner's rate limit."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Orchestrated saga: undo in reverse order</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="Reserve stock, charge card, ship fails. The orchestrator refunds the card, then releases the stock.">
+      <rect class="box box-green" x="10" y="30" width="150" height="40" rx="8"/><text class="lbl" x="85" y="55">1 Reserve stock</text>
+      <rect class="box box-green" x="190" y="30" width="150" height="40" rx="8"/><text class="lbl" x="265" y="55">2 Charge card</text>
+      <rect class="box box-pink" x="370" y="30" width="150" height="40" rx="8"/><text class="lbl" x="445" y="55">3 Ship: fails</text>
+      <rect class="box box-yellow" x="190" y="120" width="150" height="40" rx="8"/><text class="lbl" x="265" y="145">Undo 2: refund</text>
+      <rect class="box box-yellow" x="10" y="120" width="150" height="40" rx="8"/><text class="lbl" x="85" y="145">Undo 1: release</text>
+      <path class="arrow-green" d="M162,50 L188,50" marker-end="url(#arrg)"/><path class="arrow-green" d="M342,50 L368,50" marker-end="url(#arrg)"/>
+      <path class="arrow-pink" d="M440,72 L330,118" marker-end="url(#arrp)"/><path class="arrow-pink" d="M188,140 L162,140" marker-end="url(#arrp)"/>
+      <rect class="box box-blue" x="550" y="30" width="160" height="130" rx="12"/><text class="lbl" x="630" y="70">Orchestrator</text><text class="lbl-s" x="630" y="94">knows where order 42 is</text><text class="lbl-s" x="630" y="114">Temporal, Step Functions</text>
+      <text class="lbl-s" x="275" y="190">Undo runs in reverse order, newest first.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Across services there is no shared transaction, so I use a saga: local steps, each with an undo. For money flows I orchestrate it, so one place knows the state and runs the undos in reverse order."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">The three promises</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Promise</th><th>When you ack</th><th>What can go wrong</th><th>Use for</th></tr>
+    <tr><td class="val">At most once</td><td>before the work</td><td>crash = lost, runs 0 times</td><td class="why">metrics, "typing" signals</td></tr>
+    <tr><td class="val">At least once</td><td>after the work</td><td>crash after work = runs twice</td><td class="why">almost everything</td></tr>
+    <tr><td class="val">"Exactly once"</td><td>after the work + dedupe</td><td>needs a unique id and a database</td><td class="why">money, points, stock</td></tr>
+  </table></div>
+  <h2 class="block">Tools in 2026 (checked 2026-10-16)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Tool</th><th>Shape</th><th>Checked facts</th></tr>
+    <tr><td class="val">BullMQ</td><td>work queue on Redis</td><td class="why">6.3.x. Install ioredis yourself. Job Schedulers replace repeatable jobs. Optional PostgreSQL backend, about 1.5 to 2× slower than Redis.</td></tr>
+    <tr><td class="val">pg-boss / SKIP LOCKED</td><td>work queue in Postgres</td><td class="why">pg-boss needs Node 22.12+ and Postgres 13+. Jobs can commit with your data.</td></tr>
+    <tr><td class="val">Amazon SQS</td><td>managed work queue</td><td class="why">1 MiB messages (Aug 2025). Visibility timeout 30 s default, 12 h max. Fair queues (Jul 2025).</td></tr>
+    <tr><td class="val">RabbitMQ 4.x</td><td>broker with routing</td><td class="why">Mirrored classic queues removed in 4.0. Quorum queues for replication. Amazon MQ has 4.2.</td></tr>
+    <tr><td class="val">Kafka 4.x</td><td>log you can replay</td><td class="why">No ZooKeeper since 4.0 (Mar 2025). Share groups production ready in 4.2. 4.3 around May 2026.</td></tr>
+    <tr><td class="val">NATS JetStream</td><td>light streams and queues</td><td class="why">2.12 added delayed scheduling. 2.14 in Apr 2026.</td></tr>
+    <tr><td class="val">Managed Kafka</td><td>Kafka run for you</td><td class="why">IBM completed buying Confluent on 17 Mar 2026. Redpanda is Kafka compatible.</td></tr>
+  </table></div>
+  <h2 class="block">Numbers to remember</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Thing</th><th>Value</th><th>Why it matters</th></tr>
+    <tr><td class="val">Workers needed</td><td>arrive rate / rate per worker</td><td class="why">600 per min / 30 per min = 20, plus room</td></tr>
+    <tr><td class="val">BullMQ exponential wait</td><td>2^(attemptsMade − 1) × delay</td><td class="why">delay 1000 → 1 s, 2 s, 4 s</td></tr>
+    <tr><td class="val">SQS visibility timeout</td><td>30 s default, 12 h max</td><td class="why">longer than your slowest normal job</td></tr>
+    <tr><td class="val">SQS maxReceiveCount</td><td>console default 10</td><td class="why">receives before the message moves to the DLQ</td></tr>
+    <tr><td class="val">Kafka consumers per group</td><td>≤ partitions</td><td class="why">extra consumers sit idle (classic groups)</td></tr>
+    <tr><td class="val">BullMQ stall check</td><td>about every 30 s</td><td class="why">a blocked event loop looks like a stalled job</td></tr>
+  </table></div>
+  <h2 class="block">Monitor these</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Signal</th><th>Why</th></tr>
+    <tr><td class="val">age of the oldest message</td><td class="why">matches what users feel; the best single alarm</td></tr>
+    <tr><td class="val">waiting jobs / consumer lag</td><td class="why">is the line growing?</td></tr>
+    <tr><td class="val">DLQ or failed count</td><td class="why">alarm above zero; unwatched DLQ = silent data loss</td></tr>
+    <tr><td class="val">job time and error rate per type</td><td class="why">a slow partner shows here first</td></tr>
+    <tr><td class="val">partner 429 answers</td><td class="why">you are above their rate limit</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Say what each choice buys and what it costs.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">▶️ Watch and play</h2>
+  <p class="hint">Links opened or found in web search on 2026-10-16. No video this time: video pages could not be checked.</p>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/felixmosh/bull-board">bull-board</a></b><p>Dashboard for BullMQ. Run <code>npx @bull-board/cli -r redis://localhost:6379</code> and watch jobs move to active, completed and failed.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/taskforcesh/bullmq/blob/master/docs/gitbook/guide/retrying-failing-jobs.md">BullMQ retry guide</a></b><p>Change delay and jitter, predict the waits, then run it.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/kafbat/kafka-ui">Kafbat UI</a></b><p>Web UI for Kafka. See partitions, offsets and consumer lag per partition.</p></div>
+  <div class="case"><span class="topic">Diagram</span><b><a href="https://github.com/donnemartin/system-design-primer#asynchronism">System Design Primer, Asynchronism</a></b><p>Short page with a diagram of message queues, task queues and back pressure.</p></div>
+  <div class="case"><span class="topic">Code</span><b><a href="https://github.com/temporalio/samples-typescript/tree/main/saga">Temporal TypeScript saga sample</a></b><p>See undo steps run in reverse order.</p></div>
+  <div class="case"><span class="topic">Code</span><b><a href="https://github.com/debezium/debezium-examples/tree/main/outbox">Debezium outbox example</a></b><p>Outbox plus CDC plus inbox, with Docker Compose.</p></div>
+  <div class="case"><span class="topic">Code</span><b><a href="https://examples.nats.io/examples/jetstream/workqueue-stream/deno">NATS by Example, work queue stream</a></b><p>Short runnable work queue on NATS JetStream.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the guide "Queues, Streams and Event-Driven Design"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-queues",
+  concepts: [
+    { t: "Sync vs async", d: "User waiting for the answer: call directly. Nobody waiting: the API (producer) adds a small note (job) to a waiting line (queue) and answers at once. A worker (consumer) does the slow part." },
+    { t: "Gifts and costs", d: "Gifts: absorbs spikes, retries for you, parts fail on their own. Costs: one more system, results come later, harder debugging." },
+    { t: "Ack", d: "The worker tells the queue \"done, delete it\". Ack AFTER the work, never before, or a crash loses the job." },
+    { t: "Visibility timeout", d: "The queue hides a job while a worker has it. No ack in time: the job comes back. SQS: 30 s default, 12 h max. Set it above your slowest normal job." },
+    { t: "At least once", d: "A job runs one or more times. A crash after the work and before the ack means it runs again. This is the normal promise." },
+    { t: "Exactly once = at least once + idempotency", d: "Nobody can promise exactly once delivery over a network. Make the effect exactly once: an idempotent worker." },
+    { t: "Idempotent worker", d: "Safe to run twice. <code>INSERT message_id ... ON CONFLICT DO NOTHING RETURNING</code> in the same transaction as the work. 0 rows = skip." },
+    { t: "Backoff and jitter", d: "Wait longer after each failure (1 s, 2 s, 4 s) and add randomness, so thousands of jobs do not retry at the same moment." },
+    { t: "Dead letter queue and poison messages", d: "A separate pile for jobs that failed every try. A job that can never pass (bad data, a poison message) goes there fast, so it never blocks the line. Alert above zero, replay after the fix." },
+    { t: "Work queue vs log vs pub/sub", d: "Queue: one job to one worker, deleted. Log (Kafka): kept, many groups, replay. Pub/sub: a copy to every listener." },
+    { t: "Partition, offset, consumer group", d: "A topic is split into ordered slices (partitions). Each group saves its position (offset) per partition. One partition goes to one member." },
+    { t: "Order only per key", d: "Kafka: per partition. SQS FIFO: per message group. Key by entity id (order id). Retries and many workers break global order." },
+    { t: "Consumer lag and oldest age", d: "How far behind the workers are. The age of the oldest waiting message is the best single alarm." },
+    { t: "Scaling consumers", d: "Workers needed = arrive rate / rate per worker. Scale on queue depth, not CPU. Kafka caps busy consumers at the partition count. Toward partners, one shared limiter (BullMQ <code>limiter</code> is global); on 429 wait the Retry-After time." },
+    { t: "Event vs command", d: "Event: a past fact, anyone listens (OrderPaid). Command: one receiver must act (SendInvoice)." },
+    { t: "Versioning events", d: "Only add optional fields. Put a version in each event. Breaking change = a new v2 event next to v1. Schema registry checks it." },
+    { t: "Saga, choreography vs orchestration", d: "Local steps, each with an undo, run in reverse on failure. Choreography: services react to events. Orchestration: one coordinator (Temporal, Step Functions)." },
+    { t: "Outbox and inbox", d: "Outbox: event saved in the same transaction as the data, so never lost. Inbox: processed ids table, so never doubled." },
+    { t: "CDC with Debezium", d: "Reads Postgres' change log and turns row changes into Kafka events. Watch the replication slot. Best used on an outbox table." },
+    { t: "CQRS and event sourcing", d: "CQRS: separate write and read models. Event sourcing: events are the truth. Worth it for ledgers; overkill for CRUD. Light version: append only ledger table." }
+  ],
+  decisions: [
+    { q: "Sync call vs queue", a: "Call directly when", at: "The user needs the result now (price, stock check, login).", b: "Queue when", bt: "Nobody is waiting (email, PDF, partner sync, webhooks processing).", v: "Queue anything the user does not need to watch. Pay with a status screen and monitoring." },
+    { q: "BullMQ vs a Postgres queue", a: "BullMQ when", at: "You run Redis already, need speed, schedules, rate limits and a dashboard.", b: "Postgres queue when", bt: "Low volume, no Redis, and you want the job to commit with your data.", v: "Start with what you run. Move to Redis or SQS when volume or latency needs it." },
+    { q: "Work queue vs Kafka", a: "Work queue when", at: "Tasks done once by one worker: emails, PDFs, image resizes.", b: "Kafka when", bt: "Many readers, replay after bugs, event history, high volume.", v: "Kafka is not \"more senior\". It is heavier. Pick it for replay and many readers." },
+    { q: "Thin vs fat events", a: "Thin when", at: "Data changes often, and listeners need the latest copy anyway.", b: "Fat when", bt: "Listeners must work even if the sender is down, and you want fewer call backs.", v: "Fat events with versioning are common. Never remove or rename fields in place." },
+    { q: "Choreography vs orchestration", a: "Choreography when", at: "2 or 3 steps, loose teams, simple reactions.", b: "Orchestration when", bt: "Money flows, many steps, timeouts, and you must answer \"where is order 42?\".", v: "Orchestrate money. Use a workflow engine when the flow must survive crashes." },
+    { q: "Polling relay vs CDC for the outbox", a: "Polling relay when", at: "Small team, low volume, a few seconds delay is fine.", b: "CDC (Debezium) when", bt: "High volume, low delay, you already run Kafka Connect.", v: "Polling first. CDC when the poller becomes the bottleneck." },
+    { q: "Plain tables vs event sourcing", a: "Plain tables when", at: "CRUD screens, normal reports, changing rules.", b: "Event sourcing when", bt: "Full history is the product: ledgers, audits, bank accounts.", v: "An append only ledger table plus a cached balance gets most of the value with little cost." }
+  ],
+  cases: [
+    { topic: "Your own system", b: "DBO: duplicate TADA webhooks", p: "The same refund event arrived twice at almost the same moment, and stores got double points. Fixed with a row lock; next layers are a unique event id and a ledger. A real at least once story." },
+    { topic: "Consumer lag", b: "LinkedIn: Burrow", p: "Open source tool that watches Kafka consumer offsets and judges each group over a sliding window, with no fixed thresholds." },
+    { topic: "Long jobs and deploys", b: "Shopify: job-iteration", p: "With frequent deploys, long jobs were lost or restarted from the start. The library makes jobs save progress and resume." },
+    { topic: "Workflow engines", b: "Uber Cadence and Temporal", p: "Uber built Cadence for long running, fault tolerant workflows. Temporal started as a fork of Cadence." },
+    { topic: "Orchestration", b: "Netflix: Conductor", p: "Built to orchestrate workflows across microservices. Public repo archived in Dec 2023; Netflix kept an internal fork." }
+  ],
+  hooks: [
+    { b: "The ticket rail", p: "The waiter pins the order ticket and goes back to the tables. The cooks take tickets one by one. That is a queue." },
+    { b: "Say done after, not before", p: "Ack after the work. Ack before is at most once: a crash means the job is lost." },
+    { b: "Twice is normal", p: "Every worker must be safe to run twice. Ask: what is the dedupe key?" },
+    { b: "Do not knock the door all at once", p: "Backoff spaces the knocks out. Jitter makes everyone knock at a different moment." },
+    { b: "One bad apple aside", p: "A poison message goes to the dead letter pile so the rest of the line keeps moving." },
+    { b: "A notebook vs a to-do list", p: "Kafka is a notebook: pages stay, anyone can reread. A work queue is a to-do list: you cross items off." },
+    { b: "Watch the oldest, not the count", p: "1,000 waiting can be fine. The oldest waiting 40 minutes is never fine." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
