@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consistency and CAP: a stale read, the fix, and a network split</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.copy { grid-template-columns: .85fr .95fr 1.9fr; }
+  .stage.split { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.copy, .stage.split { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.behind { border-style: dashed; }
+  .comp.refuse { border-color: var(--bad); background: var(--bad-bg); }
+  .comp.refuse h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+  .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  .servers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+  .lane { margin-top: 10px; border: 2px dashed var(--border); border-radius: 12px; padding: 8px 10px; }
+  .lane .lanehead { font-size: .72rem; color: var(--muted); margin-bottom: 6px; letter-spacing: .03em; font-weight: 650; }
+  .sold { font-size: .74rem; color: var(--muted); margin-top: 4px; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .88rem; text-align: center; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .req.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .req.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .counters { margin-top: 8px; font-size: .84rem; display: grid; gap: 2px; }
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+
+  .lbline { margin-top: 8px; font-size: .84rem; }
+  .lbline b { font-size: .95rem; }
+  .lbline.muted { color: var(--muted); font-size: .78rem; }
+
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+  .nodes { display: grid; grid-template-columns: 1fr 74px 1fr; gap: 6px; align-items: stretch; }
+  @media (max-width: 560px) { .nodes { grid-template-columns: 1fr; } }
+  .link { display: flex; align-items: center; justify-content: center; text-align: center; font-size: .7rem; font-weight: 700; border-radius: 10px; padding: 4px; border: 2px solid var(--srv); color: var(--srv); background: var(--ok-bg); }
+  .link.cut { border: 2px dashed var(--bad); color: var(--bad); background: var(--bad-bg); }
+  .sub2 { font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.lb { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">← System design lessons</a>
+    <a href="../07-consistency-and-cap.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Consistency and CAP: a stale read, the fix, and a network split</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the leader, the follower and the copy that is still on its way. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a copy always needs time to travel. During that time a read from the copy is old. You can wait for the copy (slower, fresh) or answer at once (fast, maybe old). A network split makes the same choice harder, because waiting may never end. So you choose per feature: money and last items wait, likes and feeds answer.</p>
+</div>
+
+<script>
+// ---- The stories. Stories 1 and 2 use one leader, one follower and a copy delay. Story 3 uses two nodes and a cut line. ----
+const STORIES = [
+  {
+    name: "1. A stale read", kind: "copy", delay: 300, fix: false, window: 0,
+    rule: "Rule: every read goes to the follower.",
+    why: "The leader changed at 0 ms, but the copy needed 300 ms to reach the follower. Any read from the follower before that moment returns the old name. Nothing crashed. The data was simply not there yet.",
+    predict: { q: "Sam saves a new name at 0 ms. The copy needs 300 ms to reach the follower. At 50 ms Sam reloads his page, and the page reads from the follower. What does Sam see?",
+               options: ["His new name", "His old name", "An error"], answer: "His old name" },
+    ops: [
+      { op: "intro", note: "A <b>leader</b> and a <b>follower</b> hold the same name: <code>Andi</code>. Every write goes to the leader. The leader then sends a copy to the follower, and the copy needs <b>300 ms</b> to arrive. In this story, every read goes to the follower. Sam and Mia are two users." },
+      { op: "write", t: 0, who: "Sam", v: "Budi" },
+      { op: "read", t: 50, who: "Sam" },
+      { op: "read", t: 200, who: "Mia" },
+      { op: "read", t: 350, who: "Sam" },
+      { op: "end", note: "For 300 ms the follower gave an old answer to everyone, and Sam thought his save had failed. After that, every read was right. This is <b>eventual consistency</b>: the copies agree after a short delay. The second story fixes the part Sam feels." }
+    ]
+  },
+  {
+    name: "2. Read your own writes", kind: "copy", delay: 300, fix: true, window: 5000,
+    rule: "Rule: for 5 seconds after a user writes, that user's reads go to the leader.",
+    why: "The app remembers when each user last wrote. For 5 seconds after that, it sends this user's reads to the leader, which already has the change. Other users still read the follower. The window is longer than the copy delay, so by the time Sam goes to the follower again, the copy has arrived.",
+    predict: { q: "Sam saved his name 50 ms ago. The app rule says: for 5 seconds after a user writes, that user's reads go to the leader. Where does Sam's reload go?",
+               options: ["To the follower", "To the leader"], answer: "To the leader" },
+    ops: [
+      { op: "intro", note: "Same boxes, same <b>300 ms</b> copy delay. The app has a new rule: <b>for 5 seconds after a user writes, that user's reads go to the leader</b>. Everyone else still reads from the follower." },
+      { op: "write", t: 0, who: "Sam", v: "Budi" },
+      { op: "read", t: 50, who: "Sam" },
+      { op: "read", t: 100, who: "Mia" },
+      { op: "read", t: 2000, who: "Sam" },
+      { op: "read", t: 5100, who: "Sam" },
+      { op: "end", note: "Sam never saw the old name. Mia did, for a moment, and it did not hurt her, because she had not changed anything. The price: for 5 seconds after a write, that user's reads load the leader. And the app must remember when each user wrote. A small note in a cookie works, and it keeps the servers stateless (lesson 02)." }
+    ]
+  },
+  {
+    name: "3. A network split", kind: "split",
+    why: "While the line is cut, a node that cannot reach the leader has only two choices. It can refuse, so nobody gets a wrong answer (consistent). Or it can answer from its own copy, so nobody gets an error but some answers may be wrong (available). With a working line, you do not have to choose.",
+    predict: { q: "The line between Node A and Node B is cut. Ann already bought the last seat on A. Now Ben asks Node B for the last seat. We chose to be consistent. What does Ben get?",
+               options: ["The last seat", "An error, try again later", "The answer \"1 seat left\""], answer: "An error, try again later" },
+    ops: [
+      { op: "intro", note: "Two nodes, <b>A</b> and <b>B</b>, in two data centres. Both hold the same fact: <b>1 seat left</b> for a concert. A is the <b>leader</b>: it holds the truth. While the line between them works, every sale is copied at once and they always agree. CAP says nothing about that happy time. <b>Left:</b> we chose to be consistent. <b>Right:</b> we chose to be available. Both sides get exactly the same events." },
+      { op: "cut", note: "<b>The line between A and B is cut.</b> A digger hits a cable. Both nodes are still running, and both still get users. They just cannot talk to each other. This is the <b>network split</b>. CAP matters from this moment." },
+      { op: "buy", node: "A", who: "Ann" },
+      { op: "buy", node: "B", who: "Ben" },
+      { op: "heal" },
+      { op: "end", note: "<b>The trade, in one line.</b> Consistent: nobody is told something false, but some users get an error during the split. Available: nobody gets an error, but some answers turn out wrong later. For the last seat, an error costs less than a refund and an angry user. For a like counter, answering is better, because the merge is easy: add both sides. When there is no split, you do not have to choose between these two. Your everyday choice is speed against freshness (PACELC)." }
+    ]
+  }
+];
+
+const fmt = ms => ms < 1000 ? ms + " ms" : (ms / 1000) + " s";
+
+// ---- Simulator for stories 1 and 2: a leader, a follower, and copies on the way. Same logic as the code in the lesson. ----
+function simulateCopy(p) {
+  const steps = [];
+  const st = { t: 0, leader: "Andi", follower: "Andi", way: [], saw: { Sam: 0, Mia: 0 }, log: [], current: null, lastWrite: {} };
+  const windowText = who => {
+    if (!p.fix) return "";
+    const w = st.lastWrite[who];
+    if (w === undefined) return who + ": has not written";
+    return st.t - w < p.window ? who + ": wrote at " + fmt(w) + ", window open until " + fmt(w + p.window) : who + ": wrote at " + fmt(w) + ", window is over";
+  };
+  const snap = (note, active, hop, phase, decision) => steps.push({
+    t: st.t, leader: st.leader, follower: st.follower,
+    way: st.way.map(c => ({ v: c.v, lands: c.lands })),
+    saw: Object.assign({}, st.saw), log: st.log.slice(0, 6),
+    current: st.current ? Object.assign({}, st.current) : null,
+    decision: decision || "Waiting for a read",
+    extra: p.fix ? windowText("Sam") + "<br>" + windowText("Mia") : "",
+    active, hop, phase, note
+  });
+  const landUpTo = limit => {
+    while (st.way.length && st.way[0].lands <= limit) {
+      const c = st.way.shift();
+      const before = st.follower;
+      st.t = c.lands; st.follower = c.v; st.current = null;
+      snap("<b>" + fmt(st.t) + ".</b> The copy arrives. The follower changes from <code>" + before + "</code> to <code>" + c.v + "</code>. The leader and the follower agree again.",
+        ["follower"], "The copy lands on the follower", "srv");
+    }
+  };
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup before anything happens", "setup"); continue; }
+    if (op.op === "end") { st.current = null; snap(op.note, [], "Finished", "done"); continue; }
+    landUpTo(op.t);
+    st.t = op.t;
+    if (op.op === "write") {
+      st.leader = op.v;
+      st.way.push({ v: op.v, lands: op.t + p.delay });
+      st.lastWrite[op.who] = op.t;
+      st.current = { cls: "ok", text: op.who + " saves the name " + op.v + " → saved" };
+      st.log.unshift({ text: fmt(op.t) + ": " + op.who + " writes " + op.v, bad: false });
+      snap("<b>" + fmt(op.t) + ".</b> " + op.who + " saves a new name, <code>" + op.v + "</code>. The write goes to the <b>leader</b>. The leader changes at once and answers <b>saved</b>. Then it sends a copy to the follower. The copy lands at <b>" + fmt(op.t + p.delay) + "</b>. Until then the follower still holds <code>" + st.follower + "</code>.",
+        ["users", "leader"], op.who + " writes to the leader", "run", "A write always goes to the leader");
+    } else {
+      let route = "follower";
+      let why = "";
+      if (p.fix) {
+        const w = st.lastWrite[op.who];
+        if (w !== undefined && op.t - w < p.window) { route = "leader"; why = op.who + " wrote " + fmt(op.t - w) + " ago, inside the " + fmt(p.window) + " window"; }
+        else if (w !== undefined) why = op.who + " wrote " + fmt(op.t - w) + " ago, the window is over";
+        else why = op.who + " has not written anything";
+      }
+      const seen = route === "leader" ? st.leader : st.follower;
+      const stale = seen !== st.leader;
+      if (stale) st.saw[op.who]++;
+      st.current = { cls: stale ? "bad" : "ok", text: op.who + " reads → sees " + seen + (stale ? " (old)" : "") };
+      st.log.unshift({ text: fmt(op.t) + ": " + op.who + " reads " + route + " → " + seen + (stale ? " (old)" : ""), bad: stale });
+      let note = "<b>" + fmt(op.t) + ".</b> " + op.who + (op.who === "Sam" ? " reloads the profile page." : " opens Sam's profile page.") + " ";
+      if (p.fix) note += "The app checks: " + why + ". So the read goes to the <b>" + route + "</b>. ";
+      else note += "The page reads from the <b>follower</b>. ";
+      note += "The " + route + " holds <code>" + seen + "</code>";
+      if (stale) note += ", but the leader already holds <code>" + st.leader + "</code>. " + op.who + " sees the old name. This is a <b>stale read</b>. Nothing crashed. The copy is still on its way.";
+      else if (route === "leader" && st.follower !== st.leader) note += ". " + op.who + " sees the new name. The follower is still behind, but " + op.who + " never touches it.";
+      else if (route === "leader") note += ". " + op.who + " sees the new name. The follower already has the copy, but the app does not check that. It uses a safe window that is longer than the copy delay.";
+      else if (p.fix) note += ". " + op.who + " sees the newest name. The copy landed long ago, so the follower is safe to use again, and the leader is free.";
+      else note += ". " + op.who + " sees the newest name. Same page, same code, a different answer. Only time changed.";
+      if (p.fix && stale) note += " Mia is not waiting for any change of her own, so she cannot tell. This is fine on most pages.";
+      snap(note, ["users", "app", route], op.who + " reads from the " + route, stale ? "bad" : "run", op.who + " reads: goes to the <b>" + route + "</b>");
+    }
+  }
+  return steps;
+}
+
+// ---- Simulator for story 3: two nodes, a line between them, and two ways to behave while the line is cut. ----
+function simulateSplit(p) {
+  const steps = [];
+  const mk = () => ({ link: true, A: 1, B: 1, soldA: [], soldB: [], answers: [], merged: false });
+  const M = { c: mk(), a: mk() };
+  const snap = (note, active, hop, phase) => steps.push({
+    c: JSON.parse(JSON.stringify(M.c)), a: JSON.parse(JSON.stringify(M.a)),
+    active, hop, phase, note
+  });
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "Both nodes agree", "setup"); }
+    else if (op.op === "end") { snap(op.note, [], "Finished", "done"); }
+    else if (op.op === "cut") { M.c.link = false; M.a.link = false; snap(op.note, ["link"], "The line between A and B is cut", "bad"); }
+    else if (op.op === "buy") {
+      for (const k of ["c", "a"]) {
+        const m = M[k];
+        const mine = op.node === "A" ? "A" : "B";
+        const sold = op.node === "A" ? m.soldA : m.soldB;
+        if (op.node === "B" && !m.link && k === "c") { m.answers.unshift({ text: op.who + " asks B: error, try again later", bad: true }); continue; }
+        if (m[mine] > 0) { m[mine]--; sold.push(op.who); m.answers.unshift({ text: op.who + " asks " + op.node + ": bought the last seat", bad: false }); }
+        else m.answers.unshift({ text: op.who + " asks " + op.node + ": sold out", bad: true });
+      }
+      if (op.node === "A") {
+        snap("<b>" + op.who + "</b> asks Node A for the last seat. A is the leader and can sell. A sells it: <b>0 seats left on A</b>. A cannot copy the sale to B, because the line is cut, so B still says <b>1 seat left</b>. Both sides behave the same here.",
+          ["A"], op.who + " buys on Node A", "run");
+      } else {
+        snap("<b>" + op.who + "</b> asks Node B for the last seat. B holds an old fact: 1 seat left. B cannot ask the leader. Now the choice shows. <b>Consistent side:</b> B refuses, so " + op.who + " gets an <b>error</b> and must try later. <b>Available side:</b> B answers from its own copy, so " + op.who + " also gets the last seat.",
+          ["B"], op.who + " asks Node B", "bad");
+      }
+    }
+    else if (op.op === "heal") {
+      for (const k of ["c", "a"]) {
+        const m = M[k];
+        m.link = true;
+        if (k === "c") { m.B = m.A; m.soldB = m.soldA.slice(); }
+        else { const all = m.soldA.concat(m.soldB); m.soldA = all.slice(); m.soldB = all.slice(); m.A = 1 - all.length; m.B = 1 - all.length; m.merged = true; }
+      }
+      snap("<b>The line works again.</b> <b>Consistent side:</b> B receives Ann's sale and shows 0 seats. Everything agrees, and nobody was sold a seat that does not exist. Ben was refused for a while. <b>Available side:</b> the nodes compare notes and find two sales, Ann on A and Ben on B. There was only 1 seat, so the system is <b>oversold by 1</b>. The nodes can merge the facts, but they cannot create a seat. A person must refund one buyer.",
+        ["link", "A", "B"], "The line works again, the nodes merge", "srv");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prev = {}, guess = null;
+
+function chips(box, items, key, emptyText) {
+  const old = prev[key] || [];
+  box.innerHTML = items.length ? "" : '<span class="empty">' + emptyText + "</span>";
+  items.forEach(t => {
+    const c = document.createElement("div");
+    c.className = "chip" + (old.includes(t.key) ? "" : " pop");
+    c.textContent = t.text;
+    box.appendChild(c);
+  });
+  prev[key] = items.map(t => t.key);
+}
+const BADGE = { setup: ["Setup", ""], run: ["A request runs", "run"], bad: ["Something goes wrong", "bad"],
+                srv: ["The data changes", "srv"], done: ["Finished", "done"] };
+
+function renderCopy(s, P) {
+  const lit = id => s.active.includes(id);
+  const behind = s.follower !== s.leader;
+  const stage = $("stage");
+  stage.className = "stage copy";
+  stage.innerHTML =
+    '<div class="panel"><h2>People</h2>' +
+      '<div class="comp user' + (lit("users") ? " lit" : "") + '"><h3>Request</h3><small>one thing happens on each step</small>' +
+        (s.current ? '<div class="req ' + s.current.cls + '">' + s.current.text + "</div>" : '<div class="req">no request on this step</div>') +
+      "</div>" +
+      '<div class="counters"><span>Sam saw old data: <b>' + s.saw.Sam + "</b></span><span>Mia saw old data: <b>" + s.saw.Mia + "</b></span></div>" +
+      '<ul class="log">' + s.log.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") + "</ul>" +
+    "</div>" +
+    '<div class="panel"><h2>The app</h2>' +
+      '<div class="comp lb' + (lit("app") ? " lit" : "") + '"><h3>Where does a read go?</h3><small>' + P.rule + "</small>" +
+        '<div class="lbline">' + s.decision + "</div>" +
+        '<div class="lbline muted">' + s.extra + "</div></div>" +
+    "</div>" +
+    '<div class="panel"><h2>The data</h2>' +
+      '<div class="clock">Time: <b>' + fmt(s.t) + "</b></div>" +
+      '<div class="servers">' +
+        '<div class="comp srv' + (lit("leader") ? " lit" : "") + '"><h3>Leader<span class="tags"><span class="tag">takes writes</span></span></h3>' +
+          '<div class="big">' + s.leader + '</div><div class="biglabel">the name saved here</div></div>' +
+        '<div class="comp fol' + (lit("follower") ? " lit" : "") + (behind ? " behind" : "") + '"><h3>Follower<span class="tags"><span class="tag' + (behind ? " bad" : "") + '">' + (behind ? "behind the leader" : "same as the leader") + "</span></span></h3>" +
+          '<div class="big">' + s.follower + '</div><div class="biglabel">the name saved here</div></div>' +
+      "</div>" +
+      '<div class="lane"><div class="lanehead">Copies on the way to the follower</div><div class="items" id="way"></div></div>' +
+    "</div>";
+  chips($("way"), s.way.map(c => ({ key: c.v + c.lands, text: c.v + " · lands at " + fmt(c.lands) })), "way", "no copy on the way");
+}
+
+function renderSplit(s) {
+  const lit = id => s.active.includes(id);
+  const stage = $("stage");
+  stage.className = "stage split";
+  const node = (name, m, seats, sold, isLeader, mode) => {
+    const refuse = mode === "c" && name === "B" && !m.link;
+    return '<div class="comp ' + (isLeader ? "srv" : "fol") + (refuse ? " refuse" : "") + (lit(name) ? " lit" : "") + '"><h3>Node ' + name +
+      '<span class="tags"><span class="tag' + (refuse ? " bad" : "") + '">' + (isLeader ? "leader" : (refuse ? "refuses" : "follower")) + "</span></span></h3>" +
+      '<div class="big' + (seats < 0 ? " neg" : "") + '">' + seats + '</div><div class="biglabel">seats left</div>' +
+      '<div class="sold">sold to: ' + (sold.length ? sold.join(", ") : "nobody") + "</div></div>";
+  };
+  const col = (m, title, rule, mode) =>
+    '<div class="panel"><h2>' + title + "</h2>" +
+      '<div class="rulebox">' + rule + "</div>" +
+      '<div class="nodes">' + node("A", m, m.A, m.soldA, true, mode) +
+        '<div class="link' + (m.link ? "" : " cut") + '">' + (m.link ? "line works" : "LINE CUT") + "</div>" +
+        node("B", m, m.B, m.soldB, false, mode) + "</div>" +
+      (m.merged && m.A < 0 ? '<p class="lbline"><span class="tag bad">oversold by ' + (-m.A) + "</span> two people hold the last seat</p>" : "") +
+      '<div class="sub2">Answers users got</div>' +
+      '<ul class="log">' + (m.answers.length ? m.answers.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") : '<li class="empty">no questions yet</li>') + "</ul>" +
+    "</div>";
+  stage.innerHTML =
+    col(s.c, "If we choose: consistent", "Rule: a node that cannot reach the leader refuses to answer.", "c") +
+    col(s.a, "If we choose: available", "Rule: every node always answers from its own copy.", "a");
+}
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  if (P.kind === "copy") renderCopy(s, P); else renderSplit(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the leader, the follower and the copy on its way.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; const P = STORIES[i];
+  steps = P.kind === "copy" ? simulateCopy(P) : simulateSplit(P);
+  idx = 0; prev = {}; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prev = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2400);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; prev = {}; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulateCopy = simulateCopy; window.__simulateSplit = simulateSplit;
+pickStory(0);
+</script>
+</body>
+</html>

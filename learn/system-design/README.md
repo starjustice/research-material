@@ -50,7 +50,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 04 | [Caching](04-caching.md) | cache aside, write through, TTL, invalidation | ready |
 | 05 | [CDN](05-cdn.md) | what it caches and where | ready |
 | 06 | Message queues `06-message-queues.md` | why async, at least once, dead letter queues | planned |
-| 07 | Consistency and CAP `07-consistency-and-cap.md` | strong vs eventual, what CAP really says | planned |
+| 07 | [Consistency and CAP](07-consistency-and-cap.md) | strong vs eventual, what CAP really says | ready |
 
 ### Classic designs
 
