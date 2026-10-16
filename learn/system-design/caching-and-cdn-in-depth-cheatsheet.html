@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caching and CDN</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>CACHING &amp; CDN CHEATSHEET</h1>
+  <p class="sub">Layers · HTTP headers · Patterns · Invalidation · CDN and Next.js · Failure modes · Redis and Valkey</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">Pictures</button>
+  <button data-tab="concepts" type="button">Concepts</button>
+  <button data-tab="numbers" type="button">Tables</button>
+  <button data-tab="decisions" type="button">Decisions</button>
+  <button data-tab="cases" type="button">Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">A cache is a copy that trades freshness for speed. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The layers: a request stops at the first fresh copy</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 190" role="img" aria-label="Seven cache layers from browser to disk, with rough times, and the hit ratio math">
+      <rect class="box box-green" x="15" y="30" width="84" height="70" rx="8"/><text class="lbl" x="57" y="54">Browser</text><text class="lbl-s" x="57" y="72">one user</text><text class="lbl-s" x="57" y="88">0 ms</text>
+      <rect class="box box-green" x="116" y="30" width="84" height="70" rx="8"/><text class="lbl" x="158" y="54">CDN edge</text><text class="lbl-s" x="158" y="72">near user</text><text class="lbl-s" x="158" y="88">~20 ms</text>
+      <rect class="box box-blue" x="217" y="30" width="84" height="70" rx="8"/><text class="lbl" x="259" y="54">nginx</text><text class="lbl-s" x="259" y="72">whole reply</text><text class="lbl-s" x="259" y="88">proxy</text>
+      <rect class="box box-blue" x="318" y="30" width="84" height="70" rx="8"/><text class="lbl" x="360" y="54">App map</text><text class="lbl-s" x="360" y="72">one server</text><text class="lbl-s" x="360" y="88">100 ns</text>
+      <rect class="box box-blue" x="419" y="30" width="84" height="70" rx="8"/><text class="lbl" x="461" y="54">Redis</text><text class="lbl-s" x="461" y="72">all servers</text><text class="lbl-s" x="461" y="88">~0.5 ms</text>
+      <rect class="box box-yellow" x="520" y="30" width="84" height="70" rx="8"/><text class="lbl" x="562" y="54">DB buffer</text><text class="lbl-s" x="562" y="72">Postgres RAM</text><text class="lbl-s" x="562" y="88">~1 to 5 ms</text>
+      <rect class="box box-pink" x="621" y="30" width="84" height="70" rx="8"/><text class="lbl" x="663" y="54">Disk</text><text class="lbl-s" x="663" y="72">slowest</text><text class="lbl-s" x="663" y="88">ms or more</text>
+      <path class="arrow" d="M100,65 L114,65" marker-end="url(#arr)"/><path class="arrow" d="M201,65 L215,65" marker-end="url(#arr)"/><path class="arrow" d="M302,65 L316,65" marker-end="url(#arr)"/>
+      <path class="arrow" d="M403,65 L417,65" marker-end="url(#arr)"/><path class="arrow" d="M504,65 L518,65" marker-end="url(#arr)"/><path class="arrow" d="M605,65 L619,65" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="20">closer to the user is faster and cheaper</text>
+      <rect class="box box-yellow" x="60" y="122" width="600" height="50" rx="8"/>
+      <text class="lbl-m" x="360" y="143">95% hits × 0.5 ms + 5% misses × 5.5 ms = 0.75 ms average</text>
+      <text class="lbl-s" x="360" y="162">and Postgres sees only 5% of reads: 20 times less load</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A cache is a copy closer to the reader. I add it where data is read far more than it changes, and I watch the hit ratio, because the real win is the load it takes off the database."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Cache aside, and delete after commit</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="App reads Redis, on miss reads Postgres and sets the key with a TTL; on write it commits then deletes the key">
+      <rect class="box box-blue" x="20" y="70" width="120" height="50" rx="10"/><text class="lbl" x="80" y="92">App</text><text class="lbl-s" x="80" y="110">does all the work</text>
+      <rect class="box box-green" x="300" y="14" width="140" height="50" rx="10"/><text class="lbl" x="370" y="36">Redis</text><text class="lbl-s" x="370" y="54">just a box</text>
+      <rect class="box box-yellow" x="560" y="110" width="140" height="50" rx="10"/><text class="lbl" x="630" y="132">Postgres</text><text class="lbl-s" x="630" y="150">the truth</text>
+      <path class="arrow" d="M142,80 L298,40" marker-end="url(#arr)"/><text class="lbl-m" x="200" y="46">1 GET product:7</text>
+      <path class="arrow-green" d="M300,58 L144,92" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="250" y="90">hit: done</text>
+      <path class="arrow" d="M142,112 L558,135" marker-end="url(#arr)"/><text class="lbl-m" x="350" y="140">2 miss: SELECT product 7</text>
+      <path class="arrow-dash" d="M142,100 L298,60" marker-end="url(#arrm)"/><text class="lbl-m" x="560" y="42">3 SET product:7 EX 300</text>
+      <rect class="box box-green" x="20" y="172" width="680" height="36" rx="8"/>
+      <text class="lbl-m" x="360" y="195">On write: UPDATE, COMMIT, then DEL product:7. Never before commit. Never SET.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I use cache aside: the app reads Redis, on a miss reads Postgres and saves a copy with a TTL. On a write I commit, then delete the key. If Redis dies, the app still works, only slower."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · The race: a slow reader writes old data back after the delete</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 300" role="img" aria-label="Reader misses, reads old price, writer commits and deletes, reader sets old price, cache is stale">
+      <rect class="box box-blue" x="20" y="10" width="120" height="30" rx="6"/><text class="lbl" x="80" y="30">Reader</text>
+      <rect class="box box-green" x="220" y="10" width="120" height="30" rx="6"/><text class="lbl" x="280" y="30">Redis</text>
+      <rect class="box box-yellow" x="400" y="10" width="120" height="30" rx="6"/><text class="lbl" x="460" y="30">Postgres</text>
+      <rect class="box box-blue" x="580" y="10" width="120" height="30" rx="6"/><text class="lbl" x="640" y="30">Writer</text>
+      <path class="arrow-dash" d="M80,42 L80,250"/><path class="arrow-dash" d="M280,42 L280,250"/><path class="arrow-dash" d="M460,42 L460,250"/><path class="arrow-dash" d="M640,42 L640,250"/>
+      <path class="arrow" d="M82,65 L276,65" marker-end="url(#arr)"/><text class="lbl-s" x="180" y="59">1 GET: miss</text>
+      <path class="arrow" d="M82,100 L456,100" marker-end="url(#arr)"/><text class="lbl-s" x="370" y="94">2 SELECT: price 100, old</text>
+      <path class="arrow" d="M638,135 L464,135" marker-end="url(#arr)"/><text class="lbl-s" x="550" y="129">3 UPDATE 90, COMMIT</text>
+      <path class="arrow" d="M638,170 L284,170" marker-end="url(#arr)"/><text class="lbl-s" x="560" y="164">4 DEL product:7</text>
+      <path class="arrow-pink" d="M82,205 L276,205" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="180" y="199">5 SET price 100</text>
+      <rect class="box box-pink" x="205" y="215" width="150" height="32" rx="8"/><text class="lbl-s t-pink" x="280" y="235">stale until the TTL ends</text>
+      <rect class="box box-green" x="20" y="260" width="680" height="32" rx="8"/>
+      <text class="lbl-s" x="360" y="281">Fixes: delete after commit · short TTL · delete again after 1 s · version check · lease (DEL cancels the token)</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Delete on write still has a race: a slow reader reads the old row, I commit and delete, then it saves the old row back. A short TTL limits the damage. For data that matters I add a version check or a lease, like Facebook's memcache."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Stampede: one hot key expires</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 190" role="img" aria-label="Without protection 1000 requests make 1000 queries; with single flight they make 1">
+      <text class="lbl" x="180" y="30">Without: key expires</text>
+      <rect class="box box-blue" x="30" y="56" width="120" height="44" rx="8"/><text class="lbl" x="90" y="83">1000 requests</text>
+      <rect class="box box-pink" x="220" y="56" width="110" height="44" rx="8"/><text class="lbl" x="275" y="83">Postgres</text>
+      <path class="arrow-pink" d="M152,70 L218,70" marker-end="url(#arrp)"/><path class="arrow-pink" d="M152,78 L218,78" marker-end="url(#arrp)"/><path class="arrow-pink" d="M152,86 L218,86" marker-end="url(#arrp)"/>
+      <text class="lbl-s t-pink" x="180" y="122">1000 queries, slow, retries add more</text>
+      <text class="lbl" x="545" y="30">With single flight</text>
+      <rect class="box box-blue" x="380" y="56" width="112" height="44" rx="8"/><text class="lbl" x="436" y="83">1000 requests</text>
+      <rect class="box box-yellow" x="515" y="56" width="82" height="44" rx="8"/><text class="lbl" x="556" y="83">1 loader</text>
+      <rect class="box box-green" x="615" y="56" width="95" height="44" rx="8"/><text class="lbl" x="662" y="83">Postgres</text>
+      <path class="arrow" d="M494,78 L513,78" marker-end="url(#arr)"/><path class="arrow-green" d="M599,78 L613,78" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="545" y="122">1 query, others wait for the same promise</text>
+      <rect class="box box-yellow" x="20" y="142" width="680" height="34" rx="8"/>
+      <text class="lbl-s" x="360" y="164">Also: Redis lock SET NX EX · serve stale while one refreshes · random early refresh · TTL jitter</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "When a hot key expires, every request misses together and the database falls over. I let one request reload while the rest wait or get the old value, and I add random jitter to TTLs so keys do not expire together."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · CDN: edges, origin shield, origin, signed URLs</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 240" role="img" aria-label="Three edges ask one origin shield on a miss, the shield asks the origin once; private files use signed URLs">
+      <rect class="box" x="10" y="20" width="90" height="40" rx="8"/><text class="lbl" x="55" y="45">Jakarta</text>
+      <rect class="box" x="10" y="80" width="90" height="40" rx="8"/><text class="lbl" x="55" y="105">Sydney</text>
+      <rect class="box" x="10" y="140" width="90" height="40" rx="8"/><text class="lbl" x="55" y="165">London</text>
+      <rect class="box box-green" x="140" y="20" width="110" height="40" rx="8"/><text class="lbl" x="195" y="45">Edge JKT</text>
+      <rect class="box box-green" x="140" y="80" width="110" height="40" rx="8"/><text class="lbl" x="195" y="105">Edge SYD</text>
+      <rect class="box box-green" x="140" y="140" width="110" height="40" rx="8"/><text class="lbl" x="195" y="165">Edge LON</text>
+      <path class="arrow" d="M102,40 L138,40" marker-end="url(#arr)"/><path class="arrow" d="M102,100 L138,100" marker-end="url(#arr)"/><path class="arrow" d="M102,160 L138,160" marker-end="url(#arr)"/>
+      <rect class="box box-blue" x="330" y="76" width="120" height="48" rx="8"/><text class="lbl" x="390" y="97">Origin shield</text><text class="lbl-s" x="390" y="114">one region</text>
+      <path class="arrow-dash" d="M252,40 L328,90" marker-end="url(#arrm)"/><path class="arrow-dash" d="M252,100 L328,100" marker-end="url(#arrm)"/><path class="arrow-dash" d="M252,160 L328,110" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="290" y="60">miss</text>
+      <rect class="box box-yellow" x="500" y="76" width="100" height="48" rx="8"/><text class="lbl" x="550" y="97">Origin</text><text class="lbl-s" x="550" y="114">your app</text>
+      <path class="arrow" d="M452,100 L498,100" marker-end="url(#arr)"/><text class="lbl-s" x="475" y="90">once</text>
+      <rect class="box box-yellow" x="630" y="76" width="80" height="48" rx="8"/><text class="lbl" x="670" y="97">S3</text><text class="lbl-s" x="670" y="114">files</text>
+      <path class="arrow" d="M602,100 L628,100" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="10" y="196" width="700" height="34" rx="8"/>
+      <text class="lbl-s" x="360" y="218">Private file: API checks the owner, returns a URL with signature and 5 min expiry, CDN checks it, sends the file</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Public files go through edges near users, with an origin shield so a miss reaches my server once, not once per edge. Private files get a short lived signed URL, so my API checks permission but never streams the bytes."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Redis is down: fail open or fail closed</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="Circuit breaker sends reads to Redis when healthy and to Postgres with a limit when open; fail open for catalog, fail closed for OTP limits">
+      <rect class="box" x="10" y="56" width="110" height="44" rx="8"/><text class="lbl" x="65" y="83">Request</text>
+      <rect class="box box-yellow" x="160" y="56" width="150" height="44" rx="8"/><text class="lbl" x="235" y="83">Circuit breaker</text>
+      <path class="arrow" d="M122,78 L158,78" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="370" y="10" width="160" height="44" rx="8"/><text class="lbl" x="450" y="30">Redis</text><text class="lbl-s" x="450" y="46">timeout 50 ms</text>
+      <rect class="box box-blue" x="370" y="104" width="160" height="44" rx="8"/><text class="lbl" x="450" y="124">Postgres</text><text class="lbl-s" x="450" y="140">with a request limit</text>
+      <path class="arrow-green" d="M312,70 L368,36" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="330" y="40">healthy</text>
+      <path class="arrow-pink" d="M312,88 L368,120" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="330" y="124">open</text>
+      <path class="arrow-dash" d="M450,56 L450,102" marker-end="url(#arrm)"/><text class="lbl-s" x="485" y="84">on error</text>
+      <rect class="box box-green" x="570" y="10" width="140" height="64" rx="8"/><text class="lbl" x="640" y="32">Fail open</text><text class="lbl-s" x="640" y="50">catalog reads</text><text class="lbl-s" x="640" y="64">slower, still works</text>
+      <rect class="box box-pink" x="570" y="84" width="140" height="64" rx="8"/><text class="lbl" x="640" y="106">Fail closed</text><text class="lbl-s" x="640" y="124">OTP rate limit</text><text class="lbl-s" x="640" y="138">block, do not skip</text>
+      <text class="lbl-s" x="360" y="182">Redis is never the only copy of the data. Add a replica and failover so this is rare.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Redis must not be a single point of failure for reads. Short timeouts and a circuit breaker; catalog reads fail open to Postgres with a limit so it survives; a rule like an OTP rate limit fails closed."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">Rough times (for estimates)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Where the data is</th><th>Time</th><th>Feels like</th></tr>
+    <tr><td>App memory (a Map)</td><td class="val">~100 ns</td><td class="why">your pocket</td></tr>
+    <tr><td>Redis, same data center</td><td class="val">~0.2 to 1 ms</td><td class="why">your desk</td></tr>
+    <tr><td>Postgres, indexed read</td><td class="val">~1 to 5 ms</td><td class="why">the next room</td></tr>
+    <tr><td>Postgres, slow query</td><td class="val">50 ms +</td><td class="why">another building</td></tr>
+    <tr><td>Server on another continent</td><td class="val">~150 ms</td><td class="why">another city</td></tr>
+  </table></div>
+
+  <h2 class="block">Cache-Control in plain words</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Directive</th><th>Means</th></tr>
+    <tr><td class="val">max-age=60</td><td class="why">Any cache may use it for 60 s without asking</td></tr>
+    <tr><td class="val">s-maxage=300</td><td class="why">CDN and proxies only, 300 s. Browsers ignore it</td></tr>
+    <tr><td class="val">private</td><td class="why">Only the user's browser may keep it, never a CDN</td></tr>
+    <tr><td class="val">no-cache</td><td class="why">Keep it, but ask the server first every time (often a 304)</td></tr>
+    <tr><td class="val">no-store</td><td class="why">Do not keep it anywhere</td></tr>
+    <tr><td class="val">stale-while-revalidate=30</td><td class="why">After it goes stale, serve old for 30 s while fetching new</td></tr>
+    <tr><td class="val">immutable</td><td class="why">Never changes. For hashed file names like app.3f9a.js</td></tr>
+  </table></div>
+
+  <h2 class="block">Cache patterns</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Pattern</th><th>How</th><th>Pick when</th><th>Cost</th></tr>
+    <tr><td class="val">Cache aside</td><td>App reads cache, on miss loads DB, sets with TTL</td><td class="why">Default</td><td class="why">Miss after change, stale until delete or TTL</td></tr>
+    <tr><td class="val">Read through</td><td>A library loads on miss</td><td class="why">Loading logic in one place</td><td class="why">Same as cache aside</td></tr>
+    <tr><td class="val">Write through</td><td>Write DB, then set cache</td><td class="why">Data read right after write</td><td class="why">Slower writes, cold data in cache</td></tr>
+    <tr><td class="val">Write behind</td><td>Write cache now, DB later</td><td class="why">Counters, views, likes</td><td class="why">Data loss if cache dies</td></tr>
+    <tr><td class="val">Refresh ahead</td><td>Reload before expiry</td><td class="why">Few hot keys that must never miss</td><td class="why">Reloads nobody reads</td></tr>
+  </table></div>
+
+  <h2 class="block">Failure modes</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Problem</th><th>What happens</th><th>Fix</th></tr>
+    <tr><td class="val">Stampede</td><td>Hot key expires, all miss together</td><td class="why">Single flight, Redis lock, serve stale, early refresh</td></tr>
+    <tr><td class="val">Hot key</td><td>One key melts one Redis node</td><td class="why">Local 1 to 5 s cache tier, split the key into copies</td></tr>
+    <tr><td class="val">Penetration</td><td>Ids that do not exist always reach the DB</td><td class="why">Cache the miss, bloom filter, validate input</td></tr>
+    <tr><td class="val">Avalanche</td><td>Many keys expire at the same second</td><td class="why">TTL jitter: 3600 + random 0 to 300</td></tr>
+    <tr><td class="val">Cold start</td><td>Empty cache after deploy, flush or purge</td><td class="why">Warm top keys, roll out slowly, no purge at peak</td></tr>
+    <tr><td class="val">Redis down</td><td>Every read waits on timeouts</td><td class="why">Timeouts, circuit breaker, fail open with a limit</td></tr>
+  </table></div>
+
+  <h2 class="block">Redis, Valkey, Memcached (October 2026)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th></th><th>Redis</th><th>Valkey</th><th>Memcached</th></tr>
+    <tr><td>License</td><td class="val">RSALv2, SSPLv1 or AGPLv3 (8.0+)</td><td>BSD 3 clause</td><td>BSD</td></tr>
+    <tr><td>Latest line</td><td>8.10</td><td>9.1 stable, 9.2 RC</td><td class="why">not checked</td></tr>
+    <tr><td>Data types</td><td>many</td><td>many (Redis 7.2 base)</td><td>strings</td></tr>
+    <tr><td>Persistence, replicas</td><td>yes</td><td>yes</td><td>no</td></tr>
+    <tr><td>Cluster</td><td>16,384 hash slots</td><td>16,384 hash slots</td><td class="why">client side hashing</td></tr>
+  </table></div>
+
+  <h2 class="block">Design round checklist</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Step</th><th>Example: product catalog</th></tr>
+    <tr><td class="val">1 What</td><td class="why">Product details, categories. Not stock at checkout</td></tr>
+    <tr><td class="val">2 Where</td><td class="why">CDN for images and public pages, Redis for product JSON</td></tr>
+    <tr><td class="val">3 Pattern</td><td class="why">Cache aside, delete on write</td></tr>
+    <tr><td class="val">4 Key and TTL</td><td class="why">shop:v3:product:7:lang-id, 10 min with jitter</td></tr>
+    <tr><td class="val">5 Invalidation</td><td class="why">DEL after commit, tag purge on the CDN</td></tr>
+    <tr><td class="val">6 Failure mode</td><td class="why">Single flight, local tier for hot items, fail open with a limit</td></tr>
+    <tr><td class="val">7 Metric</td><td class="why">Hit ratio, p99, DB queries per second, evictions, memory</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every cache buys speed and costs freshness. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">Watch and play</h2>
+  <div class="case"><b><a href="https://github.com/mdn/content/blob/main/files/en-us/web/http/guides/caching/index.md">MDN HTTP caching guide</a></b><p>Read private vs shared caches, then the ETag part.</p></div>
+  <div class="case"><b><a href="https://github.com/mdn/content/blob/main/files/en-us/web/http/reference/headers/cache-control/index.md">MDN Cache-Control page</a></b><p>Check every directive in the Tables tab against it.</p></div>
+  <div class="case"><b><a href="https://github.com/donnemartin/system-design-primer#cache">System Design Primer, Cache</a></b><p>Diagrams for cache aside, write through, write behind, refresh ahead. Redraw one.</p></div>
+  <div class="case"><b><a href="https://github.com/ByteByteGoHq/system-design-101">ByteByteGo system-design-101</a></b><p>Open "Caching &amp; Performance", find "How Can Cache Systems Go Wrong?" and match each to picture 4 or 6.</p></div>
+  <div class="case"><b><a href="https://github.com/vercel/next.js/blob/canary/docs/01-app/01-getting-started/08-caching.mdx">Next.js caching docs</a></b><p>Find "use cache" and cacheLife. Compare with the concept cards.</p></div>
+  <div class="case"><b><a href="https://www.apollographql.com/docs/apollo-server/performance/apq">Apollo automatic persisted queries</a></b><p>Find useGETForHashedQueries and the CDN part.</p></div>
+  <div class="case"><b>Play on your machine</b><p>Run the Express example from the guide, open DevTools Network, reload twice and watch 200 become 304. Then <code>docker run -p 6379:6379 valkey/valkey</code> and try SET with EX, TTL, GET and INFO stats in redis-cli.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Caching and CDN in Depth"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-caching",
+  concepts: [
+    { t: "Hit, miss, hit ratio", d: "Hit: the copy was there. Miss: it was not. Hit ratio = hits / all reads. 95% hits means the DB sees 20 times less load." },
+    { t: "TTL", d: "Time to live: how long a copy may stay. Pick it by asking 'how old can this be before a user is hurt?'. Always set one as a safety net." },
+    { t: "Cache layers", d: "Browser, CDN, reverse proxy, app memory, Redis, DB buffer cache. The request stops at the first fresh copy." },
+    { t: "Cache-Control", d: "<code>public, max-age=60, s-maxage=300</code> for shared data. <code>private, no-store</code> for personal data. <code>immutable</code> for hashed files." },
+    { t: "ETag and 304", d: "The server sends a fingerprint. Later the browser sends <code>If-None-Match</code>. Same fingerprint: <code>304 Not Modified</code>, no body. Express adds ETags by itself." },
+    { t: "Cache aside", d: "Read cache, on miss read DB and SET with TTL. On write: commit, then DEL. Cache can die and the app still works." },
+    { t: "Write through and write behind", d: "Through: write DB, then set cache, warm reads. Behind: write cache now, DB later. Only for counters, never money." },
+    { t: "Refresh ahead", d: "Reload a hot key before it expires, while serving the old value. Same idea as stale-while-revalidate." },
+    { t: "Key design", d: "App name, shape version, entity and id, and every input that changes the answer: <code>shop:v3:product:7:lang-id</code>. Nothing random." },
+    { t: "Eviction: LRU vs LFU", d: "LRU throws out what was not used lately. LFU throws out what is used rarely. Redis default is noeviction: set allkeys-lru for a cache." },
+    { t: "Never cache", d: "Secrets, tokens, OTPs. User data under a shared key. Stock at checkout and balance at redeem: read in the DB transaction." },
+    { t: "Delete, not set, after commit", d: "Two SETs can arrive out of order. Deleting before commit lets a reader refill with the old row. DEL after commit." },
+    { t: "Stale write back race", d: "Slow reader reads old row, writer commits and deletes, reader SETs old row. Fix: short TTL, double delete, version check, lease." },
+    { t: "Lease", d: "On a miss the cache gives a token. A delete cancels it, so a late SET with that token is refused. Facebook memcache." },
+    { t: "Origin shield", d: "One middle CDN layer. Edges ask it on a miss; only it asks your origin. Cloudflare calls it Tiered Cache." },
+    { t: "Signed URL", d: "API checks permission, returns a link with signature and short expiry. CDN or S3 checks it and sends the file. Your server never streams it." },
+    { t: "Next.js 16 caching", d: "Opt in with <code>cacheComponents</code>. <code>\"use cache\"</code> + <code>cacheLife('hours')</code> + <code>cacheTag('product-7')</code>. <code>updateTag</code> in a Server Action shows your own write now; <code>revalidateTag(tag, 'max')</code> refreshes in the background." },
+    { t: "GraphQL caching", d: "Persisted queries send a hash over GET so a CDN can cache. Apollo Client's InMemoryCache stores each object once by __typename + id." },
+    { t: "Stampede, hot key, penetration, avalanche", d: "Single flight or lock. Local tier or split key. Cache the miss or bloom filter. TTL jitter." },
+    { t: "Redis down", d: "Short timeout, circuit breaker. Fail open to the DB with a limit for catalog reads. Fail closed for rules like OTP rate limits." }
+  ],
+  decisions: [
+    { q: "Cache aside vs write through", a: "Cache aside when", at: "Reads far outnumber writes, and the first read after a change may be slow.", b: "Write through when", bt: "Data is read right after it is written, and you accept slower writes.", v: "Default to cache aside with delete after commit. Write through fills the cache with data nobody may read and can race on SET." },
+    { q: "Redis vs app memory", a: "Redis when", at: "Many servers must share one copy and one delete must clear it for all.", b: "App memory when", bt: "Data is tiny, very hot, and a few seconds of staleness per server is fine (config, flash sale item).", v: "Often both: a 1 to 5 s local tier in front of Redis for hot keys." },
+    { q: "Short TTL vs delete on write", a: "TTL only when", at: "A few minutes of stale data is fine and changes come from many places.", b: "Delete on write when", bt: "Users must see changes quickly, and you control every write path.", v: "Use both. Delete for speed, TTL as the safety net when a delete is missed." },
+    { q: "Fail open vs fail closed", a: "Fail open when", at: "The cache only speeds things up (catalog). Slower is better than down.", b: "Fail closed when", bt: "Redis enforces a rule (OTP or login rate limit). Skipping it is a security hole.", v: "Fail open with a limit on DB calls, so Postgres survives the full load. Fail closed only where a rule lives." },
+    { q: "Redis vs Valkey vs Memcached", a: "Redis or Valkey when", at: "You need data types, persistence, replicas, cluster. Same client code. Choose by license and your cloud.", b: "Memcached when", bt: "Pure string cache, many cores, nothing else needed.", v: "Most teams pick Redis or Valkey. Know the license story: Redis 8 adds AGPLv3, Valkey is BSD." },
+    { q: "updateTag vs revalidateTag (Next.js 16)", a: "updateTag when", at: "In a Server Action, the person who saved must see the change now.", b: "revalidateTag(tag, 'max') when", bt: "A webhook or background change; serve old while new is built.", v: "Read your own writes: updateTag. Everyone else: stale while revalidate. The one argument revalidateTag is deprecated." },
+    { q: "Add a cache vs tune Postgres first", a: "Cache when", at: "Queries are already good and the same data is read again and again.", b: "Tune first when", bt: "Slow queries, missing indexes, N+1, too many connections.", v: "Measure first. A cache hides a slow query but adds invalidation bugs. Fix the query, then cache." }
+  ],
+  cases: [
+    { topic: "Stale sets and herds", b: "Facebook memcache (NSDI 2013)", p: "Leases: a miss returns a token, a delete cancels it. Stops old values coming back and makes only one client reload a hot key. <a href='https://people.csail.mit.edu/alinush/6.824-spring-2015/l16-memcached.html'>MIT 6.824 notes</a>" },
+    { topic: "Cold caches", b: "Instagram (2019)", p: "New clusters started empty. They cached a promise for the value so concurrent requests waited for one load. <a href='https://instagram-engineering.com/thundering-herds-promises-82191c8af57d'>Thundering Herds and Promises</a>" },
+    { topic: "Origin shield", b: "Cloudflare Tiered Cache", p: "Lower tiers ask an upper tier; only the upper tier talks to your origin. Fewer origin requests and connections. <a href='https://github.com/cloudflare/cloudflare-docs/blob/production/src/content/docs/cache/how-to/tiered-cache.mdx'>Docs source</a>" },
+    { topic: "Cache at huge scale", b: "Netflix EVCache", p: "Memcached based cache built for AWS. Ephemeral and volatile: data can vanish any time, so every caller handles a miss. <a href='https://github.com/Netflix/EVCache'>GitHub</a>" },
+    { topic: "Licensing", b: "Redis and Valkey (2024 to 2025)", p: "Redis moved to source available licenses, the Linux Foundation forked Valkey (BSD), Redis 8 added AGPLv3. <a href='https://www.theregister.com/2025/08/14/redis_redux/'>The Register</a>" }
+  ],
+  hooks: [
+    { b: "A cache is a lie with a timer", p: "You agree to show something that may be old for up to TTL seconds. Say how long the lie can last." },
+    { b: "Pocket, desk, next room, another city", p: "App memory, Redis, Postgres, another continent. 100 ns, 0.5 ms, 5 ms, 150 ms." },
+    { b: "Tear it up, do not rewrite it", p: "On a change, delete the sticky note (DEL). Do not write a new one: two writers can write in the wrong order." },
+    { b: "The ticket gets torn", p: "Lease: a miss hands out a ticket to fill the key. A delete tears it up, so the slow reader's old value is refused." },
+    { b: "One person goes to the shop", p: "Single flight: when the fridge is empty, one person goes shopping and the rest wait, instead of everyone going." },
+    { b: "Seven steps, one minute", p: "What, where, pattern, key and TTL, invalidation, failure mode, metric. Say all seven before they ask." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
