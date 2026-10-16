@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontend Design Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>FRONTEND SYSTEM DESIGN CHEATSHEET</h1>
+  <p class="sub">RADIO · State homes · Rendering styles · Client cache · Real time · Offline and mobile · Design systems · Security</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">Pictures</button>
+  <button data-tab="concepts" type="button">Concepts</button>
+  <button data-tab="numbers" type="button">Tables</button>
+  <button data-tab="decisions" type="button">Decisions</button>
+  <button data-tab="cases" type="button">Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">The client is the system here. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · RADIO in a 45 minute round</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 170" role="img" aria-label="Five steps: Requirements, Architecture, Data model, Interface, Optimizations, with minutes for each">
+      <rect class="box box-blue" x="6" y="20" width="132" height="92" rx="10"/><text class="lbl" x="72" y="44">R Requirements</text><text class="lbl-s" x="72" y="66">0 to 5 min</text><text class="lbl-s" x="72" y="84">must have list</text><text class="lbl-s" x="72" y="100">devices, offline?</text>
+      <rect class="box box-blue" x="150" y="20" width="132" height="92" rx="10"/><text class="lbl" x="216" y="44">A Architecture</text><text class="lbl-s" x="216" y="66">5 to 12 min</text><text class="lbl-s" x="216" y="84">parts and server</text><text class="lbl-s" x="216" y="100">who talks to whom</text>
+      <rect class="box box-blue" x="294" y="20" width="132" height="92" rx="10"/><text class="lbl" x="360" y="44">D Data model</text><text class="lbl-s" x="360" y="66">12 to 18 min</text><text class="lbl-s" x="360" y="84">types on client</text><text class="lbl-s" x="360" y="100">where each lives</text>
+      <rect class="box box-blue" x="438" y="20" width="132" height="92" rx="10"/><text class="lbl" x="504" y="44">I Interface</text><text class="lbl-s" x="504" y="66">18 to 25 min</text><text class="lbl-s" x="504" y="84">2 to 4 API calls</text><text class="lbl-s" x="504" y="100">fields in and out</text>
+      <rect class="box box-green" x="582" y="20" width="132" height="92" rx="10"/><text class="lbl" x="648" y="44">O Optimizations</text><text class="lbl-s" x="648" y="66">25 to 42 min</text><text class="lbl-s" x="648" y="84">speed, a11y</text><text class="lbl-s" x="648" y="100">offline, errors</text>
+      <path class="arrow-dash" d="M20,140 L700,140" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="160">Server = black box with an API. The last step gets the most time. Go back to R when a new feature comes up.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I'll go requirements, parts, client data, API, then deep dives. I'll treat the server as a black box and spend most time on the client."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Five homes for state (ask in this order)</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 170" role="img" aria-label="Server cache, URL, local, lifted, global store, with feed page examples">
+      <rect class="box box-green" x="6" y="20" width="132" height="92" rx="10"/><text class="lbl" x="72" y="44">Server cache</text><text class="lbl-s" x="72" y="66">posts, like counts</text><text class="lbl-s" x="72" y="84">TanStack or Apollo</text><text class="lbl-s" x="72" y="100">server owns it</text>
+      <rect class="box box-blue" x="150" y="20" width="132" height="92" rx="10"/><text class="lbl" x="216" y="44">URL</text><text class="lbl-s" x="216" y="66">tab, search text</text><text class="lbl-s" x="216" y="84">survives refresh</text><text class="lbl-s" x="216" y="100">shareable link</text>
+      <rect class="box box-yellow" x="294" y="20" width="132" height="92" rx="10"/><text class="lbl" x="360" y="44">Local</text><text class="lbl-s" x="360" y="66">menu open</text><text class="lbl-s" x="360" y="84">useState</text><text class="lbl-s" x="360" y="100">one part only</text>
+      <rect class="box box-yellow" x="438" y="20" width="132" height="92" rx="10"/><text class="lbl" x="504" y="44">Lifted</text><text class="lbl-s" x="504" y="66">composer text</text><text class="lbl-s" x="504" y="84">in the parent</text><text class="lbl-s" x="504" y="100">two siblings use it</text>
+      <rect class="box box-pink" x="582" y="20" width="132" height="92" rx="10"/><text class="lbl" x="648" y="44">Global store</text><text class="lbl-s" x="648" y="66">theme, signed in</text><text class="lbl-s" x="648" y="84">Zustand, Context</text><text class="lbl-s" x="648" y="100">keep it small</text>
+      <path class="arrow-dash" d="M20,140 L700,140" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="160">Server data? → keep in URL? → one part? → two siblings? → only then a global store</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Most feed state is server data, so it goes in the query cache. Filters go in the URL. Small UI flags stay local. The global store holds only what is left."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · When the page shows, and when it works</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Timelines for CSR, SSR, SSG or ISR, and PPR showing waiting, visible and interactive phases">
+      <text class="lbl-sl" x="10" y="44">CSR</text>
+      <rect class="box" x="120" y="26" width="350" height="28" rx="6"/><text class="lbl-s" x="295" y="44">blank screen while JS loads</text>
+      <rect class="box box-green" x="470" y="26" width="230" height="28" rx="6"/><text class="lbl-s" x="585" y="44">shows and works together</text>
+      <text class="lbl-sl" x="10" y="84">SSR</text>
+      <rect class="box" x="120" y="66" width="180" height="28" rx="6"/><text class="lbl-s" x="210" y="84">server builds HTML</text>
+      <rect class="box box-blue" x="300" y="66" width="150" height="28" rx="6"/><text class="lbl-s" x="375" y="84">shows, taps ignored</text>
+      <rect class="box box-green" x="450" y="66" width="250" height="28" rx="6"/><text class="lbl-s" x="575" y="84">works after hydration</text>
+      <text class="lbl-sl" x="10" y="124">SSG or ISR</text>
+      <rect class="box box-blue" x="120" y="106" width="210" height="28" rx="6"/><text class="lbl-s" x="225" y="124">from CDN, hydrating</text>
+      <rect class="box box-green" x="330" y="106" width="370" height="28" rx="6"/><text class="lbl-s" x="515" y="124">works</text>
+      <text class="lbl-sl" x="10" y="164">PPR</text>
+      <rect class="box box-yellow" x="120" y="146" width="80" height="28" rx="6"/><text class="lbl-s" x="160" y="164">shell</text>
+      <rect class="box box-blue" x="200" y="146" width="200" height="28" rx="6"/><text class="lbl-s" x="300" y="164">parts stream in</text>
+      <rect class="box box-green" x="400" y="146" width="300" height="28" rx="6"/><text class="lbl-s" x="550" y="164">each part works when ready</text>
+      <path class="arrow-dash" d="M120,196 L700,196" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="410" y="216">time after the user clicks the link →</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I pick rendering per page. Static for the same content, ISR when it changes, a static shell plus streamed parts for personal pages, and CSR for tools behind login."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Optimistic update with rollback</h3>
+    <div class="svgwrap"><svg viewBox="0 0 740 210" role="img" aria-label="Tap like, save snapshot and change cache, send request, on success keep and refetch, on error put snapshot back">
+      <rect class="box box-blue" x="10" y="30" width="140" height="56" rx="10"/><text class="lbl" x="80" y="54">Tap like</text><text class="lbl-s" x="80" y="72">heart red at once</text>
+      <rect class="box box-yellow" x="190" y="30" width="170" height="56" rx="10"/><text class="lbl" x="275" y="54">onMutate</text><text class="lbl-s" x="275" y="72">cancel, snapshot, +1</text>
+      <rect class="box box-blue" x="400" y="30" width="140" height="56" rx="10"/><text class="lbl" x="470" y="54">Send request</text><text class="lbl-s" x="470" y="72">likePost 7</text>
+      <path class="arrow" d="M152,58 L188,58" marker-end="url(#arr)"/><path class="arrow" d="M362,58 L398,58" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="580" y="10" width="130" height="50" rx="10"/><text class="lbl" x="645" y="32">ok</text><text class="lbl-s" x="645" y="50">keep it</text>
+      <rect class="box box-pink" x="580" y="80" width="130" height="50" rx="10"/><text class="lbl" x="645" y="102">onError</text><text class="lbl-s" x="645" y="120">put snapshot back</text>
+      <path class="arrow-green" d="M542,50 L578,36" marker-end="url(#arrg)"/><path class="arrow-pink" d="M542,68 L578,100" marker-end="url(#arrp)"/>
+      <rect class="box" x="400" y="150" width="310" height="40" rx="10"/><text class="lbl" x="555" y="175">onSettled: invalidate, fetch the truth</text>
+      <path class="arrow-dash" d="M645,132 L645,148" marker-end="url(#arrm)"/><path class="arrow-dash" d="M712,35 C730,80 730,130 712,165" marker-end="url(#arrm)"/>
+      <text class="lbl-sl" x="10" y="130">Good for: like, follow, mark read.</text>
+      <text class="lbl-sl t-pink" x="10" y="150">Never for: payment, stock, points.</text>
+      <text class="lbl-sl" x="10" y="170">React 19 also has useOptimistic.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I change the cache first, keep a snapshot, and put it back if the server fails. Then I invalidate, so the screen ends with the true value."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Real time: least power that works</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Polling asks on a timer, SSE streams server to client, WebSocket goes both ways, reconnect with backoff">
+      <rect class="box" x="10" y="10" width="220" height="130" rx="12"/><text class="lbl" x="120" y="32">Polling</text>
+      <rect class="box box-blue" x="30" y="50" width="70" height="30" rx="6"/><text class="lbl-s" x="65" y="70">client</text>
+      <rect class="box box-green" x="140" y="50" width="70" height="30" rx="6"/><text class="lbl-s" x="175" y="70">server</text>
+      <path class="arrow" d="M100,58 L138,58" marker-end="url(#arr)"/><path class="arrow-dash" d="M138,74 L102,74" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="120" y="104">ask every 30 s</text><text class="lbl-s" x="120" y="122">order status, loan status</text>
+      <rect class="box" x="250" y="10" width="220" height="130" rx="12"/><text class="lbl" x="360" y="32">SSE</text>
+      <rect class="box box-blue" x="270" y="50" width="70" height="30" rx="6"/><text class="lbl-s" x="305" y="70">client</text>
+      <rect class="box box-green" x="380" y="50" width="70" height="30" rx="6"/><text class="lbl-s" x="415" y="70">server</text>
+      <path class="arrow-green" d="M378,58 L342,58" marker-end="url(#arrg)"/><path class="arrow-green" d="M378,72 L342,72" marker-end="url(#arrg)"/>
+      <text class="lbl-s" x="360" y="104">one way, auto reconnect</text><text class="lbl-s" x="360" y="122">notifications, AI text</text>
+      <rect class="box" x="490" y="10" width="220" height="130" rx="12"/><text class="lbl" x="600" y="32">WebSocket</text>
+      <rect class="box box-blue" x="510" y="50" width="70" height="30" rx="6"/><text class="lbl-s" x="545" y="70">client</text>
+      <rect class="box box-green" x="620" y="50" width="70" height="30" rx="6"/><text class="lbl-s" x="655" y="70">server</text>
+      <path class="arrow" d="M580,58 L618,58" marker-end="url(#arr)"/><path class="arrow-green" d="M618,72 L582,72" marker-end="url(#arrg)"/>
+      <text class="lbl-s" x="600" y="104">both ways, you reconnect</text><text class="lbl-s" x="600" y="122">chat, typing, editors</text>
+      <rect class="box box-yellow" x="10" y="160" width="700" height="44" rx="10"/>
+      <text class="lbl-m" x="360" y="180">reconnect: wait 1 s, 2 s, 4 s ... up to 30 s, plus random</text>
+      <text class="lbl-s" x="360" y="197">then ask for everything after the last id, drop duplicates by message id, order by seq</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Polling for rare changes, SSE for one way live updates, WebSockets for chat. Reconnect with backoff and jitter, resume from the last id, and dedupe by id."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Mobile: offline queue and old app versions</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Screen reads local store, actions go to a queue that syncs when online; three app versions call one API that only adds fields">
+      <rect class="box box-blue" x="10" y="20" width="110" height="40" rx="8"/><text class="lbl" x="65" y="45">Screen</text>
+      <rect class="box box-green" x="160" y="20" width="150" height="40" rx="8"/><text class="lbl" x="235" y="38">Local store</text><text class="lbl-s" x="235" y="53">MMKV or SQLite</text>
+      <path class="arrow" d="M122,40 L158,40" marker-end="url(#arr)"/><text class="lbl-s" x="140" y="32">reads</text>
+      <rect class="box box-yellow" x="10" y="90" width="150" height="44" rx="8"/><text class="lbl" x="85" y="110">Offline queue</text><text class="lbl-s" x="85" y="126">with idempotency key</text>
+      <path class="arrow" d="M65,62 L65,88" marker-end="url(#arr)"/>
+      <rect class="box" x="200" y="90" width="110" height="44" rx="8"/><text class="lbl" x="255" y="110">Sync</text><text class="lbl-s" x="255" y="126">when online</text>
+      <path class="arrow" d="M162,112 L198,112" marker-end="url(#arr)"/><path class="arrow-dash" d="M255,88 L240,62" marker-end="url(#arrm)"/>
+      <text class="lbl-sl" x="10" y="170">Conflicts: last write wins for settings,</text>
+      <text class="lbl-sl" x="10" y="186">version check for orders, server wins</text>
+      <text class="lbl-sl" x="10" y="202">for stock and points.</text>
+      <rect class="box box-blue" x="380" y="20" width="120" height="34" rx="8"/><text class="lbl" x="440" y="42">App 1.2</text>
+      <rect class="box box-blue" x="380" y="70" width="120" height="34" rx="8"/><text class="lbl" x="440" y="92">App 1.3</text>
+      <rect class="box box-blue" x="380" y="120" width="120" height="34" rx="8"/><text class="lbl" x="440" y="142">App 1.4</text>
+      <rect class="box box-green" x="570" y="62" width="140" height="50" rx="10"/><text class="lbl" x="640" y="84">One API</text><text class="lbl-s" x="640" y="102">only add fields</text>
+      <path class="arrow" d="M502,37 L568,76" marker-end="url(#arr)"/><path class="arrow" d="M502,87 L568,87" marker-end="url(#arr)"/><path class="arrow" d="M502,137 L568,98" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="545" y="180">Store review delays builds. Users update late.</text>
+      <text class="lbl-s" x="545" y="198">OTA fixes JS only, for the same runtime version.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The screen reads a local store, changes go to a saved queue with idempotency keys, and the API only adds fields, because old app versions stay in use for months."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Where the auth token lives in the browser</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="An injected script can read a token in localStorage and send it away, but cannot read an httpOnly cookie">
+      <rect class="box box-pink" x="10" y="70" width="150" height="50" rx="10"/><text class="lbl" x="85" y="92">Injected script</text><text class="lbl-s" x="85" y="110">XSS</text>
+      <rect class="box box-pink" x="230" y="20" width="170" height="44" rx="10"/><text class="lbl" x="315" y="40">localStorage token</text><text class="lbl-s" x="315" y="56">any script can read</text>
+      <rect class="box box-pink" x="490" y="20" width="160" height="44" rx="10"/><text class="lbl" x="570" y="47">Attacker server</text>
+      <path class="arrow-pink" d="M162,85 L228,48" marker-end="url(#arrp)"/><path class="arrow-pink" d="M402,42 L488,42" marker-end="url(#arrp)"/>
+      <rect class="box box-green" x="230" y="120" width="170" height="44" rx="10"/><text class="lbl" x="315" y="140">httpOnly cookie</text><text class="lbl-s" x="315" y="156">hidden from scripts</text>
+      <rect class="box box-green" x="490" y="120" width="160" height="44" rx="10"/><text class="lbl" x="570" y="147">Your API</text>
+      <path class="arrow-dash" d="M162,105 L228,135" marker-end="url(#arrm)"/><text class="lbl-s" x="190" y="140">blocked</text>
+      <path class="arrow-green" d="M402,142 L488,142" marker-end="url(#arrg)"/><text class="lbl-s" x="445" y="134">browser sends</text>
+      <text class="lbl-s" x="360" y="190">Cookie needs SameSite=Lax and a CSRF token. Add a CSP so injected scripts cannot run.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Tokens go in an httpOnly, Secure, SameSite cookie, not localStorage. I add a CSP against XSS and a CSRF token for risky forms."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">Rendering styles</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Style</th><th>HTML arrives</th><th>Page works</th><th>Pick it for</th></tr>
+    <tr><td class="val">CSR</td><td>late, after JS</td><td>same moment as content</td><td class="why">tools and editors behind login</td></tr>
+    <tr><td class="val">SSR</td><td>early, after server work</td><td>after hydration</td><td class="why">fresh personal pages that need search engines</td></tr>
+    <tr><td class="val">SSG</td><td>very early, CDN</td><td>after hydration</td><td class="why">docs, blog, marketing</td></tr>
+    <tr><td class="val">ISR</td><td>very early, CDN</td><td>after hydration</td><td class="why">product pages, listings</td></tr>
+    <tr><td class="val">Streaming SSR</td><td>top early, rest in pieces</td><td>piece by piece</td><td class="why">a page with one slow part</td></tr>
+    <tr><td class="val">RSC</td><td>early</td><td>only client parts hydrate</td><td class="why">content heavy pages, few buttons</td></tr>
+    <tr><td class="val">PPR (Next.js 16.4 Cache Components)</td><td>shell at once, rest streams</td><td>piece by piece</td><td class="why">most pages in a new Next.js app</td></tr>
+  </table></div>
+  <h2 class="block">Real time options</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th></th><th>Polling</th><th>SSE</th><th>WebSocket</th></tr>
+    <tr><td class="val">Direction</td><td>client asks</td><td>server to client</td><td>both ways</td></tr>
+    <tr><td class="val">Reconnect</td><td>not needed</td><td>browser does it, resumes from last id</td><td>you write it</td></tr>
+    <tr><td class="val">Limit to know</td><td>wasted calls</td><td>6 per domain on HTTP/1.1 (MDN)</td><td>user stays on one server</td></tr>
+    <tr><td class="val">Use for</td><td>status that changes rarely</td><td>notifications, live scores, AI text</td><td>chat, typing, editors</td></tr>
+  </table></div>
+  <h2 class="block">Storage on the phone (checked 2026-10-16)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Need</th><th>Tool</th><th>Why</th></tr>
+    <tr><td>Small settings, saved query cache</td><td class="val">react-native-mmkv 4.x</td><td class="why">fast, synchronous, can encrypt</td></tr>
+    <tr><td>Many rows to search and sort</td><td class="val">SQLite (expo-sqlite, WatermelonDB)</td><td class="why">real tables on the phone</td></tr>
+    <tr><td>Tokens and secrets</td><td class="val">Keychain / Keystore via expo-secure-store</td><td class="why">the OS protects them</td></tr>
+  </table></div>
+  <h2 class="block">WCAG 2.2 new rules (W3C Recommendation, 5 October 2023)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Rule</th><th>Level</th><th>In your UI</th></tr>
+    <tr><td class="val">Focus Not Obscured</td><td>AA</td><td class="why">sticky header must not hide the focused item</td></tr>
+    <tr><td class="val">Dragging Movements</td><td>AA</td><td class="why">every drag has a click way too</td></tr>
+    <tr><td class="val">Target Size (Minimum)</td><td>AA</td><td class="why">24 by 24 CSS pixels, or space around</td></tr>
+    <tr><td class="val">Accessible Authentication</td><td>AA</td><td class="why">allow paste and password managers</td></tr>
+    <tr><td class="val">Consistent Help</td><td>A</td><td class="why">help link in the same place on every page</td></tr>
+    <tr><td class="val">Redundant Entry</td><td>A</td><td class="why">do not ask for the same info twice</td></tr>
+  </table></div>
+  <h2 class="block">Numbers to say</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Thing</th><th>Number</th><th>Why</th></tr>
+    <tr><td>Autocomplete debounce</td><td class="val">200 to 300 ms</td><td class="why">fewer requests, still feels fast</td></tr>
+    <tr><td>Feed page size</td><td class="val">20 items</td><td class="why">one screen plus a buffer</td></tr>
+    <tr><td>Reconnect backoff cap</td><td class="val">30 s plus random</td><td class="why">stops a reconnect storm</td></tr>
+    <tr><td>Presence heartbeat</td><td class="val">about 30 s</td><td class="why">offline after 2 or 3 misses</td></tr>
+    <tr><td>First load JS budget</td><td class="val">about 200 KB gzipped</td><td class="why">a CI check fails above it</td></tr>
+    <tr><td>Guardian: React to Preact</td><td class="val">93 KB to 66 KB</td><td class="why">their ADR 019</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every choice buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">Watch and play (opened or found in web search on 2026-10-16)</h2>
+  <div class="case"><span class="topic">Read</span><b><a href="https://greatfrontend.com/front-end-system-design-playbook/framework">The RADIO Framework (GreatFrontEnd)</a></b><p>Read once, then run the three designs with it.</p></div>
+  <div class="case"><span class="topic">Practice</span><b><a href="https://www.greatfrontend.com/questions/formats/system-design">Front End System Design Questions (GreatFrontEnd)</a></b><p>Pick news feed, autocomplete or chat. Design it on paper in 45 minutes.</p></div>
+  <div class="case"><span class="topic">Diagrams</span><b><a href="https://patterns.dev/react/react-selective-hydration">Selective Hydration (patterns.dev)</a></b><p>Pictures of streaming SSR and parts hydrating one by one.</p></div>
+  <div class="case"><span class="topic">Docs</span><b><a href="https://nextjs.org/docs/app/getting-started/caching">Caching with Cache Components (Next.js)</a></b><p>Read the Prerendering section to see the static shell.</p></div>
+  <div class="case"><span class="topic">Docs</span><b><a href="https://tanstack.com/query/v5/docs/framework/react/guides/optimistic-updates">Optimistic Updates (TanStack Query v5)</a></b><p>Match the code to picture 4.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://blog.codeminer42.com/codetips10-throttle-and-debounce/">Throttle and Debounce click demo (Codeminer42)</a></b><p>Click fast and watch when each one fires.</p></div>
+  <div class="case"><span class="topic">Watch</span><b><a href="https://www.infoq.com/presentations/microfrontend-antipattern">Microfrontends Anti-Patterns, Luca Mezzalira (InfoQ, about 47 min)</a></b><p>Watch the first 15 minutes for when micro-frontends hurt.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Frontend System Design (Web and Mobile)"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-frontend",
+  concepts: [
+    { t: "Frontend round vs backend round", d: "Frontend: screens, parts, client state, API calls. The server is a black box. Backend: servers, databases, queues, scaling." },
+    { t: "RADIO", d: "Requirements, Architecture, Data model, Interface, Optimizations. A guide, not a fixed order. Spend the most time on Optimizations." },
+    { t: "Container vs display part", d: "Container parts get data and handle actions (often a hook or a Server Component). Display parts only draw props, so you can test them alone." },
+    { t: "Five homes for state", d: "Server cache, URL, local, lifted to parent, global store. Ask in that order. Most app state is server data." },
+    { t: "Hydration", d: "React in the browser attaches click handlers to server HTML. Until it ends, buttons look ready but do nothing." },
+    { t: "SSG and ISR", d: "SSG builds pages at deploy. ISR rebuilds a page in the background after a time or on demand. Both serve from a CDN." },
+    { t: "Streaming SSR", d: "The server sends the top of the page at once. Slow parts inside <code>&lt;Suspense&gt;</code> come later in the same reply." },
+    { t: "Server Components", d: "Parts that run only on the server, can read the database, and send no JS for themselves. Client parts are marked <code>'use client'</code>." },
+    { t: "Partial Prerendering", d: "A static shell from the CDN, with personal parts streamed in. In Next.js 16.4 you get it with Cache Components and <code>'use cache'</code>." },
+    { t: "Key cache vs normalized cache", d: "TanStack Query keeps replies per key; you invalidate keys. Apollo stores each object once by <code>__typename:id</code>, so updates spread." },
+    { t: "Optimistic update", d: "Change the cache first, keep a snapshot, roll back on error, invalidate at the end. Not for money or stock." },
+    { t: "Cursor pagination", d: "Ask for the next 20 after a bookmark. No duplicates when new items arrive. Offset pages shift and get slow when deep." },
+    { t: "Request dedupe", d: "Many parts ask for the same key; the cache sends one request and shares the reply." },
+    { t: "Polling, SSE, WebSocket", d: "Least power that works. Polling asks on a timer. SSE streams one way and reconnects itself. WebSocket goes both ways." },
+    { t: "Backoff with jitter", d: "After a failed reconnect wait 1 s, 2 s, 4 s up to a cap, plus a random extra, so clients do not all retry together." },
+    { t: "Order and dedupe messages", d: "Insert by server sequence number, not arrival time. Drop repeats by message id. After reconnect, ask for everything after the last id." },
+    { t: "Offline queue", d: "Changes saved on disk with idempotency keys. A sync worker sends them in order when the network returns." },
+    { t: "Old app versions", d: "Store apps update late. The API only adds fields, deprecates before removing, and has a minimum supported version. OTA fixes JS only." },
+    { t: "Design tokens and primitives", d: "Tokens are named values shared by web and mobile. Primitives use only tokens, have variants, and have accessibility built in." },
+    { t: "Token storage in the browser", d: "httpOnly, Secure, SameSite cookie, not localStorage. Add CSP against XSS and CSRF tokens for risky forms." }
+  ],
+  decisions: [
+    { q: "TanStack Query vs Apollo Client", a: "TanStack Query when", at: "REST or simple GraphQL, you want a small, clear cache and are happy to name keys to refresh.", b: "Apollo when", bt: "GraphQL first, the same objects show on many screens, and you want updates to spread by id.", v: "Both dedupe and cache. Apollo does more by itself but needs ids and list rules. Lists still need manual updates in both." },
+    { q: "Offset vs cursor pages", a: "Offset when", at: "Admin tables where users jump to page 37 and data changes slowly.", b: "Cursor when", bt: "Feeds and chats with new items all the time and infinite scroll.", v: "Feeds use cursors. Dedupe by id on the client as a backup." },
+    { q: "SSR vs static shell with streaming (PPR)", a: "Plain SSR when", at: "The whole page is personal and must be fresh, or you are on an older Next.js setup.", b: "PPR when", bt: "Most of the page is the same for everyone and a few parts are personal.", v: "PPR gives CDN speed for the shell. You must mark caching on purpose and place Suspense boundaries well." },
+    { q: "SSE vs WebSocket", a: "SSE when", at: "Data flows only from server to client: notifications, scores, AI text streams.", b: "WebSocket when", bt: "Both sides talk often: chat, typing, live editing, games.", v: "SSE is plain HTTP with free reconnect. WebSockets need your own reconnect and sticky servers." },
+    { q: "Monorepo vs micro-frontends", a: "Monorepo when", at: "One or a few teams, one release is fine, you want shared packages and one toolchain.", b: "Micro-frontends when", bt: "Many teams must deploy alone, or you replace an old app piece by piece.", v: "Start with a monorepo and boundaries. Micro-frontends cost load time, duplicate libraries and UX drift." },
+    { q: "Optimistic vs wait for the server", a: "Optimistic when", at: "The action almost always works and is easy to undo: like, follow, mark read.", b: "Wait when", bt: "Money, stock, points, anything the user must not see wrongly.", v: "Optimistic feels instant; on error you roll back and tell the user." },
+    { q: "MMKV vs SQLite on the phone", a: "MMKV when", at: "Small key value data: settings, flags, a saved query cache.", b: "SQLite when", bt: "Many rows you search, sort and page through: messages, orders.", v: "Many apps use both. Tokens go in the Keychain or Keystore, not in either." }
+  ],
+  cases: [
+    { topic: "Partial hydration", b: "The Guardian", p: "Server HTML with marked islands that hydrate alone (ADR 026). Moving from React to Preact cut the bundle from about 93 KB to about 66 KB (ADR 019)." },
+    { topic: "One codebase, three platforms", b: "Bluesky", p: "React Native plus React Native Web for web, iOS and Android. TanStack Query with a persister, MMKV and expo-updates in its public package.json." },
+    { topic: "Offline chat on mobile", b: "Mattermost Mobile", p: "React Native chat app with WatermelonDB on SQLite and FlashList for long lists. Self-built apps need their own push proxy." },
+    { topic: "Design system", b: "Shopify Polaris", p: "Archived the React library and released Polaris Web Components on 1 October 2025, so the system works with any framework." },
+    { topic: "Cross platform design system", b: "Microsoft Fluent UI React Native", p: "Fluent design controls built on React Native for Windows, macOS, iOS and Android." }
+  ],
+  hooks: [
+    { b: "RADIO is a radio show", p: "Ask the listener what they want (R), set up the studio (A), pick the records (D), plan the calls (I), then make it sound great (O)." },
+    { b: "State homes are rooms in a house", p: "Ask: is it the landlord's (server)? Is it on the door sign (URL)? Is it in one drawer (local)? Only shared things go in the living room (global)." },
+    { b: "PPR is a sandwich shop", p: "The bread is ready on the shelf (shell from CDN). The filling is made for you while you wait (streamed parts)." },
+    { b: "Optimistic is a waiter who writes your order first", p: "The order shows at once. If the kitchen is out, the waiter comes back and crosses it off (rollback)." },
+    { b: "Cursor is a bookmark", p: "Offset says 'page 3', and the page moves when someone adds pages. A bookmark stays where you left it." },
+    { b: "Old apps are old phones in drawers", p: "Someone still uses them. Never pull a field out from under them; add new ones beside it." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
