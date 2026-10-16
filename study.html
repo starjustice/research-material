@@ -12,7 +12,7 @@
   --bg:#F1F4F8; --surface:#FFFFFF; --ink:#121E2B; --ink-2:#4A5968; --ink-3:#6C7A89; --line:#D6DDE5; --soft:#E8EDF3; --code:#EAEFF5;
   --accent:#2456D1; --accent-ink:#1B44AB; --accent-soft:#DFE8FB; --mark:#FFE27A;
   --ok:#17794A; --bad:#BE3328;
-  --c-method:#7A4CD6; --c-js:#C97F00; --c-backend:#0C8A79; --c-sys:#2456D1; --c-adv:#C2255C; --c-other:#5B6B7D; --c-practice:#1F8A4C;
+  --c-method:#7A4CD6; --c-js:#C97F00; --c-backend:#0C8A79; --c-db:#B4531A; --c-sys:#2456D1; --c-adv:#C2255C; --c-other:#5B6B7D; --c-practice:#1F8A4C;
   --font-display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
   --font-body:"IBM Plex Sans","Segoe UI",Roboto,Arial,sans-serif;
   --font-code:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -22,7 +22,7 @@
     --bg:#0D131B; --surface:#141C26; --ink:#E8EDF3; --ink-2:#A8B4C1; --ink-3:#8795A4; --line:#273341; --soft:#1B2531; --code:#18212C;
     --accent:#7AA2FF; --accent-ink:#9DBAFF; --accent-soft:#18284A; --mark:#6B5A12;
     --ok:#4CC38A; --bad:#FF7B6F;
-    --c-method:#B79BFF; --c-js:#F2B631; --c-backend:#3CC4B3; --c-sys:#7AA2FF; --c-adv:#FF7DA8; --c-other:#A0AEC0; --c-practice:#4CC38A;
+    --c-method:#B79BFF; --c-js:#F2B631; --c-backend:#3CC4B3; --c-db:#F0955A; --c-sys:#7AA2FF; --c-adv:#FF7DA8; --c-other:#A0AEC0; --c-practice:#4CC38A;
     color-scheme:dark;
   }
 }
@@ -30,7 +30,7 @@
   --bg:#0D131B; --surface:#141C26; --ink:#E8EDF3; --ink-2:#A8B4C1; --ink-3:#8795A4; --line:#273341; --soft:#1B2531; --code:#18212C;
   --accent:#7AA2FF; --accent-ink:#9DBAFF; --accent-soft:#18284A; --mark:#6B5A12;
   --ok:#4CC38A; --bad:#FF7B6F;
-  --c-method:#B79BFF; --c-js:#F2B631; --c-backend:#3CC4B3; --c-sys:#7AA2FF; --c-adv:#FF7DA8; --c-other:#A0AEC0; --c-practice:#4CC38A;
+  --c-method:#B79BFF; --c-js:#F2B631; --c-backend:#3CC4B3; --c-db:#F0955A; --c-sys:#7AA2FF; --c-adv:#FF7DA8; --c-other:#A0AEC0; --c-practice:#4CC38A;
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
@@ -288,9 +288,10 @@ function src(p){ return p.indexOf("practice/")===0 ? PRACTICE_DIR+p.slice(9) : p
 var TRACKS = [
  {id:"method", name:"Learn how to learn", color:"--c-method", blurb:"How to study so it sticks: the loop, how to answer theory questions, the weekly plan."},
  {id:"js", name:"JavaScript and frontend", color:"--c-js", blurb:"How JavaScript runs, React, hooks and React Native."},
- {id:"backend", name:"Backend, API and database", color:"--c-backend", blurb:"Express, GraphQL, Hasura, auth, PostgreSQL, and how to choose tools."},
+ {id:"backend", name:"Backend and API", color:"--c-backend", blurb:"Express, GraphQL, Hasura, auth, and how to choose tools."},
+ {id:"db", name:"Database, senior level", color:"--c-db", blurb:"Design and why, advanced queries, how Postgres works inside, scaling, and the interview question bank."},
  {id:"sys", name:"System design", color:"--c-sys", blurb:"Load balancers, cloud models, containers, performance, and your own DBO system."},
- {id:"adv", name:"Advanced, senior level", color:"--c-adv", blurb:"Step by step design, the network journey, Docker internals, database internals."},
+ {id:"adv", name:"Advanced, senior level", color:"--c-adv", blurb:"Step by step design, the network journey, Docker and CapRover internals."},
  {id:"other", name:"Other stacks", color:"--c-other", blurb:".NET and Java Spring, explained from what you already know in TypeScript."},
  {id:"practice", name:"Coding practice", color:"--c-practice", blurb:"Patterns first. Twelve problems with tests, then more as you finish them."}
 ];
@@ -317,10 +318,23 @@ var ITEMS = [
   desc:"One short page. What happens on a request, how JWT works, and how services talk."},
  {id:"hasura", track:"backend", level:"Core", title:"Hasura: what it is and when to choose it", file:"learn/backend-api/hasura-guide.md", cs:"learn/backend-api/hasura-guide-cheatsheet.html",
   desc:"Tracking tables, permissions, actions, and where Hasura stops being the right tool."},
- {id:"postgres", track:"backend", level:"Core", title:"PostgreSQL queries and indexing", file:"learn/database/postgresql-queries-interview-guide.md", cs:"learn/database/postgresql-queries-interview-guide-cheatsheet.html",
-  desc:"Joins, indexes, EXPLAIN, transactions and the advanced questions."},
  {id:"choosing-tools", track:"backend", level:"Senior", title:"Choosing the right tool", file:"learn/system-design/choosing-the-right-tool-frontend-backend-decisions.md",
   desc:"How to explain why you picked one tool over another, for frontend, mobile, backend and architecture."},
+
+ {id:"db-design", track:"db", level:"Core", title:"Database design: how to model it, and why", file:"learn/database/database-design-and-why.md", cs:"learn/database/database-design-and-why-cheatsheet.html",
+  desc:"The six design steps, normalization in pictures, keys, constraints, the ledger pattern, multi-tenancy, SQL or NoSQL, and changing a schema with zero downtime. Start here."},
+ {id:"postgres", track:"db", level:"Core", title:"PostgreSQL queries and indexing", file:"learn/database/postgresql-queries-interview-guide.md", cs:"learn/database/postgresql-queries-interview-guide-cheatsheet.html",
+  desc:"Joins, indexes, EXPLAIN, transactions and the advanced questions."},
+ {id:"db-workbook", track:"db", level:"Core", title:"Advanced SQL workbook: 19 queries", file:"learn/database/advanced-sql-workbook.md", cs:"learn/database/advanced-sql-workbook-cheatsheet.html", kind:"Workbook",
+  desc:"Window functions, gaps and islands, dedupe, pivot, cohorts, recursion, upsert, SKIP LOCKED and keyset. Load the practice database and solve them yourself. Every answer was run on a real Postgres."},
+ {id:"db-internals", track:"db", level:"Senior", title:"How Postgres works inside", file:"learn/database/postgres-internals-visual.md", cs:"learn/database/postgres-internals-visual-cheatsheet.html",
+  desc:"Pages, the B+tree and why it is shaped that way, MVCC, WAL, the planner, join algorithms and locks. Fixes every gap from your advanced round."},
+ {id:"db-scaling", track:"db", level:"Senior", title:"Scaling a database and keeping data correct", file:"learn/database/database-scaling-and-correctness.md", cs:"learn/database/database-scaling-and-correctness-cheatsheet.html",
+  desc:"Races and the locking toolbox, the outbox, then the scaling ladder: pooling, cache, replicas, partitioning, sharding, backups and failover."},
+ {id:"db-questions", track:"db", level:"Senior", title:"Senior database interview questions", file:"learn/database/senior-database-interview-questions.md", cs:"learn/database/senior-database-interview-questions-cheatsheet.html", kind:"Question bank",
+  desc:"47 questions, each answered as problem, how it works, tradeoff, my example, plus the follow-up and the weak answer to avoid. The cheatsheet is a flashcard drill."},
+ {id:"adv-database", track:"db", level:"Senior", title:"Advanced round report: database internals", file:"interview/practice-reports/advanced-interview-database-2026-09-18.md", kind:"Session report",
+  desc:"Your answers on database internals from 18 September, with the gaps to fix. Re-test after the internals note."},
 
  {id:"sd-basics", track:"sys", level:"Core", title:"System design basics", file:"learn/system-design/system-design-basics-senior-fullstack-interview.md", cs:"learn/system-design/system-design-cheatsheet.html",
   desc:"How the interview runs, then caching, scaling Postgres, queues and consistency."},
@@ -341,8 +355,6 @@ var ITEMS = [
   desc:"DNS, TCP, TLS, HTTP and the browser, one step at a time."},
  {id:"docker-internals", track:"adv", level:"Senior", title:"Docker and CapRover internals", file:"learn/devops-cloud/docker-caprover-internals.md",
   desc:"How the tools you use every day actually work underneath."},
- {id:"adv-database", track:"adv", level:"Senior", title:"Advanced round report: database internals", file:"interview/practice-reports/advanced-interview-database-2026-09-18.md", kind:"Session report",
-  desc:"Your answers on database internals, with the gaps to fix."},
  {id:"adv-tools", track:"adv", level:"Senior", title:"Advanced round report: Docker and CapRover", file:"interview/practice-reports/advanced-interview-tool-theory-2026-09-18.md", kind:"Session report",
   desc:"Your answers on tool theory, with the gaps to fix."},
 
@@ -383,7 +395,7 @@ var TOOLS = [
 
 var WEEK = [
  ["Mon","Coding","One pattern, a few problems.","#practice"],
- ["Tue","Backend and database","One topic through the steps. Draw it.","#track-backend"],
+ ["Tue","Backend and database","One topic through the steps. Draw it.","#track-db"],
  ["Wed","System design","One design from a blank page.","#track-sys"],
  ["Thu","Coding","Same pattern again. Redo one old problem.","#practice"],
  ["Fri","Interview practice","Write one project story. Then a spoken mock.","#tools"],
@@ -392,7 +404,8 @@ var WEEK = [
 
 /* what do you want to learn: goal cards that jump straight to the right topics */
 var GOALS = [
- {t:"Explain how things work", s:"Theory questions: databases, the event loop, the network.", ids:["how-js-runs","postgres","networking","adv-database","docker-internals"]},
+ {t:"Explain how things work", s:"Theory questions: databases, the event loop, the network.", ids:["how-js-runs","db-internals","networking","docker-internals"]},
+ {t:"Database, senior level", s:"Design it, query it, know the engine, scale it, answer the questions.", ids:["db-design","db-workbook","db-internals","db-scaling","db-questions"], tool:"/advanced-interview postgres"},
  {t:"Practice system design", s:"From a blank page to a full design.", ids:["sd-basics","sd-walkthrough","load-balancers","cloud-models","performance"]},
  {t:"Explain my projects and my choices", s:"The why behind what you built.", ids:["dbo-case","choosing-tools"], tool:"/project-story dbo"},
  {t:"Solve code problems", s:"Fibonacci and the patterns behind most questions.", ids:["practice-readme"], practice:true},
@@ -559,7 +572,7 @@ function viewHome(){
   WEEK.forEach(function(w){ h+='<tr><td>'+w[0]+'</td><td><a href="'+w[3]+'">'+esc(w[1])+'</a></td><td>'+esc(w[2])+'</td></tr>' });
   h+='</tbody></table></div></details>';
 
-  h+='<h2 class="sec">All topics</h2><p class="sec-sub">The full route if you want to go in order. Tracks 2 to 4 matter most for interviews.</p><div class="tracks">';
+  h+='<h2 class="sec">All topics</h2><p class="sec-sub">The full route if you want to go in order. Tracks 2 to 5 matter most for interviews.</p><div class="tracks">';
   TRACKS.forEach(function(t,ix){
     var its=itemsOf(t.id), d=doneCount(t.id), tot=its.length, href=t.id==="practice"?"#practice":"#track-"+t.id, extra="";
     if(t.id==="practice"){ var p=practiceTotals(); d=p[0]; tot=p[1]; extra=" problems" }

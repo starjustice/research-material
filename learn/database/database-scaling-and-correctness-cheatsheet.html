@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database Scaling Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>SCALING &amp; CORRECTNESS CHEATSHEET</h1>
+  <p class="sub">Races and locks · Outbox · The scaling ladder · Replicas, cache, partitions, shards · Backups</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Correctness first, then scale. Redraw each picture from memory.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The race behind most data bugs: read, decide, write</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Two requests both read balance 100, both write, one update is lost">
+      <text class="lbl" x="150" y="20">Request A (+50)</text>
+      <text class="lbl" x="570" y="20">Request B (−30)</text>
+      <rect class="box box-blue" x="60" y="34" width="180" height="34" rx="8"/><text class="lbl-m" x="150" y="56">read points = 100</text>
+      <rect class="box box-blue" x="480" y="34" width="180" height="34" rx="8"/><text class="lbl-m" x="570" y="56">read points = 100</text>
+      <rect class="box box-yellow" x="60" y="92" width="180" height="34" rx="8"/><text class="lbl-m" x="150" y="114">write 150</text>
+      <rect class="box box-yellow" x="480" y="132" width="180" height="34" rx="8"/><text class="lbl-m" x="570" y="154">write 70</text>
+      <path class="arrow" d="M150,68 L150,90" marker-end="url(#arr)"/><path class="arrow" d="M570,68 L570,130" marker-end="url(#arr)"/>
+      <rect class="box box-pink" x="280" y="100" width="160" height="56" rx="10"/><text class="lbl" x="360" y="124">final: 70</text><text class="lbl-s t-pink" x="360" y="142">the +50 is lost</text>
+      <path class="arrow-pink" d="M242,109 L278,120" marker-end="url(#arrp)"/><path class="arrow-pink" d="M478,149 L442,140" marker-end="url(#arrp)"/>
+      <rect class="box box-green" x="110" y="182" width="500" height="36" rx="8"/>
+      <text class="lbl-m" x="360" y="205">UPDATE store SET points = points + 50 WHERE id = 1   ← one atomic step</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Whenever code reads a value, decides in the app, and writes it back, two requests can interleave. I move the decision into the database: an atomic UPDATE with the rule in the WHERE, a unique constraint, or a row lock."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · The toolbox, simplest first</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 170" role="img" aria-label="Atomic update, unique constraint, optimistic version, FOR UPDATE, SERIALIZABLE">
+      <rect class="box box-green" x="6" y="20" width="132" height="92" rx="10"/><text class="lbl" x="72" y="44">Atomic UPDATE</text><text class="lbl-s" x="72" y="64">rule in WHERE</text><text class="lbl-s" x="72" y="80">counters, balance,</text><text class="lbl-s" x="72" y="96">stock</text>
+      <rect class="box box-green" x="150" y="20" width="132" height="92" rx="10"/><text class="lbl" x="216" y="44">UNIQUE +</text><text class="lbl" x="216" y="60">ON CONFLICT</text><text class="lbl-s" x="216" y="80">"only once"</text><text class="lbl-s" x="216" y="96">events, refunds</text>
+      <rect class="box box-blue" x="294" y="20" width="132" height="92" rx="10"/><text class="lbl" x="360" y="44">Optimistic</text><text class="lbl-s" x="360" y="64">WHERE version = 3</text><text class="lbl-s" x="360" y="80">rare conflicts,</text><text class="lbl-s" x="360" y="96">CMS edits</text>
+      <rect class="box box-yellow" x="438" y="20" width="132" height="92" rx="10"/><text class="lbl" x="504" y="44">FOR UPDATE</text><text class="lbl-s" x="504" y="64">lock, then decide</text><text class="lbl-s" x="504" y="80">hot row,</text><text class="lbl-s" x="504" y="96">TADA refund fix</text>
+      <rect class="box box-pink" x="582" y="20" width="132" height="92" rx="10"/><text class="lbl" x="648" y="44">SERIALIZABLE</text><text class="lbl-s" x="648" y="64">retry on 40001</text><text class="lbl-s" x="648" y="80">rules across</text><text class="lbl-s" x="648" y="96">many rows</text>
+      <path class="arrow-dash" d="M20,140 L700,140" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="160">more power, more cost (waiting, retries, deadlocks) →</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Transactional outbox: never call another service inside a transaction</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="One transaction writes the business row and an outbox row; a relay later calls the external service with an idempotency key">
+      <rect class="box" x="10" y="20" width="250" height="130" rx="12" style="stroke-dasharray:6 4"/>
+      <text class="lbl" x="135" y="40">ONE transaction</text>
+      <rect class="box box-blue" x="26" y="52" width="218" height="36" rx="8"/><text class="lbl-m" x="135" y="75">redemption = REQUESTED</text>
+      <rect class="box box-yellow" x="26" y="98" width="218" height="36" rx="8"/><text class="lbl-m" x="135" y="121">outbox: "call TADA #123"</text>
+      <rect class="box box-green" x="300" y="70" width="140" height="56" rx="10"/><text class="lbl" x="370" y="94">Relay worker</text><text class="lbl-s" x="370" y="112">reads outbox</text>
+      <rect class="box" x="480" y="70" width="230" height="56" rx="10"/><text class="lbl" x="595" y="94">TADA API</text><text class="lbl-s" x="595" y="112">with Idempotency-Key</text>
+      <path class="arrow" d="M262,98 L298,98" marker-end="url(#arr)"/><path class="arrow" d="M440,98 L478,98" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="170">Commit both or neither. The relay may send twice, so the receiver must be idempotent.</text>
+      <text class="lbl-s t-pink" x="360" y="188">✗ BEGIN → lock row → HTTP call 8 s → COMMIT = held locks, held connections, unknown outcome</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The scaling ladder (climb one step, measure, repeat)</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 290" role="img" aria-label="Eight steps from measure to shard"><rect class="box box-green" x="10" y="246" width="104" height="30" rx="7"/><text class="lbl" x="62" y="266">0 Measure</text><rect class="box box-green" x="96" y="216" width="104" height="30" rx="7"/><text class="lbl" x="148" y="236">1 Queries</text><rect class="box box-green" x="182" y="186" width="104" height="30" rx="7"/><text class="lbl" x="234" y="206">2 PgBouncer</text><rect class="box box-blue" x="268" y="156" width="104" height="30" rx="7"/><text class="lbl" x="320" y="176">3 Cache</text><rect class="box box-blue" x="354" y="126" width="104" height="30" rx="7"/><text class="lbl" x="406" y="146">4 Replicas</text><rect class="box box-blue" x="440" y="96" width="104" height="30" rx="7"/><text class="lbl" x="492" y="116">5 Bigger box</text><rect class="box box-yellow" x="526" y="66" width="104" height="30" rx="7"/><text class="lbl" x="578" y="86">6 Partition</text><rect class="box box-pink" x="612" y="36" width="104" height="30" rx="7"/><text class="lbl" x="664" y="56">7 Shard</text><text class="lbl-sl" x="10" y="30">Cheap and safe first. Measure after each step.</text><text class="lbl-sl" x="10" y="48">Step 1 alone often gives 10× or more.</text><text class="lbl-sl t-pink" x="10" y="66">Sharding is last: you lose cross-shard joins</text><text class="lbl-sl t-pink" x="10" y="84">and transactions.</text></svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · PgBouncer: many clients, few real connections</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 170" role="img" aria-label="80 client connections from app replicas go through PgBouncer and become 20 Postgres connections">
+      <rect class="box box-blue" x="10" y="20" width="200" height="50" rx="8"/><text class="lbl" x="110" y="42">API × 4 replicas</text><text class="lbl-s" x="110" y="60">Prisma pool 10 each = 40</text>
+      <rect class="box box-blue" x="10" y="90" width="200" height="50" rx="8"/><text class="lbl" x="110" y="112">Workers × 4</text><text class="lbl-s" x="110" y="130">pool 10 each = 40</text>
+      <rect class="box box-yellow" x="290" y="45" width="160" height="70" rx="10"/><text class="lbl" x="370" y="72">PgBouncer</text><text class="lbl-s" x="370" y="92">transaction mode</text>
+      <rect class="box box-green" x="540" y="45" width="170" height="70" rx="10"/><text class="lbl" x="625" y="72">Postgres</text><text class="lbl-s" x="625" y="92">~20 real processes</text>
+      <path class="arrow" d="M212,45 L288,70" marker-end="url(#arr)"/><path class="arrow" d="M212,115 L288,92" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="250" y="40">80 in</text>
+      <path class="arrow-green" d="M452,80 L538,80" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="495" y="70">20 out</text>
+      <text class="lbl-s" x="360" y="160">Transaction mode breaks session features: SET (use SET LOCAL), session advisory locks, LISTEN, temp tables.</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Read replicas and the read-your-own-writes problem</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="App writes to primary, replica lags, the user's next read from the replica misses their new order">
+      <rect class="box box-green" x="250" y="20" width="200" height="50" rx="10"/><text class="lbl" x="350" y="42">Primary</text><text class="lbl-s" x="350" y="60">all writes</text>
+      <rect class="box box-blue" x="500" y="110" width="200" height="50" rx="10"/><text class="lbl" x="600" y="132">Replica</text><text class="lbl-s" x="600" y="150">replays WAL, 50 ms – 5 s behind</text>
+      <path class="arrow-dash" d="M452,50 L560,108" marker-end="url(#arrm)"/><text class="lbl-s" x="540" y="72">WAL stream</text>
+      <rect class="box" x="10" y="20" width="180" height="140" rx="10"/>
+      <text class="lbl" x="100" y="42">Store owner</text>
+      <text class="lbl-sl" x="22" y="68">1. places order</text>
+      <text class="lbl-sl" x="22" y="90">2. opens "my orders"</text>
+      <text class="lbl-sl t-pink" x="22" y="112">3. order missing!</text>
+      <text class="lbl-sl t-green" x="22" y="140">fix: read primary for</text>
+      <text class="lbl-sl t-green" x="22" y="154">a few s after a write</text>
+      <path class="arrow" d="M192,62 L248,48" marker-end="url(#arr)"/>
+      <path class="arrow-pink" d="M192,92 C320,190 420,170 498,140" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="360" y="192">Replicas scale reads only. Checkout, redeem and "my data right after a change" read the primary.</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Partition vs shard</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Partitioning splits a table inside one database; sharding splits data across databases">
+      <rect class="box" x="10" y="20" width="330" height="150" rx="12"/>
+      <text class="lbl" x="175" y="42">Partition: ONE database</text>
+      <rect class="box box-blue" x="30" y="56" width="90" height="40" rx="6"/><text class="lbl-s" x="75" y="80">orders_08</text>
+      <rect class="box box-blue" x="130" y="56" width="90" height="40" rx="6"/><text class="lbl-s" x="175" y="80">orders_09</text>
+      <rect class="box box-green" x="230" y="56" width="90" height="40" rx="6"/><text class="lbl-s" x="275" y="80">orders_10 hot</text>
+      <text class="lbl-s t-green" x="175" y="120">✓ joins + transactions still work</text>
+      <text class="lbl-s t-green" x="175" y="138">✓ drop old month instantly</text>
+      <text class="lbl-s t-pink" x="175" y="156">✗ key must be in every PK/unique</text>
+      <rect class="box" x="380" y="20" width="330" height="150" rx="12"/>
+      <text class="lbl" x="545" y="42">Shard: MANY databases</text>
+      <rect class="box box-yellow" x="400" y="56" width="90" height="40" rx="6"/><text class="lbl-s" x="445" y="80">stores 0..</text>
+      <rect class="box box-yellow" x="500" y="56" width="90" height="40" rx="6"/><text class="lbl-s" x="545" y="80">stores 1..</text>
+      <rect class="box box-yellow" x="600" y="56" width="90" height="40" rx="6"/><text class="lbl-s" x="645" y="80">stores 2..</text>
+      <text class="lbl-s t-green" x="545" y="120">✓ scales writes and size</text>
+      <text class="lbl-s t-pink" x="545" y="138">✗ no cross-shard joins / transactions</text>
+      <text class="lbl-s t-pink" x="545" y="156">✗ shard key choice is forever-ish</text>
+      <text class="lbl-s" x="360" y="198">Partition first. Shard by the key most queries filter on (tenant, store), never by time.</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>8 · RPO and RTO</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 130" role="img" aria-label="Timeline: last backup, disaster, service restored; RPO is data lost, RTO is time down">
+      <line x1="20" y1="70" x2="700" y2="70" class="arrow-dash"/>
+      <circle cx="140" cy="70" r="8" class="box box-green"/><text class="lbl-s" x="140" y="100">last good copy</text>
+      <circle cx="380" cy="70" r="10" class="box box-pink"/><text class="lbl-s" x="380" y="100">disaster</text>
+      <circle cx="620" cy="70" r="8" class="box box-green"/><text class="lbl-s" x="620" y="100">back online</text>
+      <path class="arrow-pink" d="M150,40 L368,40" marker-end="url(#arrp)" marker-start="url(#arrp)"/><text class="lbl t-pink" x="260" y="30">RPO: data lost</text>
+      <path class="arrow" d="M392,40 L610,40" marker-end="url(#arr)" marker-start="url(#arr)"/><text class="lbl" x="500" y="30">RTO: time down</text>
+      <text class="lbl-s" x="360" y="124">WAL archiving → RPO of seconds. Standby + auto failover → RTO of a minute. A replica is NOT a backup.</text>
+    </svg></div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">Isolation levels in Postgres</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Problem</th><th>READ COMMITTED</th><th>REPEATABLE READ</th><th>SERIALIZABLE</th></tr>
+    <tr><td>Dirty read</td><td>no</td><td>no</td><td>no</td></tr>
+    <tr><td>Non-repeatable read</td><td class="val">possible</td><td>no</td><td>no</td></tr>
+    <tr><td>Phantom</td><td class="val">possible</td><td>no (in Postgres)</td><td>no</td></tr>
+    <tr><td>Lost update (app read-modify-write)</td><td class="val">possible</td><td>error 40001 → retry</td><td>error 40001 → retry</td></tr>
+    <tr><td>Write skew</td><td class="val">possible</td><td class="val">possible</td><td>error 40001 → retry</td></tr>
+  </table></div>
+  <h2 class="block">Locking tools</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Tool</th><th>Waits?</th><th>Fails?</th><th>Best for</th></tr>
+    <tr><td class="val">Atomic UPDATE … WHERE</td><td>briefly</td><td>0 rows</td><td class="why">counters, balances, stock</td></tr>
+    <tr><td class="val">UNIQUE + ON CONFLICT</td><td>no</td><td>conflict handled</td><td class="why">exactly-once events</td></tr>
+    <tr><td class="val">Optimistic version</td><td>no</td><td>0 rows → reload</td><td class="why">human edits, low conflict</td></tr>
+    <tr><td class="val">SELECT … FOR UPDATE</td><td>yes</td><td>deadlock possible</td><td class="why">hot row, read-then-decide</td></tr>
+    <tr><td class="val">SERIALIZABLE</td><td>no</td><td>40001 → retry</td><td class="why">rules across many rows</td></tr>
+    <tr><td class="val">Advisory lock</td><td>yes</td><td>no</td><td class="why">"only one worker runs this job"</td></tr>
+  </table></div>
+  <h2 class="block">Backups</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Type</th><th>RPO</th><th>Notes</th></tr>
+    <tr><td class="val">pg_dump</td><td>hours</td><td class="why">Portable, slow restore on big data</td></tr>
+    <tr><td class="val">Base backup + WAL archive</td><td>seconds–minutes</td><td class="why">Point-in-time recovery: "restore to 14:03:59, before the bad DELETE". pgBackRest, WAL-G, managed</td></tr>
+    <tr><td class="val">Streaming replica</td><td>~0</td><td class="why">Protects against a dead machine, NOT against a bad DELETE</td></tr>
+  </table></div>
+  <h2 class="block">Monitor these</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Signal</th><th>Why</th></tr>
+    <tr><td class="val">pg_stat_statements total time</td><td class="why">where the time goes</td></tr>
+    <tr><td class="val">connections, PgBouncer waiting clients</td><td class="why">the first cliff</td></tr>
+    <tr><td class="val">replication lag</td><td class="why">stale reads, failover data loss</td></tr>
+    <tr><td class="val">idle in transaction / long transactions</td><td class="why">block VACUUM, hold locks</td></tr>
+    <tr><td class="val">dead tuples, age(datfrozenxid)</td><td class="why">bloat, wraparound</td></tr>
+    <tr><td class="val">disk + WAL size</td><td class="why">a full disk stops everything</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every scaling step buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Part of the Study Route database track · read with the note "Scaling a database and keeping data correct"</footer>
+
+<script>
+window.SHEET = {
+  key: "db-scaling",
+  concepts: [
+    { t: "Lost update", d: "Two requests read the same value, both write back. One change disappears. Fix: atomic <code>SET x = x + 1</code>, or lock, or version check." },
+    { t: "Check then act (TOCTOU)", d: "Both check 'already processed?', both see no, both act. Your TADA double refund. Fix: UNIQUE + ON CONFLICT, or FOR UPDATE." },
+    { t: "Write skew", d: "Two transactions each change a different row, together breaking a rule. REPEATABLE READ does not catch it; SERIALIZABLE does (retry on 40001)." },
+    { t: "Atomic update", d: "Put the rule in the WHERE: <code>SET balance = balance - 50 WHERE balance >= 50 RETURNING</code>. Zero rows = rule failed. No race possible." },
+    { t: "Optimistic locking", d: "Version column. <code>UPDATE … WHERE id = 7 AND version = 3</code>. Zero rows = someone saved first; reload. No locks held while a human edits." },
+    { t: "Pessimistic locking", d: "<code>SELECT … FOR UPDATE</code>, then decide, then write, short transaction. Others wait. Lock in a consistent order to avoid deadlocks." },
+    { t: "Retry on 40001", d: "REPEATABLE READ and SERIALIZABLE fail instead of waiting. The whole transaction must be retried, so it must be safe to run again." },
+    { t: "No network calls in a transaction", d: "Locks and connections are held during a slow call, and the outcome can disagree with your commit. Commit first, then call (outbox)." },
+    { t: "Transactional outbox", d: "Write the business change and an outbox row in one transaction. A relay sends it later. At-least-once, so the receiver must be idempotent." },
+    { t: "Exactly-once = at-least-once + idempotency", d: "Networks cannot promise exactly-once delivery. Make the consumer safe to run twice: unique event id, guarded state changes." },
+    { t: "Scaling ladder", d: "Measure → queries/indexes → pooling → cache → replicas → bigger box → partition → shard. Measure after every step." },
+    { t: "PgBouncer transaction mode", d: "A real connection is lent per transaction, so 80 app connections share ~20 real ones. Breaks session SET, LISTEN, session advisory locks." },
+    { t: "Cache-aside", d: "Read cache → miss → read DB → fill cache with TTL. On update: write DB, then DELETE the key (do not SET it)." },
+    { t: "Cache stampede", d: "Hot key expires, 1,000 requests hit the DB at once. Fix: single-flight lock, TTL jitter, serve stale while one request refreshes." },
+    { t: "Do not cache decisions", d: "Balance at redeem time, stock at checkout: read from the DB inside the transaction. Cache what can be a few seconds old." },
+    { t: "Read replica", d: "Replays the primary's WAL, usually ms behind, sometimes seconds. Scales reads only. Good for reports, history, exports." },
+    { t: "Read your own writes", d: "After a user writes, their next read may hit a lagging replica. Read the primary for that user for a few seconds, or wait for the WAL position." },
+    { t: "Partitioning", d: "Split one table by range/list/hash inside one DB. Pruning reads fewer pages; dropping old months is instant. Key must be in every PK." },
+    { t: "Sharding", d: "Split data across databases by a shard key. Scales writes and size. Lose cross-shard joins, transactions and global unique constraints." },
+    { t: "Shard key", d: "The key most queries filter by, high cardinality, no giant single value: tenant or store. Never time (all writes hit one shard)." },
+    { t: "Logical shards", d: "Many logical shards on few machines (Notion: 480 on 32). Rebalance by moving whole logical shards, not re-hashing rows." },
+    { t: "Strong vs eventual", d: "One primary = strong. Replicas, caches, search = eventual. Decide per screen which reads must be fresh." },
+    { t: "RPO / RTO", d: "RPO = how much data you can lose. RTO = how long you can be down. The business sets them; your backup and HA design meets them." },
+    { t: "PITR", d: "Base backup + archived WAL lets you restore to any second, e.g. just before a bad DELETE. A replica cannot do this." },
+    { t: "Failover and split brain", d: "Standby promoted automatically (Patroni, RDS Multi-AZ). A consensus store ensures one primary. Apps must reconnect and retry." }
+  ],
+  decisions: [
+    { q: "Optimistic vs pessimistic locking", a: "Optimistic when", at: "Conflicts are rare, retry is cheap, a human is thinking between read and write (CMS edit).", b: "Pessimistic when", bt: "A hot row is fought over and a retry is expensive or visible to users (redeem, stock).", v: "Optimistic holds no locks but users may see 'reload'. Pessimistic is predictable but can deadlock; lock in a consistent order and keep it short." },
+    { q: "FOR UPDATE vs SERIALIZABLE", a: "FOR UPDATE when", at: "You know exactly which row to protect.", b: "SERIALIZABLE when", bt: "The rule spans many rows and you cannot easily say which to lock.", v: "Targeted locks first; SERIALIZABLE with a retry wrapper when the invariant is set-based." },
+    { q: "Cache vs read replica", a: "Cache when", at: "The same small data is read again and again (catalog, config). Sub-millisecond.", b: "Replica when", bt: "Heavy, varied queries (reports, history, exports) that need SQL.", v: "Both are eventually consistent. Cache adds invalidation work; replicas add lag handling." },
+    { q: "Bigger machine vs read replicas", a: "Bigger box when", at: "Quick relief, writes are the bottleneck, or the working set no longer fits in RAM.", b: "Replicas when", bt: "Reads dominate and can be a little stale.", v: "Vertical scaling is underrated: one big Postgres goes very far. It buys time to fix queries." },
+    { q: "Partitioning vs sharding", a: "Partition when", at: "One huge table, time-based access, old data to drop. Still one DB.", b: "Shard when", bt: "One primary cannot take the write load or the total size.", v: "Partition first; shard last, by tenant. Most products never need sharding." },
+    { q: "Outbox vs calling the API in the request", a: "Call in the request when", at: "Read-only calls, or the user must see the result now and you handle timeouts carefully.", b: "Outbox when", bt: "The call changes state elsewhere (redeem, payment, email) and must happen exactly when your commit happens.", v: "For state-changing calls: commit + outbox + idempotency key. Never hold a DB transaction open across the call." },
+    { q: "Sync vs async replication", a: "Synchronous when", at: "Zero data loss on failover matters (payments).", b: "Asynchronous when", bt: "Lower write latency matters and losing a moment of data on failover is acceptable.", v: "Common: one synchronous standby nearby for safety, async replicas elsewhere for reads." }
+  ],
+  cases: [
+    { topic: "Your own system", b: "DBO: TADA double refund", p: "Check-then-act race on duplicate webhooks. Fixed with FOR UPDATE, then layered: unique event id + ON CONFLICT DO NOTHING + append-only ledger. Next step: outbox for outgoing TADA calls." },
+    { topic: "Sharding by tenant", b: "Notion (2021)", p: "Split one Postgres into 480 logical shards on 32 physical databases, keyed by workspace id, using double writes and a verified migration." },
+    { topic: "Scaling in place", b: "Figma (2024)", p: "Read replicas, caching, a dozen vertically partitioned databases, then horizontal sharding of Postgres with a custom query proxy, instead of moving to NoSQL." },
+    { topic: "Idempotency", b: "Stripe", p: "Every mutating API request accepts an Idempotency-Key; the same key returns the same result. The pattern behind 'exactly-once = at-least-once + idempotency'." },
+    { topic: "Bad DELETE, real backups", b: "GitLab (2017)", p: "An engineer deleted the production database directory; several backup methods turned out not to work. Lesson: a backup is only real once you restore it in a drill." }
+  ],
+  hooks: [
+    { b: "Two people, one whiteboard", p: "Both read 100, both erase and write their answer. The last one wins, the other change is lost. Atomic update = the database does the math, not the people." },
+    { b: "Ticket counter number", p: "UNIQUE event id is a numbered ticket: the second person with the same number is turned away at the door." },
+    { b: "Write the letter, post it later", p: "Outbox: put the letter in the outbox tray in the same moment you file the paperwork. The postman takes it later. Never stand at the counter holding the files while you phone someone." },
+    { b: "Ladder, not elevator", p: "Scale one rung at a time and look down after each: did it help?" },
+    { b: "A replica is a mirror", p: "A mirror copies your mistakes instantly. A backup is a photo from before the mistake." },
+    { b: "Shard by who, not when", p: "Shard by tenant or store (who), never by time (when), or every new write lands on the same shard." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

@@ -182,5 +182,49 @@
  "learn/javascript/visuals/11-event-loop.html": [
   "Event loop stepper",
   "Press Next and watch the call stack and both queues change. Three programs."
+ ],
+ "learn/database/database-design-and-why-cheatsheet.html": [
+  "Database Design",
+  "Six design steps, normalization, keys, ledger, tenancy, zero downtime changes"
+ ],
+ "learn/database/advanced-sql-workbook-cheatsheet.html": [
+  "SQL Patterns",
+  "16 patterns with before and after tables, window functions, pattern spotter quiz"
+ ],
+ "learn/database/postgres-internals-visual-cheatsheet.html": [
+  "Postgres Internals",
+  "Pages, B+tree, MVCC, WAL, planner, joins, locks, with numbers"
+ ],
+ "learn/database/database-scaling-and-correctness-cheatsheet.html": [
+  "Scaling and Correctness",
+  "Races and locks, outbox, scaling ladder, replicas, partition vs shard, backups"
+ ],
+ "learn/database/senior-database-interview-questions-cheatsheet.html": [
+  "Database Interview Drill",
+  "47 flashcards: say it out loud, open the card, mark got it or not yet"
+ ],
+ "learn/database/database-design-and-why.md": [
+  "Database design: how to model it, and why",
+  "Normalization, keys, constraints, ledger pattern, multi-tenancy, SQL or NoSQL"
+ ],
+ "learn/database/advanced-sql-workbook.md": [
+  "Advanced SQL workbook: 19 queries",
+  "Window functions to SKIP LOCKED, with a practice database and tested answers"
+ ],
+ "learn/database/postgres-internals-visual.md": [
+  "How Postgres works inside",
+  "B+tree, MVCC, WAL, planner, join algorithms, locks"
+ ],
+ "learn/database/database-scaling-and-correctness.md": [
+  "Scaling a database and keeping data correct",
+  "Locking tools, outbox, scaling ladder, backups and failover"
+ ],
+ "learn/database/senior-database-interview-questions.md": [
+  "Senior database interview questions",
+  "47 questions: problem, how it works, tradeoff, my example"
+ ],
+ "learn/database/examples/sql-workbook": [
+  "SQL workbook practice database",
+  "Seed data, answers to 19 exercises and a 1M row EXPLAIN demo"
  ]
 }

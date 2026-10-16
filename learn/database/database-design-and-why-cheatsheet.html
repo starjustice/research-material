@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database Design Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>DATABASE DESIGN CHEATSHEET</h1>
+  <p class="sub">Things → relationships → keys → rules → reads → change. And the why behind each.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="types" type="button">🧱 Types &amp; rules</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Look first, then cover the picture and redraw it on paper in under a minute.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The six design steps</h3>
+    <p class="lead">Say them out loud at the start of any "design the tables" question. They buy you thinking time and show a method.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 120" role="img" aria-label="Six steps: things, relationships, keys, rules, reads, change">
+      <g>
+        <rect class="box box-blue" x="6" y="30" width="104" height="58" rx="10"/><text class="lbl" x="58" y="55">1 Things</text><text class="lbl-s" x="58" y="73">nouns in story</text>
+        <rect class="box box-blue" x="126" y="30" width="104" height="58" rx="10"/><text class="lbl" x="178" y="55">2 Relations</text><text class="lbl-s" x="178" y="73">1:1 · 1:N · N:M</text>
+        <rect class="box box-blue" x="246" y="30" width="104" height="58" rx="10"/><text class="lbl" x="298" y="55">3 Keys</text><text class="lbl-s" x="298" y="73">PK + UNIQUE</text>
+        <rect class="box box-yellow" x="366" y="30" width="104" height="58" rx="10"/><text class="lbl" x="418" y="55">4 Rules</text><text class="lbl-s" x="418" y="73">CHECK, FK</text>
+        <rect class="box box-green" x="486" y="30" width="104" height="58" rx="10"/><text class="lbl" x="538" y="55">5 Reads</text><text class="lbl-s" x="538" y="73">queries → index</text>
+        <rect class="box box-violet" x="606" y="30" width="108" height="58" rx="10"/><text class="lbl" x="660" y="55">6 Change</text><text class="lbl-s" x="660" y="73">grow + migrate</text>
+        <path class="arrow" d="M110,59 L124,59" marker-end="url(#arr)"/><path class="arrow" d="M230,59 L244,59" marker-end="url(#arr)"/><path class="arrow" d="M350,59 L364,59" marker-end="url(#arr)"/><path class="arrow" d="M470,59 L484,59" marker-end="url(#arr)"/><path class="arrow" d="M590,59 L604,59" marker-end="url(#arr)"/>
+      </g>
+      <text class="lbl-s" x="360" y="112">"Tables from the nouns, indexes from the screens."</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Normalization: one bad table becomes four good ones</h3>
+    <p class="lead">Each fact lives in one place. The foreign key always sits on the "many" side.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 300" role="img" aria-label="A wide orders table with repeated store data split into store, orders, order_item and product">
+      <rect class="box box-pink" x="10" y="20" width="230" height="170" rx="10"/>
+      <text class="lbl" x="125" y="42">orders (bad)</text>
+      <text class="lbl-ml" x="24" y="68">order_id</text>
+      <text class="lbl-ml" x="24" y="88">store_name   ← repeated</text>
+      <text class="lbl-ml" x="24" y="108">store_phone  ← repeated</text>
+      <text class="lbl-ml" x="24" y="128">products "Semen x10,</text>
+      <text class="lbl-ml" x="24" y="144">          Cat x2" ← list</text>
+      <text class="lbl-ml" x="24" y="168">total</text>
+      <text class="lbl-sl t-pink" x="14" y="212">✗ update: phone changes in 300 rows</text>
+      <text class="lbl-sl t-pink" x="14" y="230">✗ insert: no store without an order</text>
+      <text class="lbl-sl t-pink" x="14" y="248">✗ delete: last order takes the phone</text>
+      <text class="lbl-sl t-pink" x="14" y="266">✗ list in a cell: cannot index or sum</text>
+      <path class="arrow-green" d="M250,105 L300,105" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="275" y="96">1NF→3NF</text>
+
+      <rect class="box box-blue" x="310" y="20" width="150" height="80" rx="10"/>
+      <text class="lbl" x="385" y="42">store</text>
+      <text class="lbl-m" x="385" y="64">id PK</text>
+      <text class="lbl-m" x="385" y="82">name, phone UNIQUE</text>
+
+      <rect class="box box-blue" x="310" y="150" width="150" height="100" rx="10"/>
+      <text class="lbl" x="385" y="172">orders</text>
+      <text class="lbl-m" x="385" y="194">id PK</text>
+      <text class="lbl-m" x="385" y="212">store_id FK</text>
+      <text class="lbl-m" x="385" y="230">status, total</text>
+
+      <rect class="box box-green" x="530" y="150" width="180" height="100" rx="10"/>
+      <text class="lbl" x="620" y="172">order_item</text>
+      <text class="lbl-m" x="620" y="194">order_id FK, product_id FK</text>
+      <text class="lbl-m" x="620" y="212">qty</text>
+      <text class="lbl-m" x="620" y="230">unit_price ← history!</text>
+
+      <rect class="box box-blue" x="530" y="20" width="180" height="80" rx="10"/>
+      <text class="lbl" x="620" y="42">product</text>
+      <text class="lbl-m" x="620" y="64">id PK, sku UNIQUE</text>
+      <text class="lbl-m" x="620" y="82">name, price (current)</text>
+
+      <path class="arrow" d="M385,148 L385,102" marker-end="url(#arr)"/>
+      <text class="lbl-sl" x="392" y="128">many → one</text>
+      <path class="arrow" d="M528,200 L462,200" marker-end="url(#arr)"/>
+      <path class="arrow" d="M620,148 L620,102" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="510" y="285">Arrows point from the FK (many side) to the row it references (one side).</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Every non-key column depends on the key, the whole key, and nothing but the key. And <code>unit_price</code> on the order line is not duplication: it is the price at order time, a different fact from today's price."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Ledger: never just overwrite a balance</h3>
+    <p class="lead">Every change is a new row with a reason and a source. The balance is the sum. A unique source key makes duplicates impossible.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 250" role="img" aria-label="Point ledger rows summed into a balance, a duplicate webhook row rejected by a unique key">
+      <rect class="box" x="10" y="14" width="430" height="190" rx="10"/>
+      <text class="lbl" x="225" y="36">point_ledger (append-only)</text>
+      <text class="lbl-ml" x="26" y="62">+500  EARN     order 77</text>
+      <text class="lbl-ml" x="26" y="86">−200  REDEEM   reward 9</text>
+      <text class="lbl-ml" x="26" y="110">+200  REFUND   tada evt_91</text>
+      <text class="lbl-ml t-pink" x="26" y="134">+200  REFUND   tada evt_91  (duplicate)</text>
+      <line class="strike" x1="22" y1="130" x2="282" y2="130"/>
+      <text class="lbl-sl t-pink" x="292" y="134">← UNIQUE blocks it</text>
+      <text class="lbl-ml" x="26" y="158">−20   ADJUST   admin fix #12</text>
+      <text class="lbl-sl" x="26" y="188">mistakes are fixed with a new row, never UPDATE / DELETE</text>
+      <path class="arrow-green" d="M445,100 L520,100" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="482" y="90">SUM(delta)</text>
+      <rect class="box box-green" x="525" y="60" width="185" height="80" rx="10"/>
+      <text class="lbl" x="617" y="88">balance = 480</text>
+      <text class="lbl-s" x="617" y="108">cached on store, updated</text>
+      <text class="lbl-s" x="617" y="124">in the SAME transaction</text>
+      <text class="lbl-s" x="360" y="232">UNIQUE (reason, source_type, source_id) = the database-level fix for the TADA double refund.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "For anything that moves value I keep an append-only ledger. The balance is a cache of the sum, so I can always explain and rebuild it, and the unique source key means a retried event can never post twice."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Why random UUIDs hurt a B-tree, and v7 does not</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Random UUIDv4 inserts land on random leaf pages, UUIDv7 and bigint inserts land on the rightmost leaf">
+      <text class="lbl" x="180" y="18">UUIDv4 (random)</text>
+      <rect class="box" x="140" y="30" width="80" height="30" rx="6"/><text class="lbl-s" x="180" y="50">root</text>
+      <rect class="box box-pink" x="20" y="110" width="60" height="30" rx="6"/><rect class="box box-pink" x="95" y="110" width="60" height="30" rx="6"/><rect class="box box-pink" x="170" y="110" width="60" height="30" rx="6"/><rect class="box box-pink" x="245" y="110" width="60" height="30" rx="6"/><rect class="box" x="320" y="110" width="40" height="30" rx="6"/>
+      <path class="arrow-pink" d="M50,170 L50,142" marker-end="url(#arrp)"/><path class="arrow-pink" d="M200,170 L200,142" marker-end="url(#arrp)"/><path class="arrow-pink" d="M125,170 L125,142" marker-end="url(#arrp)"/><path class="arrow-pink" d="M275,170 L275,142" marker-end="url(#arrp)"/>
+      <text class="lbl-s t-pink" x="180" y="190">inserts hit random leaves:</text>
+      <text class="lbl-s t-pink" x="180" y="206">more pages in memory, more splits, more WAL</text>
+      <text class="lbl" x="540" y="18">bigint / UUIDv7 (time ordered)</text>
+      <rect class="box" x="500" y="30" width="80" height="30" rx="6"/><text class="lbl-s" x="540" y="50">root</text>
+      <rect class="box" x="400" y="110" width="60" height="30" rx="6"/><rect class="box" x="475" y="110" width="60" height="30" rx="6"/><rect class="box" x="550" y="110" width="60" height="30" rx="6"/><rect class="box box-green" x="625" y="110" width="80" height="30" rx="6"/>
+      <path class="arrow-green" d="M665,170 L665,142" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="555" y="190">every insert goes to the right edge:</text>
+      <text class="lbl-s t-green" x="555" y="206">one hot page, stays in cache</text>
+      <path class="arrow-dash" d="M170,60 L60,108"/><path class="arrow-dash" d="M190,60 L280,108"/><path class="arrow-dash" d="M530,60 L430,108"/><path class="arrow-dash" d="M560,60 L660,108"/>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Internal tables get bigint identity. IDs exposed to the outside get UUIDv7: not guessable, still time ordered so inserts stay at the right edge of the index. PostgreSQL 18 has <code>uuidv7()</code> built in."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Expand and contract: change a column with zero downtime</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 150" role="img" aria-label="Five steps: expand, dual write, backfill, switch reads, contract">
+      <rect class="box box-blue" x="6" y="30" width="128" height="62" rx="10"/><text class="lbl" x="70" y="55">1 Expand</text><text class="lbl-s" x="70" y="73">add new column</text><text class="lbl-s" x="70" y="87">nullable</text>
+      <rect class="box box-blue" x="152" y="30" width="128" height="62" rx="10"/><text class="lbl" x="216" y="55">2 Dual write</text><text class="lbl-s" x="216" y="73">app writes</text><text class="lbl-s" x="216" y="87">old + new</text>
+      <rect class="box box-yellow" x="298" y="30" width="128" height="62" rx="10"/><text class="lbl" x="362" y="55">3 Backfill</text><text class="lbl-s" x="362" y="73">old rows, in</text><text class="lbl-s" x="362" y="87">small batches</text>
+      <rect class="box box-green" x="444" y="30" width="128" height="62" rx="10"/><text class="lbl" x="508" y="55">4 Switch reads</text><text class="lbl-s" x="508" y="73">app reads new</text><text class="lbl-s" x="508" y="87">column</text>
+      <rect class="box box-violet" x="590" y="30" width="124" height="62" rx="10"/><text class="lbl" x="652" y="55">5 Contract</text><text class="lbl-s" x="652" y="73">stop old writes,</text><text class="lbl-s" x="652" y="87">drop old column</text>
+      <path class="arrow" d="M134,61 L150,61" marker-end="url(#arr)"/><path class="arrow" d="M280,61 L296,61" marker-end="url(#arr)"/><path class="arrow" d="M426,61 L442,61" marker-end="url(#arr)"/><path class="arrow" d="M572,61 L588,61" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="122">Each step is one deploy. Old and new app versions both work at every moment.</text>
+      <text class="lbl-s" x="360" y="140">Also: CREATE INDEX CONCURRENTLY · CHECK … NOT VALID then VALIDATE · SET lock_timeout</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Multi-tenancy: three levels of isolation</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 150" role="img" aria-label="Shared tables with tenant_id, schema per tenant, database per tenant">
+      <rect class="box box-green" x="10" y="20" width="210" height="80" rx="10"/><text class="lbl" x="115" y="44">Shared tables + tenant_id</text><text class="lbl-s" x="115" y="64">+ Row Level Security</text><text class="lbl-s" x="115" y="82">cheapest · default</text>
+      <rect class="box box-yellow" x="255" y="20" width="210" height="80" rx="10"/><text class="lbl" x="360" y="44">Schema per tenant</text><text class="lbl-s" x="360" y="64">same DB, separate tables</text><text class="lbl-s" x="360" y="82">migrations × N</text>
+      <rect class="box box-pink" x="500" y="20" width="210" height="80" rx="10"/><text class="lbl" x="605" y="44">Database per tenant</text><text class="lbl-s" x="605" y="64">strongest isolation</text><text class="lbl-s" x="605" y="82">most cost and ops</text>
+      <path class="arrow-dash" d="M20,125 L700,125" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="145">more isolation, more cost → move only the big or regulated customers right</text>
+    </svg></div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Read a card, close your eyes, explain it out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="types">
+  <p class="hint">Types and rules that prevent real incidents.</p>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Data</th><th>Use</th><th>Never</th><th>Why</th></tr>
+    <tr><td>Money</td><td class="val">numeric(14,2) or bigint minor units</td><td>float, real, double</td><td class="why">Floats cannot store 0.1 exactly. Sums drift and reports stop matching.</td></tr>
+    <tr><td>Event time</td><td class="val">timestamptz</td><td>timestamp (no zone)</td><td class="why">timestamptz is an exact moment, stored as UTC. Plain timestamp is a wall-clock reading that servers in different zones read differently.</td></tr>
+    <tr><td>Text</td><td class="val">text (+ CHECK length)</td><td>char(n)</td><td class="why">text and varchar perform the same in Postgres. char(n) pads with spaces.</td></tr>
+    <tr><td>Fixed values</td><td class="val">CHECK (x IN (…)) or lookup table</td><td>free text</td><td class="why">A typo like 'PIAD' becomes impossible. Lookup table when admins manage the list.</td></tr>
+    <tr><td>Flexible data</td><td class="val">jsonb + GIN</td><td>json, or EAV tables</td><td class="why">jsonb is binary, indexable, deduplicates keys. Promote hot keys to columns.</td></tr>
+    <tr><td>Primary key</td><td class="val">bigint identity / uuidv7</td><td>random uuid v4 on huge tables</td><td class="why">Random keys scatter inserts over the whole index.</td></tr>
+  </table></div>
+  <h2 class="block">Constraints = the last guard</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Constraint</th><th>Guarantees</th><th>DBO example</th></tr>
+    <tr><td class="val">NOT NULL</td><td>Always present</td><td class="why">orders.store_id</td></tr>
+    <tr><td class="val">UNIQUE</td><td>No duplicates, even with two requests at the same moment</td><td class="why">webhook_event (provider, event_id)</td></tr>
+    <tr><td class="val">CHECK</td><td>Allowed values and ranges</td><td class="why">qty &gt; 0 · delta &lt;&gt; 0 · status IN (…)</td></tr>
+    <tr><td class="val">FOREIGN KEY</td><td>Parent exists. Index the FK column yourself!</td><td class="why">order_item.order_id → orders.id</td></tr>
+    <tr><td class="val">EXCLUDE</td><td>No overlapping rows</td><td class="why">no double booking of one time slot</td></tr>
+    <tr><td class="val">Partial UNIQUE</td><td>Unique among live rows only</td><td class="why">sku UNIQUE WHERE deleted_at IS NULL</td></tr>
+  </table></div>
+  <h2 class="block">Normal forms in one line each</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Form</th><th>Rule</th><th>Ask yourself</th></tr>
+    <tr><td class="val">1NF</td><td>One value per cell. No lists, no product1/product2 columns.</td><td class="why">"Is this cell secretly a list?"</td></tr>
+    <tr><td class="val">2NF</td><td>With a composite key, columns need the whole key.</td><td class="why">"Does this column only need half the key?"</td></tr>
+    <tr><td class="val">3NF</td><td>No column depends on another non-key column.</td><td class="why">"If I know X, do I already know Y?"</td></tr>
+    <tr><td class="val">BCNF</td><td>Stricter 3NF for overlapping keys. Rarely asked.</td><td class="why">"3NF is the practical target."</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every design answer is a choice between two costs. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Part of the Study Route database track · read with the note "Database design: how to model it, and how to explain why"</footer>
+
+<script>
+window.SHEET = {
+  key: "db-design",
+  concepts: [
+    { t: "The six steps", d: "Things → relationships → keys → rules → reads → change. Say them at the start of any design question; they give you a method and time to think." },
+    { t: "Normalization", d: "Each fact is stored once, so copies can never disagree. Fixes the update, insert and delete problems of a wide table. Target 3NF." },
+    { t: "History is not duplication", d: "<code>order_item.unit_price</code> is the price at order time, a different fact from <code>product.price</code> today. Same for the shipping address on an order." },
+    { t: "Denormalize on purpose", d: "Only after indexes and EXPLAIN fail. Copy one field (a counter, a cached balance) and write down the rule that keeps it in sync, ideally in the same transaction." },
+    { t: "FK lives on the many side", d: "One store, many orders → <code>orders.store_id</code>. Many to many → a junction table that often carries its own facts (qty, price)." },
+    { t: "Index your foreign keys", d: "Postgres indexes the primary key, not the referencing column. Without an index on <code>order_item.order_id</code>, joins and parent deletes scan the whole child table." },
+    { t: "Surrogate PK + natural UNIQUE", d: "A stable meaningless id as the primary key, plus UNIQUE on the real-world value (phone, sku) so duplicates are still blocked." },
+    { t: "bigint vs UUIDv4 vs UUIDv7", d: "bigint: smallest, ordered, guessable. v4: random, scatters B-tree inserts. v7: time ordered, not guessable, 16 bytes. PG18 has <code>uuidv7()</code>." },
+    { t: "Constraints are the last guard", d: "App checks race with each other; the database does not. UNIQUE, CHECK, FK and NOT NULL hold for every writer, every script, every future developer." },
+    { t: "Money and time", d: "Money: <code>numeric</code> or integer minor units, never float. Time: <code>timestamptz</code>, which stores an exact moment in UTC." },
+    { t: "Append-only ledger", d: "Value changes (points, balance, stock) are rows with reason and source. Balance = SUM, optionally cached. Fix mistakes with a correcting row, never UPDATE." },
+    { t: "Soft delete", d: "<code>deleted_at</code> keeps references valid and allows undo. Cost: every query must filter it, unique needs a partial index, and personal data may legally need a hard delete." },
+    { t: "Status as a state machine", d: "CHECK the allowed values, and move state with a guarded update: <code>WHERE id = $1 AND status = 'PAID'</code>. Zero rows back means someone else already moved it." },
+    { t: "Multi-tenancy", d: "Default: shared tables + <code>tenant_id</code> leading every index + Row Level Security as a safety net. Schema or database per tenant only for customers who need it." },
+    { t: "Avoid polymorphic 'any table' FK", d: "<code>target_type + target_id</code> cannot have a foreign key, so orphans appear. Use one nullable FK per target with <code>CHECK (num_nonnulls(a, b) = 1)</code>." },
+    { t: "JSONB rule", d: "Columns for what you query, validate or join. JSONB for what you only store (raw webhook bodies, settings). Promote a hot key to a column later." },
+    { t: "Design from access patterns", d: "List the top 3–5 screens and jobs before finishing tables. Each one names its index, e.g. order history → <code>(store_id, created_at DESC)</code>." },
+    { t: "Expand and contract", d: "Add new → dual write → backfill in batches → switch reads → drop old. Every step keeps old and new app versions working." },
+    { t: "Idempotency key table", d: "Store a key per retried request. <code>INSERT … ON CONFLICT DO NOTHING RETURNING</code>: nothing returned means already handled, send the saved response." },
+    { t: "SQL vs NoSQL", d: "Postgres by default for relational data with transactions. Add Redis, a search engine or an analytics store when an access pattern clearly needs it; Postgres stays the source of truth." }
+  ],
+  decisions: [
+    { q: "Normalize vs denormalize", a: "Stay normalized when", at: "Writes matter, data must stay correct, and indexed joins are fast enough (they usually are).", b: "Denormalize when", bt: "A measured hot read stays slow after indexes, and a matview or cache cannot serve it.", v: "Normalize by default; denormalize one field with a written sync rule. 'Joins are slow' without EXPLAIN is not a reason." },
+    { q: "bigint identity vs UUIDv7", a: "Pick bigint when", at: "Internal rows, maximum index speed and smallest size, ids made by one database.", b: "Pick UUIDv7 when", bt: "Ids appear in URLs or APIs, are created by clients or other services, or data merges across databases.", v: "Common combo: bigint PK inside, a <code>public_id uuid</code> UNIQUE outside. Avoid random v4 as the PK of big tables." },
+    { q: "Soft delete vs hard delete", a: "Soft delete when", at: "Old rows are still referenced (products in old orders) or undo and audit matter.", b: "Hard delete / anonymize when", bt: "Personal data must really disappear (privacy law), or the table bloats with dead rows.", v: "Soft delete business data, really delete or anonymize personal data, archive very old rows to keep hot tables small." },
+    { q: "Balance column vs ledger", a: "Balance column only when", at: "Nobody will ever ask 'why is it this number?' (rare for money or points).", b: "Ledger (+ cached balance) when", bt: "Value moves: points, wallet, stock. You need audit, rebuild and duplicate protection.", v: "Ledger is the truth, the balance column is a cache updated in the same transaction. If they disagree, rebuild from the ledger." },
+    { q: "CHECK vs ENUM type vs lookup table", a: "CHECK / ENUM when", at: "The set is small and changes only with code releases. CHECK is the easiest to alter.", b: "Lookup table when", bt: "Admins manage the values, or each value has extra data (label, color, order).", v: "CHECK is the safe default. Native ENUMs are hard to remove values from." },
+    { q: "Shared tenant tables vs database per tenant", a: "Shared + tenant_id when", at: "Many small customers, one team, simple ops. Add Row Level Security.", b: "Separate DB when", bt: "A few huge or regulated customers, noisy neighbor problems, data residency.", v: "Start shared, move the outliers. That is how Notion and Figma ended up sharding by workspace/tenant." },
+    { q: "Postgres vs a NoSQL store", a: "Postgres when", at: "Relations, transactions, money, reports, unknown future queries.", b: "NoSQL when", bt: "One very clear access pattern at huge scale (key-value, wide-column), or a specialized job (cache, search, analytics).", v: "Postgres first; add a specialized store per access pattern and keep Postgres as the source of truth." }
+  ],
+  cases: [
+    { topic: "Your own system", b: "DBO toko DB: points + TADA webhooks", p: "Duplicate webhook delivery caused double refunds. The design fix: append-only point ledger with <code>UNIQUE (reason, source_type, source_id)</code> plus a <code>webhook_event</code> table keyed by provider + event id." },
+    { topic: "Ledgers", b: "Banks and Stripe", p: "Double-entry, append-only ledgers: balances are derived, corrections are new entries. Stripe also uses idempotency keys so a retried request applies once." },
+    { topic: "Tenant sharding", b: "Notion", p: "Split one Postgres into many shards keyed by workspace id, then resharded live. Shared-schema with a tenant key made the split possible." },
+    { topic: "Ordered ids", b: "Instagram", p: "Generated time-ordered 64-bit ids inside Postgres so inserts stay ordered and ids sort by time: the same idea as UUIDv7 today." },
+    { topic: "Zero-downtime migrations", b: "GitLab", p: "Its public development docs require multi-step column renames and batched background migrations on large tables, so a schema change never stops the live app." }
+  ],
+  hooks: [
+    { b: "Key, whole key, nothing but the key", p: "1NF, 2NF and 3NF in one sentence." },
+    { b: "The mother does not list her children", p: "Each child writes down the mother. The foreign key lives on the many side." },
+    { b: "A receipt does not change", p: "The price on last month's receipt stays the same when the shop raises prices. That is why <code>unit_price</code> lives on the order line." },
+    { b: "Bank book, not a whiteboard", p: "A ledger is a bank book: every line stays forever and the balance is the sum. A balance column alone is a whiteboard anyone can wipe." },
+    { b: "App = friendly, DB = guarantee", p: "The app gives nice error messages. The database gives guarantees. You want both." },
+    { b: "Tables from nouns, indexes from screens", p: "Your one-line design method." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

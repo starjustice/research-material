@@ -61,16 +61,27 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 Longer guides that cover many concepts at once. Good for revision after the lessons.
 
 - [PostgreSQL queries and indexing guide](postgresql-queries-interview-guide.md)
+- [Database design: how to model it, and why](database-design-and-why.md) - six design steps, normalization in pictures, keys, constraints, the ledger pattern, multi-tenancy, zero downtime changes. Start here.
+- [Advanced SQL workbook: 19 queries](advanced-sql-workbook.md) - window functions, gaps and islands, dedupe, pivot, cohorts, recursion, upsert, SKIP LOCKED, keyset. Solve them yourself in the practice database.
+- [How Postgres works inside](postgres-internals-visual.md) - pages, the B+tree, MVCC, WAL, the planner, join algorithms, locks. Answers the gaps from the 2026-09-18 advanced round.
+- [Scaling a database and keeping data correct](database-scaling-and-correctness.md) - races and locking tools, the outbox, the scaling ladder, backups and failover.
+- [Senior database interview questions](senior-database-interview-questions.md) - 47 questions in four parts: problem, how it works, tradeoff, my example.
 
 ## Visual cheatsheets
 
 Open in the browser. Everything visible on one page.
 
 - [PostgreSQL visual cheatsheet](postgresql-queries-interview-guide-cheatsheet.html)
+- [Database design cheatsheet](database-design-and-why-cheatsheet.html)
+- [SQL patterns cheatsheet](advanced-sql-workbook-cheatsheet.html) - 16 patterns with before and after tables, plus a pattern spotter quiz
+- [Postgres internals cheatsheet](postgres-internals-visual-cheatsheet.html)
+- [Scaling and correctness cheatsheet](database-scaling-and-correctness-cheatsheet.html)
+- [Database interview drill](senior-database-interview-questions-cheatsheet.html) - flashcards for the 47 questions with got it / not yet
 
 ## Examples to run
 
 - [examples/postgres-practice/](examples/postgres-practice/) - Postgres in Docker with seed data and exercises
+- [examples/sql-workbook/](examples/sql-workbook/) - small DBO-style database, answers for the 19 workbook exercises, and a 1,000,000 row EXPLAIN demo
 
 ## Watch and play
 
@@ -80,3 +91,4 @@ Trusted places to see the ideas, not only read them. Each lesson adds its own ch
 - [explain.dalibo.com](https://explain.dalibo.com/) - paste EXPLAIN output and see the plan as a diagram
 - [SQLBolt](https://sqlbolt.com/) - interactive SQL lessons in the browser
 - [PostgreSQL docs](https://www.postgresql.org/docs/) - the official reference
+- [Study Route: Database, senior level](../../study.html#track-db) - the same notes with a step checklist and review dates

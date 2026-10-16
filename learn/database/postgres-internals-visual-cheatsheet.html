@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Postgres Internals Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>POSTGRES INTERNALS CHEATSHEET</h1>
+  <p class="sub">Pages · B+tree · MVCC · WAL · Planner · Joins · Locks</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Numbers</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">These seven pictures answer almost every "how does Postgres work" question. Redraw each in under a minute.</p>
+
+  <div class="diagram-card">
+    <h3>1 · The journey of one query</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 170" role="img" aria-label="Client to parser, planner, executor, shared buffers, disk; writes go to WAL first">
+      <rect class="box" x="6" y="40" width="88" height="50" rx="10"/><text class="lbl" x="50" y="62">Client</text><text class="lbl-s" x="50" y="78">SQL text</text>
+      <rect class="box box-blue" x="112" y="40" width="96" height="50" rx="10"/><text class="lbl" x="160" y="62">Parser</text><text class="lbl-s" x="160" y="78">text → tree</text>
+      <rect class="box box-yellow" x="226" y="40" width="110" height="50" rx="10"/><text class="lbl" x="281" y="62">Planner</text><text class="lbl-s" x="281" y="78">cheapest plan</text>
+      <rect class="box box-blue" x="354" y="40" width="106" height="50" rx="10"/><text class="lbl" x="407" y="62">Executor</text><text class="lbl-s" x="407" y="78">runs node by node</text>
+      <rect class="box box-green" x="478" y="40" width="112" height="50" rx="10"/><text class="lbl" x="534" y="62">Shared buffers</text><text class="lbl-s" x="534" y="78">8 KB pages in RAM</text>
+      <rect class="box" x="608" y="40" width="106" height="50" rx="10"/><text class="lbl" x="661" y="62">Disk</text><text class="lbl-s" x="661" y="78">table + index files</text>
+      <path class="arrow" d="M94,65 L110,65" marker-end="url(#arr)"/><path class="arrow" d="M208,65 L224,65" marker-end="url(#arr)"/><path class="arrow" d="M336,65 L352,65" marker-end="url(#arr)"/><path class="arrow" d="M460,65 L476,65" marker-end="url(#arr)"/><path class="arrow-dash" d="M590,65 L606,65" marker-end="url(#arrm)"/>
+      <rect class="box box-pink" x="354" y="118" width="236" height="40" rx="10"/><text class="lbl" x="472" y="143">WAL: every change logged FIRST</text>
+      <path class="arrow-pink" d="M407,92 L407,116" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="160" y="140">statistics (pg_stats) feed the planner</text>
+      <path class="arrow-dash" d="M250,130 L270,94" marker-end="url(#arrm)"/>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · B+tree: wide, short, linked leaves, TID to the heap</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 300" role="img" aria-label="B+tree with root, internal pages and linked leaf pages pointing to heap pages; fanout about 400 per level">
+      <rect class="box box-yellow" x="270" y="12" width="180" height="36" rx="8"/><text class="lbl-m" x="360" y="35">root | 1000 | 2000 |</text>
+      <rect class="box box-blue" x="110" y="80" width="150" height="36" rx="8"/><text class="lbl-m" x="185" y="103">| 100 | 200 | 300 |</text>
+      <rect class="box box-blue" x="460" y="80" width="150" height="36" rx="8"/><text class="lbl-m" x="535" y="103">| 2100 | 2200 |</text>
+      <path class="arrow" d="M330,48 L200,78" marker-end="url(#arr)"/><path class="arrow" d="M390,48 L520,78" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="20" y="150" width="150" height="66" rx="8"/><text class="lbl-ml" x="30" y="170">101 → (7,2)</text><text class="lbl-ml" x="30" y="188">102 → (3,9)</text><text class="lbl-ml" x="30" y="206">103 → (7,5)</text>
+      <rect class="box box-green" x="200" y="150" width="150" height="66" rx="8"/><text class="lbl-ml" x="210" y="170">201 → (12,1)</text><text class="lbl-ml" x="210" y="188">202 → (4,4)</text><text class="lbl-ml" x="210" y="206">203 → (9,7)</text>
+      <rect class="box box-green" x="460" y="150" width="150" height="66" rx="8"/><text class="lbl-ml" x="470" y="170">2150 → (90,3)</text><text class="lbl-ml" x="470" y="188">2160 → (91,1)</text>
+      <path class="arrow" d="M150,116 L100,148" marker-end="url(#arr)"/><path class="arrow" d="M210,116 L270,148" marker-end="url(#arr)"/><path class="arrow" d="M535,116 L535,148" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M172,183 L198,183" marker-end="url(#arrg)" marker-start="url(#arrg)"/>
+      <text class="lbl-s t-green" x="185" y="232">leaves linked → range scans walk sideways</text>
+      <rect class="box" x="20" y="250" width="330" height="36" rx="8"/><text class="lbl" x="185" y="273">heap pages: the real rows, in no order</text>
+      <path class="arrow-dash" d="M95,216 L95,248" marker-end="url(#arrm)"/><path class="arrow-dash" d="M275,216 L275,248" marker-end="url(#arrm)"/>
+      <rect class="box box-yellow" x="420" y="236" width="290" height="58" rx="8"/>
+      <text class="lbl" x="565" y="256">8 KB page ≈ 300–400 keys (bigint)</text>
+      <text class="lbl-s" x="565" y="274">400 → 160k → 64M → 25B rows</text>
+      <text class="lbl-s" x="565" y="288">= only 3 to 4 levels deep</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Storage is read in pages, so the B+tree makes each node one page and packs hundreds of keys in it. That fanout keeps it 3 to 4 levels deep at tens of millions of rows. Leaves hold (value, TID), are sorted and linked, so it serves equality, ranges and ORDER BY."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Why an index scan can lose to a seq scan</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 190" role="img" aria-label="Index scan jumps randomly between heap pages; a sequential scan reads pages in order">
+      <text class="lbl" x="180" y="18">Index scan, 30% of rows match</text>
+      <g>
+        <rect class="box" x="20" y="40" width="40" height="30" rx="4"/><rect class="box" x="70" y="40" width="40" height="30" rx="4"/><rect class="box" x="120" y="40" width="40" height="30" rx="4"/><rect class="box" x="170" y="40" width="40" height="30" rx="4"/><rect class="box" x="220" y="40" width="40" height="30" rx="4"/><rect class="box" x="270" y="40" width="40" height="30" rx="4"/>
+        <path class="arrow-pink" d="M40,120 C60,90 200,100 230,72" marker-end="url(#arrp)"/>
+        <path class="arrow-pink" d="M240,120 C220,100 100,100 90,72" marker-end="url(#arrp)"/>
+        <path class="arrow-pink" d="M100,120 C140,100 270,100 290,72" marker-end="url(#arrp)"/>
+        <path class="arrow-pink" d="M290,120 C260,100 160,100 140,72" marker-end="url(#arrp)"/>
+        <text class="lbl-s t-pink" x="165" y="145">random jumps, same pages again and again</text>
+      </g>
+      <text class="lbl" x="530" y="18">Seq scan</text>
+      <g>
+        <rect class="box box-green" x="390" y="40" width="40" height="30" rx="4"/><rect class="box box-green" x="440" y="40" width="40" height="30" rx="4"/><rect class="box box-green" x="490" y="40" width="40" height="30" rx="4"/><rect class="box box-green" x="540" y="40" width="40" height="30" rx="4"/><rect class="box box-green" x="590" y="40" width="40" height="30" rx="4"/><rect class="box box-green" x="640" y="40" width="40" height="30" rx="4"/>
+        <path class="arrow-green" d="M390,95 L680,95" marker-end="url(#arrg)"/>
+        <text class="lbl-s t-green" x="535" y="120">each page once, in order, read-ahead helps</text>
+      </g>
+      <text class="lbl-s" x="360" y="178">Few rows → index wins. Many rows → seq scan wins. Medium → bitmap scan (sort TIDs by page first).</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · MVCC: two versions, two snapshots</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Old version with xmax 100 and new version with xmin 100; reader with old snapshot sees old version">
+      <rect class="box" x="20" y="20" width="300" height="56" rx="8"/>
+      <text class="lbl-ml" x="34" y="42">v1  status=PAID</text><text class="lbl-ml" x="34" y="62">xmin=90  xmax=100</text>
+      <rect class="box box-green" x="20" y="96" width="300" height="56" rx="8"/>
+      <text class="lbl-ml" x="34" y="118">v2  status=SHIPPED</text><text class="lbl-ml" x="34" y="138">xmin=100  xmax=-</text>
+      <rect class="box box-blue" x="440" y="20" width="270" height="56" rx="8"/>
+      <text class="lbl" x="575" y="42">Reader, snapshot before tx 100</text><text class="lbl-s" x="575" y="62">sees v1: PAID</text>
+      <rect class="box box-yellow" x="440" y="96" width="270" height="56" rx="8"/>
+      <text class="lbl" x="575" y="118">Reader, snapshot after 100 commits</text><text class="lbl-s" x="575" y="138">sees v2: SHIPPED</text>
+      <path class="arrow" d="M438,48 L322,48" marker-end="url(#arr)"/>
+      <path class="arrow" d="M438,124 L322,124" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="182">Visible = creator (xmin) committed before my snapshot AND deleter (xmax) did not.</text>
+      <text class="lbl-s" x="360" y="200">UPDATE never overwrites: it writes v2 and stamps v1's xmax. VACUUM removes v1 when no snapshot needs it.</text>
+      <text class="lbl-s t-pink" x="360" y="220">A transaction open for hours = no snapshot ever "finishes" = nothing gets cleaned = bloat.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Readers and writers do not block each other because they look at different row versions. Each transaction reads against a snapshot. Only two writers on the same row wait. The price is dead versions that VACUUM must clean."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · WAL: what COMMIT actually waits for</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Commit: change page in RAM, append WAL, fsync WAL, return OK; data pages written later at checkpoint">
+      <line x1="40" y1="170" x2="700" y2="170" class="arrow-dash"/>
+      <text class="lbl-sl" x="40" y="190">time →</text>
+      <rect class="box box-blue" x="30" y="30" width="140" height="56" rx="8"/><text class="lbl" x="100" y="52">1. change page</text><text class="lbl-s" x="100" y="70">in RAM (dirty)</text>
+      <rect class="box box-pink" x="190" y="30" width="140" height="56" rx="8"/><text class="lbl" x="260" y="52">2. append WAL</text><text class="lbl-s" x="260" y="70">sequential</text>
+      <rect class="box box-pink" x="350" y="30" width="140" height="56" rx="8"/><text class="lbl" x="420" y="52">3. fsync WAL</text><text class="lbl-s" x="420" y="70">on disk now</text>
+      <rect class="box box-green" x="510" y="30" width="110" height="56" rx="8"/><text class="lbl" x="565" y="52">4. COMMIT OK</text><text class="lbl-s" x="565" y="70">to the app</text>
+      <path class="arrow" d="M170,58 L188,58" marker-end="url(#arr)"/><path class="arrow" d="M330,58 L348,58" marker-end="url(#arr)"/><path class="arrow" d="M490,58 L508,58" marker-end="url(#arr)"/>
+      <rect class="box" x="470" y="110" width="230" height="44" rx="8"/><text class="lbl" x="585" y="130">later: checkpoint</text><text class="lbl-s" x="585" y="146">dirty pages → table files</text>
+      <text class="lbl-sl" x="30" y="120">Crash before the checkpoint?</text>
+      <text class="lbl-sl" x="30" y="138">Replay WAL from the last checkpoint.</text>
+      <text class="lbl-sl t-green" x="30" y="156">Durability lives in the log, not the table file.</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Three join algorithms</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Nested loop, hash join and merge join compared">
+      <rect class="box box-blue" x="10" y="14" width="220" height="150" rx="10"/>
+      <text class="lbl" x="120" y="36">Nested loop</text>
+      <text class="lbl-ml" x="24" y="62">for row in outer:</text>
+      <text class="lbl-ml" x="24" y="80">  index lookup inner</text>
+      <text class="lbl-s t-green" x="120" y="112">✓ small outer + indexed inner</text>
+      <text class="lbl-s t-pink" x="120" y="132">✗ huge outer (bad estimate!)</text>
+      <text class="lbl-s" x="120" y="152">1 store → its orders</text>
+      <rect class="box box-green" x="250" y="14" width="220" height="150" rx="10"/>
+      <text class="lbl" x="360" y="36">Hash join</text>
+      <text class="lbl-ml" x="264" y="62">build: hash SMALL side</text>
+      <text class="lbl-ml" x="264" y="80">probe: stream BIG side</text>
+      <text class="lbl-s t-green" x="360" y="112">✓ big equality joins</text>
+      <text class="lbl-s t-pink" x="360" y="132">✗ only "=" · spills past work_mem</text>
+      <text class="lbl-s" x="360" y="152">all orders ⋈ all stores</text>
+      <rect class="box box-yellow" x="490" y="14" width="220" height="150" rx="10"/>
+      <text class="lbl" x="600" y="36">Merge join</text>
+      <text class="lbl-ml" x="504" y="62">both sides sorted,</text>
+      <text class="lbl-ml" x="504" y="80">walk like a zipper</text>
+      <text class="lbl-s t-green" x="600" y="112">✓ inputs already sorted</text>
+      <text class="lbl-s t-pink" x="600" y="132">✗ sorting both costs a lot</text>
+      <text class="lbl-s" x="600" y="152">two big indexed tables</text>
+      <text class="lbl-s" x="360" y="192">The planner picks by estimated row counts. Wrong estimate → wrong algorithm.</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · The migration lock queue (how a tiny ALTER stops the app)</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 170" role="img" aria-label="A long select holds a lock, ALTER TABLE waits for exclusive lock, all new queries queue behind it">
+      <rect class="box box-blue" x="10" y="50" width="170" height="56" rx="8"/><text class="lbl" x="95" y="72">Long report SELECT</text><text class="lbl-s" x="95" y="90">holds ACCESS SHARE</text>
+      <rect class="box box-pink" x="220" y="50" width="190" height="56" rx="8"/><text class="lbl" x="315" y="72">ALTER TABLE orders</text><text class="lbl-s" x="315" y="90">wants ACCESS EXCLUSIVE</text>
+      <rect class="box box-pink" x="450" y="20" width="260" height="34" rx="8"/><text class="lbl-s" x="580" y="42">app SELECT … waits</text>
+      <rect class="box box-pink" x="450" y="62" width="260" height="34" rx="8"/><text class="lbl-s" x="580" y="84">app UPDATE … waits</text>
+      <rect class="box box-pink" x="450" y="104" width="260" height="34" rx="8"/><text class="lbl-s" x="580" y="126">app INSERT … waits</text>
+      <path class="arrow-pink" d="M218,78 L182,78" marker-end="url(#arrp)"/><path class="arrow-pink" d="M448,37 L412,70" marker-end="url(#arrp)"/><path class="arrow-pink" d="M448,79 L412,79" marker-end="url(#arrp)"/><path class="arrow-pink" d="M448,121 L412,90" marker-end="url(#arrp)"/>
+      <text class="lbl-s t-green" x="360" y="160">Fix: SET lock_timeout = '3s' in every migration, retry; build indexes CONCURRENTLY.</text>
+    </svg></div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each card out loud in about 30 seconds. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <p class="hint">Numbers make answers sound real. Volunteer at least one per answer.</p>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Thing</th><th>Value</th><th>Why it matters</th></tr>
+    <tr><td>Page size</td><td class="val">8 KB</td><td class="why">The unit of every read and write. Cost = pages touched.</td></tr>
+    <tr><td>Row version header</td><td class="val">~23 bytes</td><td class="why">Holds xmin, xmax, flags. Tiny rows still pay it.</td></tr>
+    <tr><td>TOAST threshold</td><td class="val">~2 KB</td><td class="why">Bigger values move to a side table. SELECT * pulls them all back.</td></tr>
+    <tr><td>B-tree fanout (bigint)</td><td class="val">~300–400</td><td class="why">3 levels ≈ 64M rows, 4 levels ≈ 25B rows.</td></tr>
+    <tr><td>Binary tree depth at 100M</td><td class="val">~27</td><td class="why">Why databases do not use binary trees on disk.</td></tr>
+    <tr><td>ANALYZE sample</td><td class="val">30,000 rows</td><td class="why">300 × default_statistics_target (100).</td></tr>
+    <tr><td>random_page_cost</td><td class="val">4 (≈1.1 on SSD)</td><td class="why">Lower makes index scans look cheaper to the planner.</td></tr>
+    <tr><td>work_mem</td><td class="val">4 MB default</td><td class="why">Per sort/hash node, per connection. Too low → spills. Too high × connections → OOM.</td></tr>
+    <tr><td>shared_buffers</td><td class="val">~25% of RAM</td><td class="why">Default is only 128 MB. The OS page cache holds more.</td></tr>
+    <tr><td>Autovacuum trigger</td><td class="val">50 rows + 20%</td><td class="why">A 100M row table waits for 20M dead rows. Lower it per big table.</td></tr>
+    <tr><td>deadlock_timeout</td><td class="val">1 s</td><td class="why">When the cycle check runs. One transaction is aborted; retry it.</td></tr>
+    <tr><td>Transaction ids</td><td class="val">32-bit</td><td class="why">Must freeze before ~2 billion newer transactions, or writes stop.</td></tr>
+    <tr><td>Generic plan switch</td><td class="val">after 5 runs</td><td class="why">Prepared statements may switch to a plan that ignores the parameter value.</td></tr>
+    <tr><td>Connection</td><td class="val">1 OS process</td><td class="why">Hundreds of connections hurt. Pool with PgBouncer.</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Which structure or setting, and what it costs.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+</section>
+
+<footer>Part of the Study Route database track · read with the note "How Postgres works inside"</footer>
+
+<script>
+window.SHEET = {
+  key: "db-internals",
+  concepts: [
+    { t: "Page", d: "Everything is stored in 8 KB pages. Reading one row costs one page. Performance answers are about how many pages were touched and whether they were in memory." },
+    { t: "Heap and TID", d: "The table (heap) stores rows in no order. Each row version has a TID = (page, slot), e.g. <code>(42,3)</code>. See it with <code>SELECT ctid</code>." },
+    { t: "B+tree shape", d: "Root and internal pages route. Leaf pages hold sorted (value, TID) pairs, linked to neighbours. All values live in leaves." },
+    { t: "Why B+tree (layer 3)", d: "Designed around the page: one node = one page, hundreds of keys per node, so 3–4 levels even at tens of millions of rows. Hash = only '='. Binary tree = ~27 levels." },
+    { t: "The hidden cost of index scans", d: "After the tree walk, each TID is a random jump to a heap page. Many matches = many random jumps = slower than a straight seq scan." },
+    { t: "Index-only scan", d: "If the index has every needed column (INCLUDE), skip the heap. Needs the visibility map, which VACUUM sets, to confirm rows are visible." },
+    { t: "Bitmap scan", d: "Medium selectivity: collect all TIDs, sort by page, read each heap page once. Can combine two indexes with AND/OR." },
+    { t: "Page split", d: "A full leaf splits in two. Random keys (UUIDv4) split all over the tree; increasing keys only split the right edge." },
+    { t: "CREATE INDEX vs CONCURRENTLY", d: "Plain: sorts the column, blocks writes. CONCURRENTLY: two table scans, allows writes, slower, leaves an INVALID index on failure to drop." },
+    { t: "GIN / GiST / BRIN", d: "GIN: inverted index for jsonb, arrays, full-text, trigram LIKE. GiST: ranges, geometry, nearest, EXCLUDE. BRIN: tiny min/max per block range for huge time-ordered tables." },
+    { t: "MVCC xmin / xmax", d: "Each version records who created it (xmin) and who replaced it (xmax). UPDATE writes a new version; nothing is changed in place." },
+    { t: "Snapshot", d: "The set of transactions that count as committed for me. READ COMMITTED: new per statement. REPEATABLE READ: one per transaction. SERIALIZABLE: plus conflict checks (40001 → retry)." },
+    { t: "VACUUM and bloat", d: "Removes dead versions nobody can see, updates the visibility map and free space. Long open transactions block it → bloat. Does not shrink the file." },
+    { t: "HOT update", d: "No indexed column changed and room on the page → new version stays on the page, no index writes. Over-indexing hot columns kills HOT. fillfactor 90 helps." },
+    { t: "XID wraparound", d: "32-bit transaction ids. Old rows must be frozen by autovacuum before ~2 billion newer transactions, or Postgres stops writes. Never disable autovacuum." },
+    { t: "WAL", d: "Write-ahead log: the change record is fsynced before COMMIT returns. Data pages are written later. Sequential writes make it fast." },
+    { t: "Checkpoint and recovery", d: "Checkpoint flushes all dirty pages. After a crash, replay WAL from the last checkpoint. Longer interval = less I/O, longer recovery." },
+    { t: "WAL does four jobs", d: "Crash recovery, streaming replicas, point-in-time recovery (base backup + archived WAL), logical decoding / CDC." },
+    { t: "synchronous_commit = off", d: "COMMIT returns before fsync. Faster, but a crash can lose the last fraction of a second of commits. Still consistent. Never for money or points." },
+    { t: "Planner statistics", d: "ANALYZE samples rows: null fraction, distinct count, most common values, histogram. Estimates drive every choice; bad estimates → bad plans." },
+    { t: "Why an index is ignored", d: "Too many matching rows · stale stats · wrapped column (lower(), ::date, type mismatch) · operator it cannot serve (LIKE '%x', non-leading column)." },
+    { t: "Extended statistics", d: "Planner assumes columns are independent. City + province are not. <code>CREATE STATISTICS … (dependencies)</code> fixes the estimate." },
+    { t: "Nested loop / hash / merge", d: "Nested loop: small outer + indexed inner. Hash: big equality joins, hash the smaller side. Merge: both inputs sorted already." },
+    { t: "Why OFFSET is slow", d: "No jump-to-row: the executor produces and discards every skipped row. Keyset pagination starts at the bookmark in the index." },
+    { t: "Row vs table locks", d: "Row locks live in the row header (cheap). Table locks: SELECT takes ACCESS SHARE; most ALTER TABLE takes ACCESS EXCLUSIVE which blocks everything." },
+    { t: "Lock queue outage", d: "ALTER waits behind a long query; every new query waits behind the ALTER. Always <code>SET lock_timeout</code> in migrations." },
+    { t: "Deadlock", d: "Two transactions wait for each other. Detected after 1 s, one is aborted. Prevent: lock in a consistent order, short transactions, no API calls inside." },
+    { t: "Process per connection", d: "Each connection is a whole OS process with its own memory. That is why pooling (PgBouncer) is the first scaling step." }
+  ],
+  decisions: [
+    { q: "Index scan vs seq scan", a: "Index scan wins when", at: "Few rows match (high selectivity), or the index gives the ORDER BY + LIMIT for free.", b: "Seq scan wins when", bt: "A large fraction matches, or the table is small. Straight reads beat random jumps.", v: "The planner is usually right. Prove it with EXPLAIN (ANALYZE, BUFFERS); if wrong, look at stats and estimates first." },
+    { q: "B-tree vs GIN", a: "B-tree when", at: "Scalar values: =, ranges, sorting, prefix LIKE.", b: "GIN when", bt: "Many keys inside one value: jsonb @>, arrays, full-text, pg_trgm for '%abc%'.", v: "GIN is slower to update (fastupdate pending list helps) and bigger. Index only what you query." },
+    { q: "B-tree vs BRIN on time columns", a: "B-tree when", at: "You need precise lookups or the table is moderate.", b: "BRIN when", bt: "Huge append-only table where time follows physical order (logs, webhook events).", v: "BRIN is kilobytes instead of gigabytes but only skips block ranges. Great for 'last 7 days' on a billion-row log." },
+    { q: "READ COMMITTED vs REPEATABLE READ", a: "READ COMMITTED when", at: "Default OLTP. Each statement sees fresh data. Handle races with FOR UPDATE or guarded updates.", b: "REPEATABLE READ when", bt: "A report or multi-step read must see one consistent picture. Writers may get serialization errors.", v: "Default plus targeted locks for most apps; RR for consistent reads; SERIALIZABLE when invariants span rows and you can retry." },
+    { q: "VACUUM vs VACUUM FULL / pg_repack", a: "VACUUM when", at: "Always (autovacuum). Marks space reusable, no blocking lock.", b: "FULL / pg_repack when", bt: "A table is badly bloated and must shrink on disk.", v: "FULL takes ACCESS EXCLUSIVE (downtime). pg_repack does it online. Fix the cause (long transactions) first." },
+    { q: "synchronous_commit on vs off", a: "On when", at: "Any business data: orders, points, payments.", b: "Off when", bt: "Bulk or analytics writes where losing the last few hundred ms after a crash is acceptable.", v: "It can be set per transaction: <code>SET LOCAL synchronous_commit = off</code> only for the bulk job." }
+  ],
+  cases: [
+    { topic: "XID wraparound", b: "Sentry (2015) and Mailchimp's Mandrill (2019)", p: "Write-heavy databases fell behind on freezing and Postgres stopped accepting writes to protect data. Both are well-known public post-mortems. Lesson: monitor <code>age(datfrozenxid)</code>, tune autovacuum, never disable it." },
+    { topic: "Lock queue", b: "A common outage pattern", p: "A schema change waiting for ACCESS EXCLUSIVE queues every other query behind it. Migration safety tools (strong_migrations, GitLab's migration guidelines) set lock_timeout and retry for exactly this reason." },
+    { topic: "Your own system", b: "DBO: Prisma generic plans and N+1", p: "ORM queries use prepared statements; with skewed data a generic plan can be wrong. And N+1 looks fine per query but kills total time. Find with pg_stat_statements, prove with EXPLAIN (ANALYZE, BUFFERS)." },
+    { topic: "Write amplification", b: "Uber (2016)", p: "Uber's post on moving from Postgres to MySQL blamed write amplification: each update touched every index (no HOT when indexed columns change) plus WAL. Good to cite as 'know the cost of MVCC + many indexes', and that Postgres teams disputed parts of it." }
+  ],
+  hooks: [
+    { b: "Book index with page numbers", p: "The B-tree leaf is the index at the back of a book: the word and the page number (TID). Then you still have to flip to that page." },
+    { b: "Flipping pages vs reading through", p: "If you need 30% of a book, reading it front to back beats flipping to 3,000 page numbers. That is why the planner skips your index." },
+    { b: "Photos of the shelf", p: "MVCC: each reader holds a photo of the shelf taken at a moment. Writers put new boxes on the shelf; old boxes stay until nobody's photo shows them. VACUUM throws away boxes no photo shows." },
+    { b: "Write it in the diary first", p: "WAL: before tidying the room (data pages), write in the diary what you will change. If the lights go out, read the diary and redo it." },
+    { b: "Zipper, phone book, hash bucket", p: "Merge join is a zipper. Nested loop is looking up each name in the phone book. Hash join is sorting letters into pigeonholes, then checking each pigeonhole." },
+    { b: "One process per guest", p: "Each connection is a waiter hired just for one guest. A hundred guests, a hundred waiters crowding the kitchen. PgBouncer is the host who shares a few waiters." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>
