@@ -49,7 +49,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 03 | [Load balancers](03-load-balancers.md) | L4 vs L7, algorithms, health checks | ready |
 | 04 | [Caching](04-caching.md) | cache aside, write through, TTL, invalidation | ready |
 | 05 | [CDN](05-cdn.md) | what it caches and where | ready |
-| 06 | Message queues `06-message-queues.md` | why async, at least once, dead letter queues | planned |
+| 06 | [Message queues](06-message-queues.md) | why async, at least once, dead letter queues | ready |
 | 07 | [Consistency and CAP](07-consistency-and-cap.md) | strong vs eventual, what CAP really says | ready |
 
 ### Classic designs
