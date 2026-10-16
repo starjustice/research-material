@@ -45,7 +45,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 01 | [The interview framework](01-the-interview-framework.md) | requirements, estimates, API, data, high level design, deep dive | ready |
-| 02 | Scaling up vs out `02-scaling-up-vs-out.md` | vertical vs horizontal, stateless servers | planned |
+| 02 | [Scaling up vs out](02-scaling-up-vs-out.md) | vertical vs horizontal, stateless servers | ready |
 | 03 | Load balancers `03-load-balancers.md` | L4 vs L7, algorithms, health checks | planned |
 | 04 | Caching `04-caching.md` | cache aside, write through, TTL, invalidation | planned |
 | 05 | CDN `05-cdn.md` | what it caches and where | planned |
