@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notification system: one event, a failed send, a retry and a dedupe</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: 1fr 1.2fr 1fr; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.dead  { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); }
+  .comp.store h3 { color: var(--store); } .comp.dead h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.bad { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .rows li.ok { background: var(--ok-bg); }
+  .rows li.gone { text-decoration: line-through; color: var(--muted); }
+  .st { font-weight: 700; font-size: .72rem; white-space: nowrap; }
+  .st.sent { color: var(--srv); } .st.failed { color: var(--bad); } .st.queued { color: var(--lb); } .st.held { color: var(--store); }
+  .lane { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .76rem; margin-bottom: 4px; }
+  .lane b { min-width: 52px; color: var(--muted); font-weight: 650; }
+  .job { border-radius: 6px; padding: 1px 7px; background: var(--chip); border: 1px solid var(--border); font-size: .74rem; }
+  .job.urgent { border-color: var(--bad); color: var(--bad); font-weight: 700; }
+  .checks li .mark { font-weight: 800; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../11-design-a-notification-system.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Notification system: one event, a failed send, a retry and a dedupe</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the checks, the notifications table, the queues and what Sari really sees. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the event goes in a queue and the loan service moves on. The notification service checks the dedupe key, the user's choices, quiet hours and limits, then puts one job per channel in that channel's queue. A short problem (429, 500, 503) gets a retry with a growing wait, then the dead letter queue. A dead token (410 from Apple, 404 from Google) is removed and never retried. Urgent jobs go first. A key that is already <b>sent</b> is never sent again.</p>
+</div>
+
+<script>
+const STORIES = [
+  {
+    name: "1. Loan approved: fail, retry, dedupe",
+    why: "The first push try got 503, a short problem, so the worker put the job back and tried again after 1 second. The second try worked, so Sari got one push. Then the loan service sent the same event again. The notification service built the same dedupe keys, evt77:sari:push and evt77:sari:email, found them already sent, and made no new jobs. One push and one email, never two.",
+    predict: { q: "The first push try fails with 503. Later the loan service sends the same event a second time. How many push notifications does Sari see?",
+               options: ["0", "1", "2", "3"], answer: "1" },
+    ops: [
+      { op: "intro1" }, { op: "publish", first: true }, { op: "dedupeNew" }, { op: "prefs" }, { op: "enqueue" },
+      { op: "emailSend" }, { op: "pushFail" }, { op: "pushRetry" }, { op: "publish", first: false }, { op: "dedupeHit" },
+      { op: "end", note: "Sari saw one push and one email. The 503 only made the push 1 second late. The second copy of the event made nothing, because the dedupe keys were already marked <b>sent</b>. SMS was never sent, because Sari turned it off." }
+    ]
+  },
+  {
+    name: "2. An urgent OTP, a dead phone, a dead letter",
+    why: "The OTP went into the urgent lane of the SMS queue, and the worker always empties the urgent lane first. So the OTP went out before the three marketing SMS that were already waiting. In a single first in first out line it would have waited behind them, and with a big marketing blast that wait can be minutes.",
+    predict: { q: "Three marketing SMS are already waiting when Sari asks for a login code. Which one does the SMS worker send first?",
+               options: ["The first marketing SMS", "The login code"], answer: "The login code" },
+    ops: [
+      { op: "intro2" }, { op: "otp" }, { op: "otpSend" }, { op: "pushTA" }, { op: "pushTB" },
+      { op: "bulkFail", user: "u1", tries: 1 }, { op: "bulkOk", user: "u2" }, { op: "bulkOk", user: "u3" },
+      { op: "bulkFail", user: "u1", tries: 2 }, { op: "bulkDead", user: "u1" },
+      { op: "end", note: "Four things to see. The OTP jumped the line. The dead token tB was removed after one 410, with no retry. A 503 got growing waits, 1 s then 2 s. After 3 tries the job went to the dead letter queue and an alert went to a person. The jobs for u2 and u3 were never blocked by u1." }
+    ]
+  }
+];
+
+function lanes() { return { urgent: [], normal: [], bulk: [] }; }
+function newWorld(story) {
+  const w = {
+    events: [], checks: [], wire: "",
+    prefs: { push: true, email: true, sms: false, quiet: "10 pm to 7 am", now: "2 pm" },
+    tokens: [{ id: "tA", what: "Sari's phone" }],
+    table: [], queues: { push: lanes(), email: lanes(), sms: lanes() },
+    reply: { push: "", email: "", sms: "" },
+    sees: { push: [], email: [], sms: [] }, dlq: [], fresh: null
+  };
+  if (story === 1) {
+    w.tokens.push({ id: "tB", what: "old tablet, app deleted" });
+    ["u1", "u2", "u3"].forEach(u => { w.queues.sms.bulk.push({ label: "promo " + u, tries: 0 }); w.table.push({ key: "promo:" + u + ":sms", status: "queued" }); });
+    ["tA", "tB"].forEach(t => { w.queues.push.bulk.push({ label: "promo sari " + t, tries: 0 }); w.table.push({ key: "promo:sari:push:" + t, status: "queued" }); });
+  }
+  return w;
+}
+
+function simulate(p, storyIdx) {
+  const steps = [];
+  const w = newWorld(storyIdx);
+  const snap = (note, active, hop, phase) => steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+  const row = key => w.table.find(r => r.key === key);
+  const setStatus = (key, status) => { const r = row(key); if (r) r.status = status; w.fresh = key; };
+  const take = (ch, lane) => w.queues[ch][lane].shift();
+  for (const op of p.ops) {
+    w.fresh = null;
+    switch (op.op) {
+      case "intro1":
+        snap("Sari's loan <b>L-42</b> is approved at 2 pm. Her settings: push on, email on, <b>SMS off</b>, quiet hours 10 pm to 7 am. She has one phone, with device token <code>tA</code>. Nothing has been sent yet.", [], "The setup", "setup");
+        break;
+      case "publish":
+        w.events.push({ id: "evt77", text: "loan L-42 approved for sari", again: !op.first });
+        w.checks = []; w.wire = op.first ? "publish evt77" : "publish evt77 again";
+        if (op.first) snap("The loan service saves <b>approved</b> and drops one event, <code>evt77</code>, in a queue. It answers the loan officer at once. It does not wait for any email or push.", ["loan"], "The event", "run");
+        else snap("Later, the loan service sends <code>evt77</code> <b>a second time</b>. Its own ack got lost, so it cannot know the first one arrived. Queues deliver at least once, so this happens in real life.", ["loan"], "The same event again", "bad");
+        break;
+      case "dedupeNew":
+        w.checks = [{ text: "dedupe key evt77:sari:push", mark: "new", ok: true }, { text: "dedupe key evt77:sari:email", mark: "new", ok: true }, { text: "dedupe key evt77:sari:sms", mark: "new", ok: true }];
+        w.wire = "check the keys";
+        snap("The notification service builds one <b>dedupe key</b> per channel: event id, user id, channel. It looks each key up in the notifications table. None is there, so this is new work.", ["svc", "table"], "Dedupe check", "run");
+        break;
+      case "prefs":
+        w.checks.push({ text: "push allowed", mark: "yes", ok: true }, { text: "email allowed", mark: "yes", ok: true }, { text: "sms allowed", mark: "no, skip", ok: false }, { text: "2 pm is not quiet hours", mark: "send now", ok: true });
+        w.wire = "read Sari's settings";
+        snap("Next it reads Sari's settings. Push yes. Email yes. <b>SMS no</b>, so the SMS key is dropped. It is 2 pm, not inside 10 pm to 7 am, so nothing has to wait.", ["svc", "prefs"], "Preferences and quiet hours", "run");
+        break;
+      case "enqueue":
+        w.table.push({ key: "evt77:sari:push:tA", status: "queued" }, { key: "evt77:sari:email:sari", status: "queued" });
+        w.queues.push.normal.push({ label: "evt77 sari tA", tries: 0 });
+        w.queues.email.normal.push({ label: "evt77 sari", tries: 0 });
+        w.wire = "fill templates and queue";
+        snap("It fills the template for each channel: a short push line and a longer email. It writes one row per job with status <b>queued</b>, then adds one job to the push queue and one to the email queue. Each channel has its own queue and its own workers.", ["svc", "table", "qpush", "qemail"], "One job per channel", "srv");
+        break;
+      case "emailSend":
+        take("email", "normal");
+        w.reply.email = "200 accepted"; setStatus("evt77:sari:email:sari", "sent");
+        w.sees.email.push("Your loan L-42 is approved");
+        w.wire = "email worker";
+        snap("The email worker takes its job and calls the email provider. The answer is <b>200 accepted</b>. The worker marks the row <b>sent</b>. The email lands in Sari's inbox.", ["qemail", "prov", "table", "sari"], "Email sent", "srv");
+        break;
+      case "pushFail": {
+        const job = take("push", "normal"); job.tries = 1; job.wait = "1 s";
+        w.queues.push.normal.push(job);
+        w.reply.push = "503 Unavailable";
+        w.wire = "push worker try 1";
+        snap("The push worker calls Google's push service (FCM) for token <code>tA</code>. The answer is <b>503 Unavailable</b>, a short problem. The worker does not give up and does not send right away. It puts the job back with <b>try 1</b> and a wait of <b>1 second</b>. The row stays <b>queued</b>.", ["qpush", "prov"], "Push fails, try 1", "bad");
+        break;
+      }
+      case "pushRetry":
+        take("push", "normal");
+        w.reply.push = "200 OK"; setStatus("evt77:sari:push:tA", "sent");
+        w.sees.push.push("Your loan L-42 is approved");
+        w.wire = "push worker try 2";
+        snap("After 1 second the worker tries again. This time FCM answers <b>200</b>. The row becomes <b>sent</b>, and Sari's phone shows the push. If it had failed again, the next wait would be 2 seconds, then 4.", ["qpush", "prov", "table", "sari"], "Retry works", "srv");
+        break;
+      case "dedupeHit":
+        w.checks = [{ text: "dedupe key evt77:sari:push", mark: "already sent, skip", ok: false }, { text: "dedupe key evt77:sari:email", mark: "already sent, skip", ok: false }, { text: "dedupe key evt77:sari:sms", mark: "off, skip", ok: false }];
+        w.wire = "check the keys";
+        snap("The notification service builds the <b>same keys</b> as before and finds them in the table, already <b>sent</b>. It adds no jobs. Without the key, Sari would get a second push and a second email.", ["svc", "table"], "Dedupe hit", "srv");
+        break;
+      case "intro2":
+        w.prefs.now = "2 pm";
+        snap("A marketing blast is running. The SMS queue already has 3 <b>bulk</b> jobs for users u1, u2 and u3. The push queue has a promo for Sari to both her tokens. <code>tB</code> is an old tablet: she deleted the app there, but our table still has the token.", [], "The setup", "setup");
+        break;
+      case "otp":
+        w.events.push({ id: "otp9", text: "login code for sari, urgent" });
+        w.checks = [{ text: "priority urgent", mark: "skip the SMS off choice", ok: true }, { text: "priority urgent", mark: "skip quiet hours and limits", ok: true }];
+        w.queues.sms.urgent.push({ label: "otp9 sari", tries: 0, urgent: true });
+        w.table.push({ key: "otp9:sari:sms", status: "queued" });
+        w.wire = "urgent job";
+        snap("Sari asks to log in. The login service sends an <b>urgent</b> event: a one time code by SMS. Urgent ignores her SMS off choice, quiet hours and the marketing limit. The job goes into the <b>urgent lane</b> of the SMS queue, not the back of the line.", ["loan", "svc", "qsms"], "An urgent OTP", "run");
+        break;
+      case "otpSend":
+        w.queues.sms.urgent.shift();
+        w.reply.sms = "200 OK"; setStatus("otp9:sari:sms", "sent");
+        w.sees.sms.push("Your code is 4821");
+        w.wire = "sms worker, urgent lane first";
+        snap("The SMS worker always empties the urgent lane first. So the code goes out <b>before</b> the 3 marketing SMS that were waiting. Sari has her code in seconds.", ["qsms", "prov", "sari", "table"], "Urgent goes first", "srv");
+        break;
+      case "pushTA":
+        w.queues.push.bulk.shift();
+        w.reply.push = "200 OK"; setStatus("promo:sari:push:tA", "sent");
+        w.sees.push.push("New lower rates this month");
+        w.wire = "push worker, token tA";
+        snap("The push worker sends the promo to token <code>tA</code>. The answer is <b>200</b>. Sari's phone shows it.", ["qpush", "prov", "sari", "table"], "Push to tA", "srv");
+        break;
+      case "pushTB":
+        w.queues.push.bulk.shift();
+        w.reply.push = "410 Unregistered"; setStatus("promo:sari:push:tB", "failed");
+        w.tokens.find(t => t.id === "tB").gone = true;
+        w.wire = "push worker, token tB";
+        snap("Now token <code>tB</code>. Apple answers <b>410 Unregistered</b>: this token is no longer active. A retry can never work. So the worker <b>deletes the token</b>, marks the row failed, and moves on. Google says the same thing with <b>404 UNREGISTERED</b>.", ["qpush", "prov", "prefs", "table"], "Dead token removed", "bad");
+        break;
+      case "bulkFail": {
+        const job = w.queues.sms.bulk.find(j => j.label === "promo " + op.user);
+        w.queues.sms.bulk.splice(w.queues.sms.bulk.indexOf(job), 1);
+        job.tries = op.tries; job.wait = op.tries === 1 ? "1 s" : "2 s";
+        w.queues.sms.bulk.push(job);
+        w.reply.sms = "503 Unavailable";
+        w.wire = "sms worker, " + op.user + " try " + op.tries;
+        snap("The SMS provider answers <b>503</b> for " + op.user + ". Try " + op.tries + " failed, so the job goes to the <b>back</b> of its lane with a wait of <b>" + job.wait + "</b>. The wait doubles each time, so a provider in trouble gets room to recover.", ["qsms", "prov"], "Short problem, try " + op.tries, "bad");
+        break;
+      }
+      case "bulkOk": {
+        const job = w.queues.sms.bulk.find(j => j.label === "promo " + op.user);
+        w.queues.sms.bulk.splice(w.queues.sms.bulk.indexOf(job), 1);
+        w.reply.sms = "200 OK"; setStatus("promo:" + op.user + ":sms", "sent");
+        w.wire = "sms worker, " + op.user;
+        snap("Meanwhile the next job, for " + op.user + ", goes out fine with <b>200</b>. One failing job does not block the others behind it.", ["qsms", "prov", "table"], "The line keeps moving", "srv");
+        break;
+      }
+      case "bulkDead": {
+        const job = w.queues.sms.bulk.shift(); job.tries = 3;
+        w.dlq.push({ label: job.label, tries: 3, reason: 503 });
+        w.reply.sms = "503 Unavailable"; setStatus("promo:" + op.user + ":sms", "failed");
+        w.wire = "sms worker, " + op.user + " try 3";
+        snap("Try 3 for u1 fails with 503 again. That was the last try. The job moves to the <b>dead letter queue</b> with its error and its number of tries, and an alert goes to a person. Nothing is lost, and nothing loops for ever.", ["qsms", "prov", "dlq", "table"], "Out of tries", "bad");
+        break;
+      }
+      case "end":
+        w.wire = ""; w.checks = [];
+        snap(op.note, [], "Finished", "done");
+        break;
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something goes wrong", "bad"], srv: ["Done safely", "srv"], done: ["Finished", "done"] };
+
+function laneHtml(q) {
+  return ["urgent", "normal", "bulk"].map(l =>
+    '<div class="lane"><b>' + l + "</b>" +
+    (q[l].length ? q[l].map(j => '<span class="job' + (j.urgent ? " urgent" : "") + '">' + esc(j.label) + (j.tries ? " &middot; try " + j.tries + ", wait " + j.wait : "") + "</span>").join("") : '<span class="empty">empty</span>') +
+    "</div>").join("");
+}
+function listHtml(items, emptyText) {
+  return items.length ? '<ul class="rows">' + items.map(t => '<li class="ok"><span>' + esc(t) + "</span></li>").join("") + "</ul>" : '<span class="empty">' + emptyText + "</span>";
+}
+
+function renderWorld(s) {
+  const w = s.w;
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const events = w.events.length
+    ? '<ul class="rows">' + w.events.map(e => '<li class="' + (e.again ? "bad" : "") + '"><span class="mono">' + e.id + "</span><span>" + esc(e.text) + (e.again ? " (again)" : "") + "</span></li>").join("") + "</ul>"
+    : '<span class="empty">no events yet</span>';
+  const checks = w.checks.length
+    ? '<ul class="rows checks">' + w.checks.map(c => '<li class="' + (c.ok ? "" : "bad") + '"><span class="mono">' + esc(c.text) + '</span><span class="mark">' + esc(c.mark) + "</span></li>").join("") + "</ul>"
+    : '<span class="empty">' + (w.wire ? esc(w.wire) : "idle") + "</span>";
+  const onoff = v => v ? "on" : "off";
+  const prefs = '<ul class="rows"><li><span>push</span><span>' + onoff(w.prefs.push) + "</span></li><li><span>email</span><span>" + onoff(w.prefs.email) + "</span></li><li><span>sms</span><span>" + onoff(w.prefs.sms) + "</span></li><li><span>quiet hours</span><span>" + w.prefs.quiet + "</span></li><li><span>time now</span><span>" + w.prefs.now + "</span></li></ul>" +
+    '<div style="font-size:.76rem;margin-top:6px;color:var(--muted)">device tokens</div><ul class="rows">' +
+    w.tokens.map(t => '<li class="' + (t.gone ? "gone" : "") + '"><span class="mono">' + t.id + "</span><span>" + esc(t.what) + (t.gone ? ", removed" : "") + "</span></li>").join("") + "</ul>";
+  const table = w.table.length
+    ? '<ul class="rows">' + w.table.map(r => '<li class="' + (r.key === w.fresh ? "new" : "") + '"><span class="mono">' + esc(r.key) + '</span><span class="st ' + r.status + '">' + r.status + "</span></li>").join("") + "</ul>"
+    : '<span class="empty">empty</span>';
+  const dlq = w.dlq.length
+    ? '<ul class="rows">' + w.dlq.map(d => '<li class="bad"><span>' + esc(d.label) + "</span><span>" + d.tries + " tries, " + d.reason + "</span></li>").join("") + "</ul>"
+    : '<span class="empty">empty</span>';
+  const reply = ch => w.reply[ch] ? '<span class="mono">' + esc(w.reply[ch]) + "</span>" : '<span class="empty">no call yet</span>';
+  $("stage").innerHTML =
+    '<div class="panel"><h2>Where it starts</h2>' +
+      '<div class="comp user' + lit("loan") + '"><h3>Loan and login services</h3><small>they only drop events and move on</small>' + events + "</div>" +
+      '<div class="comp srv' + lit("svc") + '"><h3>Notification service</h3><small>dedupe, choices, quiet hours, limits, templates</small>' + checks + "</div>" +
+      '<div class="comp store' + lit("prefs") + '"><h3>Sari\'s settings</h3>' + prefs + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>Table, queues and workers</h2>' +
+      '<div class="comp store' + lit("table") + '"><h3>Notifications table <span class="tag">one row per job</span></h3><small>the key is the dedupe key plus the address</small>' + table + "</div>" +
+      '<div class="comp lb' + lit("qpush") + '"><h3>Push queue and worker</h3>' + laneHtml(w.queues.push) + "</div>" +
+      '<div class="comp lb' + lit("qemail") + '"><h3>Email queue and worker</h3>' + laneHtml(w.queues.email) + "</div>" +
+      '<div class="comp lb' + lit("qsms") + '"><h3>SMS queue and worker</h3>' + laneHtml(w.queues.sms) + "</div>" +
+      '<div class="comp dead' + lit("dlq") + '"><h3>Dead letter queue</h3>' + dlq + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>Providers and Sari</h2>' +
+      '<div class="comp srv' + lit("prov") + '"><h3>Providers, last answer</h3><ul class="rows"><li><span>Apple and Google push</span>' + reply("push") + "</li><li><span>Email provider</span>" + reply("email") + "</li><li><span>SMS provider</span>" + reply("sms") + "</li></ul></div>" +
+      '<div class="comp user' + lit("sari") + '"><h3>What Sari sees</h3>' +
+        '<small>push on her phone</small>' + listHtml(w.sees.push, "nothing") +
+        '<small style="margin-top:6px">email inbox</small>' + listHtml(w.sees.email, "nothing") +
+        '<small style="margin-top:6px">SMS</small>' + listHtml(w.sees.sms, "nothing") +
+      "</div>" +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderWorld(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i], i); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>
