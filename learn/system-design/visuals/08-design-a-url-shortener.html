@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL shortener: a counter, a collision, and 301 against 302</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.counter { grid-template-columns: .8fr 1.3fr 1.3fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  .stage.three { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 860px) { .stage.counter, .stage.two, .stage.three { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.refuse { border-color: var(--bad); background: var(--bad-bg); }
+  .comp.refuse h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 2.2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .rows { display: grid; gap: 4px; }
+  .row { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; padding: 4px 8px; border-radius: 8px; background: var(--chip); border: 1px solid rgba(128,128,128,.35); }
+  .row.new { box-shadow: 0 0 0 2px var(--accent); }
+  .row.bad { border-color: var(--bad); color: var(--bad); font-weight: 700; }
+  .row b { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .calc { font-size: .88rem; }
+  .calc .digit { display: inline-block; background: var(--chip); border: 1px solid rgba(128,128,128,.35); border-radius: 6px; padding: 1px 8px; margin: 2px 3px 2px 0; font-weight: 700; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .alpha { font-size: .7rem; color: var(--muted); margin-top: 8px; word-break: break-all; }
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--ink); }
+  .counters { margin-top: 8px; font-size: .84rem; display: grid; gap: 2px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.chk { background: #e8890c; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../08-design-a-url-shortener.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>URL shortener: a counter, a collision, and 301 against 302</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the counter, the table and the browser. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a short code must be unique, so the table itself must refuse a second row with the same code. And the redirect code is a hint to the browser. A 301 may be kept for a very long time, so those clicks never come back to you. A 302 always comes back.</p>
+</div>
+
+<script>
+// ---- The three stories. Story 1 is the code from the lesson, step by step. ----
+const A = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const toBase62 = n => { let s = ""; do { s = A[n % 62] + s; n = Math.floor(n / 62); } while (n > 0); return s; };
+const digitsOf = n => { const d = []; do { d.unshift(n % 62); n = Math.floor(n / 62); } while (n > 0); return d; };
+
+const STORIES = [
+  {
+    name: "1. A counter makes the code", kind: "counter",
+    why: "The counter gives every create its own number, and base62 turns the number into a short code. A number is never given out twice. But someone can pick the same text as a custom alias, so the table must still be checked before the save. Here the alias b was taken, so the server threw 11 away and took 12.",
+    predict: { q: "The counter hands out 11, and 11 becomes the code b. But someone already chose b as a custom alias. What should the server do?",
+               options: ["Overwrite the old row", "Show an error to the user", "Throw the code away and take the next number, 12"], answer: "Throw the code away and take the next number, 12" },
+    ops: [
+      { op: "intro", note: "A small link table and a <b>counter</b>. The counter is at <b>10</b>. The table already has one row: someone chose the custom alias <code>b</code> for an old page. The server will make 3 short links. Watch the counter, the letters, and the check against the table." },
+      { op: "create", who: "Ann", url: "shop.example/1" },
+      { op: "create", who: "Ben", url: "shop.example/2" },
+      { op: "create", who: "Cy", url: "shop.example/3" },
+      { op: "end", note: "Three links, three codes: <code>a</code>, <code>c</code>, <code>d</code>. The code <code>b</code> was skipped because it was taken. The lesson's code prints the same: <code>taken: b so try the next number</code> and then <code>a c d</code>. The counter never repeats a number, but the table check still matters for aliases." }
+    ]
+  },
+  {
+    name: "2. A collision", kind: "collide",
+    why: "Cutting a hash down to 7 letters means two different links can get the same code. Over years this is certain to happen. Without a unique rule, the second save silently replaces the first row, and Ann's friends land on Ben's site. With a unique rule the table refuses the second row, and the server tries another code.",
+    predict: { q: "Two different long links get the same 7 letter code. The table has no unique rule. What does the second save do?",
+               options: ["It is refused with an error", "It replaces the first row without a word", "It makes a new code on its own"], answer: "It replaces the first row without a word" },
+    ops: [
+      { op: "intro", note: "Same job, two ways to save. <b>Left:</b> the table has no unique rule. <b>Right:</b> the table has a unique rule on the code, and the server retries. The server makes a code by hashing the long link and keeping the first 7 letters. The codes in this story are made up for the picture." },
+      { op: "ann" },
+      { op: "ben-hash" },
+      { op: "ben-save" },
+      { op: "ben-share" },
+      { op: "click" },
+      { op: "end", note: "<b>Left:</b> Ann's newsletter now sends her readers to Ben's blog, and nobody saw an error. <b>Right:</b> the unique rule caught the collision on the first save, one retry fixed it, and both links work. A collision is rare for one pair of links. Over billions of links it is certain, so the unique rule is not optional." }
+    ]
+  },
+  {
+    name: "3. 301 against 302", kind: "redirect",
+    why: "A 301 says the move is permanent, and the browser may keep that answer for a very long time. Those clicks never come back to your server. So they are not counted, and when the owner turns the link off, that browser still goes to the old site. A 302 is not kept unless you say so, so every click comes back. A 301 with a short Cache-Control max-age is the middle way.",
+    predict: { q: "A browser got a 301 with no cache time. Later the owner turns the link off. On its next click, what may that browser do?",
+               options: ["Ask the server and see that the link is off", "Keep going to the old site without asking"], answer: "Keep going to the old site without asking" },
+    ops: [
+      { op: "intro", note: "One person clicks one short link, and we watch three servers that answer in three ways. <b>Left:</b> 301 with no cache time. <b>Middle:</b> 301 with <code>Cache-Control: max-age=90</code>. <b>Right:</b> 302. Clicks happen at 0 s, 30 s and 200 s. The owner turns the link off at 60 s." },
+      { op: "click", t: 0 },
+      { op: "click", t: 30 },
+      { op: "off", t: 60 },
+      { op: "click", t: 200 },
+      { op: "end", note: "<b>Left (301, no cache time):</b> the server saw 1 click of 3, and the browser still reaches the old site after the link was turned off. <b>Middle (301 plus 90 s):</b> the server saw 2 of 3. Fast repeat clicks skipped it, but a later click came back and found the link off. <b>Right (302):</b> the server saw all 3 and the off switch worked at once. The price of the right side is that every click is your traffic." }
+    ]
+  }
+];
+
+// ---- Story 1: counter, base62, table ----
+function simulateCounter(p) {
+  const steps = [];
+  const st = { counter: 10, table: [{ code: "b", url: "old.example/page", tag: "custom alias" }], current: null, verdict: null, fresh: null };
+  const snap = (note, active, hop, phase) => steps.push({
+    counter: st.counter, table: st.table.map(r => Object.assign({}, r)), current: st.current ? JSON.parse(JSON.stringify(st.current)) : null,
+    verdict: st.verdict, fresh: st.fresh, active, hop, phase, note
+  });
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup before any link is made", "setup"); continue; }
+    if (op.op === "end") { st.current = null; st.verdict = null; st.fresh = null; snap(op.note, [], "Finished", "done"); continue; }
+    let done = false, first = true;
+    while (!done) {
+      const n = st.counter;
+      st.counter = n + 1;
+      st.current = { who: op.who, url: op.url, n, code: null, digits: null };
+      st.verdict = null; st.fresh = null;
+      snap("<b>" + op.who + "</b> asks to shorten <code>" + op.url + "</code>. " + (first ? "" : "The server needs a new number. ") +
+        "The server asks the counter for the next number. The counter gives <b>" + n + "</b> and moves on to " + (n + 1) + ". No other request can get " + n + ".",
+        ["counter"], "Server asks the counter", "run");
+      first = false;
+      const digits = digitsOf(n), code = toBase62(n);
+      st.current.digits = digits; st.current.code = code;
+      snap("The server turns <b>" + n + "</b> into letters. " + (digits.length === 1
+        ? "It is less than 62, so it is one digit. Digit " + digits[0] + " is the letter <code>" + code + "</code>."
+        : "It needs " + digits.length + " digits.") + " The code is <code>" + code + "</code>.",
+        ["calc"], "Number to letters (base62)", "run");
+      if (st.table.some(r => r.code === code)) {
+        st.verdict = { cls: "bad", text: "taken: " + code };
+        snap("The server checks the table: is <code>" + code + "</code> already a row? <b>Yes.</b> Someone chose it as a custom alias. The server must not overwrite it. It throws this code away and goes back for another number. The lesson's code prints <code>taken: " + code + " so try the next number</code>.",
+          ["table"], "Check against the table: taken", "bad");
+      } else {
+        st.verdict = { cls: "ok", text: "free: " + code };
+        st.table.push({ code, url: op.url, tag: op.who });
+        st.fresh = code;
+        snap("The server checks the table: is <code>" + code + "</code> already a row? <b>No.</b> It saves the row <code>" + code + " &rarr; " + op.url + "</code>. " + op.who + " gets the short link <code>sho.rt/" + code + "</code>.",
+          ["table"], "Check passes, row saved", "srv");
+        done = true;
+      }
+    }
+  }
+  return steps;
+}
+
+// ---- Story 2: a collision, with and without a unique rule ----
+function simulateCollide(p) {
+  const steps = [];
+  const W = [
+    { id: "no", rows: [], note: "" },
+    { id: "yes", rows: [], note: "" }
+  ];
+  const state = { ann: null, ben: {}, click: null };
+  const snap = (note, active, hop, phase) => steps.push({
+    worlds: W.map(w => ({ id: w.id, rows: w.rows.map(r => Object.assign({}, r)), msg: w.msg || "", msgCls: w.msgCls || "", result: w.result || null })),
+    active, hop, phase, note
+  });
+  const ANN = { url: "shop.example/summer", code: "aB3dY7z" };
+  const BEN = { url: "blog.example/winter", code: "aB3dY7z", retry: "Q9xK2mP" };
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup: two empty tables", "setup"); }
+    else if (op.op === "end") { W.forEach(w => { w.msg = ""; }); snap(op.note, [], "Finished", "done"); }
+    else if (op.op === "ann") {
+      W.forEach(w => { w.rows.push({ code: ANN.code, url: ANN.url, who: "Ann", fresh: true }); w.msg = "Ann's row saved"; w.msgCls = "ok"; });
+      snap("<b>Ann</b> shortens <code>" + ANN.url + "</code>. The server hashes the link and keeps the first 7 letters: <code>" + ANN.code + "</code>. The table is empty, so both tables save the row. Ann puts <code>sho.rt/" + ANN.code + "</code> in her newsletter.", ["table"], "Ann's link is saved", "srv");
+      W.forEach(w => w.rows.forEach(r => r.fresh = false));
+    }
+    else if (op.op === "ben-hash") {
+      W.forEach(w => { w.msg = "Ben's code is " + BEN.code; w.msgCls = "bad"; });
+      snap("<b>Ben</b> shortens <code>" + BEN.url + "</code>, a different link. The server hashes it and keeps the first 7 letters. By bad luck the answer is <code>" + BEN.code + "</code> again. Two different links, one code. This is a <b>collision</b>.", ["server"], "Two links, the same code", "bad");
+    }
+    else if (op.op === "ben-save") {
+      const no = W[0], yes = W[1];
+      no.rows = [{ code: BEN.code, url: BEN.url, who: "Ben", fresh: true, bad: true }];
+      no.msg = "Saved. No error."; no.msgCls = "bad";
+      yes.msg = "Refused: the code exists"; yes.msgCls = "bad";
+      snap("The server saves Ben's row. <b>Left:</b> there is no unique rule, so the save <b>replaces</b> Ann's row without a word. Ann's row is gone. <b>Right:</b> the unique rule says one row per code, so the table <b>refuses</b> the save with an error. The server catches the error.", ["table"], "Save: replace against refuse", "bad");
+      no.rows.forEach(r => r.fresh = false);
+    }
+    else if (op.op === "ben-share") {
+      const yes = W[1];
+      yes.rows.push({ code: BEN.retry, url: BEN.url, who: "Ben", fresh: true });
+      yes.msg = "Retry saved " + BEN.retry; yes.msgCls = "ok";
+      W[0].msg = "Ben shares sho.rt/" + BEN.code; W[0].msgCls = "bad";
+      snap("<b>Right:</b> the server adds a small extra word (a salt) to Ben's link, hashes again, and gets <code>" + BEN.retry + "</code>. That code is free, so the save works. Ben shares <code>sho.rt/" + BEN.retry + "</code>. <b>Left:</b> Ben shares <code>sho.rt/" + BEN.code + "</code> and thinks all is well.", ["table"], "Retry with a salt", "srv");
+      yes.rows.forEach(r => r.fresh = false);
+    }
+    else if (op.op === "click") {
+      W.forEach(w => {
+        const row = w.rows.find(r => r.code === ANN.code);
+        w.result = { url: row.url, right: row.url === ANN.url };
+        w.msg = "Reader opens sho.rt/" + ANN.code; w.msgCls = row.url === ANN.url ? "ok" : "bad";
+      });
+      snap("A reader clicks <code>sho.rt/" + ANN.code + "</code> in Ann's newsletter. <b>Left:</b> the table now says <code>" + ANN.code + " &rarr; " + BEN.url + "</code>, so the reader lands on <b>Ben's blog</b>. <b>Right:</b> the table still says <code>" + ANN.code + " &rarr; " + ANN.url + "</code>, so the reader lands on <b>Ann's shop</b>.", ["table"], "A reader clicks Ann's link", "run");
+    }
+  }
+  return steps;
+}
+
+// ---- Story 3: 301 and 302 for one browser ----
+function simulateRedirect(p) {
+  const steps = [];
+  const MODES = [
+    { id: "a", title: "301, no cache time", header: "301 Moved Permanently", keep: Infinity },
+    { id: "b", title: "301 plus max-age 90", header: "301 + Cache-Control: max-age=90", keep: 90 },
+    { id: "c", title: "302", header: "302 Found", keep: 0 }
+  ];
+  const W = MODES.map(m => ({ id: m.id, title: m.title, header: m.header, keep: m.keep, memoryUntil: null, hits: 0, log: [], offSeen: false, last: null }));
+  let t = 0, linkOn = true, clicks = 0;
+  const snap = (note, active, hop, phase) => steps.push({
+    t, linkOn, clicks,
+    worlds: W.map(w => ({ id: w.id, title: w.title, header: w.header, hits: w.hits, memoryUntil: w.memoryUntil, log: w.log.slice(), last: w.last })),
+    active, hop, phase, note
+  });
+  const fmt = s => s + " s";
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup before any click", "setup"); }
+    else if (op.op === "end") { snap(op.note, [], "Finished", "done"); }
+    else if (op.op === "off") {
+      t = op.t; linkOn = false;
+      snap("<b>" + fmt(t) + ".</b> The owner turns the link <b>off</b> in the dashboard. From now on the server answers <code>410 Gone</code> to anyone who asks. But a browser that does not ask never hears about it.", ["server"], "Owner turns the link off", "bad");
+    }
+    else if (op.op === "click") {
+      t = op.t; clicks++;
+      const parts = [];
+      W.forEach(w => {
+        const fromMemory = w.memoryUntil !== null && t < w.memoryUntil;
+        if (fromMemory) {
+          w.last = { how: "memory", text: "browser remembered, server not asked" };
+          w.log.unshift({ t, text: fmt(t) + ": from the browser's memory, opens the shop site", bad: !linkOn });
+          parts.push(w.title + ": the browser answers by itself" + (linkOn ? "." : ", even though the link is off."));
+        } else {
+          w.hits++;
+          if (linkOn) {
+            w.memoryUntil = w.keep === Infinity ? Infinity : (w.keep > 0 ? t + w.keep : null);
+            w.last = { how: "server", text: "server asked, answered " + w.header };
+            w.log.unshift({ t, text: fmt(t) + ": asks the server, counted (" + w.hits + "), opens the shop site", bad: false });
+            parts.push(w.title + ": goes to the server, which counts it" + (w.keep === Infinity ? " and the browser may keep the answer for a very long time" : (w.keep > 0 ? " and the browser keeps the answer for 90 s" : " and the browser keeps nothing")) + ".");
+          } else {
+            w.memoryUntil = null;
+            w.last = { how: "server", text: "server asked, answered 410 Gone" };
+            w.log.unshift({ t, text: fmt(t) + ": asks the server, counted (" + w.hits + "), gets 410 Gone", bad: false });
+            parts.push(w.title + ": goes to the server, which says the link is gone.");
+          }
+        }
+      });
+      snap("<b>" + fmt(t) + ". Click " + clicks + ".</b> " + parts.join(" "), ["browser", "server"], "A person clicks the short link", "run");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+
+function simulate(p) {
+  return p.kind === "counter" ? simulateCounter(p) : p.kind === "collide" ? simulateCollide(p) : simulateRedirect(p);
+}
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something goes wrong", "bad"], srv: ["The table changes", "srv"], done: ["Finished", "done"] };
+
+function renderCounter(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage counter";
+  const c = s.current;
+  st.innerHTML =
+    '<div class="panel"><h2>The counter</h2>' +
+      '<div class="comp lb' + lit("counter") + '"><h3>Next number</h3><small>gives every create its own number</small>' +
+        '<div class="big">' + s.counter + '</div><div class="biglabel">the next number to hand out</div></div>' +
+      '<div class="alpha mono">letters in order: ' + A + '</div>' +
+    "</div>" +
+    '<div class="panel"><h2>The server</h2>' +
+      '<div class="comp srv' + lit("calc") + '"><h3>Number to letters</h3><small>base62: 0-9, then a-z, then A-Z</small>' +
+        (c ? '<div class="calc">Request: <b>' + c.who + "</b> &rarr; <code>" + c.url + "</code><br>Number taken: <b>" + c.n + "</b><br>" +
+          (c.digits ? "Digits: " + c.digits.map(d => '<span class="digit">' + d + " = " + A[d] + "</span>").join("") + "<br>Code: <b class=\"mono\">" + c.code + "</b>" : "Code: not made yet") + "</div>"
+          : '<span class="empty">no request yet</span>') +
+        (s.verdict ? '<div class="verdict ' + s.verdict.cls + '">' + s.verdict.text + "</div>" : "") +
+      "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>The table</h2>' +
+      '<div class="comp store' + lit("table") + '"><h3>links <span class="tag warn">code must be unique</span></h3><small>one row per code</small>' +
+        '<div class="rows">' + s.table.map(r => '<div class="row' + (r.code === s.fresh ? " new" : "") + '"><span><b>' + r.code + "</b> &rarr; " + r.url + "</span><span>" + r.tag + "</span></div>").join("") + "</div></div>" +
+    "</div>";
+}
+
+function renderCollide(s, P) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage two";
+  const titles = { no: ["No unique rule", "The save writes the row. If the code exists, the new row replaces the old one."],
+                   yes: ["Unique rule and a retry", "The table refuses a second row with the same code. The server then tries another code."] };
+  st.innerHTML = s.worlds.map(w =>
+    '<div class="panel"><h2>' + titles[w.id][0] + "</h2><div class=\"rulebox\">" + titles[w.id][1] + "</div>" +
+      '<div class="comp store' + lit("table") + '"><h3>links table</h3><small>code &rarr; long link</small>' +
+        '<div class="rows">' + (w.rows.length ? w.rows.map(r => '<div class="row' + (r.fresh ? " new" : "") + (r.bad ? " bad" : "") + '"><span><b>' + r.code + "</b> &rarr; " + r.url + "</span><span>" + r.who + "</span></div>").join("") : '<span class="empty">empty</span>') + "</div></div>" +
+      (w.msg ? '<div class="verdict ' + w.msgCls + '">' + w.msg + "</div>" : "") +
+      (w.result ? '<div class="verdict ' + (w.result.right ? "ok" : "bad") + '">Reader lands on ' + w.result.url + (w.result.right ? " (right)" : " (the wrong site)") + "</div>" : "") +
+    "</div>").join("");
+}
+
+function renderRedirect(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage three";
+  st.innerHTML = s.worlds.map(w => {
+    const mem = w.memoryUntil === null ? "empty" : (w.memoryUntil === Infinity ? "kept, no end time" : "kept until " + w.memoryUntil + " s");
+    const stale = w.memoryUntil !== null && !s.linkOn;
+    return '<div class="panel"><h2>' + w.title + "</h2><div class=\"rulebox\">Server answer: <b class=\"mono\">" + w.header + "</b></div>" +
+      '<div class="comp user' + lit("browser") + '"><h3>Browser <span class="tag' + (stale ? " bad" : "") + '">' + mem + "</span></h3><small>what the browser remembers about this short link</small>" +
+        (w.last ? '<div class="calc">Last click: ' + w.last.text + "</div>" : '<span class="empty">no click yet</span>') + "</div>" +
+      '<div class="comp srv' + lit("server") + '"><h3>Your server</h3><small>link is ' + (s.linkOn ? "on" : "OFF") + '</small>' +
+        '<div class="big">' + w.hits + '</div><div class="biglabel">clicks your server saw (analytics)</div></div>' +
+      '<ul class="log">' + (w.log.length ? w.log.map(e => '<li class="' + (e.bad ? "bad" : "ok") + '">' + e.text + "</li>").join("") : '<li class="empty">no clicks yet</li>') + "</ul>" +
+    "</div>";
+  }).join("");
+}
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  if (P.kind === "counter") renderCounter(s); else if (P.kind === "collide") renderCollide(s, P); else renderRedirect(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>
