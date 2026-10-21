@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online shop checkout: the last mug, a failed payment, and the race</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 0.9fr 1.2fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; display: flex; justify-content: space-between; gap: 6px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .55; border-style: dashed; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.hold { background: var(--store); color: #fff; }
+  .tag.lb { background: var(--lb); color: #fff; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.dup { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .screen { font-size: .84rem; background: var(--chip); border-radius: 8px; padding: 6px 8px; }
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+  .big { font-size: 1.6rem; font-weight: 800; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend code, .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../12-design-an-online-shop-checkout.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Online shop checkout: the last mug, a failed payment, and the race</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the stock, the orders, the seen events and the outbox. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> hold the stock with one conditional update (<code>WHERE stock &gt;= 1</code>), zero rows means sold out. The webhook decides that an order is paid, not the browser. Check the signature, save the event id, and move an order only from RESERVED. When something fails, the undo steps run: give the stock back, refund money that came too late.</p>
+</div>
+
+<script>
+const STORIES = [
+  {
+    name: "1. The last mug", kind: "world",
+    why: "Stripe sent the webhook straight to the API. The route checked the signature, saved evt_1 and moved order 41 from RESERVED to PAID in one transaction. It never needed Ana's browser. The success page is only a place to read the status.",
+    predict: { q: "Ana's wifi drops right after she pays, before the success page loads. What is order 41's status a minute later?",
+               options: ["RESERVED, still waiting", "PAID", "CANCELLED"], answer: "PAID" },
+    world: { products: { mug: 1 }, buyers: ["ana", "budi"], clock: 0 },
+    ops: [
+      { op: "intro", note: "It is <b>10:00</b>. There is <b>one blue mug</b> left. Ana and Budi both have the mug page open in the Next.js shop, and both are about to press <b>Pay</b>." },
+      { op: "hold", buyer: "ana", product: "mug", key: "k1", id: 41, at: 0 },
+      { op: "hold", buyer: "budi", product: "mug", key: "k7", at: 0 },
+      { op: "hold", buyer: "ana", product: "mug", key: "k1", at: 0 },
+      { op: "createPayment", id: 41, at: 0 },
+      { op: "pay", buyer: "ana", id: 41, ok: true, at: 1 },
+      { op: "gone", buyer: "ana", at: 1 },
+      { op: "webhook", evt: "evt_1", type: "succeeded", id: 41, at: 1 },
+      { op: "webhook", evt: "evt_1", type: "succeeded", id: 41, at: 2 },
+      { op: "relay", id: 41, at: 2 },
+      { op: "end", note: "One mug, one order, one payment, one email. Budi was told \"sold out\" at once. Ana's double click and Stripe's second <code>evt_1</code> changed nothing. And order 41 became PAID even though Ana's browser never came back." }
+    ]
+  },
+  {
+    name: "2. Payment fails", kind: "world",
+    why: "At 10:14 the cleanup job saw order 43 still RESERVED with an ended hold, so it cancelled it and gave the hat back. When the money arrived at 10:15, the webhook route found order 43 CANCELLED. A move to PAID is only allowed from RESERVED, so it runs the undo step instead: a refund.",
+    predict: { q: "Dan's money arrives at 10:15. The cleanup job already released his hat at 10:14. What does the shop do?",
+               options: ["Marks order 43 PAID", "Refunds Dan", "Ignores the money"], answer: "Refunds Dan" },
+    world: { products: { scarf: 1, hat: 1 }, buyers: ["cara", "dan"], clock: 2 },
+    ops: [
+      { op: "intro", note: "It is <b>10:02</b>. One scarf and one hat are left. Cara wants the scarf. Dan wants the hat. Both stories go wrong in a different way." },
+      { op: "hold", buyer: "cara", product: "scarf", key: "k2", id: 42, at: 2 },
+      { op: "createPayment", id: 42, at: 2 },
+      { op: "pay", buyer: "cara", id: 42, ok: false, at: 3 },
+      { op: "webhook", evt: "evt_2", type: "failed", id: 42, at: 3 },
+      { op: "hold", buyer: "dan", product: "hat", key: "k5", id: 43, at: 4 },
+      { op: "createPayment", id: 43, at: 4 },
+      { op: "slow", buyer: "dan", id: 43, at: 5 },
+      { op: "fake", evt: "evt_9", id: 43, at: 6 },
+      { op: "expire", at: 14 },
+      { op: "pay", buyer: "dan", id: 43, ok: true, at: 15 },
+      { op: "webhook", evt: "evt_3", type: "succeeded", id: 43, at: 15 },
+      { op: "end", note: "Two undo steps ran. The failed card gave the scarf back. The ended hold gave the hat back, and the money that came too late was refunded. Nobody paid without an order, and no item was stuck forever." }
+    ]
+  },
+  {
+    name: "3. Read then write vs one step", kind: "race",
+    why: "In the left world both buyers read \"1 left\" before either one wrote. Each one then wrote 1 minus 1, which is 0. The stock looks right, but two buyers were told yes. In the right world Postgres made Budi's update wait for Ana's, then checked stock >= 1 again on the new value 0, so his update changed 0 rows.",
+    predict: { q: "In the read-then-write checkout, how many buyers are told yes for the one mug?",
+               options: ["1", "2"], answer: "2" },
+    ops: [
+      { op: "intro", note: "Two worlds, one mug each, the same timing. <b>Left:</b> the API reads the stock, then writes it in a second call. <b>Right:</b> the API sends one conditional update: <code>UPDATE products SET stock = stock - 1 WHERE id = 'mug' AND stock &gt;= 1</code>." },
+      { op: "a1" }, { op: "b1" }, { op: "a2" }, { op: "b2" },
+      { op: "end", note: "<b>Left:</b> stock 0, but 2 buyers told yes. One of them will never get a mug. <b>Right:</b> stock 0 and 1 buyer told yes. The check and the change happened in one step, so nobody could slip in between." }
+    ]
+  }
+];
+
+const NAMES = { ana: "Ana", budi: "Budi", cara: "Cara", dan: "Dan" };
+const time = m => "10:" + String(m).padStart(2, "0");
+const clone = o => JSON.parse(JSON.stringify(o));
+
+// ---- Stories 1 and 2: one shop ----
+function simulateWorld(p) {
+  const steps = [];
+  const w = {
+    clock: p.world.clock, products: Object.assign({}, p.world.products), orders: [], keys: [], payments: [],
+    seen: [], outbox: [], refunds: [], job: "waiting", wire: "", flash: null,
+    buyers: Object.fromEntries(p.world.buyers.map(b => [b, { screen: "looking at the product page", online: true }]))
+  };
+  const snap = (note, active, hop, phase) => steps.push({ w: clone(w), active, hop, phase, note });
+  const order = id => w.orders.find(o => o.id === id);
+  for (const op of p.ops) {
+    w.flash = null;
+    if (op.at !== undefined) w.clock = op.at;
+    if (op.op === "intro") { snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { w.wire = ""; snap(op.note, [], "Finished", "done"); continue; }
+    const who = NAMES[op.buyer];
+    if (op.op === "hold") {
+      const k = op.buyer + ":" + op.key;
+      const before = w.keys.find(x => x.k === k);
+      if (before) {
+        w.wire = "POST /checkout key " + op.key + " again";
+        w.flash = { table: "keys", k };
+        w.buyers[op.buyer].screen = "Order " + before.answer.replace("order ", "") + " held. Pay now.";
+        snap(who + " <b>double clicks</b> Pay. The browser sends the same checkout key <code>" + op.key + "</code>. The API finds it already answered and returns <b>" + before.answer + "</b> again. No new update, no second order, the stock stays " + w.products[op.product] + ".", [op.buyer, "api", "keys"], "Same key, same answer", "srv");
+      } else if (w.products[op.product] < 1) {
+        w.keys.push({ k, answer: "sold out" });
+        w.wire = "UPDATE ... WHERE stock >= 1 changed 0 rows";
+        w.buyers[op.buyer].screen = "Sorry, sold out.";
+        w.flash = { table: "keys", k };
+        snap(who + " presses Pay a moment later. His conditional update had to <b>wait</b> until Ana's transaction finished. Then Postgres checked <code>stock &gt;= 1</code> again on the new value, <b>0</b>. It changed <b>0 rows</b>, so the API answers \"sold out\" and makes no order.", [op.buyer, "api", "products"], "0 rows means sold out", "srv");
+      } else {
+        w.products[op.product] -= 1;
+        w.orders.push({ id: op.id, buyer: op.buyer, product: op.product, status: "RESERVED", ends: op.at + 10, reason: "" });
+        w.keys.push({ k, answer: "order " + op.id });
+        w.wire = "BEGIN, UPDATE ... WHERE stock >= 1, INSERT order " + op.id + ", COMMIT";
+        w.flash = { table: "orders", id: op.id };
+        w.buyers[op.buyer].screen = "Order " + op.id + " held until " + time(op.at + 10) + ". Pay now.";
+        snap(who + " presses <b>Pay</b> with checkout key <code>" + op.key + "</code>. In <b>one transaction</b> the API runs the conditional update, which changes 1 row, and makes order <b>" + op.id + "</b> as <b>RESERVED</b>. The " + op.product + " is now <b>held</b> for " + who + " until " + time(op.at + 10) + ".", [op.buyer, "api", "products", "orders", "keys"], "The hold", "srv");
+      }
+    } else if (op.op === "createPayment") {
+      w.payments.push({ pi: "pi_" + op.id, order: op.id, status: "waiting for the card" });
+      w.wire = "create payment, Idempotency-Key order-" + op.id;
+      snap("The transaction is finished, so the row is free again. <b>Only now</b> the API asks Stripe for a payment, with the idempotency key <code>order-" + op.id + "</code>. If this call times out and the API tries again, Stripe returns the same <code>pi_" + op.id + "</code> instead of making a second payment.", ["api", "stripe"], "Ask Stripe for a payment", "run");
+    } else if (op.op === "pay") {
+      const pay = w.payments.find(x => x.order === op.id);
+      pay.status = op.ok ? "succeeded" : "declined";
+      w.wire = "";
+      w.buyers[op.buyer].screen = op.ok ? "Stripe: payment done. Going back to the shop..." : "Stripe: your card was declined.";
+      const status = order(op.id).status;
+      snap(op.ok
+        ? (status === "RESERVED"
+          ? who + " types the card on Stripe's form. Stripe <b>charges the card</b>. The money never touches our server. Our database still says order " + op.id + " is <b>RESERVED</b>, because nobody has told it yet."
+          : who + " finally confirms in his bank app at " + time(w.clock) + ", and Stripe <b>charges the card</b>. But our database already says order " + op.id + " is <b>" + status + "</b>. Stripe does not know that.")
+        : who + " types the card on Stripe's form. The bank says no: the card is <b>declined</b>. Our database still says order " + op.id + " is RESERVED and the scarf is still held.",
+        [op.buyer, "stripe"], op.ok ? "The card is charged" : "The card is declined", op.ok ? "run" : "bad");
+    } else if (op.op === "gone") {
+      w.buyers[op.buyer].online = false;
+      w.buyers[op.buyer].screen = "wifi dropped, the success page never loads";
+      snap(who + "'s wifi drops before Stripe sends her back to the success page. If the success page were the thing that marks the order paid, order 41 would stay RESERVED, and at 10:10 the cleanup job would sell her mug again.", [op.buyer], "The browser is gone", "bad");
+    } else if (op.op === "webhook") {
+      const o = order(op.id);
+      if (w.seen.includes(op.evt)) {
+        w.wire = "POST /webhooks/stripe " + op.evt + ": seen before, 200";
+        w.flash = { table: "seen", evt: op.evt };
+        snap("Stripe did not get our 200 in time, so it sends <code>" + op.evt + "</code> <b>again</b>. The signature is fine. Saving <code>" + op.evt + "</code> hits <code>ON CONFLICT DO NOTHING</code> and returns 0 rows, so the route <b>skips</b> the work and answers 200. No second outbox row, no second email.", ["stripe", "api", "events"], "Duplicate, skipped", "srv");
+        continue;
+      }
+      w.seen.push(op.evt);
+      if (op.type === "succeeded" && o.status === "RESERVED") {
+        o.status = "PAID";
+        w.outbox.push({ text: "OrderPaid " + o.id, sent: false });
+        w.wire = "POST /webhooks/stripe " + op.evt + " payment succeeded";
+        w.flash = { table: "orders", id: o.id };
+        snap("Stripe calls our webhook route with <code>" + op.evt + "</code>, \"payment succeeded for order " + o.id + "\". The route checks the <b>signature</b> on the raw body. Then, in one transaction, it saves <code>" + op.evt + "</code>, moves order " + o.id + " from RESERVED to <b>PAID</b>, and adds an <b>outbox</b> row. Then it answers 200.", ["stripe", "api", "events", "orders", "outbox"], "The webhook decides", "srv");
+      } else if (op.type === "succeeded" && o.status === "CANCELLED") {
+        w.refunds.push({ text: "refund pi_" + o.id + " for order " + o.id });
+        w.wire = "POST /webhooks/stripe " + op.evt + " payment succeeded";
+        w.flash = { table: "refunds" };
+        w.buyers[o.buyer].screen = "Email: your hold ended, your money is on its way back.";
+        snap("Stripe calls with <code>" + op.evt + "</code>, \"payment succeeded for order " + o.id + "\". The signature is fine and the event is new. But order " + o.id + " is <b>CANCELLED</b>. The move to PAID only starts from RESERVED, so it changes 0 rows. The route runs the <b>undo step</b> for the payment: a <b>refund</b>. The order stays CANCELLED.", ["stripe", "api", "events", "orders", "refunds"], "Too late, refund", "bad");
+      } else if (op.type === "failed" && o.status === "RESERVED") {
+        o.status = "CANCELLED"; o.reason = "payment failed";
+        w.products[o.product] += 1;
+        w.wire = "POST /webhooks/stripe " + op.evt + " payment failed";
+        w.flash = { table: "orders", id: o.id };
+        w.buyers[o.buyer].screen = "Payment failed. Try again with another card.";
+        snap("Stripe calls with <code>" + op.evt + "</code>, \"payment failed for order " + o.id + "\". The route saves the event id and moves order " + o.id + " from RESERVED to <b>CANCELLED</b>. Then it runs the <b>undo step</b> for the hold: the " + o.product + " goes <b>back on the shelf</b>. Stock is " + w.products[o.product] + " again.", ["stripe", "api", "events", "orders", "products"], "Undo: release the stock", "bad");
+      }
+    } else if (op.op === "slow") {
+      const pay = w.payments.find(x => x.order === op.id);
+      pay.status = "waiting for a bank check";
+      w.buyers[op.buyer].screen = "Bank app: please confirm this payment...";
+      snap(who + " starts paying, but his bank asks for an <b>extra check</b> in its app. Dan puts his phone down. Order " + op.id + " stays RESERVED and the hat stays held until " + time(order(op.id).ends) + ".", [op.buyer, "stripe"], "A slow payment", "run");
+    } else if (op.op === "fake") {
+      w.wire = "POST /webhooks/stripe " + op.evt + " bad signature: 400";
+      snap("Someone found our webhook URL and posts <code>" + op.evt + "</code>, \"payment succeeded for order " + op.id + "\". The <code>Stripe-Signature</code> header does not match the raw body and our secret. The route answers <b>400</b> and stops. It does not save <code>" + op.evt + "</code> and does not touch the order.", ["api"], "A fake webhook is rejected", "srv");
+    } else if (op.op === "expire") {
+      const ended = w.orders.filter(o => o.status === "RESERVED" && o.ends <= op.at);
+      ended.forEach(o => { o.status = "CANCELLED"; o.reason = "hold expired"; w.products[o.product] += 1; w.buyers[o.buyer].screen = "Your hold ended."; });
+      w.job = "released " + ended.length + " at " + time(op.at);
+      w.wire = "";
+      w.flash = { table: "orders", id: ended.length ? ended[0].id : null };
+      snap("It is <b>" + time(op.at) + "</b>. The <b>cleanup job</b> runs <code>UPDATE orders SET status = 'CANCELLED' WHERE status = 'RESERVED' AND expires_at &lt;= now()</code>. It finds order " + ended.map(o => o.id).join(", ") + " and gives the " + ended.map(o => o.product).join(", ") + " back. Running it again finds nothing, because the order is no longer RESERVED.", ["job", "orders", "products"], "Undo: the hold ended", "bad");
+    } else if (op.op === "relay") {
+      w.outbox.forEach(x => x.sent = true);
+      const o = order(op.id); o.status = "CONFIRMED";
+      w.wire = "";
+      w.buyers[o.buyer].screen = "Email: receipt for order " + o.id + ". Your mug is on its way.";
+      snap("The <b>outbox relay</b> reads the unsent row and puts <code>OrderPaid " + o.id + "</code> on the queue. The email worker sends Ana her receipt and the warehouse gets the job. Order " + o.id + " becomes <b>CONFIRMED</b>. Ana gets the email even though her browser never came back.", ["outbox", "orders", o.buyer], "Outbox to queue to email", "srv");
+    }
+  }
+  return steps;
+}
+
+// ---- Story 3: read then write against one step ----
+function simulateRace(p) {
+  const steps = [];
+  const base = () => ({ stock: 1, yes: [], log: [], wait: "" });
+  const L = base(), R = base();
+  const snap = (note, active, hop, phase) => steps.push({ L: clone(L), R: clone(R), active, hop, phase, note });
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "a1") {
+      L.log.unshift({ text: "Ana reads stock: 1 left" });
+      R.log.unshift({ text: "Ana's update starts. The mug row is now busy until her transaction ends" });
+      R.wait = "row busy with Ana's change";
+      snap("<b>Left:</b> Ana's request reads the stock and sees <b>1 left</b>. <b>Right:</b> Ana's conditional update starts. Postgres marks the mug row busy until her transaction ends.", ["ana"], "Ana goes first", "run");
+    } else if (op.op === "b1") {
+      L.log.unshift({ text: "Budi reads stock: 1 left. Ana has not written yet", bad: true });
+      R.log.unshift({ text: "Budi's update must wait for Ana's" });
+      snap("Budi's request comes a moment later. <b>Left:</b> it also reads <b>1 left</b>, because Ana has not written yet. Both now act on old news. <b>Right:</b> Budi's update touches the same row, so Postgres makes it <b>wait</b>.", ["budi"], "Budi comes a moment later", "bad");
+    } else if (op.op === "a2") {
+      L.stock = 0; L.yes.push("Ana");
+      L.log.unshift({ text: "Ana writes stock = 1 - 1 = 0. Told yes" });
+      R.stock = 0; R.yes.push("Ana"); R.wait = "";
+      R.log.unshift({ text: "Ana's update changed 1 row, stock 0, COMMIT. Told yes" });
+      snap("<b>Left:</b> Ana writes 1 minus 1, so stock 0, and she is told yes. <b>Right:</b> Ana's update changed 1 row, stock is 0, and her transaction commits. She is told yes, and the row is free again.", ["ana"], "Ana is told yes", "srv");
+    } else if (op.op === "b2") {
+      L.stock = 0; L.yes.push("Budi");
+      L.log.unshift({ text: "Budi writes stock = 1 - 1 = 0. Told yes", bad: true });
+      R.log.unshift({ text: "Budi's update wakes, checks stock >= 1 on the new value 0: 0 rows. Sold out" });
+      snap("<b>Left:</b> Budi also writes 1 minus 1, so stock 0, and he is <b>also told yes</b>. <b>Right:</b> Budi's update wakes up. Postgres checks <code>stock &gt;= 1</code> again on the new value, 0. It changes <b>0 rows</b>, so Budi is told \"sold out\".", ["budi"], "Budi's turn", "bad");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function simulate(p) { return p.kind === "race" ? simulateRace(p) : simulateWorld(p); }
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something goes wrong", "bad"], srv: ["Done safely", "srv"], done: ["Finished", "done"] };
+const STATUS_TAG = { RESERVED: "hold", PAID: "ok", CONFIRMED: "", CANCELLED: "bad" };
+
+function renderWorld(s) {
+  const w = s.w;
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const f = w.flash || {};
+  const st = $("stage");
+  st.className = "stage three";
+  const list = (items, fn, emptyText) => items.length ? '<ul class="rows">' + items.map(fn).join("") + "</ul>" : '<span class="empty">' + emptyText + "</span>";
+
+  const buyers = Object.entries(w.buyers).map(([b, v]) =>
+    '<div class="comp user' + lit(b) + (v.online ? "" : " off") + '"><h3>' + NAMES[b] + " browser " +
+      (v.online ? '<span class="tag ok">online</span>' : '<span class="tag bad">gone</span>') + "</h3><small>Next.js shop</small>" +
+      '<div class="screen">' + esc(v.screen) + "</div></div>").join("");
+
+  const products = list(Object.entries(w.products), ([name, n]) =>
+    '<li><span class="mono">' + name + "</span><span>stock <b>" + n + "</b></span></li>", "empty");
+  const orders = list(w.orders, o =>
+    '<li class="' + (f.table === "orders" && f.id === o.id ? "new" : "") + '"><span class="mono">' + o.id + "</span><span>" + NAMES[o.buyer] + " " + o.product + '</span><span class="tag ' + STATUS_TAG[o.status] + '">' + o.status + "</span>" +
+      '<span class="mono" style="font-size:.72rem">' + (o.status === "RESERVED" ? "hold ends " + time(o.ends) : o.reason ? esc(o.reason) : "") + "</span></li>", "no orders yet");
+  const keys = list(w.keys, x =>
+    '<li class="' + (f.table === "keys" && f.k === x.k ? "new" : "") + '"><span class="mono">' + esc(x.k) + "</span><span>" + esc(x.answer) + "</span></li>", "none yet");
+  const payments = list(w.payments, x =>
+    '<li><span class="mono">pi_' + x.order + "</span><span>" + esc(x.status) + "</span></li>", "no payments yet");
+  const seen = list(w.seen, e =>
+    '<li class="' + (f.table === "seen" && f.evt === e ? "dup" : "") + '"><span class="mono">' + e + "</span>" + (f.table === "seen" && f.evt === e ? "<span>seen before, skip</span>" : "") + "</li>", "none yet");
+  const outbox = list(w.outbox, x =>
+    "<li><span>" + esc(x.text) + '</span><span class="tag ' + (x.sent ? "ok" : "hold") + '">' + (x.sent ? "sent" : "not sent yet") + "</span></li>", "empty");
+  const refunds = list(w.refunds, x => '<li class="new"><span>' + esc(x.text) + "</span></li>", "none");
+
+  st.innerHTML =
+    '<div class="panel"><h2>Buyers</h2>' + buyers + "</div>" +
+    '<div class="panel"><h2><span>Our back end</span><span class="mono">' + time(w.clock) + "</span></h2>" +
+      '<div class="comp srv' + lit("api") + '"><h3>Express API</h3><small>checkout route and webhook route</small>' +
+        (w.wire ? '<div class="mono" style="font-size:.78rem">' + esc(w.wire) + "</div>" : '<span class="empty">idle</span>') + "</div>" +
+      '<div class="comp store' + lit("products") + '"><h3>products <span class="tag">Postgres</span></h3>' + products + "</div>" +
+      '<div class="comp store' + lit("orders") + '"><h3>orders <span class="tag">Postgres</span></h3>' + orders + "</div>" +
+      '<div class="comp lb' + lit("keys") + '"><h3>checkout keys answered</h3><small>buyer and key, first answer</small>' + keys + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>Stripe and after</h2>' +
+      '<div class="comp lb' + lit("stripe") + '"><h3>Stripe <span class="tag lb">outside our database</span></h3>' + payments + "</div>" +
+      '<div class="comp store' + lit("events") + '"><h3>processed_events</h3><small>event ids already handled</small>' + seen + "</div>" +
+      '<div class="comp store' + lit("outbox") + '"><h3>outbox</h3>' + outbox + "</div>" +
+      '<div class="comp srv' + lit("job") + '"><h3>Cleanup job</h3><small>every minute, releases ended holds</small><span class="mono" style="font-size:.78rem">' + esc(w.job) + "</span></div>" +
+      '<div class="comp user' + lit("refunds") + '"><h3>Refunds to send</h3>' + refunds + "</div>" +
+    "</div>";
+}
+
+function renderRace(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage two";
+  const world = (w, title, rule) =>
+    '<div class="panel"><h2>' + title + '</h2><div class="rulebox">' + rule + "</div>" +
+      '<div class="comp store"><h3>products: mug ' + (w.wait ? '<span class="tag hold">' + esc(w.wait) + "</span>" : "") + '</h3><div>stock <span class="big">' + w.stock + "</span></div></div>" +
+      '<div class="comp user' + lit("ana") + lit("budi") + '"><h3>Buyers told yes</h3><div class="big">' + w.yes.length + "</div>" +
+        '<div style="font-size:.84rem">' + (w.yes.length ? esc(w.yes.join(" and ")) : '<span class="empty">nobody yet</span>') + "</div>" +
+        (w.yes.length > 1 ? '<div class="verdict bad">2 buyers told yes for 1 mug</div>' : "") +
+      "</div>" +
+      '<ul class="rows">' + w.log.map(e => '<li class="' + (e.bad ? "dup" : "") + '"><span>' + esc(e.text) + "</span></li>").join("") + "</ul>" +
+    "</div>";
+  st.innerHTML = world(s.L, "Read, then write", "Two calls: read the stock, then write stock minus 1.") +
+                 world(s.R, "One conditional update", "One call: take 1 only if at least 1 is left.");
+}
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  if (P.kind === "race") renderRace(s); else renderWorld(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>
