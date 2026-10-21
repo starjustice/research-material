@@ -259,7 +259,7 @@ What to see:
 |---|---|---|
 | Timeout or dropped connection | yes, if safe to repeat | you do not know if it worked |
 | 500, 502, 503, 504 | yes, if safe to repeat | a server problem may pass |
-| 409 still in progress, 429 too many requests | yes, later | the server says "ask again later" |
+| 409 still in progress, 429 too many requests | yes, later | the server says "ask again later". For 429, wait the seconds in `Retry-After` ([lesson 09](09-design-a-rate-limiter.md)) |
 | 400, 401, 403, 404, 422 | no | the same request fails the same way |
 | 2xx | no | it worked |
 
