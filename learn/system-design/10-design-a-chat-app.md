@@ -6,35 +6,32 @@
 
 ## 1. The idea in one sentence
 
-Each phone keeps one line open to a server, so the server can hand it a new message the moment it arrives. The server saves every message first, then delivers it.
+Each phone keeps one line open to a server. The server saves each new message, then sends it down that line.
 
-Lessons 08 and 09 were "ask, get an answer". Chat is different. Bob never asks "do I have a message?". The server must reach Bob by itself. The two hard parts are **finding Bob**, because he sits on one of many servers, and **never losing a message**, because phones go offline all the time.
+In chat, Bob never asks for news. The server must reach him by itself. Two parts are hard:
+
+- **Finding Bob.** He sits on one of many servers.
+- **Never losing a message.** Phones go offline all the time.
 
 New words (four):
 
-- **WebSocket:** a line between the phone and the server that stays open. Both sides can send at any time. Normal HTTP only answers when the phone asks.
-- **Ack:** a small "I got it" reply. The server's ack to the sender is the first tick. (Interview word: acknowledgement.)
-- **Push notification:** a short note sent through Apple or Google that wakes up a phone that has no open line.
-- **Catch up from the last id:** a phone that comes back says "give me everything after message 101". (Interview word: sync with a cursor.)
+- **WebSocket:** a line between phone and server that stays open. Both sides can send at any time. A normal web request (HTTP) only answers when asked.
+- **Ack:** a small "I got it" reply. The server's ack to Alice is her first tick. (Interview word: acknowledgement.)
+- **Push notification:** a short note from Apple or Google that wakes a phone with no open line.
+- **Catch up from the last id:** a phone that comes back asks for "everything after message 101". (Interview word: sync with a cursor.)
 
-Two plain ideas, explained now so the pictures make sense:
+Two more plain ideas:
 
-- **A connection server** is a server whose main job is to hold many open WebSockets. Alice's line may land on server A, and Bob's on server B.
-- **The who-is-where map** is a small table in Redis: "Bob is on server B". Each connection server writes to it when a phone connects.
+- **Connection server:** a server that holds many open WebSockets.
+- **Who-is-where map:** a small table in Redis, the fast store from earlier lessons. It says "Bob is on server B".
 
-From earlier lessons:
-
-- Many servers sit behind a load balancer, and each phone can land on any of them (lessons 02 and 03).
-- A queue holds jobs that are slow or can fail, and workers retry them (lesson 06).
-- A resend must not make a second copy. Lesson 08 used a unique key for that.
-
-Numbers in the pictures are example numbers, not measured.
+From earlier lessons: load balancers (02, 03), queues with retries (06), and the unique key that stops a second copy (08). Numbers in the pictures are examples.
 
 ## 2. The pictures
 
 ### 2a. The big picture
 
-Notice that Alice and Bob sit on different connection servers. The chat service saves the message, looks Bob up, and hands the message across.
+The chat service is the code that handles each message. Notice that Alice and Bob sit on different servers.
 
 ```mermaid
 graph LR
@@ -50,11 +47,11 @@ graph LR
     PW --> APNS["Apple and Google<br/>push services"]
 ```
 
-**Pub sub** (publish and subscribe): each connection server listens on its own named channel in Redis. To reach server B, the chat service posts on channel "server B".
+**Pub sub** (publish and subscribe): each connection server listens on its own Redis channel. To reach server B, the chat service posts on that channel.
 
 ### 2b. The problem, drawn
 
-Without an open line, each phone must keep asking. Notice how many questions get "nothing new" as the answer.
+Without an open line, phones must keep asking (interview word: polling). Notice the empty answers.
 
 ```mermaid
 graph LR
@@ -65,7 +62,7 @@ graph LR
     class API,E,L bad
 ```
 
-The second problem: you add WebSockets, but there are many servers. Notice that server A has no line to Bob.
+Now add WebSockets. Notice that server A has no line to Bob.
 
 ```mermaid
 graph LR
@@ -78,7 +75,7 @@ graph LR
 
 ### 2c. How it works over time: one message and three ticks
 
-Notice the order: save, ack, then deliver. Each tick is a separate small message going back to Alice.
+Notice the order: save, ack, then deliver.
 
 ```mermaid
 sequenceDiagram
@@ -100,11 +97,11 @@ sequenceDiagram
     M-->>A: blue ticks
 ```
 
-`clientMsgId` is an id the phone makes before sending. It is the resend guard from lesson 08.
+`clientMsgId` is an id the phone makes. It stops a second copy.
 
 ### 2d. What is in memory right now
 
-This is one moment in a group chat. Notice that the ticks do not need a row per person per message. Each member keeps only two numbers.
+One moment in a group chat. Notice that each member keeps only two numbers.
 
 ```mermaid
 graph TB
@@ -125,13 +122,15 @@ graph TB
     end
 ```
 
-Message 101 from Alice has two ticks: Bob and Cara both have it. Message 102 has one tick: Cara does not have it yet. Nothing is blue for Alice, because Cara has read nothing.
+- 101 has two ticks. Bob and Cara have it.
+- 102 has one tick. Cara does not have it.
+- Nothing is blue. Cara has read nothing.
 
-The Redis keys end by themselves. Each phone sends a small "still here" message every 30 seconds (interview word: heartbeat), and the server pushes the end time forward. A dead phone simply disappears from the map.
+Every 30 seconds, each phone sends "still here" (interview word: heartbeat). If it stops, its Redis key ends. The phone drops off the map.
 
 ### 2e. Right against wrong
 
-The server crashes halfway through sending. Notice what is left on disk.
+Wrong: deliver, then save. Notice that nothing is on disk after the crash.
 
 ```mermaid
 sequenceDiagram
@@ -146,6 +145,8 @@ sequenceDiagram
     Note over A: No tick so Alice sends again
     Note over B: Bob may see it twice and a new phone never sees it
 ```
+
+Right: save, then deliver. Notice that the resend finds the saved copy.
 
 ```mermaid
 sequenceDiagram
@@ -163,11 +164,11 @@ sequenceDiagram
     M->>B: deliver 102 or Bob catches up later
 ```
 
-"Sent" must mean "it is on disk". Then any later failure only delays the message. It never loses it.
+"Sent" must mean "on disk". A later failure then only makes a message late.
 
 ### 2f. Bob is offline
 
-Notice that the push carries only a short note. The real messages come from the store.
+Notice that the push is only a short note. The messages come from the store.
 
 ```mermaid
 graph TB
@@ -182,7 +183,7 @@ graph TB
 
 ### 2g. Which way to reach the phone?
 
-This is the choice you say out loud. Notice that chat lands on WebSocket because both sides talk.
+Notice that chat ends at WebSocket, because both sides talk.
 
 ```mermaid
 graph TB
@@ -197,18 +198,18 @@ graph TB
 
 A hotel with many floors, and a phone in every room.
 
-- **Polling:** each guest walks to the front desk every 2 minutes to ask "any letters for me?". The desk is full of people asking, and almost every answer is no.
-- **WebSocket:** each room has a phone line that stays open. The desk calls the room when a letter arrives.
-- **Connection servers:** each floor has its own desk. Alice's letter arrives at floor 3, but Bob is on floor 8.
-- **The who-is-where map:** a board in the lobby that says which floor each guest is on.
-- **Save first:** the desk puts the letter in the guest's mailbox before it calls. If the call drops, the letter is still in the box.
-- **Push notification:** the guest is out. The hotel sends a text, "you have mail". The guest comes back and empties the mailbox.
+- **Polling:** guests keep walking to the front desk to ask "any letters?".
+- **WebSocket:** each room has an open phone line. The desk calls when a letter arrives.
+- **Connection servers:** each floor has its own desk. Alice is on floor 3, Bob on floor 8.
+- **Who-is-where map:** a lobby board shows each guest's floor.
+- **Save first:** the desk puts the letter in the mailbox before it calls.
+- **Push notification:** the guest is out, so the hotel texts "you have mail".
 
-Where the analogy stops: a hotel has a few hundred guests. A chat app holds 10 million open lines at once, and phones drop and come back every few minutes on mobile networks.
+Where the analogy stops: a hotel has hundreds of guests, not 10 million open lines. Phones also drop and come back every few minutes.
 
 ## 4. The smallest code that shows it
 
-One server, two users, and a map of open lines. Bob is online for the first message, then goes offline.
+Bob is online for the first message, then goes offline.
 
 ```js
 const messages = [];                                      // the message store
@@ -240,13 +241,13 @@ push to bob: you have a new message
 bob is back, last id 101: [ 'are you there?', 'call me' ]
 ```
 
-Checked on 2026-10-21 with Node 24.
+The `online` map plays the Redis map. A function plays the open line.
 
-The `online` map plays the Redis who-is-where map. A function plays the open line. Bob's phone remembers one number, the last id it has, and that is enough to catch up.
+Checked on 2026-10-21 with Node 24.
 
 ## 5. What really happens, step by step
 
-One row is one thing the server does. Watch the store, the map and what Bob has.
+Each row is one thing the server does.
 
 | Step | Code | What the server does | Store after | Online map | Bob has |
 |---|---|---|---|---|---|
@@ -254,29 +255,38 @@ One row is one thing the server does. Watch the store, the map and what Bob has.
 | 2 | `send(... "hi")` | Makes id 101 and saves it | 101 | bob | nothing |
 | 3 | same call | Finds Bob's line and sends on it | 101 | bob | 101 |
 | 4 | same call | Returns 101. Alice gets one tick | 101 | bob | 101 |
-| 5 | `online.delete("bob")` | Bob's line closes, for example he goes into a lift | 101 | empty | 101 |
+| 5 | `online.delete("bob")` | Bob's line closes. Say he steps into a lift | 101 | empty | 101 |
 | 6 | `send(... "are you there?")` | Saves 102. Finds no line, so it pushes | 101, 102 | empty | 101 |
-| 7 | `send(... "call me")` | Saves 103. No line, so it pushes again | 101, 102, 103 | empty | 101 |
-| 8 | `after("bob", 101)` | Bob is back. His phone says "after 101" | 101, 102, 103 | (bob again) | 101, 102, 103 |
+| 7 | `send(... "call me")` | Saves 103. Finds no line, so it pushes again | 101, 102, 103 | empty | 101 |
+| 8 | `after("bob", 101)` | Bob is back. His phone asks for "after 101" | 101, 102, 103 | (bob again) | 101, 102, 103 |
 
 What to see:
 
-- Steps 2 and 6: the save comes before anything else. Even while Bob is offline, nothing is lost.
-- Steps 6 and 7: the push does not carry the message. It only wakes the phone.
-- Step 8: the phone does not need "which messages did I miss?". It only needs "the last id I have". The ids grow, so "bigger than 101" is exactly what it missed.
-- In the real system, step 3 is longer. The server looks up `conn:bob` in Redis, finds "server B", and posts the message on server B's pub sub channel. Server B then writes it to Bob's WebSocket.
+- Steps 2 and 6: the server saves first. Nothing is lost while Bob is away.
+- Steps 6 and 7: the push only wakes the phone. It does not carry the message.
+- Step 8: ids only grow, so "bigger than 101" is exactly what Bob missed.
 
-**Step through it yourself:** [open the stepper](visuals/10-design-a-chat-app.html). It has three stories. Story 1 is one message across two servers with all three ticks. Story 2 is Bob going offline, the push, and the catch up. Story 3 is a lost ack: Alice sends again, without and with a `clientMsgId`. Guess first, then press Next.
+**Step through it yourself:** [open the stepper](visuals/10-design-a-chat-app.html). It has three stories: one message with three ticks, Bob offline and back, and a lost ack. Guess first, then press Next.
+
+<details><summary>Go deeper (optional)</summary>
+
+**The three stepper stories.** Story 1 sends one message across two servers, with all three ticks. In story 2, Bob goes offline, gets a push, and catches up. In story 3 the ack is lost, so Alice sends again, first without and then with a `clientMsgId`.
+
+**Bob needs one number.** His phone only remembers its last id. That is enough to catch up.
+
+**Step 3 in the real system.** The step is longer there. The chat service looks up `conn:bob` in Redis and finds "server B". It posts the message on server B's pub sub channel. Server B then writes it to Bob's WebSocket.
+
+</details>
 
 ## 6. Why it exists and what it costs
 
-- **Problem without it:** with polling, millions of phones ask every few seconds and almost always hear "nothing". Messages still arrive late.
-- **How it solves it:** one open line per phone. The server sends the moment a message is saved. A who-is-where map lets any server find any phone.
-- **Cost or tradeoff:** servers now hold state, the open lines. You cannot freely kill or move a connection server. Millions of open lines need many servers and a map that must stay fresh.
+- **Problem without it:** polling gives millions of empty answers, and messages still come late.
+- **How it solves it:** one open line per phone, plus a map to find it.
+- **Cost or tradeoff:** servers now hold open lines. You cannot freely restart or move them.
 
 ### The numbers
 
-A rough estimate with round numbers (interview words: back of the envelope). These are assumptions. Say them out loud.
+Round numbers, said out loud (interview words: back of the envelope).
 
 | Question | The math | Answer |
 |---|---|---|
@@ -287,7 +297,7 @@ A rough estimate with round numbers (interview words: back of the envelope). The
 | Open lines at the busiest hour | 20 percent of 50 million online | 10 million |
 | Connection servers | 10 million divided by a safe 100,000 lines each | about 100 |
 
-The driver is two numbers: **10 million open lines**, so you need a fleet of connection servers and a map. And **146 TB a year that only grows**, so one plain Postgres table will not hold it for long.
+Two numbers shape the design: 10 million open lines, and 146 TB a year.
 
 ### Four ways to reach the phone
 
@@ -295,26 +305,42 @@ The driver is two numbers: **10 million open lines**, so you need a fleet of con
 |---|---|---|---|
 | **Polling** | The phone asks every few seconds | Plain HTTP, easy | Many empty answers, messages are late |
 | **Long polling** | The phone asks, and the server waits up to 30 s before answering | Fewer empty answers | A new request after every message |
-| **Server-Sent Events** | One open HTTP answer that the server keeps writing to | Simple, works through most proxies | Server to phone only |
-| **WebSocket** | One open line, both ways | Instant, tiny cost per message | Servers hold state, harder to deploy |
+| **Server-Sent Events** | One open HTTP answer that the server keeps writing to | Simple, works on most networks | Server to phone only |
+| **WebSocket** | One open line, both ways | Instant, tiny cost per message | Servers must keep each line, so updates are harder |
 
-Chat sends both ways all the time, so WebSocket. A live sports score or an AI answer that types itself out only flows one way, so Server-Sent Events are enough there.
+Chat talks both ways, so it uses WebSocket.
 
 ### Where the messages live
 
-- **Small app:** Postgres is fine. One `messages` table with an index on `(chat_id, id DESC)`. Split the table by month when it grows (interview word: partition).
-- **Huge app:** the main question is always "the latest 50 messages of chat X". A store that keeps one chat's recent messages together on one disk fits that well. Discord keeps messages grouped by channel and a time window, first on Cassandra and since 2022 on ScyllaDB.
-- **Message ids that sort by time:** each id starts with the time. Sorting by id is sorting by time, so everyone sees the same order.
+Each message id starts with the time, so sorting by id sorts by time.
 
 ### What it costs
 
 | Cost | What it means | What you do |
 |---|---|---|
-| Servers hold open lines | A deploy or a crash drops 100,000 phones at once | Phones reconnect after a short random wait. They catch up from their last id |
+| Servers hold open lines | A restart or a crash drops 100,000 phones at once | Phones reconnect after a short random wait. They catch up from their last id |
 | The map can be wrong | Bob's server died, but the key has not ended yet | If the hand over fails, treat Bob as offline and push |
-| Pub sub can lose a message | Redis pub sub sends once. If server B is not listening, the message is gone | Fine, because the message is already saved. Bob catches up on reconnect |
-| A save on every message | A database write before the first tick | Keep it a simple append. It is the price of "never lose a message" |
+| Pub sub can lose a message | Redis pub sub sends once. If server B is not listening, the message is gone | Fine, because the message is already saved. Bob catches up when he reconnects |
+| A save on every message | A database write before the first tick | Keep it a simple add to the end. It is the price of "never lose a message" |
 | Ticks in a group of 500 | A row per person per message would be huge | Two numbers per member: last delivered id and last read id |
+
+<details><summary>Go deeper (optional)</summary>
+
+**What the two numbers mean.** 10 million open lines need about 100 connection servers and a map. 146 TB a year needs a store that can keep growing.
+
+**Same order for everyone.** Because ids sort by time, every phone shows the messages in the same order.
+
+**Ten million lines.** They need many servers, and a map that stays fresh.
+
+**Small app storage.** Postgres, a normal database, is fine. Use one `messages` table with an index on `(chat_id, id DESC)`. Split the table by month when it grows (interview word: partition). At about 146 TB a year, one plain Postgres table will not hold it for long.
+
+**Huge app storage.** The main question is always "the latest 50 messages of chat X". A store that keeps one chat's recent messages together on one disk fits that well. Discord keeps messages grouped by channel and a time window. They used Cassandra first, and ScyllaDB since 2022.
+
+**One way updates.** A live sports score only flows one way. So does an AI answer that types itself out. Server-Sent Events are enough there.
+
+**Proxies.** Server-Sent Events are plain HTTP, so they pass through most proxies, the middle boxes between a phone and a server.
+
+</details>
 
 ## 7. Common mistakes
 
@@ -336,39 +362,46 @@ ack(alice, saved.id);                          // 2. one tick
 await sendToBob(saved).catch(() => pushQueue.add({ userId: "bob", messageId: saved.id }));   // 3. deliver or push
 ```
 
-**Why:** once it is on disk, every later failure only delays the message. Practice B shows the crash in code.
-
-**Wrong:** "Each connection server keeps the list of who is online in its own memory."
-
-**Right:** "The who-is-where map lives in Redis, with keys that end unless a heartbeat keeps them alive."
-
-**Why:** server A cannot see server B's memory. And a key with no end time stays forever when a phone dies without saying goodbye.
+**Why:** once it is on disk, a failure only makes it late. Practice B shows the crash.
 
 **Wrong:** "The push notification carries the message, so offline users get it that way."
 
-**Right:** "The push only wakes the phone. The phone reconnects and asks for everything after its last id."
+**Right:** "The push only wakes the phone. The phone then catches up from its last id."
 
-**Why:** pushes can be late, merged or dropped by Apple and Google. The store is the truth.
+**Why:** Apple and Google may delay, merge or drop pushes. The store is the truth.
 
-**If you freeze:**
+<details><summary>Go deeper (optional)</summary>
 
-1. Say "Each phone keeps a WebSocket open to a connection server. A Redis map says which server each user is on."
-2. Say "I save the message first, then ack, then deliver. Sent means it is on disk."
-3. Say "Offline users get a push. The phone reconnects and asks for everything after its last id. Ticks are two numbers per member: last delivered and last read."
+**One more mistake.** Wrong: "Each connection server keeps the list of who is online in its own memory." Right: "The map lives in Redis. Its keys end unless a heartbeat keeps them alive." Why: server A cannot see the memory of server B. And a key that never ends stays forever when a phone dies without saying goodbye.
+
+</details>
+
+**If you get stuck, say these three lines:**
+
+1. "Each phone holds a WebSocket to a connection server. A Redis map says which one."
+2. "I save first, then ack, then deliver. Sent means on disk."
+3. "Offline phones get a push, then catch up from their last id. Ticks are two numbers per member."
 
 ## 8. Watch and play
 
-Every link below was opened and checked on 2026-10-21. For the video, the title, channel and length come from YouTube's own data. If one breaks later, say so and it will be replaced.
+Every link was opened and checked on 2026-10-21.
 
-- **Video:** [FAANG System Design Interview: Design A Chat System](https://www.youtube.com/watch?v=okrR1KXNLtA) ByteByteGo, 8 min 45 s - polling, long polling and WebSocket, then the full design. Compare it with pictures 2a and 2c.
-- **Play with it:** [the stepper in this folder](visuals/10-design-a-chat-app.html) - guess first, then press Next. Try all three tabs.
-- **Play with it:** [WebSocket realtime flow](https://system-design.space/en/visuals/websocket-realtime-dynamics/) on System Design Space - raise the load and watch the queues and the reconnects.
-- **Read:** [Hello Interview: Design a Messaging App Like WhatsApp](https://www.hellointerview.com/learn/system-design/problem-breakdowns/whatsapp) - the full interview answer. Find where it writes the message to the store before it publishes it.
-- **Read:** [Discord: How Discord Stores Trillions of Messages](https://discord.com/blog/how-discord-stores-trillions-of-messages) - why they group messages by channel and a time window, and the move from Cassandra to ScyllaDB.
-- **Read:** [Socket.IO: Redis adapter](https://socket.io/docs/v4/redis-adapter/) - the Node way to pass messages between connection servers through Redis pub sub, the hand over in picture 2a.
-- **Read:** [MDN: The WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API) - what the browser gives you: open the line, send, and the message and close events.
+- **Video:** [FAANG System Design Interview: Design A Chat System](https://www.youtube.com/watch?v=okrR1KXNLtA) ByteByteGo, 8 min 45 s. Compare it with picture 2a.
+- **Play with it:** [the stepper in this folder](visuals/10-design-a-chat-app.html). Try all three tabs.
+- **Play with it:** [WebSocket realtime flow](https://system-design.space/en/visuals/websocket-realtime-dynamics/) on System Design Space. Raise the load and watch.
+- **Read:** [Hello Interview: Design a Messaging App Like WhatsApp](https://www.hellointerview.com/learn/system-design/problem-breakdowns/whatsapp). Find where it saves before it sends.
+- **Read:** [MDN: The WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API). What the browser gives you.
 
 <details><summary>Go deeper (optional)</summary>
+
+**More links.**
+
+- [Discord: How Discord Stores Trillions of Messages](https://discord.com/blog/how-discord-stores-trillions-of-messages) - why they group messages by channel and a time window, and the move from Cassandra to ScyllaDB.
+- [Socket.IO: Redis adapter](https://socket.io/docs/v4/redis-adapter/) - the Node way to pass messages between connection servers through Redis pub sub, the hand over in picture 2a.
+- The ByteByteGo video covers polling, long polling and WebSocket, then the full design. Picture 2c matches its tick flow. Its title, channel and length come from YouTube's own data.
+- In the stepper, guess first, then press Next.
+- In the System Design Space visual, watch the queues fill up and the phones reconnect as the load grows.
+- On MDN, find the open, send, message and close events.
 
 **Redis pub sub sends at most once.** The [Redis pub sub docs](https://redis.io/docs/latest/develop/pubsub/) say it plainly: if the listener is not connected, "the message is forever lost". That is fine here only because the message was saved first. If you want the hand over itself to be safe, Redis Streams keep the messages and support at least once.
 
@@ -390,6 +423,8 @@ Every link below was opened and checked on 2026-10-21. For the video, the title,
 
 **Other videos.** [Hello Interview: Design WhatsApp](https://www.hellointerview.com/learn/system-design/problem-breakdowns/whatsapp) has a long video walk through on the same page. Watch it after the short ByteByteGo video.
 
+**If a link breaks.** Say so, and it will be replaced.
+
 **Checked on:** 2026-10-21.
 
 </details>
@@ -398,7 +433,7 @@ Every link below was opened and checked on 2026-10-21. For the video, the title,
 
 **A. Predict the output** (write your answer before opening)
 
-A group with Alice, Bob and Cara. Alice sent messages 5, 6 and 7. Each member keeps only "the newest message I have read".
+A group has Alice, Bob and Cara. Alice sent messages 5, 6 and 7. Each member keeps only "the newest message I have read".
 
 ```js
 const lastRead = { bob: 7, cara: 5 };                     // the newest message each member has read
@@ -408,7 +443,7 @@ lastRead.cara = 6;                                        // cara scrolls down o
 console.log([5, 6, 7].map(tick).join(" "));
 ```
 
-Then answer: the group has 500 members and 10,000 messages. How many numbers do you store for read ticks?
+Then: with 500 members and 10,000 messages, how many numbers hold the read ticks?
 
 <details><summary>Answer</summary>
 
@@ -425,7 +460,7 @@ For 500 members you store 500 numbers, one per member, no matter how many messag
 
 **B. Fix the bug**
 
-The server crashes after the first step of sending "see you at 5". Run it in your head, then fix it.
+The server crashes after step 1 of sending "see you at 5". Run it in your head, then fix it.
 
 ```js
 const store = [];                                         // the message store on disk
@@ -476,7 +511,13 @@ Bob has not seen it yet, but it is safe on disk. His phone catches up from its l
 
 **C. Write it yourself**
 
-Open `learn/system-design/practice/10-design-a-chat-app.js`. It has one empty function, `createChatServer`. It plays the whole back end: the open lines, the message store, the push list and the ticks. `send` must save first, deliver to online members, push to offline ones, and ignore a resend with the same `clientMsgId`. `history` gives the messages after an id. `markDelivered`, `markRead` and `status` give the three ticks with two numbers per member. Write it, then run this from the repo root and make all the tests pass:
+Open `learn/system-design/practice/10-design-a-chat-app.js`. Fill in `createChatServer`, its one empty function.
+
+- `send` saves first, then delivers or pushes. It ignores a resend with the same `clientMsgId`.
+- `history` gives the messages after an id.
+- `markDelivered`, `markRead` and `status` give the ticks, with two numbers per member.
+
+Run this from the repo root until all tests pass:
 
 ```
 node --test learn/system-design/practice/10-design-a-chat-app.test.js
@@ -556,9 +597,9 @@ Checked on 2026-10-21 with Node 24: the 17 tests fail on the empty stub and all 
 
 **Q:** "Design a chat app like WhatsApp. People chat one to one and in small groups. Messages show sent, delivered and read. 50 million daily users."
 
-A common follow-up: "A connection server with 100,000 phones on it dies. What happens?" The "What it costs" table in section 6 is the answer.
-
 <details><summary>A strong answer, in four parts</summary>
+
+A common follow-up: "A connection server with 100,000 phones dies. What happens?" The "What it costs" table in section 6 answers it.
 
 1. **Problem:** the server must reach a phone without being asked, and must never lose a message after the sender sees one tick. I estimate 50 million users at 40 messages a day. That is 20,000 messages a second, 60,000 at the busiest time, and about 10 million open lines. First I ask: how big can a group be? Do we need history on a new phone? Are photos in scope?
 2. **How it works:** each phone keeps a WebSocket open to one of about 100 connection servers. When a phone connects, its server writes `conn:user = server B` in Redis, with an end time that a heartbeat keeps pushing forward. On send, the chat service saves the message with an id that grows with time, then acks Alice, which is one tick. It looks up each member in the map. For online members, it posts on that server's Redis pub sub channel, and that server writes to the WebSocket. For offline members, it adds a job to a push queue. A phone that reconnects asks for everything after its last id. Ticks are two numbers per member per chat: last delivered and last read.
@@ -573,7 +614,7 @@ A common follow-up: "A connection server with 100,000 phones on it dies. What ha
 
 ## 11. Explain it back
 
-Close this file. Explain a chat app out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of Alice on server A sending "hi" to Bob on server B, and the story of Bob going into a lift and coming back. Then write your best version below and run `/explain-check design a chat app` or ask the `explain-coach` agent to review it.
+Close this file. Explain a chat app out loud to a new junior: problem, how, tradeoff, my example. Use Alice sending "hi" across two servers, and Bob in a lift. Write it below, then run `/explain-check design a chat app` or ask the `explain-coach` agent.
 
 ### My explanation
 
@@ -585,10 +626,10 @@ Close this file. Explain a chat app out loud like to a new junior, in 4 parts (p
 
 ## 12. Review questions (day 1, 3, 7, 21)
 
-1. Alice is on connection server A and Bob is on server B. Walk through how "hi" reaches Bob, naming each part it passes.
-2. Why does the server save the message before it delivers it? What goes wrong the other way round?
-3. Bob was offline for an hour. How does he get the messages he missed? Why does the push not carry them?
-4. Draw picture 2c from memory: one message and the three ticks.
+1. Alice is on server A and Bob on server B. Name each part "hi" passes.
+2. Why save before deliver? What goes wrong the other way round?
+3. Bob was offline for an hour. How does he catch up? Why not through the push?
+4. Draw picture 2c from memory.
 
 <details><summary>Answers</summary>
 
@@ -601,13 +642,13 @@ Close this file. Explain a chat app out loud like to a new junior, in 4 parts (p
 
 ## Connected lessons
 
-- [Design a rate limiter](09-design-a-rate-limiter.md) - the lesson before. A chat app needs a limit on how fast one user can send, or a bot can flood a group.
-- [Design a notification system](11-design-a-notification-system.md) - the next lesson. The push queue and push worker in picture 2a, in full.
-- [Scaling up vs out](02-scaling-up-vs-out.md) - why connection servers are not stateless, and why that makes scaling out harder.
-- [Load balancers](03-load-balancers.md) - long lived connections and how a load balancer spreads them.
-- [Message queues](06-message-queues.md) - the push queue, retries and at least once delivery.
-- [Design a URL shortener](08-design-a-url-shortener.md) - the unique key that stops a resend from making a second copy, used here as `clientMsgId`.
-- [Idempotency and retries](13-idempotency-and-retries.md) - the resend after a lost ack, in depth.
-- [Streams vs queues](21-streams-vs-queues.md) - Redis Streams and Kafka keep messages, unlike pub sub.
-- [Design workbook part 1, Part 2](design-workbook-part-1-classic-designs.md) - the same design as a full written answer, with the data model and failure plan.
-- [Networking for system design](../networking/networking-for-system-design.md) - polling, long polling, Server-Sent Events and WebSocket side by side.
+- [Design a rate limiter](09-design-a-rate-limiter.md) - stops a bot flooding a group.
+- [Design a notification system](11-design-a-notification-system.md) - the push queue in full.
+- [Scaling up vs out](02-scaling-up-vs-out.md) - open lines make scaling harder.
+- [Load balancers](03-load-balancers.md) - spreading long open lines.
+- [Message queues](06-message-queues.md) - retries, at least once delivery.
+- [Design a URL shortener](08-design-a-url-shortener.md) - the unique key behind `clientMsgId`.
+- [Idempotency and retries](13-idempotency-and-retries.md) - the resend, in depth.
+- [Streams vs queues](21-streams-vs-queues.md) - Streams keep messages. Pub sub does not.
+- [Design workbook part 1, Part 2](design-workbook-part-1-classic-designs.md) - data model and failure plan.
+- [Networking for system design](../networking/networking-for-system-design.md) - the four ways, side by side.

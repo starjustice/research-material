@@ -1,34 +1,53 @@
 # 11. Design a notification system
 
 > **Subject:** System Design · **Lesson:** 11 · **Made:** 2026-10-21 · **Status:** ready
-> **You will be able to:** draw how one event, "your loan is approved", reaches a user by push, email, SMS and in-app without slowing down the request. You will also be able to explain how the dedupe key stops a second copy, which failures get a retry and which go to the dead letter queue, why a dead device token must be deleted, and how an OTP gets past a big marketing blast.
+> **You will be able to:** draw how one event, "your loan is approved", reaches a user by push, email, SMS and in-app without slowing the request. You can also explain the dedupe key, retries, dead device tokens, and how a login code gets past a marketing blast.
 > **Before this:** [Design a chat app](10-design-a-chat-app.md) · **Next:** [Design an online shop checkout](12-design-an-online-shop-checkout.md)
 
 ## 1. The idea in one sentence
 
-Services only drop an event and move on. One notification service checks it, makes one job per channel, and puts each job on a queue. Workers send the jobs, retry short problems, and never send the same thing twice.
+A service drops a short note that says "this happened" (an **event**) and goes back to work. A notification service checks the event and makes one job per way to reach the user. Workers send the jobs, retry short problems, and never send twice.
 
-Lesson 10 had one kind of message going to one place. Here one event fans out to many places, and each place is a different outside company that can be slow, down, or say "this phone no longer exists". The hard parts are **not blocking** the service that made the event, **not sending twice**, **respecting what the user wants**, and **letting urgent messages go first**.
+Unlike lesson 10, one event goes to many outside companies. Each can be slow, down, or say "this phone is gone".
+
+The hard parts: do not make the first service wait. Do not send twice. Respect the user's wishes, like no sounds at night (**quiet hours**). Let a one time login code (an **OTP**) go first.
 
 New words (four):
 
-- **Channel:** one way to reach a person: push, email, SMS, or in-app (a row in an inbox the app shows).
-- **Provider:** the outside company that really delivers on a channel. Apple (APNs) and Google (FCM) for push, an email company, an SMS company.
-- **Dedupe key:** a short text that names one notification, for example `evt77:sari:push`. If the key was seen before, do not send again. (Interview word: idempotency key.)
-- **Device token:** the address of one app on one phone. Apple or Google gives it to the app, and the app gives it to you. One user can have several.
+- **Channel:** one way to reach a person: push, email, SMS, or in-app (a row in the app's inbox).
+- **Provider:** the outside company that delivers on a channel, like Apple and Google for push.
+- **Dedupe key:** a short text that names one notification, like `evt77:sari:push`. A key seen before means "do not send again". (Interview word: idempotency key.)
+- **Device token:** the address of one app on one phone. Apple or Google gives it to the app. One user can have several.
 
 From earlier lessons:
 
-- A queue holds slow jobs, workers take them, and a job can arrive **more than once** (at least once). After too many failed tries, a job goes to the dead letter queue for a person to look at (lesson 06). This lesson builds on that and does not explain it again.
-- A unique key stops a resend from making a second copy (lesson 08).
-- A limit per user stops one user, or one bug, from flooding someone (lesson 09).
-- Lesson 10 ended with a push queue and a push worker. This lesson is that box, opened up.
+- Workers take jobs from a queue. A job can arrive twice (at least once). After too many failed tries, it goes to the dead letter queue for a person (lesson 06).
+- A unique key in the database stops a second copy (lesson 08).
+- A limit per user stops floods (lesson 09).
+
+A provider answers each send with a number:
+
+| Answer | Meaning |
+|---|---|
+| 200 | Yes, done |
+| 429, 500 or 503 | Busy or broken for now. Try again later |
+| 404 or 410 | This phone is gone |
+| 400 | Your request is wrong |
+
+<details><summary>Go deeper (optional)</summary>
+
+- Apple's push service is called APNs. Google's is called FCM (Firebase Cloud Messaging).
+- Google answers 404 for a dead token, and Apple answers 410.
+- The app sends its device token to your server. An email company and an SMS company are the other providers.
+- Lesson 10 ended with a push queue and a push worker. This lesson opens that box.
+
+</details>
 
 ## 2. The pictures
 
 ### 2a. The big picture
 
-Notice that the loan service only drops an event. Everything to the right of the notification service happens later, in the background.
+Notice: the loan service only drops an event, and everything after the notification service happens later.
 
 ```mermaid
 graph LR
@@ -46,11 +65,11 @@ graph LR
     WP -->|out of tries| DLQ["Dead letter queue"]
 ```
 
-One queue per channel means a slow SMS company cannot hold up push or email.
+Each channel has its own queue. A slow SMS company cannot hold up push.
 
 ### 2b. The problem, drawn
 
-The simple way is to send right inside the request. Notice everything the approve button now waits for.
+Notice: when the request sends everything itself, the approve button waits for every provider.
 
 ```mermaid
 graph LR
@@ -63,7 +82,7 @@ graph LR
     class S,X,R bad
 ```
 
-The second problem: one line for every message. Notice where the login code ends up.
+A marketing blast is one message sent to millions of users. Notice: in one shared line, the login code waits behind the blast.
 
 ```mermaid
 graph LR
@@ -77,7 +96,7 @@ graph LR
 
 ### 2c. How it works over time: one failed try, one retry
 
-Notice that the loan service is done after one step. The 503 only makes the push a second late.
+Notice: the loan service is done after one step, and the 503 only makes the push one second late.
 
 ```mermaid
 sequenceDiagram
@@ -103,7 +122,7 @@ sequenceDiagram
 
 ### 2d. What is in memory right now
 
-This is one moment, a few seconds after the event. Notice that each row has a status, and the key is the dedupe key plus the address.
+A **lane** is a separate line inside one queue, one for each priority. Notice: this is one moment after the event, and every job row has a status.
 
 ```mermaid
 graph TB
@@ -127,11 +146,18 @@ graph TB
     end
 ```
 
-The statuses are **queued** (waiting), **held** (waiting for quiet hours to end), **sent** (the provider said yes), **failed**, and later **delivered** or **opened** if the provider tells you. Token `tB` got 410, so it is about to be deleted.
+| Status | Meaning |
+|---|---|
+| queued | Waiting in the queue |
+| held | Waiting for quiet hours to end |
+| sent | The provider said yes |
+| failed | The send did not work. `tB` got 410, so the worker deletes it |
 
 ### 2e. Right against wrong
 
-The loan service did not hear "accepted" in time, so it sends the same event again. That is normal with at least once.
+The loan service misses the "accepted" reply and sends the event again. With at least once, this is normal.
+
+Wrong. Notice: Sari gets the same push twice.
 
 ```mermaid
 sequenceDiagram
@@ -144,6 +170,8 @@ sequenceDiagram
     N->>S: push again
     Note over S: Two identical pushes and Sari thinks something is wrong
 ```
+
+Right. Notice: the table refuses the second copy of the key.
 
 ```mermaid
 sequenceDiagram
@@ -160,11 +188,11 @@ sequenceDiagram
     Note over N: skip and answer accepted
 ```
 
-The key is built from the event id, not from the time or the text. The same event always makes the same key, so the second copy is caught.
+The key comes from the event id, not the time. So the same event always makes the same key.
 
 ### 2f. What to do with each answer
 
-The provider's answer decides everything. Notice that only a short problem is worth a retry.
+Notice: only a short problem is worth a retry.
 
 ```mermaid
 graph TB
@@ -176,11 +204,11 @@ graph TB
     R -->|400| BAD["Our request is wrong<br/>dead letter queue now"]
 ```
 
-Google says 404 for a dead token, and Apple says 410. Retrying a dead token forever wastes calls, and Apple may drop your connection if you keep making errors.
+A dead token never comes back. Retrying it only wastes calls.
 
 ### 2g. Priority lanes
 
-Notice that the worker always looks at the urgent lane first.
+Notice: the worker always looks at the urgent lane first.
 
 ```mermaid
 graph LR
@@ -193,45 +221,52 @@ graph LR
     W --> P["SMS provider"]
 ```
 
-Urgent jobs also skip quiet hours and the user's channel choices. Nobody wants to wait until 7 am for a login code.
+Urgent jobs also skip quiet hours and channel choices. Nobody waits until 7 am for a login code.
+
+<details><summary>Go deeper (optional)</summary>
+
+- **The row key in 2d.** Each job row uses the dedupe key plus the address, like `evt77:sari:push:tA`.
+- **Later statuses.** After **sent**, a provider may tell you **delivered** or **opened**.
+- **Why delete dead tokens fast.** Retrying a dead token forever wastes calls. Apple may also drop your connection if you keep making errors.
+
+</details>
 
 ## 3. Real life analogy
 
 The mail room of a bank.
 
-- **Events:** departments drop letters in the mail room tray and go back to work. They do not walk to the post office.
-- **Preferences:** each customer has a card: "email yes, phone calls no, nothing after 10 pm".
-- **The dedupe key:** a log book, "letter 77 to Sari by email, done". If department 77 sends the same letter again, the clerk sees the line and throws it away.
-- **Channel queues and lanes:** one tray per courier. Each tray has a red folder on top for urgent letters.
-- **Retries:** the courier is busy, so the clerk tries again in a minute, then in two minutes.
-- **The dead letter queue:** after three tries, the letter goes on the "problem" shelf, and a person looks at it.
-- **Device token cleanup:** a letter comes back "addressee moved". The clerk crosses out the old address and never uses it again.
+| In the mail room | In the system |
+|---|---|
+| Departments drop letters in the tray and go back to work. They do not walk to the post office | Events |
+| Each customer has a card: "email yes, phone calls no, nothing after 10 pm" | Preferences |
+| A log book line: "letter 77 to Sari by email, done". If letter 77 comes again, the clerk throws it away | The dedupe key |
+| One tray per courier, with a red folder on top for urgent letters | Channel queues and lanes |
+| The courier is busy, so the clerk tries again in one minute, then in two | Retries |
+| After three tries, the letter goes on a "problem" shelf for a person | The dead letter queue |
+| A letter comes back "moved". The clerk crosses out the old address for good | Device token cleanup |
 
-Where the analogy stops: a mail room handles a few hundred letters a day. A blast is 5 million in 10 minutes, the couriers answer in milliseconds, and a "moved" note may never come back at all.
+Where the analogy stops: a mail room handles a few hundred letters a day. A blast is 5 million in 10 minutes. Providers answer in milliseconds, and a "moved" note may never come back.
 
 ## 4. The smallest code that shows it
 
-One event, three channels, a dedupe set, and a push provider that fails once. Then the same event arrives a second time.
+One event, three channels, a dedupe set, and a push provider that fails once. Then the same event arrives again.
 
 ```js
-const sent = new Set();                                    // dedupe keys that were already sent
-const allowed = { sari: ["push", "email"] };               // Sari turned SMS off
-let pushFailsLeft = 1;                                     // the push provider fails once
-const provider = (ch) => (ch === "push" && pushFailsLeft-- > 0 ? 503 : 200);
-function notify(eventId, userId) {
+const sent = new Set();                                  // dedupe keys already sent
+const allowed = ["push", "email"];                       // Sari turned SMS off
+let pushFailsLeft = 1;                                   // the push provider fails once
+for (const eventId of ["evt77", "evt77"]) {              // loan L-42 approved, then the same event again
   for (const ch of ["push", "email", "sms"]) {
-    const key = `${eventId}:${userId}:${ch}`;              // the dedupe key
-    if (!allowed[userId].includes(ch)) { console.log(key, "off"); continue; }
+    const key = `${eventId}:sari:${ch}`;                 // the dedupe key
+    if (!allowed.includes(ch)) { console.log(key, "off"); continue; }
     if (sent.has(key)) { console.log(key, "already sent, skip"); continue; }
-    for (let t = 1; t <= 3 && !sent.has(key); t++) {       // up to 3 tries
-      const code = provider(ch);
+    for (let t = 1; t <= 3 && !sent.has(key); t++) {     // up to 3 tries
+      const code = ch === "push" && pushFailsLeft-- > 0 ? 503 : 200;   // the provider answers
       console.log(key, "try", t, code);
       if (code === 200) sent.add(key);
     }
   }
 }
-notify("evt77", "sari");                                   // loan L-42 is approved
-notify("evt77", "sari");                                   // the same event arrives a second time
 ```
 
 **Output:**
@@ -248,7 +283,11 @@ evt77:sari:sms off
 
 Checked on 2026-10-21 with Node 24.
 
-It is 18 lines, a little long, because it shows three ideas at once: preferences, the retry, and the dedupe key. In a real system, the `sent` set is a unique index on the dedupe key, and the retry does not loop in place. The job goes back to the queue with a wait.
+<details><summary>Go deeper (optional)</summary>
+
+The code shows three ideas at once: preferences, the retry, and the dedupe key. In a real system, the `sent` set is a unique index on the dedupe key in the database. The retry does not loop in place. The worker puts the job back in the queue with a wait.
+
+</details>
 
 ## 5. What really happens, step by step
 
@@ -256,33 +295,40 @@ One row is one thing the code does. Watch the `sent` set and what Sari sees.
 
 | Step | Code | What happens | `sent` after | Sari sees |
 |---|---|---|---|---|
-| 1 | first `notify`, `ch = "push"` | Builds `evt77:sari:push`. Push is allowed, and the key is new | empty | nothing |
-| 2 | `provider("push")` | Returns 503, a short problem. No key is added, so the loop tries again | empty | nothing |
-| 3 | `provider("push")` again | Returns 200. The key is added | push | one push |
-| 4 | `ch = "email"` | New key, try 1 returns 200 | push, email | push, email |
-| 5 | `ch = "sms"` | Sari turned SMS off. Skipped, no call | push, email | push, email |
-| 6 | second `notify`, push | `evt77:sari:push` is already in `sent`. Skipped | push, email | push, email |
+| 1 | first `evt77`, `ch = "push"` | The code builds `evt77:sari:push`. Push is on, and the key is new | empty | nothing |
+| 2 | push, try 1 | The provider answers 503, busy. The code adds no key, so the loop tries again | empty | nothing |
+| 3 | push, try 2 | The provider answers 200. The code adds the key | push | one push |
+| 4 | `ch = "email"` | New key. Try 1 answers 200 | push, email | push, email |
+| 5 | `ch = "sms"` | Sari turned SMS off. The code skips it and makes no call | push, email | push, email |
+| 6 | second `evt77`, push | `evt77:sari:push` is already in `sent`. The code skips it | push, email | push, email |
 | 7 | email | Already sent. Skipped | push, email | push, email |
 | 8 | sms | Still off | push, email | push, email |
 
 What to see:
 
-- Step 2: the failure does not reach the loan service. It only makes the push a little late.
-- Step 3: the key is added **after** the 200, not before. If the key were added first and every try failed, the push would be marked done without ever being sent.
-- Steps 6 and 7: the second copy of the event costs nothing. The same event always builds the same key.
-- In the real system, step 2 is not a quick loop. The worker puts the job at the back of the queue with a wait of 1 s, then 2 s, so other jobs keep moving.
+- Step 2: the failure never reaches the loan service. The push is only late.
+- Step 3: the key goes in **after** the 200. If it went in first, a failed push would look done.
+- Steps 6 and 7: the second copy costs nothing. Same event, same key.
 
-**Step through it yourself:** [open the stepper](visuals/11-design-a-notification-system.html). Story 1 is loan approved: a 503, a retry, and a second copy of the event that the dedupe key stops. Story 2 is an urgent OTP that jumps past three marketing SMS, a dead token removed after one 410, and a job that runs out of tries and goes to the dead letter queue. Guess first, then press Next.
+**Step through it yourself:** [open the stepper](visuals/11-design-a-notification-system.html). Story 1 is this trace. Story 2 shows a login code jumping the line, a dead token, and a dead letter. Guess first, then press Next.
+
+<details><summary>Go deeper (optional)</summary>
+
+- In a real system, step 2 is not a quick loop. The worker puts the job at the back of the queue. It waits 1 s, then 2 s, so other jobs keep moving.
+- Story 1 in the stepper: loan approved, a 503, a retry, and a second copy of the event that the dedupe key stops.
+- Story 2 in the stepper: an urgent OTP jumps past three marketing SMS. A dead token is removed after one 410. A job runs out of tries and goes to the dead letter queue.
+
+</details>
 
 ## 6. Why it exists and what it costs
 
-- **Problem without it:** the service that made the event waits for every provider, fails when one is down, sends twice on a retry, and ignores what users asked for.
-- **How it solves it:** an event goes into one service that runs the checks. Jobs go into a queue for each channel, with lanes for priority. Workers retry short problems with growing waits and give up into a dead letter queue.
-- **Cost or tradeoff:** more moving parts, a short delay, and duplicates that you must catch yourself, because queues deliver at least once.
+- **Problem without it:** the first service waits for every provider. It fails when one is down and sends twice on a retry.
+- **How it solves it:** one service runs the checks. Each channel gets a queue with priority lanes. Workers retry short problems, then give up into the dead letter queue.
+- **Cost or tradeoff:** more parts and a short delay. You must catch duplicates yourself.
 
 ### The numbers
 
-A rough estimate with round numbers. These are assumptions. Say them out loud.
+Rough guesses. Say them out loud.
 
 | Question | The math | Answer |
 |---|---|---|
@@ -290,11 +336,11 @@ A rough estimate with round numbers. These are assumptions. Say them out loud.
 | Per second | 20 million divided by 100,000 seconds | 200 |
 | At the busiest time | 200 times 3 | 600 a second |
 | A marketing blast | 5 million users in 10 minutes, 5,000,000 divided by 600 | about 8,300 a second |
-| An OTP stuck behind the blast in one line | 5 million jobs at 8,300 a second | about 10 minutes |
+| A login code stuck behind the blast in one line | 5 million jobs at 8,300 a second | about 10 minutes |
 | Storage | 20 million rows times 500 bytes | 10 GB a day, about 900 GB for 90 days |
 | Device tokens | about 1.5 phones or tablets per user | about 15 million |
 
-The driver is the blast: **8,300 a second, 40 times the normal rate**, and an OTP that must not wait 10 minutes behind it. That one fact is why there are lanes.
+The blast is the key number: **8,300 a second, 40 times normal**. That is why there are lanes.
 
 ### Four channels
 
@@ -309,11 +355,11 @@ The driver is the blast: **8,300 a second, 40 times the normal rate**, and an OT
 
 | Cost | What it means | What you do |
 |---|---|---|
-| Duplicates | Queues deliver at least once, and services resend after a timeout | The dedupe key with a unique index. The worker skips a job that is already sent |
-| Retries can make it worse | 8,300 jobs retrying at the same moment hit a sick provider again | Doubling waits with a random spread, a cap on tries, and honor `Retry-After` |
+| Duplicates | Queues deliver at least once, and services resend after a timeout | The dedupe key with a unique key in the database. The worker skips a job that is already sent |
+| Retries can make it worse | 8,300 jobs retry at the same moment and hit a sick provider again | Doubling waits with a little randomness, a cap on tries, and wait as long as the provider asks (`Retry-After`) |
 | Dead letters need a person | A job in the dead letter queue is a user who got nothing | An alert on its size. A button to send the jobs again after the fix |
 | Tokens go stale | Users delete the app or get a new phone | Delete on 404 or 410. Drop tokens not seen for a month |
-| Quiet hours | Push and SMS are held until morning | A job that releases held rows at the end of each user's quiet hours |
+| Quiet hours | Push and SMS wait until morning | A job that releases held rows at the end of each user's quiet hours |
 | Too many messages | Users turn everything off, or uninstall | A limit per user per day for bulk |
 
 ## 7. Common mistakes
@@ -341,45 +387,49 @@ app.post("/loans/:id/approve", async (req, res) => {
 });
 ```
 
-**Why:** the approve is done in milliseconds. A provider being down only delays the notification. The event id comes from the loan, so a resend builds the same dedupe key. If the server dies between the save and the publish, the event is lost. The fix is an outbox row written in the same transaction, shown in the walkthrough Part 3.
+**Why:** the approve finishes in milliseconds. A provider that is down only delays the notification. The event id comes from the loan, so a resend builds the same dedupe key.
 
-**Wrong:** retry every failure, at once, forever.
-
-**Right:** retry only 429 and 5xx, with growing waits and a cap, then the dead letter queue. On 404 or 410, delete the token. On 400, go to the dead letter queue at once.
-
-**Why:** a dead token never comes back, so retrying it only wastes calls. Practice B shows it in code.
-
-**Wrong:** "The queue gives each job to one worker, so there are no duplicates."
-
-**Right:** "The queue delivers at least once. The dedupe key, `eventId:userId:channel`, with a unique index, makes a second copy harmless."
-
-**Why:** a worker can crash after the send but before the ack, and the queue hands the job out again (lesson 06).
-
-**Wrong:** "One queue for everything, ordered by time."
-
-**Right:** "Lanes or separate queues per priority, with their own workers."
-
-**Why:** an OTP behind a blast waits 10 minutes, and the user gives up.
+| Wrong | Right | Why |
+|---|---|---|
+| Retry every failure, at once, forever | Retry only 429, 500 and 503, with growing waits and a cap. Then the dead letter queue. On 404 or 410, delete the token. On 400, dead letter queue at once | A dead token never comes back, so retrying only wastes calls. Practice B shows it |
+| "The queue gives each job to one worker, so there are no duplicates" | "The queue delivers at least once. The dedupe key, `eventId:userId:channel`, with a unique key in the database, makes a second copy harmless" | A worker can crash after the send but before it tells the queue "done". The queue hands the job out again (lesson 06) |
+| "One queue for everything, ordered by time" | "Lanes or separate queues per priority, with their own workers" | A login code behind a blast waits 10 minutes, and the user gives up |
 
 **If you freeze:**
 
-1. Say "Services drop an event. The notification service checks dedupe, preferences, quiet hours and limits, then puts one job per channel on a queue."
-2. Say "Workers send. 429 and 5xx get a retry with growing waits, then the dead letter queue. 404 or 410 means the token is dead, so I delete it."
-3. Say "The dedupe key is event, user and channel, with a unique index. OTPs go in an urgent lane, so a marketing blast never blocks them."
+1. "Services drop an event. The notification service checks it and queues one job per channel."
+2. "Workers send. Busy answers get a retry, then the dead letter queue. A dead token gets deleted."
+3. "The dedupe key is event, user and channel. Login codes use an urgent lane."
+
+<details><summary>Go deeper (optional)</summary>
+
+**The gap between save and publish.** If the server dies between the save and the publish, the event is lost. The fix is an outbox row written in the same transaction as the save. The walkthrough Part 3 shows it.
+
+**"5xx" in interviews.** People say "5xx" for all the 500 answers, like 500 and 503. Retry them with growing waits.
+
+**The longer freeze lines.** The checks are dedupe, preferences, quiet hours and limits. Busy means 429 and 5xx, with growing waits. Dead means 404 or 410. The dedupe key sits behind a unique index, and the urgent lane means a blast never blocks a login code.
+
+</details>
 
 ## 8. Watch and play
 
-Every link below was opened and checked on 2026-10-21. For the video, the title, channel and length come from YouTube's own data. If one breaks later, say so and it will be replaced.
+All links were checked on 2026-10-21. The video facts come from YouTube's own data. If one breaks, say so.
 
-- **Video:** [Design a Notification Service (OneSignal) | Systems Design Questions 3.0 With Ex-Google SWE](https://www.youtube.com/watch?v=IScGMqojqKE) Jordan has no life, 11 min 33 s - a short whiteboard design. Compare it with pictures 2a and 2g.
-- **Play with it:** [the stepper in this folder](visuals/11-design-a-notification-system.html) - guess first, then press Next. Try both tabs.
-- **Play with it:** [Resilience patterns](https://system-design.space/en/visuals/resilience-patterns/) on System Design Space - change the load and the scenario, and watch retries and a circuit breaker protect a sick service.
-- **Read:** [Hello Interview: Design a Notification System](https://www.hellointerview.com/learn/system-design/problem-breakdowns/notification-system) - the full interview answer. Find the deep dives on never dropping a message, priority during a blast, and idempotency.
-- **Read:** [ByteByteGo: How Does a Typical Push Notification System Work?](https://bytebytego.com/guides/how-does-a-typical-push-notification-system-work/) - one picture of the whole path, from the event to Apple and Google.
-- **Read:** [Firebase: Best practices for FCM registration management](https://firebase.google.com/docs/cloud-messaging/manage-tokens) - when a token is stale, and why to delete it on `UNREGISTERED`.
-- **Read:** [Apple: Handling notification responses from APNs](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns) - every answer Apple can give, and which ones you must not retry.
+- **Video:** [Design a Notification Service (OneSignal) | Systems Design Questions 3.0 With Ex-Google SWE](https://www.youtube.com/watch?v=IScGMqojqKE), Jordan has no life, 11 min 33 s. Compare it with pictures 2a and 2g.
+- **Play with it:** [the stepper in this folder](visuals/11-design-a-notification-system.html). Guess first. Try both tabs.
+- **Read:** [Hello Interview: Design a Notification System](https://www.hellointerview.com/learn/system-design/problem-breakdowns/notification-system). The full interview answer.
+- **Read:** [ByteByteGo: How Does a Typical Push Notification System Work?](https://bytebytego.com/guides/how-does-a-typical-push-notification-system-work/). One picture of the whole path.
 
 <details><summary>Go deeper (optional)</summary>
+
+**More about the links above.** The video is a short whiteboard design. In Hello Interview, find the parts on never losing a message, priority during a blast, and idempotency. The ByteByteGo picture goes from the event to Apple and Google.
+
+**Another thing to play with.** [Resilience patterns](https://system-design.space/en/visuals/resilience-patterns/) on System Design Space. Change the load and the scenario. Watch retries and a circuit breaker, a switch that stops calls, protect a sick service.
+
+**Provider pages.**
+
+- [Firebase: Best practices for FCM registration management](https://firebase.google.com/docs/cloud-messaging/manage-tokens): when a token is stale, and why to delete it on `UNREGISTERED`.
+- [Apple: Handling notification responses from APNs](https://developer.apple.com/documentation/usernotifications/handling-notification-responses-from-apns): every answer Apple can give, and which ones you must not retry.
 
 **What Apple's answers mean.** Apple's page says 410 means "The device token is no longer active for the topic", with reasons like `Unregistered` and `ExpiredToken`, and that "410 isn't considered an error condition". 429 `TooManyRequests` means too many requests to the same token. Apple lists answers you must not retry, among them `BadDeviceToken`, `Unregistered`, `ExpiredToken` and `PayloadTooLarge`. Answers like 429 and 5xx can be retried with a delay.
 
@@ -437,7 +487,7 @@ The email goes now. It makes no sound, so quiet hours do not hold it. The push w
 
 **B. Fix the bug**
 
-Sari has two tokens. `tB` is her old tablet, and she deleted the app there. Run it in your head, then fix it.
+Sari has two tokens. `tB` is her old tablet, where she deleted the app. Run it in your head, then fix it.
 
 ```js
 const tokens = ["tA", "tB"];                                // tB is Sari's old tablet. The app was deleted
@@ -490,11 +540,17 @@ calls: 2 tokens: tA
 
 **C. Write it yourself**
 
-Open `learn/system-design/practice/11-design-a-notification-system.js`. It has one empty function, `createNotifier`. It plays the notification service, the channel queues and the workers. `notify` runs the checks (channel choices, the dedupe key, no device, the bulk limit, quiet hours) and makes one job per address. `work` takes the next job, urgent first, calls the provider function you give it, and decides by the code: sent, retry with a doubling wait, token removed, or dead letter. The comment at the top of the file explains every rule. Write it, then run this from the repo root and make all the tests pass:
+Open `learn/system-design/practice/11-design-a-notification-system.js` and write `createNotifier`. The comment at the top explains every rule. Run this from the repo root until all tests pass:
 
 ```
 node --test learn/system-design/practice/11-design-a-notification-system.test.js
 ```
+
+<details><summary>Go deeper (optional): what the two main functions do</summary>
+
+`createNotifier` plays the notification service, the queues and the workers. `notify` runs the checks: channel choices, the dedupe key, no device, the bulk limit and quiet hours. Then it makes one job per address. `work` takes the next job, urgent first, and calls the provider function you give it. It decides by the code: sent, retry with a doubling wait, token removed, or dead letter.
+
+</details>
 
 <details><summary>One possible answer</summary>
 
@@ -592,7 +648,7 @@ Checked on 2026-10-21 with Node 24: the 24 tests fail on the empty stub and all 
 
 **Q:** "Design a notification system for a banking app. It sends push, email, SMS and in-app messages: login codes, 'your loan is approved', and marketing. 10 million users."
 
-A common follow-up: "The SMS provider is down for 20 minutes. What happens?" The answer is in picture 2f and the "What it costs" table: jobs wait in the SMS queue, retries back off, push and email keep flowing, and anything out of tries is in the dead letter queue to send again.
+A common follow-up: "The SMS provider is down for 20 minutes. What happens?" SMS jobs wait and retry. Push and email keep flowing. Jobs out of tries wait in the dead letter queue (picture 2f).
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -609,7 +665,7 @@ A common follow-up: "The SMS provider is down for 20 minutes. What happens?" The
 
 ## 11. Explain it back
 
-Close this file. Explain a notification system out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of Sari's loan L-42: a 503 and a retry, the event arriving twice, and her old tablet answering 410. Then write your best version below and run `/explain-check design a notification system` or ask the `explain-coach` agent to review it.
+Close this file. Explain a notification system out loud to a new junior: problem, how, tradeoff, my example. Use Sari's loan L-42: a 503 and a retry, the event arriving twice, and her old tablet answering 410. Write your best version below. Then run `/explain-check design a notification system` or ask the `explain-coach` agent.
 
 ### My explanation
 
@@ -621,10 +677,10 @@ Close this file. Explain a notification system out loud like to a new junior, in
 
 ## 12. Review questions (day 1, 3, 7, 21)
 
-1. Walk "loan L-42 approved" from the loan service to Sari's phone, naming each part it passes and each check it meets.
-2. What goes into the dedupe key, and why the event id and not the time? Where else must a worker check before it sends?
+1. Walk "loan L-42 approved" from the loan service to Sari's phone. Name each part and each check.
+2. What goes into the dedupe key? Why the event id and not the time? Where else must a worker check before it sends?
 3. The provider answers 503, 410 and 400. What does the worker do for each, and why?
-4. A marketing blast of 5 million is running when Sari asks for a login code. Why does the code still arrive in seconds?
+4. A blast of 5 million is running when Sari asks for a login code. Why does the code still arrive in seconds?
 
 <details><summary>Answers</summary>
 
@@ -637,11 +693,19 @@ Close this file. Explain a notification system out loud like to a new junior, in
 
 ## Connected lessons
 
-- [Design a chat app](10-design-a-chat-app.md) - the lesson before. Its push queue and push worker are the push channel here.
-- [Design an online shop checkout](12-design-an-online-shop-checkout.md) - the next lesson. "Your order is paid" is an event this system sends, and webhooks come back again.
-- [Message queues](06-message-queues.md) - at least once, the dead letter queue, and growing waits. This lesson builds on it.
-- [Design a URL shortener](08-design-a-url-shortener.md) - the unique key that makes a resend harmless.
-- [Design a rate limiter](09-design-a-rate-limiter.md) - the limit per user for bulk, and the strict limit on OTP requests.
+- [Design a chat app](10-design-a-chat-app.md): its push worker is the push channel here.
+- [Design an online shop checkout](12-design-an-online-shop-checkout.md): "your order is paid" is one more event.
+- [Message queues](06-message-queues.md): at least once and the dead letter queue.
+- [Design a URL shortener](08-design-a-url-shortener.md): the unique key.
+- [Design a rate limiter](09-design-a-rate-limiter.md): limits per user.
+
+<details><summary>Go deeper (optional): more connected lessons</summary>
+
+- Design a chat app is the lesson before. Its push queue and push worker are the push channel here.
+- Design an online shop checkout is the next lesson. "Your order is paid" is an event this system sends, and webhooks come back again.
+- Message queues also covers growing waits. This lesson builds on it.
+- The URL shortener's unique key makes a resend harmless.
+- The rate limiter covers the limit per user for bulk, and the strict limit on OTP requests.
 - [Idempotency and retries](13-idempotency-and-retries.md) - the dedupe key in depth.
 - [Observability](14-observability.md) - queue depth per lane, dead letter size, and provider errors are the numbers to watch.
 - [Streams vs queues](21-streams-vs-queues.md) - when the events themselves should live in Kafka.
@@ -650,3 +714,5 @@ Close this file. Explain a notification system out loud like to a new junior, in
 - [Queues, streams and event-driven design](queues-streams-and-event-driven-design.md) - Part 4 on retries and dead letters, and Part 7 on rate limits toward third parties.
 - [Design workbook part 1](design-workbook-part-1-classic-designs.md) and [part 2](design-workbook-part-2-correctness-designs.md) - more full designs that use the same queue and worker shape.
 - [Frontend system design](frontend-system-design.md) - Part 6 shows push notifications from the phone's side.
+
+</details>
