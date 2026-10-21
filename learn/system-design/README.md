@@ -57,7 +57,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 08 | [Design a URL shortener](08-design-a-url-shortener.md) | hashing, storage, redirects at scale | ready |
-| 09 | Design a rate limiter `09-design-a-rate-limiter.md` | algorithms and where the counter lives | planned |
+| 09 | [Design a rate limiter](09-design-a-rate-limiter.md) | algorithms and where the counter lives | ready |
 | 10 | Design a chat app `10-design-a-chat-app.md` | WebSockets, message storage, delivery status | planned |
 | 11 | Design a notification system `11-design-a-notification-system.md` | queues, retries, user preferences | planned |
 | 12 | Design an online shop checkout `12-design-an-online-shop-checkout.md` | inventory, payments, webhooks, sagas | planned |

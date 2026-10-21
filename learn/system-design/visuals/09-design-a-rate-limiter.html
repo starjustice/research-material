@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rate limiter: a token bucket, the window edge, and the race</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: .9fr 1.2fr 1.2fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2.2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .calc { font-size: .86rem; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .totals { display: flex; gap: 14px; font-size: .84rem; margin-top: 6px; flex-wrap: wrap; }
+  .totals b { font-size: 1.1rem; }
+
+  .tokens { display: flex; gap: 10px; margin: 6px 0 4px; }
+  .tok {
+    width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--store);
+    background: var(--chip); position: relative; overflow: hidden;
+  }
+  .tok i { position: absolute; left: 0; bottom: 0; width: 100%; background: var(--store); transition: height .3s; }
+  .drip { font-size: .8rem; color: var(--muted); }
+  .wins { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .win { border: 1px solid rgba(128,128,128,.35); border-radius: 10px; padding: 6px 8px; background: var(--chip); font-size: .78rem; }
+  .win.now { box-shadow: 0 0 0 2px var(--accent); }
+  .win b { font-size: 1.3rem; display: block; }
+  .meter { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin-top: 6px; position: relative; }
+  .meter i { display: block; height: 100%; background: var(--srv); transition: width .3s; }
+  .meter i.over { background: var(--bad); }
+  .srvbox { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .srvbox .comp { margin-bottom: 0; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../09-design-a-rate-limiter.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Rate limiter: a token bucket, the window edge, and the race</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the clock, the counts and the answers. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> count in one shared place, and change the count in one step. A token bucket allows a short burst and then a steady speed. A fixed window can let twice the limit through at the edge of the minute. Two servers that read, then write, can both let the last request in.</p>
+</div>
+
+<script>
+const STORIES = [
+  {
+    name: "1. A token bucket", kind: "bucket",
+    why: "Nobody adds tokens on a timer. On each request the limiter asks how much time passed since the last one, and adds that many tokens: 1,500 ms at 1 token a second is 1.5 tokens. 1.5 is at least 1, so it takes one and allows the request, leaving 0.5. That is the whole trick: two numbers per client, the tokens and the last time.",
+    predict: { q: "The bucket holds 3 tokens and grows 1 token each second. Five requests come at 0 ms. Then one more comes at 1,500 ms. What happens to that one?",
+               options: ["Refused, the bucket was empty", "Allowed, 1.5 tokens grew back", "Allowed, the bucket is full again"], answer: "Allowed, 1.5 tokens grew back" },
+    capacity: 3, perSecond: 1,
+    ops: [
+      { op: "intro", note: "One client, user 42, and one bucket. The bucket holds up to <b>3 tokens</b>, and <b>1 token</b> grows back each second. It starts full. Each request takes one token. No token means <code>429</code>. These are the same calls as the code in section 4 of the lesson." },
+      { op: "req", t: 0 }, { op: "req", t: 0 }, { op: "req", t: 0 }, { op: "req", t: 0 }, { op: "req", t: 0 },
+      { op: "req", t: 1500 }, { op: "req", t: 1600 }, { op: "req", t: 10000 },
+      { op: "end", note: "The answers were <code>true true true false false</code> and then <code>true false true</code>, the same as the lesson's code. The burst of 3 came from the bucket size. After that the client got about 1 a second, the drip speed. A quiet client never saves up more than 3." }
+    ]
+  },
+  {
+    name: "2. The window edge", kind: "windows",
+    why: "A fixed window counts per clock minute. 59 s is minute 0 and 61 s is minute 1, so each minute has its own count and all 6 get in, twice the limit in 2 seconds. The sliding window also counts the part of last minute that is still inside the last 60 seconds. At 61 s that is 59 of 60 seconds, so it guesses 2.95, and one more is over 3.",
+    predict: { q: "The limit is 3 a minute. 3 requests come at 59 s and 3 more at 61 s. How many of the 6 does a fixed window let in?",
+               options: ["3", "4", "6"], answer: "6" },
+    limit: 3, windowS: 60,
+    ops: [
+      { op: "intro", note: "Same requests, two ways to count. <b>Left:</b> a fixed window, one count per clock minute. <b>Right:</b> a sliding window counter, which keeps this minute and last minute and guesses the last 60 seconds. The limit is <b>3 a minute</b>. Requests come at 59 s, 59 s, 59 s, 61 s, 61 s, 61 s and 80 s." },
+      { op: "req", s: 59 }, { op: "req", s: 59 }, { op: "req", s: 59 },
+      { op: "tick", s: 60 },
+      { op: "req", s: 61 }, { op: "req", s: 61 }, { op: "req", s: 61 },
+      { op: "req", s: 80 },
+      { op: "end", note: "<b>Left:</b> 6 got in within 2 seconds, then the 80 s request was refused until the next clock minute. <b>Right:</b> 3 got in, the three at 61 s were refused, and at 80 s the guess had dropped to 2, so one more was allowed. The sliding window spreads the requests out. The lesson's practice A prints the left side." }
+    ]
+  },
+  {
+    name: "3. The race", kind: "race",
+    why: "Both servers read 2 before either one wrote. Each thought 2 is under 3, so each allowed, and each wrote 3. Four requests got in, and the count even hides it. With INCR, Redis adds 1 and answers the new number in one step, one command at a time, so the second server sees 4 and refuses.",
+    predict: { q: "The client has used 2 of a limit of 3. Two servers check at the same moment. Each one does GET, decides, then SET. How many of the two requests get in?",
+               options: ["1", "2"], answer: "2" },
+    ops: [
+      { op: "intro", note: "One client has used <b>2</b> of a limit of <b>3</b>. Two of its requests land on two different API servers at the same moment. <b>Left:</b> each server reads the count with <code>GET</code>, decides, then writes with <code>SET</code>. <b>Right:</b> each server sends one <code>INCR</code>, which adds 1 and gives back the new number in one step." },
+      { op: "s1first" }, { op: "s2first" }, { op: "s1second" }, { op: "s2second" },
+      { op: "end", note: "<b>Left:</b> both requests got in, so 4 requests passed a limit of 3, and the count says 3. Nobody saw an error. <b>Right:</b> Redis ran the two INCR commands one after the other. The first got 3 and was allowed. The second got 4 and got <code>429</code>. For a token bucket you need more than one command, so you put the whole math in one Lua script, which Redis also runs in one step." }
+    ]
+  }
+];
+
+const fmt = x => String(Math.round(x * 100) / 100);
+
+// ---- Story 1: the token bucket, the same math as the lesson's code ----
+function simulateBucket(p) {
+  const steps = [];
+  const st = { tokens: p.capacity, last: 0, t: 0, log: [], allowed: 0, refused: 0, current: null, verdict: null, drip: null };
+  const snap = (note, active, hop, phase) => steps.push({
+    tokens: st.tokens, last: st.last, t: st.t, log: st.log.slice(), allowed: st.allowed, refused: st.refused,
+    current: st.current, verdict: st.verdict, drip: st.drip, cap: p.capacity, active, hop, phase, note
+  });
+  let n = 0;
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup before any request", "setup"); continue; }
+    if (op.op === "end") { st.current = null; st.verdict = null; st.drip = null; snap(op.note, [], "Finished", "done"); continue; }
+    n++;
+    st.t = op.t; st.current = "Request " + n + " at " + op.t + " ms"; st.verdict = null; st.drip = null;
+    const passed = op.t - st.last;
+    if (passed > 0) {
+      const grown = passed / 1000 * p.perSecond;
+      const before = st.tokens, raw = before + grown;
+      st.tokens = Math.min(p.capacity, raw);
+      st.last = op.t;
+      st.drip = fmt(passed) + " ms passed, so " + fmt(grown) + " tokens grow: " + fmt(before) + " + " + fmt(grown) + " = " + fmt(raw) + (raw > p.capacity ? ", capped at " + p.capacity : "");
+      snap("<b>Request " + n + "</b> comes at <b>" + op.t + " ms</b>. First the limiter adds the tokens that grew. " + fmt(passed) + " ms passed since the last request, at " + p.perSecond + " token a second, so <b>" + fmt(grown) + "</b> tokens grew. " +
+        (raw > p.capacity ? "That would make " + fmt(raw) + ", but the bucket holds only " + p.capacity + ". It stops at <b>" + p.capacity + "</b>." : "The bucket now has <b>" + fmt(st.tokens) + "</b>."),
+        ["bucket"], "Add the tokens that grew", "run");
+    } else {
+      st.last = op.t;
+      st.drip = "No time passed, so nothing grows";
+    }
+    if (st.tokens >= 1) {
+      st.tokens -= 1; st.allowed++;
+      st.verdict = { cls: "ok", text: "allowed" };
+      st.log.unshift({ text: op.t + " ms: allowed, " + fmt(st.tokens) + " left", bad: false });
+      snap((passed > 0 ? "" : "<b>Request " + n + "</b> comes at <b>" + op.t + " ms</b>. No time passed, so no token grew. ") +
+        "There is at least 1 token, so the limiter <b>takes one</b> and lets the request in. <b>" + fmt(st.tokens) + "</b> left.",
+        ["bucket", "answers"], "Take a token, allow", "srv");
+    } else {
+      st.refused++;
+      const wait = Math.ceil((1 - st.tokens) / p.perSecond);
+      st.verdict = { cls: "bad", text: "429, Retry-After " + wait };
+      st.log.unshift({ text: op.t + " ms: 429, Retry-After " + wait, bad: true });
+      snap((passed > 0 ? "" : "<b>Request " + n + "</b> comes at <b>" + op.t + " ms</b>. No time passed, so no token grew. ") +
+        "The bucket has <b>" + fmt(st.tokens) + "</b>, less than 1 whole token. The limiter refuses: <code>429</code>. It takes " + fmt(1 - st.tokens) + " s to grow back to 1 token, so <code>Retry-After: " + wait + "</code> (rounded up).",
+        ["bucket", "answers"], "Not enough tokens, 429", "bad");
+    }
+  }
+  return steps;
+}
+
+// ---- Story 2: fixed window against sliding window counter ----
+function simulateWindows(p) {
+  const steps = [];
+  const L = p.limit, W = p.windowS;
+  const fx = { counts: { 0: 0, 1: 0 }, log: [], allowed: 0 };
+  const sl = { start: 0, previous: 0, current: 0, log: [], allowed: 0, calc: null };
+  let s = 0;
+  const snap = (note, active, hop, phase) => steps.push({
+    s, L, fx: { counts: Object.assign({}, fx.counts), log: fx.log.slice(), allowed: fx.allowed, last: fx.last },
+    sl: { start: sl.start, previous: sl.previous, current: sl.current, log: sl.log.slice(), allowed: sl.allowed, calc: sl.calc, last: sl.last },
+    active, hop, phase, note
+  });
+  for (const op of p.ops) {
+    if (op.op === "intro") { snap(op.note, [], "The setup before any request", "setup"); continue; }
+    if (op.op === "end") { fx.last = null; sl.last = null; snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "tick") {
+      s = op.s; fx.last = null; sl.last = null;
+      sl.previous = sl.current; sl.current = 0; sl.start = op.s; sl.calc = null;
+      snap("<b>" + s + " s.</b> A new clock minute starts. <b>Left:</b> the fixed window starts a fresh count at 0 for minute 1. <b>Right:</b> the sliding window moves this minute's " + sl.previous + " into <b>last minute</b>, and this minute starts at 0. It does not forget them.",
+        ["fixed", "sliding"], "A new clock minute", "run");
+      continue;
+    }
+    s = op.s;
+    const minute = Math.floor(s / W);
+    let fxOk = fx.counts[minute] < L;
+    if (fxOk) { fx.counts[minute]++; fx.allowed++; }
+    fx.last = fxOk;
+    fx.log.unshift({ text: s + " s: minute " + minute + " count " + fx.counts[minute] + " of " + L + (fxOk ? ", allowed" : ", 429"), bad: !fxOk });
+
+    const into = s - sl.start;
+    const guess = (sl.previous * (W - into)) / W + sl.current;
+    const slOk = guess + 1 <= L;
+    sl.calc = { into, previous: sl.previous, current: sl.current, guess, withThis: guess + 1 };
+    if (slOk) { sl.current++; sl.allowed++; }
+    sl.last = slOk;
+    sl.log.unshift({ text: s + " s: guess " + fmt(guess) + " + 1 = " + fmt(guess + 1) + (slOk ? ", allowed" : ", 429"), bad: !slOk });
+
+    snap("<b>A request at " + s + " s.</b> <b>Left:</b> this is minute " + minute + ", which has " + (fxOk ? fx.counts[minute] - 1 : fx.counts[minute]) + " of " + L + " used, so " + (fxOk ? "it is <b>allowed</b>." : "it is <b>refused</b>.") +
+      " <b>Right:</b> we are " + into + " s into this minute, so " + (W - into) + " of the last 60 s are in last minute. The guess is " + sl.calc.previous + " x " + (W - into) + "/60 + " + sl.calc.current + " = <b>" + fmt(guess) + "</b>. With this request it is " + fmt(guess + 1) + ", " + (slOk ? "not more than " + L + ", so <b>allowed</b>." : "more than " + L + ", so <b>refused</b>."),
+      ["fixed", "sliding"], "A request at " + s + " s", (fxOk && !slOk) ? "bad" : (fxOk ? "srv" : "run"));
+  }
+  return steps;
+}
+
+// ---- Story 3: the race, GET then SET against INCR ----
+function simulateRace() {
+  const steps = [];
+  const L = 3;
+  const g = { redis: 2, s1: "waiting", s2: "waiting", letIn: 0, log: [] };
+  const i = { redis: 2, s1: "waiting", s2: "waiting", letIn: 0, log: [] };
+  const snap = (note, active, hop, phase) => steps.push({
+    L, g: JSON.parse(JSON.stringify(g)), i: JSON.parse(JSON.stringify(i)), active, hop, phase, note
+  });
+  const p = STORIES[2];
+  for (const op of p.ops) {
+    if (op.op === "intro") snap(op.note, [], "The setup: 2 of 3 used", "setup");
+    else if (op.op === "end") snap(op.note, [], "Finished", "done");
+    else if (op.op === "s1first") {
+      g.s1 = "read 2"; g.log.unshift({ text: "Server 1: GET count, got 2" });
+      i.redis = 3; i.s1 = "got 3, allowed"; i.letIn++; i.log.unshift({ text: "Server 1: INCR, got 3, 3 is not over 3, allowed" });
+      snap("<b>Server 1 goes first.</b> <b>Left:</b> it sends <code>GET count</code> and gets <b>2</b>. It has not written anything yet. <b>Right:</b> it sends <code>INCR count</code>. Redis adds 1 and answers <b>3</b> in one step. 3 is not over 3, so Server 1 allows the request.",
+        ["s1", "redis"], "Server 1 talks to Redis", "run");
+    } else if (op.op === "s2first") {
+      g.s2 = "read 2"; g.log.unshift({ text: "Server 2: GET count, got 2" });
+      i.redis = 4; i.s2 = "got 4, refused"; i.i = 0; i.log.unshift({ text: "Server 2: INCR, got 4, over 3, 429", bad: true });
+      snap("<b>Server 2, a moment later.</b> <b>Left:</b> it also sends <code>GET count</code>. Server 1 has not written yet, so it also gets <b>2</b>. <b>Right:</b> it sends <code>INCR count</code>. Redis already ran Server 1's INCR, so it answers <b>4</b>. 4 is over 3, so Server 2 answers <code>429</code>.",
+        ["s2", "redis"], "Server 2 talks to Redis", "bad");
+    } else if (op.op === "s1second") {
+      g.redis = 3; g.s1 = "2 is under 3, allowed"; g.letIn++; g.log.unshift({ text: "Server 1: 2 < 3, SET count 3, allowed" });
+      snap("<b>Left only.</b> Server 1 decides: 2 is under 3, so it allows the request and writes <code>SET count 3</code>. The right side is already finished.",
+        ["s1", "redis"], "Server 1 decides and writes", "srv");
+    } else if (op.op === "s2second") {
+      g.redis = 3; g.s2 = "2 is under 3, allowed"; g.letIn++; g.log.unshift({ text: "Server 2: 2 < 3, SET count 3, allowed", bad: true });
+      snap("<b>Left only.</b> Server 2 decides with the old number it read: 2 is under 3, so it <b>also allows</b>, and writes <code>SET count 3</code> again. Two requests got in. The client has now sent 4, and the count says 3.",
+        ["s2", "redis"], "Server 2 decides with an old number", "bad");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+
+function simulate(p) {
+  return p.kind === "bucket" ? simulateBucket(p) : p.kind === "windows" ? simulateWindows(p) : simulateRace(p);
+}
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Refused or wrong", "bad"], srv: ["Allowed", "srv"], done: ["Finished", "done"] };
+
+function renderBucket(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage three";
+  let toks = "";
+  for (let k = 0; k < s.cap; k++) {
+    const fill = Math.max(0, Math.min(1, s.tokens - k));
+    toks += '<div class="tok" title="' + fmt(fill) + '"><i style="height:' + Math.round(fill * 100) + '%"></i></div>';
+  }
+  st.innerHTML =
+    '<div class="panel"><h2>The clock</h2>' +
+      '<div class="comp user"><h3>Time now</h3><small>a fake clock, in milliseconds</small>' +
+        '<div class="big mono">' + s.t + '</div><div class="biglabel">ms</div>' +
+        (s.current ? '<div class="calc">' + s.current + "</div>" : '<span class="empty">no request yet</span>') + "</div>" +
+      '<div class="comp lb"><h3>Last seen</h3><small>the time of the last request</small><div class="big mono">' + s.last + '</div><div class="biglabel">ms</div></div>' +
+    "</div>" +
+    '<div class="panel"><h2>The bucket in Redis</h2>' +
+      '<div class="comp store' + lit("bucket") + '"><h3>rl:api:user42 <span class="tag">holds ' + s.cap + '</span></h3><small>1 token grows back each second</small>' +
+        '<div class="tokens">' + toks + "</div>" +
+        '<div class="big mono">' + fmt(s.tokens) + '</div><div class="biglabel">tokens now</div>' +
+        (s.drip ? '<div class="drip">' + s.drip + "</div>" : "") +
+      "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>The answers</h2>' +
+      '<div class="comp srv' + lit("answers") + '"><h3>What the client gets</h3><small>allowed, or 429 with Retry-After</small>' +
+        (s.verdict ? '<div class="verdict ' + s.verdict.cls + '">' + s.verdict.text + "</div>" : '<span class="empty">nothing yet</span>') +
+        '<div class="totals"><span>allowed <b>' + s.allowed + '</b></span><span>refused <b>' + s.refused + "</b></span></div>" +
+        '<ul class="log">' + (s.log.length ? s.log.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") : '<li class="empty">no requests yet</li>') + "</ul>" +
+      "</div>" +
+    "</div>";
+}
+
+function renderWindows(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage two";
+  const nowMin = Math.floor(s.s / 60);
+  const meter = (n, L) => '<div class="meter"><i class="' + (n > L ? "over" : "") + '" style="width:' + Math.min(100, Math.round(100 * n / L)) + '%"></i></div>';
+  const fxPanel =
+    '<div class="panel"><h2>Fixed window</h2><div class="rulebox">One count per clock minute. A new minute starts at 0.</div>' +
+      '<div class="comp store' + lit("fixed") + '"><h3>Counts <span class="tag">limit ' + s.L + " a minute</span></h3>" +
+        '<div class="wins">' +
+          '<div class="win' + (nowMin === 0 ? " now" : "") + '">minute 0, 0 to 59 s<b>' + s.fx.counts[0] + " of " + s.L + "</b>" + meter(s.fx.counts[0], s.L) + "</div>" +
+          '<div class="win' + (nowMin === 1 ? " now" : "") + '">minute 1, 60 to 119 s<b>' + s.fx.counts[1] + " of " + s.L + "</b>" + meter(s.fx.counts[1], s.L) + "</div>" +
+        "</div>" +
+        (s.fx.last === true ? '<div class="verdict ok">allowed</div>' : s.fx.last === false ? '<div class="verdict bad">429</div>' : "") +
+      "</div>" +
+      '<div class="totals"><span>let in so far <b>' + s.fx.allowed + "</b></span></div>" +
+      '<ul class="log">' + (s.fx.log.length ? s.fx.log.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") : '<li class="empty">no requests yet</li>') + "</ul>" +
+    "</div>";
+  const c = s.sl.calc;
+  const slPanel =
+    '<div class="panel"><h2>Sliding window counter</h2><div class="rulebox">Guess the last 60 s from last minute and this minute.</div>' +
+      '<div class="comp srv' + lit("sliding") + '"><h3>Two counts <span class="tag">limit ' + s.L + " a minute</span></h3>" +
+        '<div class="wins">' +
+          '<div class="win">last minute<b>' + s.sl.previous + "</b></div>" +
+          '<div class="win now">this minute, from ' + s.sl.start + " s<b>" + s.sl.current + "</b></div>" +
+        "</div>" +
+        (c ? '<div class="calc mono" style="margin-top:8px">' + c.previous + " x " + (60 - c.into) + "/60 + " + c.current + " = " + fmt(c.guess) + "<br>with this request: " + fmt(c.withThis) + "</div>" + meter(c.withThis, s.L) : "") +
+        (s.sl.last === true ? '<div class="verdict ok">allowed</div>' : s.sl.last === false ? '<div class="verdict bad">429</div>' : "") +
+      "</div>" +
+      '<div class="totals"><span>let in so far <b>' + s.sl.allowed + "</b></span></div>" +
+      '<ul class="log">' + (s.sl.log.length ? s.sl.log.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") : '<li class="empty">no requests yet</li>') + "</ul>" +
+    "</div>";
+  st.innerHTML = fxPanel + slPanel;
+}
+
+function renderRace(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage two";
+  const world = (w, title, rule) =>
+    '<div class="panel"><h2>' + title + '</h2><div class="rulebox">' + rule + "</div>" +
+      '<div class="srvbox">' +
+        '<div class="comp user' + lit("s1") + '"><h3>Server 1</h3><div class="calc">' + w.s1 + "</div></div>" +
+        '<div class="comp user' + lit("s2") + '"><h3>Server 2</h3><div class="calc">' + w.s2 + "</div></div>" +
+      "</div>" +
+      '<div class="comp store' + lit("redis") + '"><h3>Redis <span class="tag">limit ' + s.L + '</span></h3><small>the count for user 42</small><div class="big mono">' + w.redis + "</div></div>" +
+      '<div class="totals"><span>requests let in now <b>' + w.letIn + '</b></span><span>total the client sent <b>' + (2 + w.letIn) + "</b></span></div>" +
+      ((2 + w.letIn) > s.L ? '<div class="verdict bad">' + (2 + w.letIn) + " requests passed a limit of " + s.L + "</div>" : "") +
+      '<ul class="log">' + (w.log.length ? w.log.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") : '<li class="empty">nothing sent yet</li>') + "</ul>" +
+    "</div>";
+  st.innerHTML = world(s.g, "GET, decide, then SET", "Read, decide and write are three steps. Another server can cut in between.") +
+                 world(s.i, "INCR in one step", "Redis adds 1 and answers the new number. One command at a time.");
+}
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  if (P.kind === "bucket") renderBucket(s); else if (P.kind === "windows") renderWindows(s); else renderRace(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>
