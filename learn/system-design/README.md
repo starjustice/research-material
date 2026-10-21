@@ -66,8 +66,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 13 | Idempotency and retries `13-idempotency-and-retries.md` | making repeated requests safe | planned |
-| 14 | Observability `14-observability.md` | logs, metrics, traces | planned |
+| 13 | [Idempotency and retries](13-idempotency-and-retries.md) | making repeated requests safe | ready |
+| 14 | [Observability](14-observability.md) | logs, metrics, traces | ready |
 | 15 | Choosing tools and explaining why `15-choosing-tools-and-explaining-why.md` | how to defend a choice in an interview | planned |
 
 ### More building blocks (added 2026-10-16)

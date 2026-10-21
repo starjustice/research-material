@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Observability: one slow checkout, one trace id</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: .8fr 1.25fr 1.15fr; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .col { display: grid; gap: 12px; align-content: start; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .8rem; margin: 0; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .arrow { text-align: center; color: var(--muted); font-size: .72rem; margin: 3px 0; }
+  .wire { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .68rem; background: var(--code-bg); border-radius: 6px; padding: 3px 6px; margin: 2px 0; word-break: break-all; box-shadow: 0 0 0 2px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.none { background: transparent; color: var(--muted); border: 1px dashed var(--muted); font-weight: 600; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .axis { position: relative; height: 16px; margin-left: 130px; font-size: .66rem; color: var(--muted); }
+  .axis span { position: absolute; transform: translateX(-50%); }
+  .axis span:first-child { transform: none; }
+  .axis span:last-child { transform: translateX(-100%); }
+  .span { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: .74rem; }
+  .span .lbl { width: 122px; flex: none; line-height: 1.2; }
+  .span .lbl b { display: block; font-size: .74rem; }
+  .span .lbl small { color: var(--muted); font-size: .66rem; }
+  .track { position: relative; flex: 1; height: 22px; background: var(--chip); border: 1px solid var(--border); border-radius: 6px; }
+  .track i { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; min-width: 3px; transition: width .3s; }
+  .track i.api { background: var(--user); } .track i.payment { background: var(--srv); }
+  .track i.run { opacity: .55; background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,.45) 5px 10px); }
+  .track i.slow { background: var(--bad); }
+  .track em { position: absolute; right: 4px; top: 2px; font-style: normal; font-size: .66rem; font-weight: 700; color: var(--ink); }
+  .own { font-size: .66rem; color: var(--muted); }
+  .own.slow { color: var(--bad); font-weight: 700; }
+  .span.slowrow .lbl b { color: var(--bad); }
+  .nowline { font-size: .74rem; color: var(--muted); margin-top: 4px; }
+
+  .logs { margin: 0; padding: 0; list-style: none; }
+  .logs li { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .66rem; padding: 3px 6px; border-radius: 6px; background: var(--chip); border: 1px solid var(--border); margin-bottom: 4px; word-break: break-all; }
+  .logs li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .logs li.warn { background: var(--bad-bg); }
+  .logs li.dim { opacity: .3; }
+  .logs li.match { border-color: var(--srv); border-width: 2px; }
+  .search { font-size: .76rem; margin-bottom: 6px; }
+
+  .metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .metric { background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; text-align: center; }
+  .metric small { display: block; color: var(--muted); font-size: .64rem; text-transform: uppercase; letter-spacing: .05em; }
+  .metric b { font-size: .95rem; }
+  .metric.changed { box-shadow: 0 0 0 2px var(--accent); }
+  .metric.badv b { color: var(--bad); }
+  .alert { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .8rem; border: 2px solid var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../14-observability.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Observability: one slow checkout, one trace id</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the trace id travel, the bars grow, the log lines appear and the numbers change. Guess first, then check.</p>
+
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> metrics say <b>that</b> something is wrong. The trace says <b>where</b>. Logs say <b>what</b>. One trace id, made by the first server and passed on in the <code>traceparent</code> header, ties all three together. The slow step is the span with the biggest own time: its time minus the spans directly under it. All numbers are examples.</p>
+</div>
+
+<script>
+const TRACE = "4bf92f35";
+const FULL_HEADER = "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+const SCALE = 3000;   // the timeline is 3,000 ms wide
+
+const STORIES = [
+  {
+    name: "One slow checkout",
+    why: "The SELECT payments span took 2,900 ms and has no spans under it, so all 2,900 ms are its own time. POST /checkout took 3,000 ms but only 20 ms were its own. The rest was waiting. POST /charge took 2,960 ms but only 60 ms were its own. The browser is not in the trace at all here: the API made the id.",
+    predict: { q: "This checkout took 3,000 ms. Which step made it slow?",
+               options: ["The API code", "The payment service code", "The payment database query", "The browser"],
+               answer: "The payment database query" },
+    ops: [
+      { op: "alert" },
+      { op: "browser" },
+      { op: "apiStart" },
+      { op: "cart" },
+      { op: "call" },
+      { op: "payStart" },
+      { op: "query" },
+      { op: "queryDone" },
+      { op: "payDone" },
+      { op: "apiDone" },
+      { op: "find" }
+    ]
+  }
+];
+
+// Nearest rank, the same as the lesson: rank = ceil(p * count / 100).
+function percentile(values, p) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.ceil((p * sorted.length) / 100);
+  return sorted[Math.max(rank, 1) - 1];
+}
+function metricsOf(times, errors) {
+  const sum = times.reduce((a, b) => a + b, 0);
+  return {
+    requests: times.length, errors,
+    average: Math.round((sum / times.length) * 10) / 10,
+    p50: percentile(times, 50), p99: percentile(times, 99)
+  };
+}
+function ownTimes(spans) {
+  return spans.map(s => {
+    const kids = spans.filter(c => c.parent === s.id);
+    return s.ms - kids.reduce((a, c) => a + c.ms, 0);
+  });
+}
+
+function simulate(p) {
+  const steps = [];
+  // 100 earlier checkouts: 90 took 100 ms, 8 took 400 ms, 2 took 3000 ms.
+  const times = [];
+  for (let i = 0; i < 90; i++) times.push(100);
+  for (let i = 0; i < 8; i++) times.push(400);
+  for (let i = 0; i < 2; i++) times.push(3000);
+  const w = {
+    now: 0, has: { browser: false, api: false, payment: false, db: false }, wire: "",
+    spans: [],
+    logs: [
+      { traceId: "9a1c77e0", text: '{"level":"info","traceId":"9a1c77e0","service":"api","msg":"checkout done","ms":100}' },
+      { traceId: "c03e5b12", text: '{"level":"info","traceId":"c03e5b12","service":"payment","msg":"charge done","ms":80}' },
+      { traceId: "7d2f0a91", text: '{"level":"info","traceId":"7d2f0a91","service":"api","msg":"checkout done","ms":400}' }
+    ],
+    metrics: metricsOf(times, 0), changed: [], alert: false, search: false, slowId: null, own: null
+  };
+  const snap = (note, active, hop, phase) => {
+    steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+    w.logs.forEach(l => { l.fresh = false; });
+    w.changed = [];
+  };
+  const log = (level, service, msg, field, value) => {
+    const o = { level, traceId: TRACE, service, msg };
+    o[field] = value;
+    w.logs.push({ traceId: TRACE, text: JSON.stringify(o), fresh: true, warn: level === "warn" });
+  };
+  const span = id => w.spans.find(s => s.id === id);
+
+  for (const op of p.ops) {
+    if (op.op === "alert") {
+      w.alert = true;
+      snap("It is 3 am. An alert wakes you: <b>checkout p99 over 1 s for 5 minutes</b>. Look at the numbers. The average is " + w.metrics.average + " ms and looks fine. The p99 is " + w.metrics.p99 + " ms. Metrics tell you <b>that</b> checkout is slow. They do not say which box.", ["metrics"], "Step 0. The alert fires", "bad");
+    } else if (op.op === "browser") {
+      w.wire = "POST /checkout, no trace id";
+      snap("A user presses Pay. The browser sends <code>POST /checkout</code> to the API. It sends <b>no trace id</b>. Nobody has an id yet.", ["browser", "api"], "Step 1. The browser sends the request", "run");
+    } else if (op.op === "apiStart") {
+      w.has.api = true; w.wire = "";
+      w.spans.push({ id: "a1", parent: null, depth: 0, service: "api", name: "POST /checkout", start: 0, ms: null });
+      log("info", "api", "checkout started", "orderId", 881);
+      snap("No id came in, so the API <b>makes trace id <code>" + TRACE + "</code></b>. It starts its first span, <b>POST /checkout</b>. The bar is striped because the span is still running. Its first log line carries the same id.", ["api", "trace", "logs"], "Step 2. The API makes the trace id", "run");
+    } else if (op.op === "cart") {
+      w.now = 25;
+      w.spans.push({ id: "a2", parent: "a1", depth: 1, service: "api", name: "SELECT cart", start: 5, ms: 20 });
+      snap("The API reads the cart from its own Postgres through Prisma. That makes a child span, <b>SELECT cart</b>, which takes <b>20 ms</b>. It sits under POST /checkout because the API made it while the checkout was running.", ["api", "trace"], "Step 3. The API reads the cart", "srv");
+    } else if (op.op === "call") {
+      w.now = 30; w.wire = FULL_HEADER;
+      snap("The API calls the payment service: <code>POST /charge</code>. OpenTelemetry adds the <b>traceparent header</b> to the call. The long middle part is the trace id. This page shows only its first 8 characters, <code>" + TRACE + "</code>.", ["api", "wire", "payment"], "Step 4. The id goes into a header", "run");
+    } else if (op.op === "payStart") {
+      w.has.payment = true; w.wire = "";
+      w.spans.push({ id: "p1", parent: "a1", depth: 1, service: "payment", name: "POST /charge", start: 30, ms: null });
+      log("info", "payment", "charge started", "orderId", 881);
+      snap("The payment service <b>reads the header and keeps the same id</b>. It does not make a new one. Its span, <b>POST /charge</b>, joins the same trace, and its log line has <code>" + TRACE + "</code> too.", ["payment", "trace", "logs"], "Step 5. The payment service keeps the id", "run");
+    } else if (op.op === "query") {
+      w.now = 1040;
+      w.spans.push({ id: "p2", parent: "p1", depth: 2, service: "payment", name: "SELECT payments", start: 40, ms: null });
+      snap("The payment service asks its database for the old payments of order 881. That is the span <b>SELECT payments</b>. This picture is <b>1 second later</b>. Three bars are still growing. Nobody has answered yet.", ["payment", "db", "trace"], "Step 6. The payment service asks its database", "run");
+    } else if (op.op === "queryDone") {
+      w.now = 2940;
+      span("p2").ms = 2900;
+      log("warn", "payment", "slow query", "ms", 2900);
+      snap("The query returns after <b>2,900 ms</b>. The payment service writes a <b>warn</b> log line: slow query. The database itself does not know the trace id. The payment service timed the query.", ["db", "payment", "trace", "logs"], "Step 7. The query returns after 2,900 ms", "bad");
+    } else if (op.op === "payDone") {
+      w.now = 2990;
+      span("p1").ms = 2960;
+      snap("The payment service answers <code>200</code>. Its span POST /charge closes at <b>2,960 ms</b>. Most of that was waiting for the query under it.", ["payment", "api", "trace"], "Step 8. The payment service answers", "srv");
+    } else if (op.op === "apiDone") {
+      w.now = 3000;
+      span("a1").ms = 3000;
+      log("info", "api", "checkout done", "ms", 3000);
+      times.push(3000);
+      w.metrics = metricsOf(times, 0);
+      w.changed = ["requests", "average"];
+      snap("The API answers <code>201</code> to the browser and closes its span at <b>3,000 ms</b>. The metrics count one more request: <b>" + w.metrics.requests + "</b>. Errors stay at <b>0</b>. Slow is not an error, so a search for errors would find nothing.", ["api", "browser", "trace", "logs", "metrics"], "Step 9. The API answers", "srv");
+    } else if (op.op === "find") {
+      const own = ownTimes(w.spans);
+      let best = 0;
+      own.forEach((o, i) => { if (o > own[best]) best = i; });
+      w.own = own; w.slowId = w.spans[best].id; w.search = true;
+      snap("You open trace <code>" + TRACE + "</code> and sort by <b>own time</b>: a span's time minus the spans directly under it. POST /checkout: 3,000 minus 20 minus 2,960 is <b>20 ms</b>. POST /charge: 2,960 minus 2,900 is <b>60 ms</b>. <b>SELECT payments: 2,900 ms</b>. That is the slow step. You search the logs for the same id and find its 4 lines, from 2 services. The warn line says what happened.", ["trace", "logs", "db"], "Step 10. Find the slow step", "done");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something is slow", "bad"], srv: ["Step done", "srv"], done: ["Finished", "done"] };
+const fmt = n => n === null ? "none" : Number(n).toLocaleString("en-US");
+
+function idTag(on) {
+  return on ? '<span class="tag">' + TRACE + "</span>" : '<span class="tag none">no id</span>';
+}
+
+function renderPath(s) {
+  const w = s.w, lit = id => s.active.includes(id) ? " lit" : "";
+  return '<div class="panel"><h2>The request path</h2>' +
+    '<div class="comp user' + lit("browser") + '"><h3>Browser ' + idTag(w.has.browser) + '</h3><small>the user presses Pay</small></div>' +
+    '<div class="arrow">&darr; POST /checkout</div>' +
+    '<div class="comp lb' + lit("api") + '"><h3>API ' + idTag(w.has.api) + '</h3><small>makes the trace id if none came in</small></div>' +
+    '<div class="arrow">&darr; POST /charge</div>' +
+    (w.wire ? '<div class="wire">' + esc(w.wire) + "</div>" : "") +
+    '<div class="comp srv' + lit("payment") + '"><h3>Payment service ' + idTag(w.has.payment) + '</h3><small>reads the header and keeps the id</small></div>' +
+    '<div class="arrow">&darr; SELECT payments</div>' +
+    '<div class="comp store' + lit("db") + '"><h3>Payment database ' + '<span class="tag none">does not know the id</span>' + '</h3><small>the payment service times the query</small></div>' +
+    "</div>";
+}
+
+function renderTrace(s) {
+  const w = s.w, lit = s.active.includes("trace") ? " lit" : "";
+  let rows;
+  if (!w.spans.length) {
+    rows = '<div class="empty">no spans yet</div>';
+  } else {
+    rows = w.spans.map((sp, i) => {
+      const running = sp.ms === null;
+      const ms = running ? w.now - sp.start : sp.ms;
+      const left = (100 * sp.start) / SCALE, width = Math.max(0.5, (100 * ms) / SCALE);
+      const slow = w.slowId === sp.id;
+      const cls = sp.service + (running ? " run" : "") + (slow ? " slow" : "");
+      const own = w.own ? '<span class="own' + (slow ? " slow" : "") + '">own time ' + fmt(w.own[i]) + " ms</span>" : "";
+      return '<div class="span' + (slow ? " slowrow" : "") + '"><div class="lbl" style="padding-left:' + (sp.depth * 10) + 'px"><b>' + esc(sp.name) + "</b><small>" + sp.service + "</small></div>" +
+        '<div class="track"><i class="' + cls + '" style="left:' + left + "%;width:" + width + '%"></i><em>' + (running ? "running" : fmt(ms) + " ms") + "</em></div></div>" +
+        (own ? '<div style="margin:-4px 0 6px ' + (130 + sp.depth * 10) + 'px">' + own + "</div>" : "");
+    }).join("");
+  }
+  return '<div class="panel"><h2>Trace ' + TRACE + ", spans on a timeline</h2>" +
+    '<div class="comp lb' + lit + '" style="background:var(--card)">' +
+    '<div class="axis"><span style="left:0">0</span><span style="left:33.3%">1,000</span><span style="left:66.6%">2,000</span><span style="left:100%">3,000 ms</span></div>' +
+    rows +
+    '<div class="nowline">time since the request started: <b>' + fmt(w.now) + " ms</b></div></div></div>";
+}
+
+function renderSide(s) {
+  const w = s.w, lit = id => s.active.includes(id) ? " lit" : "";
+  const logs = w.logs.map(l => {
+    const mine = l.traceId === TRACE;
+    const cls = [l.fresh ? "new" : "", l.warn ? "warn" : "", w.search ? (mine ? "match" : "dim") : ""].join(" ").trim();
+    return '<li class="' + cls + '">' + esc(l.text) + "</li>";
+  }).join("");
+  const found = w.logs.filter(l => l.traceId === TRACE).length;
+  const m = w.metrics;
+  const cell = (key, label, val, bad) => '<div class="metric' + (w.changed.includes(key) ? " changed" : "") + (bad ? " badv" : "") + '"><small>' + label + "</small><b>" + val + "</b></div>";
+  return '<div class="col">' +
+    '<div class="panel"><h2>Metrics for checkout</h2><div class="comp srv' + lit("metrics") + '" style="background:var(--card)">' +
+      '<div class="metrics">' +
+        cell("requests", "requests", fmt(m.requests)) +
+        cell("errors", "errors", fmt(m.errors)) +
+        cell("average", "average", fmt(m.average) + " ms") +
+        cell("p50", "p50", fmt(m.p50) + " ms") +
+        cell("p99", "p99", fmt(m.p99) + " ms", true) +
+      "</div>" +
+      (w.alert ? '<div class="alert">ALERT: checkout p99 over 1 s for 5 minutes</div>' : "") +
+    "</div></div>" +
+    '<div class="panel"><h2>Log lines, all services</h2><div class="comp store' + lit("logs") + '" style="background:var(--card)">' +
+      (w.search ? '<div class="search">search: <b class="mono">traceId = ' + TRACE + "</b>, found <b>" + found + " lines</b> from 2 services</div>" : "") +
+      '<ul class="logs">' + logs + "</ul>" +
+    "</div></div>" +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  $("stage").innerHTML = renderPath(s) + renderTrace(s) + renderSide(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function start() {
+  stop(); cur = 0; steps = simulate(STORIES[0]); idx = 0; guess = null;
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+start();
+</script>
+</body>
+</html>
