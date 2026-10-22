@@ -44,9 +44,9 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 09 | Indexes and B-trees `09-indexes-and-b-trees.md` | how an index finds a row without reading every row, and what it costs on writes | planned |
+| 09 | [Indexes and B-trees](09-indexes-and-b-trees.md) | how an index finds a row without reading every row, and what it costs on writes | ready |
 | 10 | Composite, partial and covering indexes `10-composite-partial-and-covering-indexes.md` | the leftmost column rule, indexing only a hot slice, and when an index is NOT used | planned |
-| 11 | Reading EXPLAIN `11-reading-explain.md` | seq scan against index scan, estimated against actual rows, and a slow-query workflow | planned |
+| 11 | [Reading EXPLAIN](11-reading-explain.md) | seq scan against index scan, estimated against actual rows, and a slow-query workflow | ready |
 | 12 | N+1 queries and ORMs `12-n-plus-1-queries-and-orms.md` | why one page can run 101 queries, and fixes in Prisma, GraphQL DataLoader and Hasura | planned |
 
 ### Transactions: many users at once

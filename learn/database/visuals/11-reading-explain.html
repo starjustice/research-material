@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading EXPLAIN Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --run: #b7791f; --run-bg: #fdf0d2;
+    --done: #2f9e6b; --done-bg: #dff3ea;
+    --hot: #c0392b; --hot-bg: #fdecea;
+    --busy: #d9822b; --busy-bg: #fff1e0;
+    --wait: #9aa7b1; --wait-bg: #f4f1ea;
+    --blue: #3b82f6; --blue-bg: #e3eefe;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 280px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.75; overflow-x: auto; }
+  pre.plan { font-size: .7rem; line-height: 1.6; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.hotline { background: var(--hot-bg); border-left-color: var(--hot); font-weight: 700; }
+
+  /* the plan tree */
+  .tree { font-size: .85rem; }
+  .kids { margin-left: 26px; border-left: 2px dashed var(--border); padding-left: 10px; }
+  .flow { font-size: .75rem; font-weight: 700; color: var(--blue); margin: 4px 0 2px; height: 20px; }
+  .flow span { background: var(--blue-bg); border: 1px solid var(--blue); border-radius: 999px; padding: 1px 9px; }
+  .flow.pop span { animation: pop .35s ease; }
+  .node { border: 2px solid; border-radius: 12px; padding: 7px 10px 8px; margin: 4px 0; background: #fff; }
+  .node h3 { margin: 0 0 3px; font-size: .86rem; display: flex; justify-content: space-between; gap: 8px; }
+  .node h3 small { font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; }
+  .node .facts { display: flex; flex-wrap: wrap; gap: 5px; }
+  .fact { font-family: ui-monospace, Menlo, monospace; font-size: .74rem; border-radius: 7px; padding: 2px 7px; background: #f4f1ea; border: 1px solid #e3dccd; }
+  .fact.guess { background: #eef2f6; border-color: #cfd8e0; }
+  .fact.real { background: var(--done-bg); border-color: #a9dcc3; font-weight: 700; }
+  .fact.bad { background: var(--hot-bg); border-color: #f2b8b2; color: var(--hot); font-weight: 700; }
+  .node.wait { border-color: var(--wait); background: var(--wait-bg); color: #55636e; }
+  .node.wait h3 small { color: var(--wait); }
+  .node.run { border-color: var(--run); background: var(--run-bg); box-shadow: 0 0 0 4px rgba(245,197,66,.35); }
+  .node.run h3 small { color: var(--run); }
+  .node.done { border-color: var(--done); background: var(--done-bg); }
+  .node.done h3 small { color: var(--done); }
+  .node.hot { border-color: var(--hot); background: var(--hot-bg); box-shadow: 0 0 0 4px rgba(192,57,43,.2); }
+  .node.hot h3 small { color: var(--hot); }
+  .node.busy { border-color: var(--busy); background: var(--busy-bg); }
+  .node.busy h3 small { color: var(--busy); }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 12px 10px; margin-top: 10px; color: #fff; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 4px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .big { font-family: ui-monospace, Menlo, monospace; font-size: 1.05rem; font-weight: 700; }
+  .outbox .small { color: #9fb4c3; font-size: .8rem; }
+
+  .key { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; font-size: .74rem; }
+  .key span { border: 2px solid; border-radius: 8px; padding: 1px 8px; font-weight: 650; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.paper { background: #8b5cf6; } .badge.run { background: var(--run); } .badge.flow { background: var(--blue); }
+  .badge.hot { background: var(--hot); } .badge.fix { background: var(--done); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--done); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../11-reading-explain.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Reading EXPLAIN stepper</h1>
+  <p class="sub">Every plan here is real output from PostgreSQL 18.3 on the practice data (checked on 2026-10-16). Press Next. Rows start at the deepest nodes and climb up the tree. Your times and counts will differ a little.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="your answer" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your query</h2>
+        <pre class="code" id="sql"></pre>
+      </div>
+      <div class="panel">
+        <h2 id="planTitle">What Postgres prints</h2>
+        <pre class="code plan" id="plan"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>The plan as a tree (top node at the top, deepest nodes at the bottom)</h2>
+        <div class="tree" id="tree"></div>
+        <div class="outbox"><h3>Rows sent to you</h3><div class="big" id="outRows"></div><div class="small" id="outTime"></div></div>
+        <div class="key">
+          <span style="border-color:var(--wait);background:var(--wait-bg)">waiting</span>
+          <span style="border-color:var(--run);background:var(--run-bg)">working now</span>
+          <span style="border-color:var(--done);background:var(--done-bg)">finished</span>
+          <span style="border-color:var(--busy);background:var(--busy-bg)">most time, but fine</span>
+          <span style="border-color:var(--hot);background:var(--hot-bg)">the node to fix</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Postgres: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> read the plan from the <b>inside out</b>. The most indented nodes run first, and their rows flow up to their parent. Find the node where rows are <b>thrown away</b> or <b>time piles up</b>. Then compare the <b>guess</b> with the <b>actual</b> rows. A gap of 10 times or more means the planner's notes are old: run <code>ANALYZE</code>.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Plan:</b> the recipe Postgres picks for your query. <b>Node:</b> one step of the recipe, one box in the tree.</li>
+      <li><b>Guess</b> (estimate): the rows the planner expects, before running. <b>Actual:</b> the rows that really came out, from <code>EXPLAIN ANALYZE</code>.</li>
+      <li><b>Rows removed:</b> rows Postgres read, checked and threw away. A big number is the clue for a missing index.</li>
+      <li><b>Pages:</b> blocks of 8 kB. The <code>Buffers</code> line counts how many pages a node touched.</li>
+      <li><b>loops:</b> how many times a node ran. Actual rows are per loop, so multiply.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ---- How the data is shaped ----
+// A preset has: the SQL, one or two printed plans, a tree of nodes, and steps.
+// A step says which tree to show, what each node looks like, which arrows carry rows, and the note.
+// Node look: { st: "wait" | "run" | "done" | "busy" | "hot", facts: [[kind, text], ...] }
+const W = (...f) => ({ st: "wait", facts: f });
+const R = (...f) => ({ st: "run", facts: f });
+const D = (...f) => ({ st: "done", facts: f });
+const B = (...f) => ({ st: "busy", facts: f });
+const H = (...f) => ({ st: "hot", facts: f });
+const g = t => ["guess", "guess " + t];
+const a = t => ["real", "actual " + t];
+const x = t => ["bad", t];
+const f = t => ["plain", t];
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "Seq scan with a filter",
+    question: "Which node is the one to fix? Type its name.",
+    accept: ["seq scan"],
+    answer: "Seq Scan on orders",
+    why: "The Seq Scan read all 100,000 orders and threw away 99,861 of them. It took 9.8 of the 10.5 ms. The guess (110) is close to the actual (139), so the notes are fine. An index on orders.store_id is missing.",
+    sql: ["SELECT s.name, o.id, o.total_cents", "FROM stores s", "JOIN orders o ON o.store_id = s.id", "WHERE s.id = 42;"],
+    plans: { main: [
+      "Nested Loop  (cost=0.28..2093.39 rows=110 width=25) (actual time=0.806..10.520 rows=139.00 loops=1)",
+      "  Buffers: shared hit=835 read=2",
+      "  ->  Index Scan using stores_pkey on stores s  (cost=0.28..8.29 rows=1 width=13) (actual time=0.169..0.172 rows=1.00 loops=1)",
+      "        Index Cond: (id = 42)",
+      "        Index Searches: 1",
+      "        Buffers: shared hit=1 read=2",
+      "  ->  Seq Scan on orders o  (cost=0.00..2084.00 rows=110 width=20) (actual time=0.260..9.795 rows=139.00 loops=1)",
+      "        Filter: (store_id = 42)",
+      "        Rows Removed by Filter: 99861",
+      "        Buffers: shared hit=834",
+      "Planning Time: 0.162 ms",
+      "Execution Time: 10.788 ms"
+    ] },
+    trees: { main: { id: "nl", name: "Nested Loop", line: 0, kids: [
+      { id: "st", name: "Index Scan on stores", line: 2, kids: [] },
+      { id: "so", name: "Seq Scan on orders", line: 6, hotLine: 8, kids: [] }
+    ] } },
+    steps: [
+      { tree: "main", phase: "paper", sqlLine: null,
+        note: "<b>The plan on paper.</b> Plain <code>EXPLAIN</code> stops here: it shows the tree and the <b>guesses</b>, and runs nothing. The planner guessed 1 store and 110 orders. Now <code>EXPLAIN ANALYZE</code> runs it.",
+        nodes: { nl: W(g("110 rows")), st: W(g("1 row")), so: W(g("110 rows")) }, out: null },
+      { tree: "main", phase: "run", sqlLine: 3, active: "st",
+        note: "Read from the inside out. The Nested Loop has two children. It runs <b>child 1</b> first: the Index Scan walks the <code>stores_pkey</code> index to id 42 and jumps to that one row. 3 pages.",
+        nodes: { nl: W(g("110 rows")), st: R(g("1 row"), a("1 row"), f("3 pages")), so: W(g("110 rows")) }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 3,
+        note: "Store 42 climbs up to the Nested Loop. The Nested Loop now asks <b>child 2</b> for the orders of that store. One store, so child 2 runs once: <code>loops=1</code>.",
+        nodes: { nl: R(g("110 rows")), st: D(g("1 row"), a("1 row")), so: W(g("110 rows")) }, flows: { st: "1 row: store 42" }, out: null },
+      { tree: "main", phase: "run", sqlLine: 2, active: "so",
+        note: "There is no index on <code>orders.store_id</code>. So the Seq Scan reads <b>every one</b> of the 100,000 orders and checks <code>store_id = 42</code> on each. 834 pages.",
+        nodes: { nl: R(g("110 rows")), st: D(g("1 row"), a("1 row")), so: R(g("110 rows"), f("read 100,000"), f("834 pages")) }, flows: { st: "1 row: store 42" }, out: null },
+      { tree: "main", phase: "run", sqlLine: 2, active: "so", planLine: 8,
+        note: "It keeps <b>139</b> and throws away <b>99,861</b>. Postgres prints this as <code>Rows Removed by Filter: 99861</code>. Look at the guess: 110. The actual: 139. Close. So the guess is fine.",
+        nodes: { nl: R(g("110 rows")), st: D(g("1 row"), a("1 row")), so: D(g("110 rows"), a("139 rows"), x("removed 99,861"), f("9.8 ms")) }, flows: { st: "1 row: store 42" }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 0, active: "nl",
+        note: "The 139 orders climb up. The Nested Loop glues the store name to each order and sends <b>139 rows</b> to you. Its time, 10.5 ms, <b>includes</b> its children.",
+        nodes: { nl: D(g("110 rows"), a("139 rows"), f("10.5 ms")), st: D(g("1 row"), a("1 row")), so: D(g("110 rows"), a("139 rows"), x("removed 99,861"), f("9.8 ms")) }, flows: { st: "1 row", so: "139 rows" }, out: [139, "Execution Time: 10.788 ms"] },
+      { tree: "main", phase: "hot", sqlLine: 2, active: "so", planLine: 8,
+        note: "<b>Find the hot node.</b> The Seq Scan on orders took 9.8 of 10.5 ms, and it threw away 99.9% of what it read. That is the clue for a missing index. The fix: <code>CREATE INDEX orders_store_id_idx ON orders (store_id);</code> Open tab 2 to see the plan after the fix.",
+        nodes: { nl: D(g("110 rows"), a("139 rows"), f("10.5 ms")), st: D(g("1 row"), a("1 row")), so: H(g("110 rows"), a("139 rows"), x("removed 99,861"), f("9.8 ms")) }, flows: { st: "1 row", so: "139 rows" }, out: [139, "Execution Time: 10.788 ms"] },
+      { tree: "main", phase: "done", sqlLine: null,
+        note: "Finished. Read it again in run order: Index Scan on stores, then Seq Scan on orders, then Nested Loop. The first printed line ran <b>last</b>.",
+        nodes: { nl: D(g("110 rows"), a("139 rows"), f("10.5 ms")), st: D(g("1 row"), a("1 row")), so: H(g("110 rows"), a("139 rows"), x("removed 99,861"), f("9.8 ms")) }, flows: { st: "1 row", so: "139 rows" }, out: [139, "Execution Time: 10.788 ms"] }
+    ]
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "Same join, with an index",
+    question: "After the index, how many rows will Postgres throw away? Type a number.",
+    accept: ["0", "zero", "none"],
+    answer: "0",
+    why: "The new index finds the 139 rows directly. There is no Filter line and no Rows Removed line. 837 pages became 133, and 10.8 ms became 0.5 ms.",
+    sql: ["CREATE INDEX orders_store_id_idx ON orders (store_id);", "", "SELECT s.name, o.id, o.total_cents", "FROM stores s", "JOIN orders o ON o.store_id = s.id", "WHERE s.id = 42;"],
+    plans: { main: [
+      "Nested Loop  (cost=5.42..321.74 rows=110 width=25) (actual time=0.052..0.283 rows=139.00 loops=1)",
+      "  Buffers: shared hit=133",
+      "  ->  Index Scan using stores_pkey on stores s  (cost=0.28..8.29 rows=1 width=13) (actual time=0.005..0.006 rows=1.00 loops=1)",
+      "        Index Cond: (id = 42)",
+      "        Index Searches: 1",
+      "        Buffers: shared hit=3",
+      "  ->  Bitmap Heap Scan on orders o  (cost=5.15..312.34 rows=110 width=20) (actual time=0.043..0.183 rows=139.00 loops=1)",
+      "        Recheck Cond: (store_id = 42)",
+      "        Heap Blocks: exact=127",
+      "        Buffers: shared hit=130",
+      "        ->  Bitmap Index Scan on orders_store_id_idx  (cost=0.00..5.12 rows=110 width=0) (actual time=0.017..0.017 rows=139.00 loops=1)",
+      "              Index Cond: (store_id = 42)",
+      "              Index Searches: 1",
+      "              Buffers: shared hit=3",
+      "Planning Time: 0.144 ms",
+      "Execution Time: 0.538 ms"
+    ] },
+    trees: { main: { id: "nl", name: "Nested Loop", line: 0, kids: [
+      { id: "st", name: "Index Scan on stores", line: 2, kids: [] },
+      { id: "bh", name: "Bitmap Heap Scan on orders", line: 6, kids: [
+        { id: "bi", name: "Bitmap Index Scan on orders_store_id_idx", line: 10, kids: [] }
+      ] }
+    ] } },
+    steps: [
+      { tree: "main", phase: "paper", sqlLine: 0,
+        note: "<b>The plan on paper,</b> after <code>CREATE INDEX</code>. The tree has a new level: the Bitmap Index Scan sits <b>under</b> the Bitmap Heap Scan. The guesses are the same as before. The total cost dropped from 2093 to 322.",
+        nodes: { nl: W(g("110 rows")), st: W(g("1 row")), bh: W(g("110 rows")), bi: W(g("110 rows")) }, out: null },
+      { tree: "main", phase: "run", sqlLine: 5, active: "st",
+        note: "Child 1 of the Nested Loop runs first, same as before. The Index Scan finds store 42.",
+        nodes: { nl: W(g("110 rows")), st: R(g("1 row"), a("1 row"), f("3 pages")), bh: W(g("110 rows")), bi: W(g("110 rows")) }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 5,
+        note: "Store 42 climbs up. The Nested Loop asks child 2 for its orders. Child 2 has its own child, so go deeper.",
+        nodes: { nl: R(g("110 rows")), st: D(g("1 row"), a("1 row")), bh: W(g("110 rows")), bi: W(g("110 rows")) }, flows: { st: "1 row: store 42" }, out: null },
+      { tree: "main", phase: "run", sqlLine: 4, active: "bi",
+        note: "The <b>deepest</b> node runs: the Bitmap Index Scan looks up 42 in the new index. It collects the <b>addresses</b> of 139 rows. It reads no table rows yet. 3 pages.",
+        nodes: { nl: R(g("110 rows")), st: D(g("1 row"), a("1 row")), bh: W(g("110 rows")), bi: R(g("110 rows"), a("139 addresses"), f("3 pages")) }, flows: { st: "1 row: store 42" }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 4, active: "bh",
+        note: "The 139 addresses climb up to the Bitmap Heap Scan. It sorts them by page, then visits each of those <b>127 pages</b> once (<code>Heap Blocks: exact=127</code>). No row is thrown away.",
+        nodes: { nl: R(g("110 rows")), st: D(g("1 row"), a("1 row")), bh: R(g("110 rows"), a("139 rows"), f("127 table pages")), bi: D(g("110 rows"), a("139 addresses")) }, flows: { st: "1 row: store 42", bi: "139 addresses" }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 2, active: "nl",
+        note: "The 139 orders climb up to the Nested Loop. It glues the store name on and sends 139 rows to you. Same answer as tab 1.",
+        nodes: { nl: D(g("110 rows"), a("139 rows"), f("0.28 ms")), st: D(g("1 row"), a("1 row")), bh: B(g("110 rows"), a("139 rows"), f("0.18 ms")), bi: D(g("110 rows"), a("139 addresses")) }, flows: { st: "1 row", bi: "139 addresses", bh: "139 rows" }, out: [139, "Execution Time: 0.538 ms"] },
+      { tree: "main", phase: "fix", sqlLine: null,
+        note: "<b>Measure again.</b> Same 139 rows. Pages: 837 became 133. Time: 10.8 ms became 0.5 ms. The Bitmap Heap Scan now has the most time (orange), but it throws nothing away, so there is nothing to fix.",
+        nodes: { nl: D(g("110 rows"), a("139 rows"), f("0.28 ms")), st: D(g("1 row"), a("1 row")), bh: B(g("110 rows"), a("139 rows"), f("0.18 ms")), bi: D(g("110 rows"), a("139 addresses")) }, flows: { st: "1 row", bi: "139 addresses", bh: "139 rows" }, out: [139, "Execution Time: 0.538 ms"] }
+    ]
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "Latest 5, no index",
+    question: "How many rows does the Seq Scan read to give you 5? Type a number.",
+    accept: ["100000", "100,000", "100 000"],
+    answer: "100000",
+    why: "A Sort must see all its input before it knows which 5 rows are the newest. So the Seq Scan reads all 100,000 orders. The Sort cannot give its first row until 58 ms.",
+    sql: ["SELECT id, total_cents", "FROM orders", "ORDER BY created_at DESC", "LIMIT 5;"],
+    plans: { main: [
+      "Limit  (cost=3494.96..3494.98 rows=5 width=24) (actual time=58.219..58.224 rows=5.00 loops=1)",
+      "  Buffers: shared hit=837",
+      "  ->  Sort  (cost=3494.96..3744.96 rows=100000 width=24) (actual time=58.102..58.104 rows=5.00 loops=1)",
+      "        Sort Key: created_at DESC",
+      "        Sort Method: top-N heapsort  Memory: 17kB",
+      "        Buffers: shared hit=837",
+      "        ->  Seq Scan on orders  (cost=0.00..1834.00 rows=100000 width=24) (actual time=0.014..27.091 rows=100000.00 loops=1)",
+      "              Buffers: shared hit=834",
+      "Planning Time: 0.869 ms",
+      "Execution Time: 58.326 ms"
+    ] },
+    trees: { main: { id: "li", name: "Limit", line: 0, kids: [
+      { id: "so", name: "Sort", line: 2, kids: [
+        { id: "sc", name: "Seq Scan on orders", line: 6, kids: [] }
+      ] }
+    ] } },
+    steps: [
+      { tree: "main", phase: "paper", sqlLine: null,
+        note: "<b>The plan on paper.</b> Three nodes in a line: Limit, then Sort, then Seq Scan. Notice the Sort's cost: its <b>first</b> number is already 3494.96. The planner knows a Sort cannot start giving rows early.",
+        nodes: { li: W(g("5 rows")), so: W(g("100,000 rows")), sc: W(g("100,000 rows")) }, out: null },
+      { tree: "main", phase: "run", sqlLine: 1, active: "sc",
+        note: "The deepest node runs first. The Seq Scan reads the whole orders table. There is no index on <code>created_at</code>, so there is no faster way to find the newest rows.",
+        nodes: { li: W(g("5 rows")), so: W(g("100,000 rows")), sc: R(g("100,000 rows"), f("reading...")) }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 2, active: "so",
+        note: "All <b>100,000</b> rows climb up into the Sort. It keeps only the 5 newest so far in a small heap (<code>top-N heapsort</code>, 17 kB). It cannot give back any row until it has seen the last one.",
+        nodes: { li: W(g("5 rows")), so: R(g("100,000 rows"), f("sorting...")), sc: D(g("100,000 rows"), a("100,000 rows"), f("27.1 ms"), f("834 pages")) }, flows: { sc: "100,000 rows" }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 3, active: "li",
+        note: "Only at <b>58.1 ms</b> does the Sort give its first row. That is the first number of its <code>actual time</code>. The Limit takes 5 rows and stops. That is why the Sort shows <code>rows=5.00</code>: the Limit only asked for 5.",
+        nodes: { li: D(g("5 rows"), a("5 rows"), f("58.2 ms")), so: D(g("100,000 rows"), a("5 rows"), f("first row at 58.1 ms")), sc: D(g("100,000 rows"), a("100,000 rows"), f("27.1 ms")) }, flows: { sc: "100,000 rows", so: "5 rows" }, out: [5, "Execution Time: 58.326 ms"] },
+      { tree: "main", phase: "hot", sqlLine: 2, active: "so",
+        note: "<b>Find the hot node.</b> Postgres read 100,000 rows and sorted them to give you 5. The Sort, fed by the full Seq Scan, is the problem. The fix: an index on <code>created_at</code>, so the rows already come in order. Open tab 4.",
+        nodes: { li: D(g("5 rows"), a("5 rows"), f("58.2 ms")), so: H(g("100,000 rows"), a("5 rows"), x("waited for 100,000 rows")), sc: B(g("100,000 rows"), a("100,000 rows"), f("27.1 ms")) }, flows: { sc: "100,000 rows", so: "5 rows" }, out: [5, "Execution Time: 58.326 ms"] },
+      { tree: "main", phase: "done", sqlLine: null,
+        note: "Finished. The rule: a Sort under a Limit, over many rows, is a sign that an index with the right order is missing.",
+        nodes: { li: D(g("5 rows"), a("5 rows"), f("58.2 ms")), so: H(g("100,000 rows"), a("5 rows"), x("waited for 100,000 rows")), sc: B(g("100,000 rows"), a("100,000 rows"), f("27.1 ms")) }, flows: { sc: "100,000 rows", so: "5 rows" }, out: [5, "Execution Time: 58.326 ms"] }
+    ]
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "Latest 5, index and limit",
+    question: "The Index Scan guesses 100,000 rows. How many does it really give? Type a number.",
+    accept: ["5", "five"],
+    answer: "5",
+    why: "The index already holds the rows in created_at order. Reading it backward gives the newest first. The Limit stops asking after 5, so the Index Scan stops too. 58 ms became 0.2 ms.",
+    sql: ["CREATE INDEX orders_created_at_idx ON orders (created_at);", "", "SELECT id, total_cents", "FROM orders", "ORDER BY created_at DESC", "LIMIT 5;"],
+    plans: { main: [
+      "Limit  (cost=0.29..0.59 rows=5 width=24) (actual time=0.142..0.151 rows=5.00 loops=1)",
+      "  Buffers: shared hit=5 read=2",
+      "  ->  Index Scan Backward using orders_created_at_idx on orders  (cost=0.29..5940.15 rows=100000 width=24) (actual time=0.025..0.032 rows=5.00 loops=1)",
+      "        Index Searches: 1",
+      "        Buffers: shared hit=5 read=2",
+      "Planning Time: 0.329 ms",
+      "Execution Time: 0.211 ms"
+    ] },
+    trees: { main: { id: "li", name: "Limit", line: 0, kids: [
+      { id: "ix", name: "Index Scan Backward on orders_created_at_idx", line: 2, kids: [] }
+    ] } },
+    steps: [
+      { tree: "main", phase: "paper", sqlLine: 0,
+        note: "<b>The plan on paper.</b> The Sort is gone. The Index Scan guesses 100,000 rows, the whole table. But look at the Limit cost: only 0.29 to 0.59. The planner knows the Limit will stop early.",
+        nodes: { li: W(g("5 rows")), ix: W(g("100,000 rows")) }, out: null },
+      { tree: "main", phase: "run", sqlLine: 4, active: "ix",
+        note: "The Limit asks for one row. The Index Scan goes to the <b>end</b> of the index (the newest <code>created_at</code>) and walks <b>backward</b>. It gives the newest order.",
+        nodes: { li: R(g("5 rows")), ix: R(g("100,000 rows"), a("1 row so far")) }, flows: { ix: "row 1" }, out: [1, ""] },
+      { tree: "main", phase: "flow", sqlLine: 4, active: "ix",
+        note: "The Limit asks again, and again. Each time, the Index Scan takes one step back in the index. Rows 2, 3 and 4 come up already in the right order. Nothing needs sorting.",
+        nodes: { li: R(g("5 rows")), ix: R(g("100,000 rows"), a("4 rows so far")) }, flows: { ix: "rows 2 to 4" }, out: [4, ""] },
+      { tree: "main", phase: "flow", sqlLine: 5, active: "li",
+        note: "Row 5 comes up. The Limit has what it needs, so it <b>stops asking</b>. The Index Scan never reads row 6. It touched only 7 pages.",
+        nodes: { li: D(g("5 rows"), a("5 rows"), f("0.15 ms")), ix: D(g("100,000 rows"), a("5 rows"), f("7 pages")) }, flows: { ix: "5 rows" }, out: [5, "Execution Time: 0.211 ms"] },
+      { tree: "main", phase: "fix", sqlLine: null,
+        note: "<b>Measure again.</b> 58.3 ms became 0.2 ms. 100,000 rows read became 5. Guess 100,000 against actual 5 is <b>not</b> a sign of old notes here: the guess is for the whole scan, and the Limit cut it short.",
+        nodes: { li: D(g("5 rows"), a("5 rows"), f("0.15 ms")), ix: D(g("100,000 rows"), a("5 rows"), f("7 pages")) }, flows: { ix: "5 rows" }, out: [5, "Execution Time: 0.211 ms"] }
+    ]
+  },
+  // ---------------------------------------------------------------- 5
+  {
+    name: "Hash join",
+    question: "Which node runs first? Type its name.",
+    accept: ["seq scan on stores", "stores"],
+    answer: "Seq Scan on stores",
+    why: "It is the most indented node. A Hash Join first builds its Hash, the lookup table, from the smaller side: the 200 Medan stores. Then it streams the 100,000 orders past it.",
+    sql: ["SELECT s.name, o.total_cents", "FROM stores s", "JOIN orders o ON o.store_id = s.id", "WHERE s.city = 'Medan';"],
+    plans: { main: [
+      "Hash Join  (cost=24.00..2121.61 rows=20000 width=17) (actual time=0.470..53.007 rows=20136.00 loops=1)",
+      "  Hash Cond: (o.store_id = s.id)",
+      "  Buffers: shared hit=835 read=8",
+      "  ->  Seq Scan on orders o  (cost=0.00..1834.00 rows=100000 width=12) (actual time=0.012..21.468 rows=100000.00 loops=1)",
+      "        Buffers: shared hit=834",
+      "  ->  Hash  (cost=21.50..21.50 rows=200 width=13) (actual time=0.429..0.431 rows=200.00 loops=1)",
+      "        Buckets: 1024  Batches: 1  Memory Usage: 12kB",
+      "        Buffers: shared hit=1 read=8",
+      "        ->  Seq Scan on stores s  (cost=0.00..21.50 rows=200 width=13) (actual time=0.037..0.323 rows=200.00 loops=1)",
+      "              Filter: (city = 'Medan'::text)",
+      "              Rows Removed by Filter: 800",
+      "              Buffers: shared hit=1 read=8",
+      "Planning Time: 0.867 ms",
+      "Execution Time: 56.482 ms"
+    ] },
+    trees: { main: { id: "hj", name: "Hash Join", line: 0, kids: [
+      { id: "so", name: "Seq Scan on orders", line: 3, kids: [] },
+      { id: "ha", name: "Hash", line: 5, kids: [
+        { id: "ss", name: "Seq Scan on stores", line: 8, kids: [] }
+      ] }
+    ] } },
+    steps: [
+      { tree: "main", phase: "paper", sqlLine: null,
+        note: "<b>The plan on paper.</b> The Hash Join has two children: the Seq Scan on orders, and a Hash with the Seq Scan on stores under it. The deepest node is the Seq Scan on <b>stores</b>.",
+        nodes: { hj: W(g("20,000 rows")), so: W(g("100,000 rows")), ha: W(g("200 rows")), ss: W(g("200 rows")) }, out: null },
+      { tree: "main", phase: "run", sqlLine: 3, active: "ss",
+        note: "The deepest node runs first. The Seq Scan reads all 1,000 stores and keeps the 200 in Medan. It removes 800. That is fine: the stores table is tiny (9 pages).",
+        nodes: { hj: W(g("20,000 rows")), so: W(g("100,000 rows")), ha: W(g("200 rows")), ss: R(g("200 rows"), a("200 rows"), f("removed 800"), f("9 pages")) }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 2, active: "ha",
+        note: "The 200 stores climb up into the <b>Hash</b>. It builds a lookup table in memory: store id to store name. It needs 12 kB. A Hash must read <b>all</b> its input before the join can start.",
+        nodes: { hj: W(g("20,000 rows")), so: W(g("100,000 rows")), ha: D(g("200 rows"), a("200 rows"), f("12 kB in memory")), ss: D(g("200 rows"), a("200 rows"), f("removed 800")) }, flows: { ss: "200 stores" }, out: null },
+      { tree: "main", phase: "run", sqlLine: 2, active: "so",
+        note: "Now the Hash Join streams the other side. The Seq Scan reads all <b>100,000</b> orders, with no filter. Each order goes up to the Hash Join.",
+        nodes: { hj: R(g("20,000 rows")), so: R(g("100,000 rows"), a("100,000 rows"), f("834 pages")), ha: D(g("200 rows"), a("200 rows")), ss: D(g("200 rows"), a("200 rows")) }, flows: { ss: "200 stores", ha: "lookup table ready", so: "100,000 orders" }, out: null },
+      { tree: "main", phase: "flow", sqlLine: 0, active: "hj",
+        note: "For each order, the Hash Join looks up its <code>store_id</code> in the lookup table. One quick check per order. <b>20,136</b> orders belong to a Medan store. They go to you. The guess was 20,000: very close.",
+        nodes: { hj: D(g("20,000 rows"), a("20,136 rows"), f("53 ms")), so: B(g("100,000 rows"), a("100,000 rows"), f("21.5 ms")), ha: D(g("200 rows"), a("200 rows")), ss: D(g("200 rows"), a("200 rows")) }, flows: { ss: "200 stores", ha: "lookup table ready", so: "100,000 orders" }, out: [20136, "Execution Time: 56.482 ms"] },
+      { tree: "main", phase: "done", sqlLine: null,
+        note: "<b>Is there a node to fix?</b> No. The Seq Scan on orders has the most time (orange), but you asked for 20% of all orders, and they sit on every page. An index would not help, and the planner does not use one. Guesses are close everywhere. A big Seq Scan is fine when you need the rows.",
+        nodes: { hj: D(g("20,000 rows"), a("20,136 rows"), f("53 ms")), so: B(g("100,000 rows"), a("100,000 rows"), f("21.5 ms")), ha: D(g("200 rows"), a("200 rows")), ss: D(g("200 rows"), a("200 rows")) }, flows: { ss: "200 stores", ha: "lookup table ready", so: "100,000 orders" }, out: [20136, "Execution Time: 56.482 ms"] }
+    ]
+  },
+  // ---------------------------------------------------------------- 6
+  {
+    name: "Wrong guess",
+    question: "The planner guesses 1 REFUNDED order. The truth is 30,000. How many times will the Seq Scan on stores run? Type a number.",
+    accept: ["30000", "30,000", "30 000"],
+    answer: "30000",
+    why: "A Nested Loop runs its second child once for every row of its first child. The guess said 1 row, so a loop looked cheap. The truth was 30,000 rows, so it ran 30,000 times. ANALYZE fixed the guess and the planner picked a Hash Join: 5.3 seconds became 48 ms.",
+    sql: ["UPDATE orders SET status = 'REFUNDED' WHERE id <= 30000;", "", "SELECT s.name, o.total_cents", "FROM orders o JOIN stores s ON s.id = o.store_id", "WHERE o.status = 'REFUNDED';", "", "ANALYZE orders;   -- the fix, then run the SELECT again"],
+    plans: {
+      before: [
+        "Nested Loop  (cost=0.00..2740.20 rows=1 width=17) (actual time=19.685..5297.487 rows=30000.00 loops=1)",
+        "  Join Filter: (s.id = o.store_id)",
+        "  Rows Removed by Join Filter: 13549728",
+        "  Buffers: shared hit=156176 read=1092 dirtied=501",
+        "  ->  Seq Scan on orders o  (cost=0.00..2708.70 rows=1 width=12) (actual time=18.042..35.131 rows=30000.00 loops=1)",
+        "        Filter: (status = 'REFUNDED'::text)",
+        "        Rows Removed by Filter: 70000",
+        "        Buffers: shared read=1084 dirtied=501",
+        "  ->  Seq Scan on stores s  (cost=0.00..19.00 rows=1000 width=13) (actual time=0.002..0.092 rows=452.66 loops=30000)",
+        "        Buffers: shared hit=156176 read=6",
+        "Planning Time: 2.322 ms",
+        "Execution Time: 5303.137 ms"
+      ],
+      after: [
+        "Hash Join  (cost=31.50..2444.53 rows=29980 width=17) (actual time=14.608..42.550 rows=30000.00 loops=1)",
+        "  Hash Cond: (o.store_id = s.id)",
+        "  Buffers: shared hit=1 read=1092",
+        "  ->  Seq Scan on orders o  (cost=0.00..2334.00 rows=29980 width=12) (actual time=12.984..23.157 rows=30000.00 loops=1)",
+        "        Filter: (status = 'REFUNDED'::text)",
+        "        Rows Removed by Filter: 70000",
+        "        Buffers: shared read=1084",
+        "  ->  Hash  (cost=19.00..19.00 rows=1000 width=13) (actual time=1.582..1.584 rows=1000.00 loops=1)",
+        "        Buckets: 1024  Batches: 1  Memory Usage: 44kB",
+        "        Buffers: shared hit=1 read=8",
+        "        ->  Seq Scan on stores s  (cost=0.00..19.00 rows=1000 width=13) (actual time=0.040..0.620 rows=1000.00 loops=1)",
+        "              Buffers: shared hit=1 read=8",
+        "Planning Time: 2.749 ms",
+        "Execution Time: 47.882 ms"
+      ]
+    },
+    trees: {
+      before: { id: "nl", name: "Nested Loop", line: 0, hotLine: 2, kids: [
+        { id: "so", name: "Seq Scan on orders", line: 4, kids: [] },
+        { id: "ss", name: "Seq Scan on stores", line: 8, kids: [] }
+      ] },
+      after: { id: "hj", name: "Hash Join", line: 0, kids: [
+        { id: "so2", name: "Seq Scan on orders", line: 3, kids: [] },
+        { id: "ha", name: "Hash", line: 7, kids: [
+          { id: "ss2", name: "Seq Scan on stores", line: 10, kids: [] }
+        ] }
+      ] }
+    },
+    steps: [
+      { tree: "before", phase: "paper", sqlLine: 0,
+        note: "<b>The plan on paper.</b> The planner's notes were made before the UPDATE. They say no order is REFUNDED, so it guesses <b>1 row</b>. For 1 row, a Nested Loop that scans stores once looks cheap.",
+        nodes: { nl: W(g("1 row")), so: W(g("1 row")), ss: W(g("1,000 rows")) }, out: null },
+      { tree: "before", phase: "run", sqlLine: 4, active: "so",
+        note: "Child 1 runs first. The Seq Scan on orders finds <b>30,000</b> REFUNDED orders, not 1. Guess 1, actual 30,000: a gap of 30,000 times. That is the warning sign.",
+        nodes: { nl: R(g("1 row")), so: D(x("guess 1 row"), a("30,000 rows"), f("removed 70,000")), ss: W(g("1,000 rows")) }, out: null },
+      { tree: "before", phase: "flow", sqlLine: 3, active: "ss",
+        note: "Order 1 climbs up. The Nested Loop runs child 2 for it: a scan of stores until it finds the match. Then order 2 comes up, and child 2 runs <b>again</b>.",
+        nodes: { nl: R(g("1 row")), so: D(x("guess 1 row"), a("30,000 rows")), ss: R(g("1,000 rows"), f("loop 2 of 30,000")) }, flows: { so: "order 2" }, out: null },
+      { tree: "before", phase: "flow", sqlLine: 3, active: "ss",
+        note: "This repeats for every order: <code>loops=30000</code>. Each loop reads about 453 stores on average (<code>rows=452.66</code> is <b>per loop</b>). In total that is about 13.5 million store rows checked and thrown away: <code>Rows Removed by Join Filter: 13549728</code>.",
+        nodes: { nl: R(g("1 row"), x("removed 13,549,728")), so: D(x("guess 1 row"), a("30,000 rows")), ss: R(g("1,000 rows"), a("452.66 rows per loop"), x("loops 30,000")) }, flows: { so: "30,000 orders, one at a time" }, out: null },
+      { tree: "before", phase: "hot", sqlLine: 3, active: "nl",
+        note: "<b>Find the hot node.</b> 5.3 seconds and 156,176 page touches. The Nested Loop and its inner Seq Scan did the damage. But the <b>cause</b> is lower down: the bad guess on the orders scan. An index will not fix a bad guess.",
+        nodes: { nl: H(g("1 row"), a("30,000 rows"), x("5,297 ms")), so: H(x("guess 1 row"), a("30,000 rows")), ss: H(g("1,000 rows"), a("452.66 rows per loop"), x("loops 30,000")) }, flows: { so: "30,000 orders", ss: "1 match per loop" }, out: [30000, "Execution Time: 5303.137 ms"] },
+      { tree: "after", phase: "fix", sqlLine: 6,
+        note: "<b>The fix:</b> <code>ANALYZE orders;</code> refreshes the notes. Run the same SELECT again. Now the guess is 29,980. For that many rows, the planner picks a <b>Hash Join</b>.",
+        nodes: { hj: W(g("29,980 rows")), so2: W(g("29,980 rows")), ha: W(g("1,000 rows")), ss2: W(g("1,000 rows")) }, out: null },
+      { tree: "after", phase: "flow", sqlLine: 3, active: "ha",
+        note: "The deepest node runs first: the Seq Scan on stores reads the 1,000 stores <b>once</b>. The Hash builds a lookup table from them (44 kB).",
+        nodes: { hj: W(g("29,980 rows")), so2: W(g("29,980 rows")), ha: D(g("1,000 rows"), a("1,000 rows"), f("44 kB")), ss2: D(g("1,000 rows"), a("1,000 rows"), f("loops 1")) }, flows: { ss2: "1,000 stores" }, out: null },
+      { tree: "after", phase: "flow", sqlLine: 4, active: "hj",
+        note: "The Seq Scan on orders sends its 30,000 REFUNDED orders up. Each one is looked up in the Hash. Guess 29,980, actual 30,000: close.",
+        nodes: { hj: D(g("29,980 rows"), a("30,000 rows"), f("42.6 ms")), so2: D(g("29,980 rows"), a("30,000 rows")), ha: D(g("1,000 rows"), a("1,000 rows")), ss2: D(g("1,000 rows"), a("1,000 rows")) }, flows: { ss2: "1,000 stores", ha: "lookup table ready", so2: "30,000 orders" }, out: [30000, "Execution Time: 47.882 ms"] },
+      { tree: "after", phase: "done", sqlLine: null,
+        note: "<b>Measure again.</b> Same 30,000 rows. 5,303 ms became 48 ms. Postgres's helper (autovacuum) would also run ANALYZE after a while, but after a big import or migration, run it yourself.",
+        nodes: { hj: D(g("29,980 rows"), a("30,000 rows"), f("42.6 ms")), so2: D(g("29,980 rows"), a("30,000 rows")), ha: D(g("1,000 rows"), a("1,000 rows")), ss2: D(g("1,000 rows"), a("1,000 rows")) }, flows: { ss2: "1,000 stores", ha: "lookup table ready", so2: "30,000 orders" }, out: [30000, "Execution Time: 47.882 ms"] }
+    ]
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevFlows = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const STATE_WORD = { wait: "waiting", run: "working", done: "finished", busy: "most time", hot: "fix this" };
+
+function findNode(tree, id) {
+  if (tree.id === id) return tree;
+  for (const k of tree.kids) { const r = findNode(k, id); if (r) return r; }
+  return null;
+}
+function renderSql(line) {
+  $("sql").innerHTML = PRESETS[cur].sql.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderPlan(s) {
+  const p = PRESETS[cur];
+  const lines = p.plans[s.tree];
+  const tree = p.trees[s.tree];
+  let now = null, hotLine = null;
+  if (s.active) {
+    const n = findNode(tree, s.active);
+    if (n) now = n.line;
+  }
+  if (s.planLine != null) hotLine = s.planLine;
+  else if (s.phase === "hot" && s.active) { const n = findNode(tree, s.active); if (n && n.hotLine != null) hotLine = n.hotLine; }
+  $("planTitle").textContent = p.plans.after ? (s.tree === "before" ? "What Postgres prints, before ANALYZE" : "What Postgres prints, after ANALYZE") : "What Postgres prints";
+  $("plan").innerHTML = lines.map((t, i) =>
+    '<span class="ln' + (i === now ? " now" : "") + (i === hotLine ? " hotline" : "") + '">' + esc(t) + "</span>").join("");
+}
+function nodeHtml(n, s) {
+  const look = s.nodes[n.id] || W();
+  const flow = s.flows && s.flows[n.id];
+  const fresh = flow && prevFlows[n.id] !== flow;
+  let h = "";
+  if (n !== PRESETS[cur].trees[s.tree]) {
+    h += '<div class="flow' + (fresh ? " pop" : "") + '">' + (flow ? "<span>↑ " + esc(flow) + "</span>" : "") + "</div>";
+  }
+  h += '<div class="node ' + look.st + '" data-id="' + n.id + '"><h3><span>' + esc(n.name) + "</span><small>" + STATE_WORD[look.st] + "</small></h3>";
+  h += '<div class="facts">' + look.facts.map(([k, t]) => '<span class="fact ' + k + '">' + esc(t) + "</span>").join("") + "</div></div>";
+  if (n.kids.length) h += '<div class="kids">' + n.kids.map(k => nodeHtml(k, s)).join("") + "</div>";
+  return h;
+}
+function renderTree(s) {
+  $("tree").innerHTML = nodeHtml(PRESETS[cur].trees[s.tree], s);
+  prevFlows = Object.assign({}, s.flows || {});
+}
+const BADGE = {
+  paper: ["Plan on paper, nothing ran yet", "paper"], run: ["A node is working", "run"], flow: ["Rows climb up", "flow"],
+  hot: ["Found the node to fix", "hot"], fix: ["Fixed, measure again", "fix"], done: ["Finished", "done"]
+};
+function render() {
+  const s = steps[idx];
+  renderSql(s.sqlLine);
+  renderPlan(s);
+  renderTree(s);
+  if (s.out) { $("outRows").textContent = s.out[0].toLocaleString("en-US") + (s.out[0] === 1 ? " row" : " rows"); $("outTime").textContent = s.out[1]; }
+  else { $("outRows").textContent = "nothing yet"; $("outTime").textContent = ""; }
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = t => t.toLowerCase().replace(/[\s]+/g, " ").trim();
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = PRESETS[cur];
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(p.answer) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ng = norm(guess);
+  const ok = p.accept.some(w => ng === w || ng.includes(w));
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The answer is <code>" + esc(p.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which box turns yellow first.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevFlows = {};
+  $("guess").value = ""; $("question").textContent = PRESETS[i].question;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevFlows = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2600);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevFlows = {}; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>
