@@ -29,8 +29,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 01 | [SQL basics and the order a query runs](01-sql-basics-and-query-order.md) | SELECT, WHERE, ORDER BY, LIMIT, and why the database runs FROM first and SELECT almost last | ready |
 | 02 | [Joins](02-joins.md) | inner, left, right and full joins as pictures, and the LEFT JOIN plus WHERE trap | ready |
 | 03 | [Grouping and aggregation](03-grouping-and-aggregation.md) | GROUP BY as buckets, HAVING against WHERE, COUNT traps, FILTER | ready |
-| 04 | Subqueries, CTEs and EXISTS `04-subqueries-ctes-and-exists.md` | queries inside queries, WITH, and "has one" or "has none" with EXISTS and NOT EXISTS | planned |
-| 05 | Window functions `05-window-functions.md` | ROW_NUMBER, RANK, running totals and "top N per group" without losing rows | planned |
+| 04 | [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md) | queries inside queries, WITH, and "has one" or "has none" with EXISTS and NOT EXISTS | ready |
+| 05 | [Window functions](05-window-functions.md) | ROW_NUMBER, RANK, running totals and "top N per group" without losing rows | ready |
 
 ### Design: why the tables look this way
 
