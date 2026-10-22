@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grouping and Aggregation Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --blue: #3b82f6; --blue-bg: #e3eefe;
+    --green: #2f9e6b; --green-bg: #dff3ea;
+    --purple: #8b5cf6; --purple-bg: #efe8fd;
+    --red: #c0392b; --red-bg: #fdecea;
+    --amber: #b7791f; --amber-bg: #fdf0d2;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 280px; max-width: 100%;
+  }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; font-size: .8rem; font-weight: 700; }
+  .pipe span.st { border: 1.5px solid var(--border); background: var(--card); border-radius: 8px; padding: 4px 10px; color: var(--muted); }
+  .pipe span.st.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .pipe span.st.past { color: var(--ink); border-color: var(--ink); }
+  .pipe span.arrow { color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .panel h2.second { margin-top: 14px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.7; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  table.rows { border-collapse: collapse; width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: .78rem; }
+  table.rows th { text-align: left; color: var(--muted); font-weight: 650; padding: 3px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 3px 6px; border-bottom: 1px solid #f1ece2; }
+  table.rows tr.wait td { color: #9aa6af; }
+  table.rows tr.now td { background: #fff1bf; font-weight: 700; color: var(--ink); }
+  table.rows tr.kept td { color: var(--green); }
+  table.rows tr.drop td { color: var(--red); text-decoration: line-through; }
+  table.rows tr.copy td { color: var(--purple); }
+  table.rows tr td.tag, table.rows tr.drop td.tag { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: .72rem; font-weight: 700; text-decoration: none; }
+
+  .buckets { display: flex; flex-wrap: wrap; gap: 10px; }
+  .bucket { border: 2px solid var(--blue); background: var(--blue-bg); border-radius: 12px; padding: 8px 10px; min-width: 150px; flex: 1 1 150px; }
+  .bucket h3 { margin: 0 0 6px; font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; color: var(--blue); }
+  .bucket.keep { border-color: var(--green); background: var(--green-bg); } .bucket.keep h3 { color: var(--green); }
+  .bucket.drop { border-color: var(--red); background: var(--red-bg); border-style: dashed; opacity: .6; } .bucket.drop h3 { color: var(--red); }
+  .bucket.now { box-shadow: 0 0 0 3px var(--accent); }
+  .bucket.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; min-height: 22px; }
+  .chip { background: #fff; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; padding: 1px 7px; font-family: ui-monospace, Menlo, monospace; font-size: .74rem; font-weight: 650; }
+  .chip.copy { border-color: var(--purple); color: var(--purple); }
+  .agg { display: flex; justify-content: space-between; gap: 8px; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #fff; border-radius: 6px; padding: 2px 8px; margin-top: 3px; }
+  .agg b { font-weight: 800; }
+  .agg.changed { background: #fff1bf; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; margin-top: 12px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox table { border-collapse: collapse; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; color: #fff; }
+  .outbox th { color: #9fb4c3; text-align: left; padding: 2px 10px 2px 0; font-weight: 650; }
+  .outbox td { padding: 2px 10px 2px 0; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .key { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: .74rem; }
+  .key span { border-radius: 6px; padding: 2px 8px; border: 1.5px solid; font-weight: 650; }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--green); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0 18px; padding: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../03-grouping-and-aggregation.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Grouping and aggregation stepper</h1>
+  <p class="sub">Press Next. Watch each row get checked, drop into a bucket, and change the running totals. The tiny tables are the ones from the lesson. Every final result on this page is the real output from PostgreSQL 18.3.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> <span id="ask"></span><br>
+    <input id="guess" placeholder="your answer" autocomplete="off">
+  </div>
+
+  <div class="pipe" id="pipe"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your query</h2>
+      <pre class="code" id="code"></pre>
+      <h2 class="second" id="rowsTitle">Rows</h2>
+      <div id="rows"></div>
+    </div>
+    <div class="panel">
+      <h2>Buckets (one small note per bucket)</h2>
+      <div class="buckets" id="buckets"></div>
+      <div class="outbox"><h3>Result</h3><div id="out"></div></div>
+      <div class="key">
+        <span style="color:#9aa6af;border-color:#d7dde2">waiting</span>
+        <span style="background:#fff1bf;border-color:#f5c542">being read now</span>
+        <span style="color:#2f9e6b;border-color:#2f9e6b">kept</span>
+        <span style="color:#c0392b;border-color:#c0392b">thrown away</span>
+        <span style="color:#8b5cf6;border-color:#8b5cf6">extra copy made by a join</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> WHERE throws away <b>rows</b> before they reach a bucket. HAVING throws away <b>buckets</b> after every row is in. A join that makes copies of a row makes every SUM count that row again, so add up each table first and join after.</p>
+  <div class="legend"><b>Words on this page</b>
+    <ul>
+      <li><b>Bucket:</b> all rows with the same value in the GROUP BY column. Interview word: <b>group</b>.</li>
+      <li><b>Summary function:</b> COUNT, SUM, AVG, MIN or MAX. It reads many rows and gives one value per bucket. Interview word: <b>aggregate function</b>.</li>
+      <li><b>Running total:</b> the number Postgres keeps for each bucket and changes as each row arrives.</li>
+      <li><b>NULL:</b> an empty cell. COUNT(column) skips it. COUNT(*) does not.</li>
+      <li><b>Fan-out:</b> a join that turns one row into many copies.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ---- The tiny tables from the lesson (same rows as practice/03-grouping-and-aggregation.sql) ----
+const ORDERS = [
+  { id: 1, store: 1, status: "PAID",      total: 100, coupon: "NEW10" },
+  { id: 2, store: 1, status: "PAID",      total: 50,  coupon: null },
+  { id: 3, store: 2, status: "PENDING",   total: 70,  coupon: null },
+  { id: 4, store: 1, status: "CANCELLED", total: 30,  coupon: "NEW10" },
+  { id: 5, store: 3, status: "PAID",      total: 200, coupon: "VIP" },
+  { id: 6, store: 2, status: "PAID",      total: 40,  coupon: null },
+  { id: 7, store: 1, status: "PAID",      total: 20,  coupon: null },
+  { id: 8, store: 2, status: "PAID",      total: 30,  coupon: "NEW10" }
+];
+const POINTS = [
+  { id: 1, store: 1, amount: 10 }, { id: 2, store: 1, amount: 20 },
+  { id: 3, store: 2, amount: 5 },  { id: 4, store: 3, amount: 50 }
+];
+const STAGES = ["FROM", "JOIN", "WHERE", "GROUP BY", "HAVING", "SELECT", "ORDER BY"];
+const show = v => v === null ? "NULL" : String(v);
+const clone = x => JSON.parse(JSON.stringify(x));
+
+// A step is one snapshot: { stage, lines, note, rows, buckets, out }
+// rows:    { cols, data: [{ cells, st, tag }] }   st = wait | now | kept | drop | copy
+// buckets: [{ key, chips: [{t, copy}], aggs: [[name, value]], st, now, changed: [names] }]
+// out:     null or { cols, data: [[...]] }
+
+function orderRows(cols, pick) {
+  return { cols, data: ORDERS.map(o => ({ cells: pick(o), st: "wait", tag: "" })) };
+}
+
+// ---------------------------------------------------------------- 1
+function prog1() {
+  const code = [
+    "SELECT status, COUNT(*) AS orders",
+    "FROM l03_orders",
+    "GROUP BY status",
+    "ORDER BY status;"
+  ];
+  const steps = [];
+  const rows = orderRows(["id", "store_id", "status"], o => [o.id, o.store, o.status]);
+  let buckets = [];
+  const push = (stage, lines, note, out = null) => steps.push({ stage, lines, note, rows: clone(rows), buckets: clone(buckets), out });
+  push("FROM", [1], "Postgres opens <code>l03_orders</code>. It will read the 8 rows one by one. There are no buckets yet.");
+  ORDERS.forEach((o, i) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = "kept"; });
+    rows.data[i].st = "now";
+    let b = buckets.find(x => x.key === o.status);
+    buckets.forEach(x => { x.now = false; x.changed = []; x.fresh = false; });
+    let note;
+    if (!b) {
+      b = { key: o.status, chips: [], aggs: [["COUNT(*)", 0]], st: "open", fresh: true };
+      buckets.push(b);
+      note = `Row ${o.id} has status <b>${o.status}</b>. There is no ${o.status} bucket yet, so Postgres makes one. Its running total starts at 0 and becomes 1.`;
+    } else {
+      note = `Row ${o.id} has status <b>${o.status}</b>. That bucket already exists. Postgres adds 1 to its COUNT, so it is now ${b.aggs[0][1] + 1}.`;
+    }
+    b.chips.push({ t: "#" + o.id });
+    b.aggs[0][1] += 1;
+    b.now = true; b.changed = ["COUNT(*)"];
+    push("GROUP BY", [2], note);
+  });
+  rows.data.forEach(r => r.st = "kept");
+  buckets.forEach(x => { x.now = false; x.changed = []; x.fresh = false; });
+  push("GROUP BY", [2], "All 8 rows are read. There are <b>3 buckets</b>. Notice the order: PAID, PENDING, CANCELLED. That is just the order they first showed up.");
+  push("SELECT", [0], "SELECT makes <b>one result row per bucket</b>: the bucket name and its COUNT. 8 rows became 3 rows.",
+    { cols: ["status", "orders"], data: buckets.map(b => [b.key, b.aggs[0][1]]) });
+  const sorted = [...buckets].sort((a, b) => a.key < b.key ? -1 : 1);
+  push("ORDER BY", [3], "ORDER BY sorts the 3 result rows by status, A to Z. Without ORDER BY, the order of buckets is not promised.",
+    { cols: ["status", "orders"], data: sorted.map(b => [b.key, b.aggs[0][1]]) });
+  push("done", [], "Finished. Postgres read 8 rows and gave back 3 rows. Each bucket kept only one small number, not the rows themselves.",
+    { cols: ["status", "orders"], data: sorted.map(b => [b.key, b.aggs[0][1]]) });
+  return {
+    name: "Buckets and COUNT", code, steps,
+    ask: "How many rows will the result have? And what is the count for PAID?",
+    answer: "3 rows, PAID 6",
+    check: g => /3/.test(g) && /6/.test(g),
+    real: { cols: ["status", "orders"], data: [["CANCELLED", 1], ["PAID", 6], ["PENDING", 1]] },
+    why: "GROUP BY makes one bucket per different status. There are 3 different statuses, so there are 3 result rows. Six rows have status PAID."
+  };
+}
+
+// ---------------------------------------------------------------- 2
+function prog2() {
+  const code = [
+    "SELECT store_id,",
+    "       COUNT(*)   AS paid_orders,",
+    "       SUM(total) AS revenue",
+    "FROM l03_orders",
+    "WHERE status = 'PAID'",
+    "GROUP BY store_id",
+    "HAVING SUM(total) >= 100",
+    "ORDER BY store_id;"
+  ];
+  const steps = [];
+  const rows = orderRows(["id", "store_id", "status", "total"], o => [o.id, o.store, o.status, o.total]);
+  let buckets = [];
+  const push = (stage, lines, note, out = null) => steps.push({ stage, lines, note, rows: clone(rows), buckets: clone(buckets), out });
+  push("FROM", [3], "Postgres opens <code>l03_orders</code>. For each row it runs WHERE first. Only rows that pass can reach a bucket.");
+  ORDERS.forEach((o, i) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = "kept"; });
+    buckets.forEach(x => { x.now = false; x.changed = []; x.fresh = false; });
+    if (o.status !== "PAID") {
+      rows.data[i].st = "drop"; rows.data[i].tag = "WHERE";
+      push("WHERE", [4], `Row ${o.id} has status <b>${o.status}</b>. WHERE says no, so Postgres throws the row away. It never reaches a bucket. Its total of ${o.total} is never added.`);
+      return;
+    }
+    rows.data[i].st = "now";
+    let b = buckets.find(x => x.key === "store " + o.store);
+    let note;
+    if (!b) {
+      b = { key: "store " + o.store, chips: [], aggs: [["COUNT(*)", 0], ["SUM(total)", 0]], st: "open", fresh: true };
+      buckets.push(b);
+      note = `Row ${o.id} is PAID, so WHERE keeps it. Its store_id is ${o.store}. There is no bucket for store ${o.store} yet, so Postgres makes one. COUNT becomes 1. SUM becomes ${o.total}.`;
+    } else {
+      note = `Row ${o.id} is PAID, so WHERE keeps it. It drops into the store ${o.store} bucket. COUNT goes from ${b.aggs[0][1]} to ${b.aggs[0][1] + 1}. SUM goes from ${b.aggs[1][1]} to ${b.aggs[1][1] + o.total}.`;
+    }
+    b.chips.push({ t: "#" + o.id + " " + o.total });
+    b.aggs[0][1] += 1; b.aggs[1][1] += o.total;
+    b.now = true; b.changed = ["COUNT(*)", "SUM(total)"];
+    push("GROUP BY", [4, 5], note);
+  });
+  rows.data.forEach((r, i) => { r.st = ORDERS[i].status === "PAID" ? "kept" : "drop"; });
+  buckets.forEach(x => { x.now = false; x.changed = []; x.fresh = false; });
+  push("GROUP BY", [5], "All 8 rows are read. 2 rows were thrown away by WHERE. 6 rows are in 3 buckets. Only now are the totals final. That is why HAVING has to wait until this moment.");
+  buckets.sort((a, b) => a.key < b.key ? -1 : 1);
+  buckets.forEach(b => {
+    buckets.forEach(x => { x.now = false; x.changed = []; });
+    const sum = b.aggs[1][1];
+    b.now = true;
+    if (sum >= 100) {
+      b.st = "keep";
+      push("HAVING", [6], `HAVING checks the <b>${b.key}</b> bucket. Its SUM is ${sum}. ${sum} is 100 or more, so the bucket stays.`);
+    } else {
+      b.st = "drop";
+      push("HAVING", [6], `HAVING checks the <b>${b.key}</b> bucket. Its SUM is ${sum}. ${sum} is less than 100, so HAVING throws away the <b>whole bucket</b>.`);
+    }
+  });
+  buckets.forEach(x => { x.now = false; x.changed = []; });
+  const kept = buckets.filter(b => b.st === "keep");
+  const out = { cols: ["store_id", "paid_orders", "revenue"], data: kept.map(b => [b.key.replace("store ", ""), b.aggs[0][1], b.aggs[1][1]]) };
+  push("SELECT", [0, 1, 2], "SELECT makes one result row for each bucket that is left. It shows the bucket key and the two summaries.", out);
+  push("ORDER BY", [7], "ORDER BY sorts by store_id. The rows are already in order here.", out);
+  push("done", [], "Finished. 8 rows, then 6 rows after WHERE, then 3 buckets, then 2 buckets after HAVING. The plan from EXPLAIN shows the same order (see the lesson, section 5).", out);
+  return {
+    name: "WHERE, then HAVING", code, steps,
+    ask: "Which store_id values are left in the result? Write them with spaces.",
+    answer: "1 3",
+    check: g => g.replace(/[^0-9]+/g, " ").trim() === "1 3",
+    real: { cols: ["store_id", "paid_orders", "revenue"], data: [[1, 3, 170], [3, 1, 200]] },
+    why: "WHERE keeps only PAID rows, so the cancelled order 4 never counts for store 1. Store 2 has 40 plus 30, which is 70. HAVING needs 100 or more, so store 2 is removed."
+  };
+}
+
+// ---------------------------------------------------------------- 3
+function prog3() {
+  const code = [
+    "SELECT COUNT(*)               AS all_rows,",
+    "       COUNT(coupon)          AS with_coupon,",
+    "       COUNT(DISTINCT coupon) AS different_coupons",
+    "FROM l03_orders;"
+  ];
+  const steps = [];
+  const rows = orderRows(["id", "coupon"], o => [o.id, show(o.coupon)]);
+  const b = { key: "the whole table (no GROUP BY)", chips: [], aggs: [["COUNT(*)", 0], ["COUNT(coupon)", 0], ["COUNT(DISTINCT coupon)", 0]], st: "open" };
+  const seen = [];
+  const push = (stage, lines, note, out = null) => steps.push({ stage, lines, note, rows: clone(rows), buckets: clone([b]), out });
+  push("FROM", [3], "There is no GROUP BY. So Postgres puts <b>every row in one bucket</b>. It keeps three running totals at the same time.");
+  ORDERS.forEach((o, i) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = "kept"; });
+    rows.data[i].st = "now";
+    b.changed = ["COUNT(*)"];
+    b.aggs[0][1] += 1;
+    let note = `Row ${o.id}: COUNT(*) counts every row, so it becomes ${b.aggs[0][1]}. `;
+    if (o.coupon === null) {
+      note += "The coupon is <b>NULL</b> (empty). COUNT(coupon) skips it. COUNT(DISTINCT coupon) skips it too.";
+    } else {
+      b.aggs[1][1] += 1; b.changed.push("COUNT(coupon)");
+      note += `The coupon is <b>${o.coupon}</b>, not empty, so COUNT(coupon) becomes ${b.aggs[1][1]}. `;
+      if (!seen.includes(o.coupon)) {
+        seen.push(o.coupon); b.aggs[2][1] += 1; b.changed.push("COUNT(DISTINCT coupon)");
+        note += `${o.coupon} is a new value, so COUNT(DISTINCT coupon) becomes ${b.aggs[2][1]}.`;
+      } else {
+        note += `${o.coupon} was seen before, so COUNT(DISTINCT coupon) stays ${b.aggs[2][1]}.`;
+      }
+    }
+    b.chips = seen.map(s => ({ t: "seen " + s }));
+    b.now = true;
+    push("GROUP BY", [0, 1, 2], note);
+  });
+  rows.data.forEach(r => r.st = "kept");
+  b.now = false; b.changed = [];
+  const out = { cols: ["all_rows", "with_coupon", "different_coupons"], data: [[b.aggs[0][1], b.aggs[1][1], b.aggs[2][1]]] };
+  push("SELECT", [0, 1, 2], "SELECT shows the three totals. Same table, same rows, three different answers.", out);
+  push("done", [], "Finished. <b>COUNT(*)</b> counts rows. <b>COUNT(coupon)</b> counts cells that are not NULL. <b>COUNT(DISTINCT coupon)</b> counts different values that are not NULL.", out);
+  return {
+    name: "COUNT traps", code, steps,
+    ask: "Write the three numbers in order: all_rows, with_coupon, different_coupons.",
+    answer: "8 4 2",
+    check: g => g.replace(/[^0-9]+/g, " ").trim() === "8 4 2",
+    real: { cols: ["all_rows", "with_coupon", "different_coupons"], data: [[8, 4, 2]] },
+    why: "There are 8 rows. 4 of them have a coupon that is not NULL. Those 4 coupons are NEW10, NEW10, VIP, NEW10, which is only 2 different values."
+  };
+}
+
+// ---------------------------------------------------------------- 4
+function prog4() {
+  const code = [
+    "SELECT store_id,",
+    "  COUNT(*) FILTER (WHERE status = 'PAID')      AS paid,",
+    "  COUNT(*) FILTER (WHERE status = 'PENDING')   AS pending,",
+    "  COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled",
+    "FROM l03_orders",
+    "GROUP BY store_id",
+    "ORDER BY store_id;"
+  ];
+  const lineOf = { PAID: 1, PENDING: 2, CANCELLED: 3 };
+  const steps = [];
+  const rows = orderRows(["id", "store_id", "status"], o => [o.id, o.store, o.status]);
+  let buckets = [];
+  const push = (stage, lines, note, out = null) => steps.push({ stage, lines, note, rows: clone(rows), buckets: clone(buckets), out });
+  push("FROM", [4], "One pass over the table. There is <b>no WHERE</b>, so every row reaches a bucket. Each bucket keeps <b>three</b> counters. Each FILTER decides which counter a row may change.");
+  ORDERS.forEach((o, i) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = "kept"; });
+    rows.data[i].st = "now";
+    buckets.forEach(x => { x.now = false; x.changed = []; x.fresh = false; });
+    let b = buckets.find(x => x.key === "store " + o.store);
+    let made = "";
+    if (!b) {
+      b = { key: "store " + o.store, chips: [], aggs: [["paid", 0], ["pending", 0], ["cancelled", 0]], st: "open", fresh: true };
+      buckets.push(b);
+      made = `Postgres makes a bucket for store ${o.store}. `;
+    }
+    const name = o.status.toLowerCase();
+    const a = b.aggs.find(x => x[0] === name);
+    a[1] += 1;
+    b.chips.push({ t: "#" + o.id });
+    b.now = true; b.changed = [name];
+    push("GROUP BY", [5, lineOf[o.status]], `Row ${o.id} belongs to store ${o.store}. ${made}Its status is <b>${o.status}</b>, so only the FILTER for ${o.status} says yes. The ${name} counter becomes ${a[1]}. The other two counters skip this row.`);
+  });
+  rows.data.forEach(r => r.st = "kept");
+  buckets.forEach(x => { x.now = false; x.changed = []; x.fresh = false; });
+  buckets.sort((a, b) => a.key < b.key ? -1 : 1);
+  const out = { cols: ["store_id", "paid", "pending", "cancelled"], data: buckets.map(b => [b.key.replace("store ", ""), ...b.aggs.map(x => x[1])]) };
+  push("SELECT", [0, 1, 2, 3], "SELECT makes one row per store with the three counters.", out);
+  push("done", [], "Finished. Three counts per store from <b>one read</b> of the table. Without FILTER you would need three queries, or three WHERE clauses that cannot live in one query.", out);
+  return {
+    name: "FILTER: many counts in one pass", code, steps,
+    ask: "For store 1, write paid, pending and cancelled.",
+    answer: "3 0 1",
+    check: g => g.replace(/[^0-9]+/g, " ").trim() === "3 0 1",
+    real: { cols: ["store_id", "paid", "pending", "cancelled"], data: [[1, 3, 0, 1], [2, 2, 1, 0], [3, 1, 0, 0]] },
+    why: "Store 1 has orders 1, 2, 4 and 7. Orders 1, 2 and 7 are PAID. Order 4 is CANCELLED. None are PENDING."
+  };
+}
+
+// ---------------------------------------------------------------- 5
+function prog5() {
+  const code = [
+    "SELECT s.name,",
+    "       SUM(o.total)  AS order_total,",
+    "       SUM(p.amount) AS points",
+    "FROM l03_stores s",
+    "JOIN l03_orders o ON o.store_id = s.id",
+    "JOIN l03_points p ON p.store_id = s.id",
+    "WHERE s.id = 1",
+    "GROUP BY s.name;"
+  ];
+  const steps = [];
+  const myOrders = ORDERS.filter(o => o.store === 1);
+  const myPoints = POINTS.filter(p => p.store === 1);
+  const rows = { cols: ["order id", "total", "point id", "amount"], data: [] };
+  const b = { key: "Ana (store 1)", chips: [], aggs: [["SUM(o.total)", 0], ["SUM(p.amount)", 0]], st: "open" };
+  const push = (stage, lines, note, out = null) => steps.push({ stage, lines, note, rows: clone(rows), buckets: clone([b]), out });
+  push("FROM", [3, 6], `Store 1 is Ana. Ana has <b>${myOrders.length} orders</b> (total ${myOrders.reduce((s, o) => s + o.total, 0)}) and <b>${myPoints.length} point rows</b> (total ${myPoints.reduce((s, p) => s + p.amount, 0)}). Those are the true answers. Watch what the join does.`);
+  myOrders.forEach((o, k) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = r.copyRow ? "copy" : "kept"; });
+    myPoints.forEach((p, j) => {
+      rows.data.push({ cells: [o.id, o.total, p.id, p.amount], st: "now", tag: j > 0 ? "copy" : "", copyRow: j > 0 });
+      b.aggs[0][1] += o.total; b.aggs[1][1] += p.amount;
+      b.chips.push({ t: "#" + o.id + "+p" + p.id, copy: j > 0 });
+    });
+    b.now = true; b.changed = ["SUM(o.total)", "SUM(p.amount)"];
+    push("JOIN", [4, 5, 1, 2], `Order ${o.id} (total ${o.total}) matches <b>both</b> point rows of Ana. So the join makes <b>2 rows</b> for order ${o.id}. SUM(o.total) adds ${o.total} twice and is now ${b.aggs[0][1]}. SUM(p.amount) adds 10 and 20 again and is now ${b.aggs[1][1]}.`);
+  });
+  rows.data.forEach(r => { r.st = r.copyRow ? "copy" : "kept"; });
+  b.now = false; b.changed = [];
+  push("GROUP BY", [7], `The join made <b>${rows.data.length} rows</b> from ${myOrders.length} orders and ${myPoints.length} point rows (${myOrders.length} times ${myPoints.length}). The purple rows are the extra copies. Every order was counted 2 times. Every point row was counted 4 times.`);
+  const out = { cols: ["name", "order_total", "points"], data: [["Ana", b.aggs[0][1], b.aggs[1][1]]] };
+  push("SELECT", [0, 1, 2], "SELECT shows the sums. Both are wrong. The true answers are 200 and 30. No error, no warning. Postgres did exactly what the query asked.", out);
+  push("done", [], "Finished. This is <b>fan-out</b>: the join made copies of rows, and SUM added every copy. Open the next tab to see the fix.", out);
+  return {
+    name: "Join trap: double count", code, steps,
+    ask: "Ana's orders really add up to 200. What will order_total show?",
+    answer: "400",
+    check: g => g.replace(/[^0-9]+/g, " ").trim() === "400",
+    real: { cols: ["name", "order_total", "points"], data: [["Ana", 400, 120]] },
+    why: "Each of Ana's 4 orders meets both of her 2 point rows, so the join makes 8 rows. Every order total is added 2 times (400). Every point amount is added 4 times (120)."
+  };
+}
+
+// ---------------------------------------------------------------- 6
+function prog6() {
+  const code = [
+    "WITH o AS (SELECT store_id, SUM(total) AS order_total",
+    "           FROM l03_orders GROUP BY store_id),",
+    "     p AS (SELECT store_id, SUM(amount) AS points",
+    "           FROM l03_points GROUP BY store_id)",
+    "SELECT s.name, o.order_total, p.points",
+    "FROM l03_stores s",
+    "LEFT JOIN o ON o.store_id = s.id",
+    "LEFT JOIN p ON p.store_id = s.id",
+    "WHERE s.id = 1;"
+  ];
+  const steps = [];
+  const myOrders = ORDERS.filter(o => o.store === 1);
+  const myPoints = POINTS.filter(p => p.store === 1);
+  const rows = { cols: ["table", "id", "value"], data: [
+    ...myOrders.map(o => ({ cells: ["orders", o.id, o.total], st: "wait", tag: "" })),
+    ...myPoints.map(p => ({ cells: ["points", p.id, p.amount], st: "wait", tag: "" }))
+  ] };
+  const bo = { key: "o: orders of store 1", chips: [], aggs: [["SUM(total)", 0]], st: "open" };
+  const bp = { key: "p: points of store 1", chips: [], aggs: [["SUM(amount)", 0]], st: "open" };
+  const push = (stage, lines, note, out = null) => steps.push({ stage, lines, note, rows: clone(rows), buckets: clone([bo, bp]), out });
+  push("FROM", [0, 2], "<code>WITH</code> gives a name to a small query that runs first (lesson 04 explains WITH). Here <b>o</b> adds up orders per store, and <b>p</b> adds up points per store. Postgres makes a bucket for every store. This page shows only store 1.");
+  myOrders.forEach((o, k) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = "kept"; });
+    rows.data[k].st = "now";
+    bo.aggs[0][1] += o.total; bo.chips.push({ t: "#" + o.id + " " + o.total });
+    bo.now = true; bp.now = false; bo.changed = ["SUM(total)"]; bp.changed = [];
+    push("GROUP BY", [0, 1], `Query o reads order ${o.id} of store 1. SUM(total) becomes ${bo.aggs[0][1]}. Each order is read <b>once</b>.`);
+  });
+  myPoints.forEach((p, k) => {
+    rows.data.forEach(r => { if (r.st === "now") r.st = "kept"; });
+    rows.data[myOrders.length + k].st = "now";
+    bp.aggs[0][1] += p.amount; bp.chips.push({ t: "p" + p.id + " " + p.amount });
+    bp.now = true; bo.now = false; bp.changed = ["SUM(amount)"]; bo.changed = [];
+    push("GROUP BY", [2, 3], `Query p reads point row ${p.id} of store 1. SUM(amount) becomes ${bp.aggs[0][1]}. Each point row is read <b>once</b>.`);
+  });
+  rows.data.forEach(r => r.st = "kept");
+  bo.now = bp.now = false; bo.changed = bp.changed = [];
+  push("GROUP BY", [0, 1, 2, 3], "Both small queries are done. Now each store has <b>one row</b> in o and <b>one row</b> in p. One row joined to one row cannot make copies.");
+  const out = { cols: ["name", "order_total", "points"], data: [["Ana", bo.aggs[0][1], bp.aggs[0][1]]] };
+  push("JOIN", [5, 6, 7], "The join puts store 1, its one row from o, and its one row from p side by side. 1 times 1 times 1 is 1 row.", out);
+  push("SELECT", [4], "SELECT shows the sums. They are correct: 200 and 30.", out);
+  push("done", [], "Finished. The fix: <b>add up each table first, then join</b>. The LEFT JOIN keeps a store that has no orders or no points. It would show NULL there, and COALESCE can turn that into 0.", out);
+  return {
+    name: "Join fix: sum first", code, steps,
+    ask: "After the fix, what will order_total and points show for Ana?",
+    answer: "200 30",
+    check: g => g.replace(/[^0-9]+/g, " ").trim() === "200 30",
+    real: { cols: ["name", "order_total", "points"], data: [["Ana", 200, 30]] },
+    why: "Each table is added up on its own, so every row is counted once. Then one row per store is joined to one row per store, which makes no copies."
+  };
+}
+
+const PRESETS = [prog1(), prog2(), prog3(), prog4(), prog5(), prog6()];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function renderPipe(stage) {
+  const p = PRESETS[cur];
+  const usesJoin = p.code.some(l => /JOIN/.test(l));
+  const list = STAGES.filter(s => s !== "JOIN" || usesJoin);
+  const at = list.indexOf(stage);
+  $("pipe").innerHTML = '<span style="color:var(--muted)">Order Postgres runs it:</span> ' + list.map((s, i) =>
+    '<span class="st' + (stage === "done" ? " past" : i === at ? " on" : i < at ? " past" : "") + '">' + s + "</span>").join('<span class="arrow">→</span>');
+}
+function renderCode(lines) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (lines.includes(i) ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderRows(rows) {
+  if (!rows.data.length) { $("rows").innerHTML = '<span class="empty">no rows made yet</span>'; return; }
+  let h = '<table class="rows"><tr>' + rows.cols.map(c => "<th>" + esc(c) + "</th>").join("") + "<th></th></tr>";
+  rows.data.forEach(r => {
+    const tag = r.st === "drop" ? "thrown away by " + (r.tag || "WHERE") : r.tag === "copy" ? "extra copy" : r.st === "now" ? "← now" : "";
+    h += '<tr class="' + r.st + '">' + r.cells.map(c => "<td>" + esc(c) + "</td>").join("") + '<td class="tag">' + esc(tag) + "</td></tr>";
+  });
+  $("rows").innerHTML = h + "</table>";
+}
+function renderBuckets(list) {
+  const root = $("buckets");
+  if (!list.length) { root.innerHTML = '<span class="empty">no buckets yet</span>'; return; }
+  root.innerHTML = "";
+  list.forEach(b => {
+    const d = document.createElement("div");
+    d.className = "bucket" + (b.st === "keep" ? " keep" : b.st === "drop" ? " drop" : "") + (b.now ? " now" : "") + (b.fresh ? " pop" : "");
+    let h = "<h3>" + esc(b.key) + (b.st === "drop" ? " (removed by HAVING)" : b.st === "keep" ? " (kept by HAVING)" : "") + "</h3>";
+    h += '<div class="chips">' + (b.chips.length ? b.chips.map(c => '<span class="chip' + (c.copy ? " copy" : "") + '">' + esc(c.t) + "</span>").join("") : '<span class="empty">empty</span>') + "</div>";
+    h += b.aggs.map(a => '<div class="agg' + ((b.changed || []).includes(a[0]) ? " changed" : "") + '"><span>' + esc(a[0]) + "</span><b>" + esc(a[1]) + "</b></div>").join("");
+    d.innerHTML = h;
+    root.appendChild(d);
+  });
+}
+function renderOut(out) {
+  if (!out) { $("out").innerHTML = '<span class="empty">no result rows yet</span>'; return; }
+  $("out").innerHTML = "<table><tr>" + out.cols.map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>" +
+    out.data.map(r => "<tr>" + r.map(c => "<td>" + esc(c) + "</td>").join("") + "</tr>").join("") + "</table>";
+}
+function render() {
+  const s = steps[idx];
+  renderPipe(s.stage);
+  renderCode(s.lines);
+  renderRows(s.rows);
+  renderBuckets(s.buckets);
+  renderOut(s.out);
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = PRESETS[cur];
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(p.answer) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = p.check(guess);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The answer is <code>" + esc(p.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the bucket totals change.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0;
+  $("guess").value = ""; $("ask").textContent = PRESETS[i].ask;
+  $("rowsTitle").textContent = i === 4 ? "Rows the join makes" : i === 5 ? "Rows each small query reads" : "Rows of l03_orders";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2000);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>
