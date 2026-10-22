@@ -343,11 +343,41 @@
   <span>Runnable: docker compose up → track tables → row permission → Action (10 minutes)</span>
 </a>
 </details>
-<details class="subject"><summary><b>Database</b><small>6 guides, 6 cheatsheets</small></summary>
+<details class="subject"><summary><b>Database</b><small>3 lessons, 6 guides, 3 visuals, 6 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/database/README">
   <span class="tag map">MAP</span>
   <b>Database: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/01-sql-basics-and-query-order">
+  <span class="tag lesson">LESSON 01</span>
+  <b>01. SQL basics and the order a query runs</b>
+  <span>read a SELECT with WHERE, ORDER BY and LIMIT, say the order Postgres works in (FROM first, SELECT almost last), and use that order to explain why a new name from SELECT fails in WHERE, and why `= NULL` finds nothing.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/02-joins">
+  <span class="tag lesson">LESSON 02</span>
+  <b>02. Joins</b>
+  <span>draw what INNER, LEFT, RIGHT and FULL joins keep, say why one store with two orders becomes two rows, and explain why `LEFT JOIN ... WHERE o.status = &#x27;PAID&#x27;` quietly loses stores.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/03-grouping-and-aggregation">
+  <span class="tag lesson">LESSON 03</span>
+  <b>03. Grouping and aggregation</b>
+  <span>put rows into buckets with GROUP BY, say why WHERE runs before the buckets and HAVING after, pick the right COUNT, and spot a total that a join made too big.</span>
+</a>
+<a class="card" href="learn/database/visuals/01-sql-basics-and-query-order.html">
+  <span class="tag app">VISUAL</span>
+  <b>01-sql-basics-and-query-order.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/02-joins.html">
+  <span class="tag app">VISUAL</span>
+  <b>02-joins.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/03-grouping-and-aggregation.html">
+  <span class="tag app">VISUAL</span>
+  <b>03-grouping-and-aggregation.html</b>
+  <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/database/advanced-sql-workbook">
   <span class="tag note">GUIDE</span>
