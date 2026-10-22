@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTTP basics: the text that travels, 401 against 403, and fetch on a 404</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: 1fr 1.3fr 1fr; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .5; border-style: dashed; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .line { font-size: .84rem; }
+
+  .code { margin: 0; padding: 0; list-style: none; font-size: .74rem; }
+  .code li { padding: 1px 6px; border-radius: 5px; white-space: pre-wrap; word-break: break-word; border-left: 3px solid transparent; }
+  .code li.cur { background: var(--accent); color: #1e3a4c; border-left-color: var(--ink); font-weight: 700; }
+  .code li.skip { opacity: .45; text-decoration: line-through; }
+
+  .msg { margin: 0; padding: 0; list-style: none; font-size: .76rem; }
+  .msg li { padding: 2px 6px; border-radius: 5px; background: var(--chip); margin-bottom: 3px; white-space: pre-wrap; word-break: break-all; }
+  .msg li.part-start { font-weight: 700; }
+  .msg li.blank { color: var(--muted); font-style: italic; background: transparent; border: 1px dashed var(--border); }
+  .msg li.missing { color: var(--bad); background: transparent; border: 1px dashed var(--bad); font-style: italic; }
+  .msg li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .msg li.read { background: var(--accent); color: #1e3a4c; }
+  .pipe { text-align: center; font-weight: 700; font-size: .85rem; color: var(--muted); margin: 6px 0 10px; letter-spacing: .02em; }
+  .pipe.go { color: var(--lb); }
+
+  .screen { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok, .screen.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad, .screen.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; } .badge.wire { background: #8b5cf6; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; Backend and API lessons</a>
+    <a href="../01-http-basics.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>HTTP basics: the text that travels, 401 against 403, and fetch on a 404</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch Ana's app write the request, the text cross the wire, and the server read it part by part. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a request is plain text: a request line (method and path), header lines, an empty line, then the body. The answer starts with a status line, so read the status first. 2xx worked, 4xx your request is wrong, 5xx the server broke. 401 means "who are you?" and 403 means "I know you, and no". <code>fetch</code> does not throw on a 404 or a 500, so always check <code>res.ok</code>.</p>
+</div>
+
+<script>
+const GET_CODE = [
+  'const res = await fetch("/products/41", {',
+  '  headers: { Accept: "application/json",',
+  '             Authorization: "Bearer tok_ana" } });',
+  'if (!res.ok) throw new Error("HTTP " + res.status);',
+  'const product = await res.json();',
+  'show(product.name);'
+];
+const DELETE_CODE = [
+  '// A: before Ana logs in (no token)',
+  'await fetch("/products/41", { method: "DELETE" });',
+  '// B: after Ana logs in as a buyer',
+  'await fetch("/products/41", { method: "DELETE",',
+  '  headers: { Authorization: "Bearer tok_ana" } });'
+];
+const NO_CHECK_CODE = [
+  'try {',
+  '  const res = await fetch("/products/999");',
+  '  const product = await res.json();',
+  '  show(product.name);',
+  '} catch (e) {',
+  '  showError(e.message);',
+  '}'
+];
+const WITH_CHECK_CODE = [
+  'try {',
+  '  const res = await fetch("/products/999");',
+  '  if (!res.ok) throw new Error("HTTP " + res.status);',
+  '  const product = await res.json();',
+  '  show(product.name);',
+  '} catch (e) {',
+  '  showError(e.message);',
+  '}'
+];
+
+const STORIES = [
+  {
+    name: "1. A normal GET", code: GET_CODE,
+    why: "The request only reads (GET). Product 41 exists and the token is good. Nothing new was made, so it is not 201. There is a body to send back, so it is not 204. 200 OK means \"it worked, and the body has what you asked for\".",
+    predict: { q: "Ana's app asks for product 41 with a good token. What is the first line of the answer?",
+               options: ["HTTP/1.1 200 OK", "HTTP/1.1 201 Created", "HTTP/1.1 204 No Content"], answer: "HTTP/1.1 200 OK" },
+    ops: [
+      { op: "intro", note: "Ana opens product 41 in the shop app. Her app calls <code>fetch</code>. Watch the <b>text</b> that <code>fetch</code> writes, line by line. That text is the whole request." },
+      { op: "req", line: "GET /products/41 HTTP/1.1", at: 0, hop: "The request line", note: "The first line is the <b>request line</b>: the <b>method</b> <code>GET</code> (\"I want to read\"), the path <code>/products/41</code>, and the HTTP version." },
+      { op: "req", line: "Host: shop.example.com", at: 0, hop: "A header", note: "Now the <b>headers</b>, one <code>Name: value</code> per line. <code>fetch</code> adds <code>Host</code> by itself, from the URL. One server machine can host many sites, and this line says which one." },
+      { op: "req", line: "Accept: application/json", at: 1, hop: "A header", note: "<code>Accept: application/json</code> says \"please answer in JSON\"." },
+      { op: "req", line: "Authorization: Bearer tok_ana", at: 2, hop: "A header", note: "<code>Authorization</code> carries Ana's token. The server does not remember Ana from her last request, so <b>every</b> request must carry it." },
+      { op: "req", line: "", at: 2, hop: "The empty line", note: "An <b>empty line</b> means \"the headers are over\". A <code>GET</code> has no <b>body</b>, so nothing comes after it." },
+      { op: "send", note: "The text leaves the phone. (Before this, the phone found the server's address and opened a safe connection. That journey is in the networking lesson.)" },
+      { op: "read", part: "line", know: ["method GET: Ana wants to read", "path /products/41"], note: "The server reads the <b>request line first</b>. Now it knows the method and the path." },
+      { op: "read", part: "headers", know: ["wants JSON back", "token tok_ana"], note: "Then it reads the headers until the empty line. It does not look for a body, because there is nothing after the empty line." },
+      { op: "decide", text: "token tok_ana is good: user 7, Ana", good: true, hop: "Who is asking?", note: "The server checks the token. It is real and not too old. This is <b>Ana, user 7</b>. Reading a product is allowed for every logged in user." },
+      { op: "decide", text: "route GET /products/:id runs with id 41: found Rice 5 kg", good: true, hop: "The route runs", note: "The method and the path pick the route: <code>GET /products/:id</code>. It finds product 41 in the database." },
+      { op: "res", line: "HTTP/1.1 200 OK", hop: "The status line", note: "The server writes the answer. The first line is the <b>status line</b>. The <b>status code</b> <code>200</code> means \"it worked\". <code>OK</code> is only a label for humans." },
+      { op: "res", line: "Content-Type: application/json", hop: "A header", note: "<code>Content-Type</code> tells the app how to read the body: it is JSON." },
+      { op: "res", line: "", hop: "The empty line", note: "An empty line again: headers over, the body comes next." },
+      { op: "res", line: "{\"id\":41,\"name\":\"Rice 5 kg\",\"price\":65000}", hop: "The body", note: "The <b>body</b> is the product, as JSON text." },
+      { op: "back", note: "The answer text travels back to Ana's phone." },
+      { op: "app", at: 3, vars: [["res.status", "200"], ["res.ok", "true"]], hop: "Read the status first", note: "<code>await fetch</code> finishes as soon as the status line and the headers arrive. The app checks <code>res.ok</code> first. It is <code>true</code> for any 2xx code, so nothing is thrown." },
+      { op: "app", at: 5, vars: [["res.status", "200"], ["res.ok", "true"], ["product.name", "\"Rice 5 kg\""]], screen: "Rice 5 kg - 65,000", good: true, hop: "Then read the body", note: "<code>res.json()</code> reads the body and turns the text into an object. The screen shows <b>Rice 5 kg</b>." },
+      { op: "end", note: "One request, one answer, both plain text in the same shape: <b>first line, headers, empty line, body</b>. The app read the status before it touched the body." }
+    ]
+  },
+  {
+    name: "2. No token vs wrong person", code: DELETE_CODE,
+    why: "Request A has no Authorization header, so the server cannot tell who is asking. That is 401: \"who are you?\". Request B carries a good token. The server knows it is Ana, but only admins may delete products. That is 403: \"I know you, and no\". Sending the same token again will not help.",
+    predict: { q: "Ana taps Delete on product 41 twice: first before she logs in, then after she logs in as a buyer, not an admin. What does each request get?",
+               options: ["401 then 401", "401 then 403", "403 then 403", "403 then 401"], answer: "401 then 403" },
+    ops: [
+      { op: "intro", note: "A bug shows the <b>Delete</b> button to everyone. Ana taps it twice. Request A goes before she logs in. Request B goes after she logs in as a <b>buyer</b>. Only <b>admins</b> may delete products." },
+      { op: "newReq", label: "Request A" },
+      { op: "req", line: "DELETE /products/41 HTTP/1.1", at: 1, hop: "Request A", note: "Request A starts with the method <code>DELETE</code>: \"remove this thing\"." },
+      { op: "req", line: "Host: shop.example.com", at: 1, hop: "A header", note: "Then the <code>Host</code> header." },
+      { op: "missing", line: "no Authorization line", at: 1, hop: "Something is missing", note: "There is <b>no Authorization</b> line. Ana is not logged in yet, so the app has no token to send." },
+      { op: "req", line: "", at: 1, hop: "The empty line", note: "The empty line. A <code>DELETE</code> usually has no body." },
+      { op: "send", note: "The text goes to the server." },
+      { op: "read", part: "line", know: ["method DELETE", "path /products/41"], note: "The server reads the request line: someone wants to <b>delete</b> product 41." },
+      { op: "read", part: "headers", know: ["no token"], note: "It reads the headers. There is no <code>Authorization</code> header." },
+      { op: "decide", text: "Who are you? No token, so I cannot tell", good: false, hop: "Question 1: who are you?", note: "The first question is <b>\"who are you?\"</b>. Without a token the server cannot answer it. It does not even get to the second question." },
+      { op: "res", line: "HTTP/1.1 401 Unauthorized", hop: "401", note: "So the answer is <code>401</code>. The label says \"Unauthorized\", but it really means <b>\"not logged in\"</b>. That old name confuses everyone." },
+      { op: "res", line: "WWW-Authenticate: Bearer", hop: "A header", note: "A 401 must say how to log in. <code>WWW-Authenticate: Bearer</code> means \"send a bearer token\"." },
+      { op: "res", line: "", hop: "The empty line", note: "The empty line." },
+      { op: "res", line: "{\"error\":\"log in first\"}", hop: "The body", note: "A short body for the app and for humans." },
+      { op: "back", note: "The answer goes back." },
+      { op: "app", at: 1, vars: [["A: res.status", "401"]], screen: "A: go to the login screen", good: false, hop: "The app reacts to 401", note: "The app sees <code>401</code>. The right reaction is to <b>log in</b> (or refresh the token), then try again." },
+      { op: "newReq", label: "Request B" },
+      { op: "req", line: "DELETE /products/41 HTTP/1.1", at: 3, hop: "Request B", note: "Ana logs in. Request B is the same <code>DELETE</code>..." },
+      { op: "req", line: "Host: shop.example.com", at: 3, hop: "A header", note: "...with the same <code>Host</code>..." },
+      { op: "req", line: "Authorization: Bearer tok_ana", at: 4, hop: "A header", note: "...and this time it carries Ana's token." },
+      { op: "req", line: "", at: 4, hop: "The empty line", note: "The empty line. No body." },
+      { op: "send", note: "The text goes to the server." },
+      { op: "read", part: "line", know: ["method DELETE", "path /products/41"], note: "The server reads the request line: delete product 41." },
+      { op: "read", part: "headers", know: ["token tok_ana"], note: "It reads the headers. This time there is a token." },
+      { op: "decide", text: "Who are you? Ana, user 7, role buyer", good: true, hop: "Question 1: who are you?", note: "Question 1: <b>\"who are you?\"</b> The token is good. It is <b>Ana, a buyer</b>." },
+      { op: "decide", text: "May a buyer delete products? No, only admins", good: false, hop: "Question 2: may you do this?", note: "Question 2: <b>\"may you do this?\"</b> Only admins may delete products. Ana is a buyer. The answer is no." },
+      { op: "res", line: "HTTP/1.1 403 Forbidden", hop: "403", note: "So the answer is <code>403</code>: <b>\"I know who you are, and you may not\"</b>." },
+      { op: "res", line: "Content-Type: application/json", hop: "A header", note: "The body is JSON." },
+      { op: "res", line: "", hop: "The empty line", note: "The empty line." },
+      { op: "res", line: "{\"error\":\"only admins can delete products\"}", hop: "The body", note: "The body says why." },
+      { op: "back", note: "The answer goes back." },
+      { op: "app", at: 4, vars: [["A: res.status", "401"], ["B: res.status", "403"]], screen: "B: you cannot delete products", good: false, hop: "The app reacts to 403", note: "The app sees <code>403</code>. Logging in again will <b>not</b> help. The right reaction is to show \"you cannot do this\" and hide the button." },
+      { op: "end", note: "<b>401</b> failed question 1, \"who are you?\". <b>403</b> passed question 1 and failed question 2, \"may you do this?\". The server always asks them in that order." }
+    ]
+  },
+  {
+    name: "3. fetch does not throw on 404", code: NO_CHECK_CODE,
+    why: "fetch only throws when no answer comes back at all, for example when the network drops. A 404 is a real answer with a status line, headers and a body. So await fetch gives you a normal response with res.ok set to false, and the catch block does not run. In Node 24 this code prints \"name: undefined\". You must check res.ok yourself.",
+    predict: { q: "The server answers 404 for product 999. Does the catch block run?",
+               options: ["Yes, fetch throws on a 404", "No, fetch hands back the 404 like any answer"], answer: "No, fetch hands back the 404 like any answer" },
+    ops: [
+      { op: "intro", note: "Ana opens an old link to product 999. That product was deleted. Look at the app code: there is a <code>try</code> and a <code>catch</code>, but <b>no</b> <code>res.ok</code> check." },
+      { op: "req", line: "GET /products/999 HTTP/1.1", at: 1, hop: "The request line", note: "<code>fetch</code> writes the request line: <code>GET /products/999</code>." },
+      { op: "req", line: "Host: shop.example.com", at: 1, hop: "A header", note: "The <code>Host</code> header." },
+      { op: "req", line: "Accept: */*", at: 1, hop: "A header", note: "The code set no headers, so <code>fetch</code> adds <code>Accept: */*</code> by itself: \"any format is fine\". Reading a product needs no token in this shop." },
+      { op: "req", line: "", at: 1, hop: "The empty line", note: "The empty line. No body for a GET." },
+      { op: "send", note: "The text goes to the server." },
+      { op: "read", part: "line", know: ["method GET", "path /products/999"], note: "The server reads the request line." },
+      { op: "read", part: "headers", know: ["accepts any format"], note: "It reads the headers. Anyone may read products, so no token is needed." },
+      { op: "decide", text: "route GET /products/:id runs with id 999: not found", good: false, hop: "The route runs", note: "The route looks for product 999. There is no such row." },
+      { op: "res", line: "HTTP/1.1 404 Not Found", hop: "404", note: "So the status line says <code>404 Not Found</code>. This is a <b>normal, complete answer</b>. The server did its job well." },
+      { op: "res", line: "Content-Type: application/json", hop: "A header", note: "The body is JSON." },
+      { op: "res", line: "", hop: "The empty line", note: "The empty line." },
+      { op: "res", line: "{\"error\":\"no product 999\"}", hop: "The body", note: "The body explains the error." },
+      { op: "back", note: "The answer arrives at the phone." },
+      { op: "app", at: 1, vars: [["res.status", "404"], ["res.ok", "false"]], hop: "await fetch finishes", phase: "bad", note: "<code>await fetch</code> finishes <b>without throwing</b>. An answer came back, so to <code>fetch</code> this is a success. <code>res.ok</code> is <code>false</code>, but nobody looks at it." },
+      { op: "app", at: 2, vars: [["res.status", "404"], ["res.ok", "false"], ["product", "{ error: \"no product 999\" }"]], hop: "Read the body", phase: "bad", note: "<code>res.json()</code> reads the <b>error</b> body. <code>product</code> is now <code>{ error: \"no product 999\" }</code>." },
+      { op: "app", at: 3, vars: [["res.status", "404"], ["res.ok", "false"], ["product.name", "undefined"]], screen: "undefined", good: false, hop: "The catch never runs", note: "<code>product.name</code> is <code>undefined</code>, and the screen shows it. The <code>catch</code> block <b>never ran</b>. Ana sees a broken page." },
+      { op: "fix", code: WITH_CHECK_CODE, hop: "The fix", note: "The fix is one line: <code>if (!res.ok) throw new Error(\"HTTP \" + res.status);</code> right after <code>fetch</code>. Now let us run it again with the same 404 answer." },
+      { op: "app", at: 1, vars: [["res.status", "404"], ["res.ok", "false"]], hop: "await fetch finishes", note: "<code>await fetch</code> finishes the same way: <code>res.ok</code> is <code>false</code>." },
+      { op: "app", at: 2, vars: [["res.status", "404"], ["res.ok", "false"], ["thrown", "Error: HTTP 404"]], hop: "Now we throw", note: "This time the app <b>checks</b> <code>res.ok</code>. It is false, so the app throws its own error. JavaScript jumps straight to <code>catch</code>." },
+      { op: "app", at: 6, vars: [["res.status", "404"], ["res.ok", "false"], ["e.message", "\"HTTP 404\""]], screen: "Product not found (HTTP 404)", good: true, hop: "The catch runs", note: "Now the <code>catch</code> block runs and shows a real error message." },
+      { op: "end", note: "<code>fetch</code> throws only when <b>no answer</b> comes back. Any answer, even 404 or 500, is handed to you. <b>Read the status first</b>: check <code>res.ok</code> before you read the body." }
+    ]
+  }
+];
+
+function simulate(p) {
+  const steps = [];
+  const w = {
+    code: p.code.slice(), at: -1, vars: [], screen: "", screenGood: null,
+    label: "Request", req: [], res: [], lastSide: null, lastIdx: -1, readIdx: [],
+    dir: "", reading: "", knows: [], decisions: []
+  };
+  const snap = (note, active, hop, phase) => steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+  const blankAt = () => w.req.findIndex(l => l.kind === "blank");
+  for (const op of p.ops) {
+    w.lastSide = null; w.lastIdx = -1; w.readIdx = [];
+    if (op.op === "read" || op.op === "decide" || op.op === "res") w.dir = "";
+    if (op.op === "intro") { snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { w.at = -1; snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "newReq") {
+      w.label = op.label; w.req = []; w.res = []; w.dir = ""; w.reading = ""; w.knows = []; w.decisions = [];
+      continue;
+    }
+    if (op.op === "req" || op.op === "missing") {
+      const kind = op.op === "missing" ? "missing" : op.line === "" ? "blank" : w.req.length === 0 ? "start" : "header";
+      w.req.push({ text: op.line, kind });
+      w.lastSide = "req"; w.lastIdx = w.req.length - 1;
+      w.at = op.at; w.dir = "";
+      snap(op.note, ["app", "req"], op.hop, "run");
+    } else if (op.op === "send") {
+      w.dir = "to-server"; w.at = -1;
+      snap(op.note, ["req"], "The request travels", "wire");
+    } else if (op.op === "read") {
+      const b = blankAt();
+      if (op.part === "line") { w.readIdx = [0]; w.reading = "the request line"; }
+      else if (op.part === "headers") {
+        const end = b === -1 ? w.req.length : b;
+        for (let i = 1; i < end; i++) w.readIdx.push(i);
+        w.reading = "the headers, up to the empty line";
+      }
+      w.knows.push(...op.know);
+      snap(op.note, ["req", "server"], op.part === "line" ? "Read the request line" : "Read the headers", "srv");
+    } else if (op.op === "decide") {
+      w.decisions.push({ text: op.text, good: op.good });
+      w.reading = "nothing, it is deciding";
+      snap(op.note, ["server"], op.hop, op.good ? "srv" : "bad");
+    } else if (op.op === "res") {
+      const kind = op.line === "" ? "blank" : w.res.length === 0 ? "start" : "header";
+      const afterBlank = w.res.some(l => l.kind === "blank");
+      w.res.push({ text: op.line, kind: afterBlank && op.line !== "" ? "body" : kind });
+      w.lastSide = "res"; w.lastIdx = w.res.length - 1;
+      w.reading = "nothing, it is writing the answer";
+      const isError = /^HTTP\/1\.1 [45]/.test(op.line);
+      snap(op.note, ["server", "res"], op.hop, isError ? "bad" : "srv");
+    } else if (op.op === "back") {
+      w.dir = "to-app";
+      w.reading = "done, the answer is sent";
+      snap(op.note, ["res"], "The answer travels back", "wire");
+    } else if (op.op === "app") {
+      w.at = op.at; w.vars = op.vars;
+      if (op.screen !== undefined) { w.screen = op.screen; w.screenGood = op.good; }
+      w.dir = "";
+      snap(op.note, ["app"], op.hop, op.phase || (op.good === false ? "bad" : "run"));
+    } else if (op.op === "fix") {
+      w.code = op.code.slice(); w.at = 2; w.vars = []; w.screen = ""; w.screenGood = null;
+      snap(op.note, ["app"], op.hop, "run");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["The app works", "run"], wire: ["On the wire", "wire"], srv: ["The server works", "srv"], bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function msgList(lines, side, w, emptyText) {
+  if (!lines.length) return '<ul class="msg"><li class="blank">' + emptyText + "</li></ul>";
+  return '<ul class="msg mono">' + lines.map((l, i) => {
+    const cls = [];
+    if (l.kind === "start") cls.push("part-start");
+    if (l.kind === "blank") cls.push("blank");
+    if (l.kind === "missing") cls.push("missing");
+    if (w.lastSide === side && w.lastIdx === i) cls.push("new");
+    if (side === "req" && w.readIdx.includes(i)) cls.push("read");
+    const text = l.kind === "blank" ? "(empty line)" : l.kind === "missing" ? "(" + l.text + ")" : l.text;
+    return '<li class="' + cls.join(" ") + '">' + esc(text) + "</li>";
+  }).join("") + "</ul>";
+}
+
+function renderStage(s) {
+  const w = s.w;
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const code = w.code.map((l, i) => '<li class="' + (i === w.at ? "cur" : "") + '">' + esc(l) + "</li>").join("");
+  const vars = w.vars.length
+    ? w.vars.map(v => '<li><span class="mono">' + esc(v[0]) + '</span><span class="mono">' + esc(v[1]) + "</span></li>").join("")
+    : '<li class="empty">no values yet</li>';
+  const screen = w.screen
+    ? '<div class="screen ' + (w.screenGood ? "ok" : "bad") + '">Screen: ' + esc(w.screen) + "</div>"
+    : '<div class="screen">Screen: loading</div>';
+  const pipe = w.dir === "to-server" ? '<div class="pipe go">request travels &darr; to the server</div>'
+    : w.dir === "to-app" ? '<div class="pipe go">answer travels &uarr; to the app</div>'
+    : '<div class="pipe">the wire</div>';
+  const knows = w.knows.length
+    ? w.knows.map(k => '<li><span>' + esc(k) + "</span></li>").join("")
+    : '<li class="empty">nothing yet</li>';
+  const decisions = w.decisions.map(d => '<div class="verdict ' + (d.good ? "ok" : "bad") + '">' + esc(d.text) + "</div>").join("");
+  const status = w.res.length ? w.res[0].text.replace("HTTP/1.1 ", "") : "";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>Ana\'s app</h2>' +
+      '<div class="comp user' + lit("app") + '"><h3>The app code <span class="tag">fetch</span></h3>' +
+        '<small>the yellow line runs now</small><ol class="code mono">' + code + "</ol></div>" +
+      '<div class="comp user' + lit("app") + '"><h3>Values</h3><ul class="rows">' + vars + "</ul>" + screen + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>The text that travels</h2>' +
+      '<div class="comp lb' + lit("req") + '"><h3>' + esc(w.label) + ' <span class="tag">app to server</span></h3>' +
+        "<small>request line, headers, empty line, body</small>" + msgList(w.req, "req", w, "nothing written yet") + "</div>" +
+      pipe +
+      '<div class="comp store' + lit("res") + (w.res.length ? "" : " off") + '"><h3>Response ' +
+        (status ? '<span class="tag ' + (/^2/.test(status) ? "ok" : "bad") + '">' + esc(status) + "</span>" : '<span class="tag">server to app</span>') + "</h3>" +
+        "<small>status line, headers, empty line, body</small>" + msgList(w.res, "res", w, "no answer yet") + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>Shop server</h2>' +
+      '<div class="comp srv' + lit("server") + '"><h3>Express API</h3>' +
+        '<div class="line"><b>Reading now:</b> ' + esc(w.reading || "waiting for a request") + "</div>" +
+        '<small style="margin-top:8px">what it knows so far</small><ul class="rows">' + knows + "</ul>" +
+        decisions + "</div>" +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderStage(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + esc(p.why);
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(real) + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(p.q) + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>

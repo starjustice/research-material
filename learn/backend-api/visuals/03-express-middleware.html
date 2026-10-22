@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Express middleware: one request walks the line</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: 1fr 1.3fr 1fr; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .5; border-style: dashed; }
+  .comp.mw { padding: 6px 10px 6px; margin-bottom: 6px; }
+  .comp.mw h3 { margin: 0; }
+  .comp.mw small { margin: 2px 0 0; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.dim { background: var(--border); color: var(--muted); }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.dup { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .rows li .k { color: var(--muted); }
+  .line { font-size: .84rem; }
+  .arrow { text-align: center; color: var(--muted); font-size: .7rem; margin: -2px 0 4px; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; Backend and API lessons</a>
+    <a href="../03-express-middleware.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Express middleware: one request walks the line</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the request, the line of functions, and what is on <code>req</code>. Guess first, then check. The steps match the real output of the code in section 4 of the lesson.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> Express runs your functions in the order you added them. Each one must do one of two things: call <code>next()</code> to pass the request on, or send an answer to stop the line. Doing neither makes the request hang. <code>next(err)</code>, or a thrown error, skips every normal function and jumps to the error middleware, the function with four parameters, which you add last.</p>
+</div>
+
+<script>
+// The line from section 4 of the lesson, in the order of app.use / app.post / app.get.
+const LINE = [
+  { id: "logger", name: "logger",          code: "app.use((req, res, next) => ...)", kind: "mw" },
+  { id: "json",   name: "express.json",    code: "app.use(express.json())",          kind: "mw" },
+  { id: "auth",   name: "auth",            code: "app.use((req, res, next) => ...)", kind: "mw" },
+  { id: "orders", name: "POST /orders",    code: "app.post(\"/orders\", ...)",       kind: "route" },
+  { id: "boom",   name: "GET /boom",       code: "app.get(\"/boom\", async ...)",    kind: "route" },
+  { id: "errmw",  name: "error middleware", code: "app.use((err, req, res, next) => ...)", kind: "error" }
+];
+
+const STORIES = [
+  {
+    name: "1. A good request",
+    request: { method: "POST", path: "/orders", auth: "Bearer t-7", body: "{\"item\":\"cement\"}" },
+    why: "Express walks the line from the top. logger, express.json and auth each call next(), so the request reaches the route. The route sends 201 and does not call next(), so the line stops there. The server log shows 1 logger POST /orders, then 1 route: user 7 orders cement.",
+    predict: { q: "POST /orders with a good token. In what order do the functions run?",
+               options: ["route first, then the others", "logger, express.json, auth, route", "auth, logger, express.json, route"], answer: "logger, express.json, auth, route" },
+    ops: [
+      { op: "intro", note: "The client sends <code>POST /orders</code> with a good token and a JSON body. The server has six functions in a line, in the order the code added them. Nothing has run yet." },
+      { op: "send" },
+      { op: "run", box: "logger", set: { id: "1" }, log: "1 logger POST /orders", state: ["called next", "ok"],
+        note: "<b>logger</b> runs first, because it was added first. It gives the request a number, <code>req.id = 1</code>, prints a line, and calls <code>next()</code>." },
+      { op: "run", box: "json", set: { body: "{ item: \"cement\" }" }, state: ["called next", "ok"],
+        note: "<b>express.json</b> reads the JSON text from the request and puts it on <code>req.body</code>. Then it calls <code>next()</code>. Every function after this one can read <code>req.body.item</code>." },
+      { op: "run", box: "auth", set: { user: "{ id: 7 }" }, state: ["called next", "ok"],
+        note: "<b>auth</b> reads the <code>Authorization</code> header. It is <code>Bearer t-7</code>, which is good. So auth puts <code>req.user = { id: 7 }</code> and calls <code>next()</code>." },
+      { op: "run", box: "orders", log: "1 route: user 7 orders cement", send: [201, "{\"ok\":true}"], state: ["sent 201", "ok"],
+        note: "The <b>route</b> <code>POST /orders</code> matches. It reads <code>req.user.id</code> and <code>req.body.item</code>, which the earlier functions put there. It sends <code>201</code>. It does <b>not</b> call next, so the line stops here." },
+      { op: "unreached", boxes: ["boom", "errmw"], why: "not reached",
+        note: "<code>GET /boom</code> and the error middleware never run. The answer was already sent. Nothing called <code>next()</code> after the route." },
+      { op: "answer" },
+      { op: "end", verdict: ["ok", "201 in one walk down the line"],
+        note: "One request, one walk down the line. Each function did one job and passed the request on. The route only did the order work. It did not check the token or read the body itself." }
+    ]
+  },
+  {
+    name: "2. No token",
+    request: { method: "POST", path: "/orders", auth: "", body: "" },
+    why: "auth finds no token. It sends 401 with return, and it does not call next(). So Express never reaches the route. The route cannot forget the check, because it never sees a request without a user.",
+    predict: { q: "POST /orders with no token. Does the route run?",
+               options: ["Yes, and then it fails", "No, the route never runs", "Yes, but req.user is empty"], answer: "No, the route never runs" },
+    ops: [
+      { op: "intro", note: "The same server. This time the client sends <code>POST /orders</code> with <b>no</b> <code>Authorization</code> header and no body." },
+      { op: "send" },
+      { op: "run", box: "logger", set: { id: "2" }, log: "2 logger POST /orders", state: ["called next", "ok"],
+        note: "<b>logger</b> runs for every request, even a bad one. It sets <code>req.id = 2</code>, prints a line, and calls <code>next()</code>." },
+      { op: "run", box: "json", state: ["called next", "ok"],
+        note: "<b>express.json</b> looks for a JSON body. There is none, so <code>req.body</code> stays <code>undefined</code>. It calls <code>next()</code> anyway. Not having a body is not an error." },
+      { op: "run", box: "auth", log: "2 auth: no token, stop here", send: [401, "{\"error\":\"log in first\"}"], state: ["sent 401", "bad"], phase: "bad",
+        note: "<b>auth</b> finds no token. It runs <code>return res.status(401).json(...)</code>. It sends the answer and does <b>not</b> call <code>next()</code>. This is how a middleware stops the line." },
+      { op: "unreached", boxes: ["orders", "boom", "errmw"], why: "never runs",
+        note: "The route never runs. No order is saved. There is no <code>req.user</code>, and no route code had to check for it." },
+      { op: "answer" },
+      { op: "end", verdict: ["ok", "401 and the route never ran"],
+        note: "The check lives in one place. Every route added after <code>auth</code> is protected, even a route someone adds next year and forgets about." }
+    ]
+  },
+  {
+    name: "3. The route throws",
+    request: { method: "GET", path: "/boom", auth: "Bearer t-7", body: "" },
+    why: "The async route throws, so its promise is rejected. Express 5 sees that and calls next(err) for you. next(err) skips every normal function and runs the next function with four parameters: the error middleware. It sends 500 with a safe message.",
+    predict: { q: "GET /boom. The async route throws \"database is down\". What does the client get?",
+               options: ["The server crashes", "500 with a safe message", "The request hangs"], answer: "500 with a safe message" },
+    ops: [
+      { op: "intro", note: "The client sends <code>GET /boom</code> with a good token. The route for it is an <code>async</code> function that throws, like a database call that fails." },
+      { op: "send" },
+      { op: "run", box: "logger", set: { id: "3" }, log: "3 logger GET /boom", state: ["called next", "ok"],
+        note: "<b>logger</b> sets <code>req.id = 3</code>, prints a line and calls <code>next()</code>." },
+      { op: "run", box: "json", state: ["called next", "ok"],
+        note: "<b>express.json</b>: a <code>GET</code> has no body here, so <code>req.body</code> stays <code>undefined</code>. It calls <code>next()</code>." },
+      { op: "run", box: "auth", set: { user: "{ id: 7 }" }, state: ["called next", "ok"],
+        note: "<b>auth</b>: the token is good. It sets <code>req.user</code> and calls <code>next()</code>." },
+      { op: "skip", box: "orders", why: "path does not match",
+        note: "<code>POST /orders</code> is skipped. Express only runs a route when the method and the path both match. This request is <code>GET /boom</code>." },
+      { op: "run", box: "boom", state: ["threw an error", "bad"], phase: "bad", err: "database is down",
+        note: "<code>GET /boom</code> matches and runs. It throws <code>new Error(\"database is down\")</code>. Because the function is <code>async</code>, the throw turns into a rejected promise. Express 5 sees it and calls <code>next(err)</code> for you." },
+      { op: "run", box: "errmw", log: "3 error middleware: database is down", send: [500, "{\"error\":\"something went wrong\"}"], state: ["sent 500", "ok"], phase: "srv",
+        note: "<code>next(err)</code> jumps to the next function with <b>four</b> parameters: the <b>error middleware</b>. It prints the real message for you, and sends <code>500</code> with a <b>safe</b> message. The client never sees \"database is down\"." },
+      { op: "answer" },
+      { op: "end", verdict: ["ok", "500 from the error middleware, server still running"],
+        note: "One error middleware at the end catches errors from every route. In Express 4, the same async throw was not caught: Node stopped the whole server. Section 7 of the lesson shows it." }
+    ]
+  },
+  {
+    name: "4. Forgot next()",
+    request: { method: "POST", path: "/orders", auth: "Bearer t-7", body: "{\"item\":\"cement\"}" },
+    forgot: true,
+    why: "The logger printed its line and then simply ended. It did not call next() and did not send. Express has nothing to do, so it waits. No error is printed. The client waits until it gives up with a timeout.",
+    predict: { q: "The logger forgets to call next(). The request is a good POST /orders. What does the client get?",
+               options: ["404 Not Found", "500 error", "Nothing. It waits until it gives up"], answer: "Nothing. It waits until it gives up" },
+    ops: [
+      { op: "intro", note: "The same good request as story 1. But someone changed the logger and deleted the <code>next()</code> line by mistake." },
+      { op: "send" },
+      { op: "run", box: "logger", set: { id: "1" }, log: "1 logger POST /orders", state: ["no next, no send", "bad"], phase: "bad",
+        note: "<b>logger</b> sets <code>req.id = 1</code> and prints its line. Then the function ends. It did not call <code>next()</code>. It did not send anything." },
+      { op: "unreached", boxes: ["json", "auth", "orders", "boom", "errmw"], why: "never runs",
+        note: "Nothing else runs. Express only moves on when someone calls <code>next()</code>. There is no error, so the error middleware does not run either." },
+      { op: "wait", note: "The server does nothing. It prints no error. The client is still waiting for an answer that will never come." },
+      { op: "giveup", note: "The client gives up after its own time limit. In the lesson's test it was 1.5 seconds, and <code>fetch</code> threw <code>TimeoutError</code>. A browser can wait much longer." },
+      { op: "end", verdict: ["bad", "no answer: the request hung"],
+        note: "A hang is worse than an error, because nothing is printed. If a request hangs, look for a middleware that neither calls <code>next()</code> nor sends." }
+    ]
+  }
+];
+
+function simulate(p) {
+  const steps = [];
+  const r = p.request;
+  const w = {
+    client: { lines: [], now: "ready", got: null },
+    boxes: LINE.map(b => ({ id: b.id, state: "waiting", tone: "dim" })),
+    req: { method: "-", path: "-", authorization: "-", id: "-", body: "-", user: "-" },
+    err: null, logs: [], verdict: null, forgot: !!p.forgot, fresh: null
+  };
+  let sent = null;
+  const box = id => w.boxes.find(b => b.id === id);
+  const snap = (note, active, hop, phase) => steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+  for (const op of p.ops) {
+    w.fresh = null;
+    if (op.op === "intro") { snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { w.verdict = op.verdict; snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "send") {
+      w.client.lines = [r.method + " " + r.path, r.auth ? "Authorization: " + r.auth : "no Authorization header", r.body ? "body " + r.body : "no body"];
+      w.client.now = "waiting for an answer";
+      w.req = { method: r.method, path: r.path, authorization: r.auth || "undefined", id: "undefined", body: "undefined", user: "undefined" };
+      snap("The client sends <code>" + r.method + " " + r.path + "</code>" + (r.auth ? " with <code>Authorization: " + r.auth + "</code>" : " with <b>no</b> token") +
+        ". Express makes one <code>req</code> object and one <code>res</code> object. The same two objects go to every function in the line.", ["client", "req"], "The request arrives", "run");
+    } else if (op.op === "run") {
+      const b = box(op.box);
+      if (op.set) { Object.assign(w.req, op.set); w.fresh = Object.keys(op.set); }
+      if (op.log) w.logs.push(op.log);
+      if (op.err) w.err = op.err;
+      if (op.send) { sent = op.send; w.client.now = "answer on its way"; }
+      b.state = op.state[0]; b.tone = op.state[1];
+      const hop = op.send ? "Sends " + op.send[0] + " and stops the line" : op.err ? "Throws: jump to the error path" : op.state[0] === "called next" ? "Calls next()" : "Ends with no next() and no send";
+      snap(op.note, ["box-" + op.box, "req"].concat(op.send ? ["res"] : []), hop, op.phase || (op.send ? "srv" : "run"));
+    } else if (op.op === "skip") {
+      const b = box(op.box);
+      b.state = "skipped: " + op.why; b.tone = "dim";
+      snap(op.note, ["box-" + op.box], "Skipped", "run");
+    } else if (op.op === "unreached") {
+      op.boxes.forEach(id => { const b = box(id); b.state = op.why; b.tone = "dim"; });
+      snap(op.note, op.boxes.map(id => "box-" + id), "The rest of the line", "run");
+    } else if (op.op === "answer") {
+      w.client.got = sent[0] + " " + sent[1];
+      w.client.now = "got " + sent[0];
+      snap("The client gets <code>" + sent[0] + " " + sent[1] + "</code>.", ["client", "res"], "The answer arrives", "srv");
+    } else if (op.op === "wait") {
+      w.client.now = "still waiting...";
+      snap(op.note, ["client"], "Waiting", "bad");
+    } else if (op.op === "giveup") {
+      w.client.now = "gave up: TimeoutError";
+      w.client.got = "no answer";
+      snap(op.note, ["client"], "The client gives up", "bad");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something goes wrong", "bad"], srv: ["An answer is sent", "srv"], done: ["Finished", "done"] };
+const KIND = { mw: ["lb", "middleware"], route: ["srv", "route"], error: ["store", "error middleware, 4 parameters"] };
+
+function renderStage(s) {
+  const w = s.w;
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const client = w.client.lines.length
+    ? w.client.lines.map(t => '<li><span class="mono">' + esc(t) + "</span></li>").join("")
+    : '<li class="empty">nothing sent yet</li>';
+  const boxes = LINE.map((b, i) => {
+    const st = w.boxes[i];
+    const kind = KIND[b.kind];
+    const off = /skipped|not reached|never runs/.test(st.state) ? " off" : "";
+    const label = b.id === "logger" && w.forgot ? "logger, forgot next" : b.name;
+    return (i ? '<div class="arrow">&#8595;</div>' : "") +
+      '<div class="comp mw ' + kind[0] + lit("box-" + b.id) + off + '"><h3><span>' + (i + 1) + ". " + esc(label) +
+      '</span><span class="tag ' + st.tone + '">' + esc(st.state) + "</span></h3>" +
+      '<small class="mono">' + esc(b.code) + "</small></div>";
+  }).join("");
+  const fields = ["method", "path", "authorization", "id", "body", "user"];
+  const reqRows = fields.map(f => '<li class="' + (w.fresh && w.fresh.includes(f) ? "new" : "") + '"><span class="mono k">req.' + (f === "authorization" ? "headers.authorization" : f) +
+    '</span><span class="mono">' + esc(w.req[f]) + "</span></li>").join("") +
+    (w.err ? '<li class="dup"><span class="mono">err</span><span class="mono">' + esc(w.err) + "</span></li>" : "");
+  const logs = w.logs.length ? w.logs.map(l => '<li><span class="mono">' + esc(l) + "</span></li>").join("") : '<li class="empty">nothing printed yet</li>';
+  const verdict = w.verdict ? '<div class="verdict ' + w.verdict[0] + '">' + esc(w.verdict[1]) + "</div>" : "";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>The client</h2>' +
+      '<div class="comp user' + lit("client") + '"><h3>Request</h3><small>what the client sent</small><ul class="rows">' + client + "</ul>" +
+        '<div class="line" style="margin-top:6px"><b>Now:</b> ' + esc(w.client.now) + "</div>" +
+        (w.client.got ? '<div class="line"><b>Got:</b> <span class="mono">' + esc(w.client.got) + "</span></div>" : "") + verdict + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>The line, top to bottom</h2>' + boxes + "</div>" +
+    '<div class="panel"><h2>Inside the server</h2>' +
+      '<div class="comp store' + lit("req") + '"><h3>req right now</h3><small>one object, shared by every function</small><ul class="rows">' + reqRows + "</ul></div>" +
+      '<div class="comp lb' + lit("res") + '"><h3>Server log</h3><ul class="rows">' + logs + "</ul></div>" +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderStage(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(real) + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>

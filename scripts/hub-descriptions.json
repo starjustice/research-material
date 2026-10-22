@@ -15,6 +15,10 @@
   ".NET Basics for a TypeScript Dev",
   "C#↔TS mapping cards, pipeline, EF Core vs Prisma, dotnet CLI table"
  ],
+ "learn/backend-api/backend-api-cheatsheet.html": [
+  "Backend and API Lessons 01 to 03",
+  "Request anatomy, status families, 401 vs 403, REST map, offset vs cursor, the Express middleware line"
+ ],
  "learn/backend-api/express-graphql-auth-tutorial-cheatsheet.html": [
   "Express + GraphQL + Auth",
   "Context, JWT anatomy, access vs refresh tokens, authn vs authz"

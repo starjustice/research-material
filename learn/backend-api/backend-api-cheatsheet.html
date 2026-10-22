@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend and API Cheatsheet</title>
+<style>
+  :root {
+    --bg: #faf6ee;
+    --card: #ffffff;
+    --ink: #1e3a4c;
+    --muted: #6b7a86;
+    --accent: #f5c542;
+    --accent-soft: #fdf3d0;
+    --green: #3a9d6e;
+    --green-soft: #e3f4ec;
+    --blue: #4a7fb5;
+    --blue-soft: #dbeafe;
+    --pink: #e06377;
+    --pink-soft: #fbe4e8;
+    --purple: #7c5cc4;
+    --purple-soft: #ece6fa;
+    --border: #e6dfd2;
+    --code-bg: #1e2a33;
+    --code-ink: #d9e6ee;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 80px; max-width: 1000px; margin: 0 auto; line-height: 1.5;
+  }
+  a { color: var(--blue); }
+  code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86em; background: #f1ebdf; border-radius: 4px; padding: 1px 4px; }
+  header { text-align: center; margin-bottom: 8px; }
+  header .back { display: block; text-align: left; font-size: .85rem; margin-bottom: 8px; }
+  header h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+  header p.sub { display: inline-block; margin-top: 6px; background: linear-gradient(transparent 60%, var(--accent) 60%); font-weight: 600; }
+  .progress-wrap { margin: 14px auto 4px; max-width: 480px; text-align: center; }
+  .progress-bar { height: 10px; background: #eee5d4; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 6px; transition: width .3s; }
+  .progress-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .reset-btn { background: none; border: none; color: var(--muted); font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px 0 24px; position: sticky; top: 0; background: var(--bg); padding: 10px 0; z-index: 5; }
+  nav button { border: 2px solid var(--border); background: var(--card); color: var(--ink); padding: 8px 14px; border-radius: 999px; font-size: .86rem; font-weight: 600; cursor: pointer; }
+  nav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  section { display: none; }
+  section.active { display: block; animation: fadeIn .25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  .hint { text-align: center; color: var(--muted); font-size: .86rem; margin-bottom: 16px; }
+  h2.block { font-size: 1.1rem; margin: 26px 0 10px; }
+
+  /* Map: one card per lesson */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .concept { position: relative; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 14px 52px; box-shadow: 0 2px 6px rgba(30,58,76,.06); }
+  .concept .num-chip { position: absolute; top: 14px; left: 14px; width: 28px; height: 28px; border-radius: 50%; background: var(--blue-soft); display: flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 700; }
+  .concept h3 { font-size: 1rem; margin-bottom: 6px; padding-right: 34px; }
+  .concept p { font-size: .87rem; }
+  .concept .rule { margin-top: 8px; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 6px 10px; font-size: .84rem; }
+  .concept .links { margin-top: 8px; font-size: .8rem; display: flex; gap: 12px; flex-wrap: wrap; }
+  .concept .got { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); background: var(--card); cursor: pointer; font-size: .9rem; line-height: 1; color: transparent; }
+  .concept.known { border: 2px solid var(--green); background: #fcfffd; }
+  .concept.known .got { background: var(--green); border-color: var(--green); color: #fff; }
+  .group-title { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
+
+  /* Pictures */
+  .diagram-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .diagram-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .diagram-card .note { font-size: .84rem; color: var(--muted); }
+  .diagram-card .say { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; font-size: .86rem; margin-top: 10px; }
+  .diagram-card svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+  .box { fill: var(--card); stroke: var(--ink); stroke-width: 1.5; }
+  .box-blue { fill: var(--blue-soft); } .box-green { fill: var(--green-soft); } .box-yellow { fill: var(--accent-soft); }
+  .box-pink { fill: var(--pink-soft); } .box-purple { fill: var(--purple-soft); } .box-faint { fill: #f4f1ea; stroke: var(--muted); stroke-dasharray: 4 3; }
+  .lbl { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: middle; }
+  .lbl-l { font: 600 13px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); text-anchor: start; }
+  .lbl-s { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: middle; }
+  .lbl-sl { font: 500 11px -apple-system, "Segoe UI", sans-serif; fill: var(--muted); text-anchor: start; }
+  .mono { font: 600 12px "SF Mono", ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; }
+  .arrow { stroke: var(--ink); stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+  .arrow-dash { stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; marker-end: url(#arr); }
+  .arrow-pink { stroke: var(--pink); stroke-width: 1.8; fill: none; marker-end: url(#arrPink); }
+
+  /* Predict */
+  .quiz { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .quiz h3 { font-size: .95rem; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag { display: inline-block; background: var(--blue-soft); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 8px; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font-size: .82rem; line-height: 1.55; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  details { margin-top: 10px; }
+  details summary { cursor: pointer; font-weight: 600; font-size: .86rem; color: var(--blue); }
+  details .ans { margin-top: 8px; background: var(--green-soft); border-radius: 8px; padding: 8px 12px; font-size: .86rem; }
+  details .ans b.out { font-family: "SF Mono", ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+
+  /* Pick one */
+  .decision { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  .decision .vs { font-weight: 700; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .decision .vs .badge { background: var(--pink); color: #fff; border-radius: 6px; font-size: .66rem; padding: 2px 8px; letter-spacing: .04em; }
+  .decision .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .decision .col { border-radius: 10px; padding: 10px 12px; font-size: .84rem; background: var(--blue-soft); }
+  .decision .col:nth-child(2) { background: var(--green-soft); }
+  .decision .col:nth-child(3) { background: var(--purple-soft); }
+  .decision .col b { display: block; margin-bottom: 3px; font-size: .84rem; }
+  .decision .verdict { margin-top: 10px; font-size: .85rem; background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 12px; }
+
+  /* Interview */
+  .qa { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--blue); }
+  .qa .q { font-weight: 700; font-size: .98rem; margin-bottom: 8px; }
+  .qa .say { background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; font-size: .88rem; margin-top: 8px; }
+  .qa .trap { background: var(--pink-soft); border-radius: 8px; padding: 6px 12px; font-size: .84rem; margin-top: 8px; }
+  .qa .more { font-size: .8rem; margin-top: 8px; }
+  .notyet { background: var(--card); border: 1px dashed var(--muted); border-radius: var(--radius); padding: 14px 16px; font-size: .86rem; }
+  .notyet li { margin: 4px 0 4px 18px; }
+
+  /* Words and codes */
+  table.words { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 6px rgba(30,58,76,.05); }
+  table.words th, table.words td { border: 1px solid var(--border); padding: 9px 12px; font-size: .86rem; text-align: left; vertical-align: top; }
+  table.words th { background: var(--blue-soft); }
+  table.words td.plain { font-weight: 700; background: var(--accent-soft); white-space: nowrap; }
+  table.words td.where { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+  table.words tr.fam2 td.plain { background: var(--green-soft); }
+  table.words tr.fam3 td.plain { background: var(--blue-soft); }
+  table.words tr.fam4 td.plain { background: var(--accent-soft); }
+  table.words tr.fam5 td.plain { background: var(--pink-soft); }
+  .table-wrap { overflow-x: auto; }
+
+  /* Hooks */
+  .hook { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(30,58,76,.05); border-left: 5px solid var(--accent); }
+  .hook b { display: block; margin-bottom: 3px; }
+  .hook p { font-size: .88rem; }
+
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  @media (max-width: 520px) { table.words td.plain, table.words td.where { white-space: normal; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e3a4c"/></marker>
+    <marker id="arrPink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e06377"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <a class="back" href="../../viewer.html?note=learn/backend-api/README">← Backend and API lessons</a>
+  <h1>BACKEND AND API CHEATSHEET</h1>
+  <p class="sub">HTTP, REST and Express middleware on one page. See it, say it, remember it.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" id="resetBtn">reset progress</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="map">🗺️ Map</button>
+  <button data-tab="pictures">🖼️ Pictures</button>
+  <button data-tab="codes">🔢 Codes</button>
+  <button data-tab="predict">🔮 Predict</button>
+  <button data-tab="pick">⚖️ Pick one</button>
+  <button data-tab="interview">🎤 Interview</button>
+  <button data-tab="words">📖 Words</button>
+  <button data-tab="hooks">🧠 Hooks</button>
+</nav>
+
+<!-- ============ MAP ============ -->
+<section id="map" class="active">
+  <p class="hint">One card per lesson, in order. Read the rule, then tick ✓ when you can say it out loud without looking.</p>
+  <div id="mapList"></div>
+</section>
+
+<!-- ============ PICTURES ============ -->
+<section id="pictures">
+  <p class="hint">The pictures to draw on a whiteboard. Try to draw each one from memory in under one minute.</p>
+
+  <div class="diagram-card">
+    <h3>1 · A request and a response have the same four parts (lesson 01)</h3>
+    <p class="note">Only text travels. Only the first line is different.</p>
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl" x="180" y="22">Request: the app writes it</text>
+      <text class="lbl" x="540" y="22">Response: the server writes it</text>
+      <rect class="box box-blue" x="20" y="34" width="320" height="34" rx="8"/><text class="mono" x="180" y="56">GET /products/41 HTTP/1.1</text>
+      <rect class="box box-green" x="380" y="34" width="320" height="34" rx="8"/><text class="mono" x="540" y="56">HTTP/1.1 200 OK</text>
+      <rect class="box" x="20" y="78" width="320" height="52" rx="8"/><text class="mono" x="180" y="99">Host: shop.example.com</text><text class="mono" x="180" y="119">Authorization: Bearer tok_ana</text>
+      <rect class="box" x="380" y="78" width="320" height="52" rx="8"/><text class="mono" x="540" y="99">Content-Type: application/json</text><text class="lbl-s" x="540" y="119">and more Name: value lines</text>
+      <rect class="box box-faint" x="20" y="140" width="320" height="26" rx="8"/><text class="lbl-s" x="180" y="157">empty line: the headers are over</text>
+      <rect class="box box-faint" x="380" y="140" width="320" height="26" rx="8"/><text class="lbl-s" x="540" y="157">empty line: the headers are over</text>
+      <rect class="box box-yellow" x="20" y="176" width="320" height="34" rx="8"/><text class="lbl" x="180" y="198">no body for a GET</text>
+      <rect class="box box-yellow" x="380" y="176" width="320" height="34" rx="8"/><text class="mono" x="540" y="198">{"id":41,"name":"Rice 5 kg"}</text>
+      <path class="arrow" d="M340,51 L378,51"/>
+      <text class="lbl-s" x="360" y="236">1 first line · 2 headers · 3 empty line · 4 body</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "A request is a request line with the method and path, then Name: value headers, an empty line, and a body if there is one. A response has the same shape, but its first line holds the status code. The server always knows the method and path before it reads any body."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Status codes: read the first digit (lesson 01)</h3>
+    <p class="note">Learn the five families first. Then single codes are easy.</p>
+    <svg viewBox="0 0 720 196" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-faint" x="20" y="20" width="128" height="56" rx="10"/><text class="lbl" x="84" y="42">1xx</text><text class="lbl-s" x="84" y="62">wait, more coming</text>
+      <rect class="box box-green" x="158" y="20" width="128" height="56" rx="10"/><text class="lbl" x="222" y="42">2xx</text><text class="lbl-s" x="222" y="62">it worked</text>
+      <rect class="box box-blue" x="296" y="20" width="128" height="56" rx="10"/><text class="lbl" x="360" y="42">3xx</text><text class="lbl-s" x="360" y="62">look somewhere else</text>
+      <rect class="box box-yellow" x="434" y="20" width="128" height="56" rx="10"/><text class="lbl" x="498" y="42">4xx</text><text class="lbl-s" x="498" y="62">your request is wrong</text>
+      <rect class="box box-pink" x="572" y="20" width="128" height="56" rx="10"/><text class="lbl" x="636" y="42">5xx</text><text class="lbl-s" x="636" y="62">the server broke</text>
+      <text class="lbl-s" x="84" y="104">rarely seen</text>
+      <text class="mono" x="222" y="104">200 201 204</text>
+      <text class="mono" x="360" y="104">301 302 304</text>
+      <text class="mono" x="498" y="104">400 401 403 404</text><text class="mono" x="498" y="122">409 422 429</text>
+      <text class="mono" x="636" y="104">500 502 503 504</text>
+      <path class="arrow-dash" d="M498,132 L498,150"/><path class="arrow-dash" d="M636,132 L636,150"/>
+      <text class="lbl" x="498" y="168">change your</text><text class="lbl" x="498" y="184">request</text>
+      <text class="lbl" x="636" y="168">not your fault,</text><text class="lbl" x="636" y="184">try later</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The first digit is the family. 2xx worked, 3xx look somewhere else, 4xx your request is wrong, 5xx the server broke. The most useful split is 4xx against 5xx: 4xx means change the request, 5xx means it is not your fault, maybe try later."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · 401 against 403: two questions, in order (lesson 01)</h3>
+    <p class="note">403 can only happen after question 1 passed.</p>
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box" x="20" y="40" width="120" height="40" rx="8"/><text class="lbl" x="80" y="65">A request</text>
+      <path class="arrow" d="M140,60 L178,60"/>
+      <rect class="box box-purple" x="180" y="34" width="170" height="52" rx="10"/><text class="lbl" x="265" y="56">Question 1</text><text class="lbl-s" x="265" y="74">who are you?</text>
+      <path class="arrow" d="M350,60 L398,60"/><text class="lbl-s" x="374" y="52">known</text>
+      <rect class="box box-purple" x="400" y="34" width="170" height="52" rx="10"/><text class="lbl" x="485" y="56">Question 2</text><text class="lbl-s" x="485" y="74">may you do this?</text>
+      <path class="arrow" d="M570,60 L608,60"/><text class="lbl-s" x="589" y="52">yes</text>
+      <rect class="box box-green" x="610" y="40" width="100" height="40" rx="8"/><text class="lbl" x="660" y="65">run the route</text>
+      <path class="arrow" d="M265,86 L265,128"/><text class="lbl-sl" x="272" y="112">no or bad token</text>
+      <rect class="box box-pink" x="190" y="130" width="150" height="46" rx="8"/><text class="lbl" x="265" y="150">401</text><text class="lbl-s" x="265" y="168">log in first</text>
+      <path class="arrow" d="M485,86 L485,128"/><text class="lbl-sl" x="492" y="112">not allowed</text>
+      <rect class="box box-pink" x="410" y="130" width="150" height="46" rx="8"/><text class="lbl" x="485" y="150">403</text><text class="lbl-s" x="485" y="168">I know you, and no</text>
+      <text class="lbl-s" x="360" y="200">Logging in again fixes a 401. The same token gets the same 403.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "The server asks two questions in order. Who are you? If it cannot tell, that is 401, so log in. May you do this? If not, that is 403. A 403 means the server knows me and still says no, so sending the same token again does not help."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · REST: one noun, five methods (lesson 02)</h3>
+    <p class="note">The verb is the method, never a word in the path. The status tells the truth.</p>
+    <svg viewBox="0 0 720 252" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-blue" x="20" y="14" width="100" height="32" rx="8"/><text class="mono" x="70" y="35">GET</text>
+      <rect class="box" x="135" y="14" width="230" height="32" rx="8"/><text class="mono" x="250" y="35">/orders</text>
+      <path class="arrow" d="M365,30 L418,30"/>
+      <rect class="box" x="420" y="14" width="280" height="32" rx="8"/><text class="lbl" x="560" y="35">200 and one page</text>
+
+      <rect class="box box-green" x="20" y="56" width="100" height="32" rx="8"/><text class="mono" x="70" y="77">POST</text>
+      <rect class="box" x="135" y="56" width="230" height="32" rx="8"/><text class="mono" x="250" y="77">/orders</text>
+      <path class="arrow" d="M365,72 L418,72"/>
+      <rect class="box" x="420" y="56" width="280" height="32" rx="8"/><text class="lbl" x="560" y="77">201 and Location /orders/42</text>
+
+      <rect class="box box-blue" x="20" y="98" width="100" height="32" rx="8"/><text class="mono" x="70" y="119">GET</text>
+      <rect class="box" x="135" y="98" width="230" height="32" rx="8"/><text class="mono" x="250" y="119">/orders/41</text>
+      <path class="arrow" d="M365,114 L418,114"/>
+      <rect class="box" x="420" y="98" width="280" height="32" rx="8"/><text class="lbl" x="560" y="119">200 and order 41, or 404</text>
+
+      <rect class="box box-yellow" x="20" y="140" width="100" height="32" rx="8"/><text class="mono" x="70" y="161">PATCH</text>
+      <rect class="box" x="135" y="140" width="230" height="32" rx="8"/><text class="mono" x="250" y="161">/orders/41</text>
+      <path class="arrow" d="M365,156 L418,156"/>
+      <rect class="box" x="420" y="140" width="280" height="32" rx="8"/><text class="lbl" x="560" y="161">200 and the changed order</text>
+
+      <rect class="box box-pink" x="20" y="182" width="100" height="32" rx="8"/><text class="mono" x="70" y="203">DELETE</text>
+      <rect class="box" x="135" y="182" width="230" height="32" rx="8"/><text class="mono" x="250" y="203">/orders/41</text>
+      <path class="arrow" d="M365,198 L418,198"/>
+      <rect class="box" x="420" y="182" width="280" height="32" rx="8"/><text class="lbl" x="560" y="203">204 and no body</text>
+
+      <text class="lbl-s" x="360" y="240">Wrong: POST /getOrders or GET /order/delete?id=41. The verb hides in the path.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "I name the thing with a plural noun, like /orders, and the HTTP method is the verb. The id goes in the path, filters go in the query string, and I nest one level at most. Then any developer can guess the next URL without asking."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Offset against cursor, when a new order arrives (lesson 02)</h3>
+    <p class="note">Page size 5. Budi saw page 1. Then order 31 arrives at the top. Now he asks for page 2.</p>
+    <svg viewBox="0 0 720 232" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl-l" x="10" y="52">orders now</text>
+      <rect class="box box-yellow" x="110" y="30" width="50" height="34" rx="6"/><text class="mono" x="135" y="52">31</text>
+      <rect class="box box-blue" x="164" y="30" width="50" height="34" rx="6"/><text class="mono" x="189" y="52">30</text>
+      <rect class="box box-blue" x="218" y="30" width="50" height="34" rx="6"/><text class="mono" x="243" y="52">29</text>
+      <rect class="box box-blue" x="272" y="30" width="50" height="34" rx="6"/><text class="mono" x="297" y="52">28</text>
+      <rect class="box box-blue" x="326" y="30" width="50" height="34" rx="6"/><text class="mono" x="351" y="52">27</text>
+      <rect class="box box-blue" x="380" y="30" width="50" height="34" rx="6"/><text class="mono" x="405" y="52">26</text>
+      <rect class="box" x="434" y="30" width="50" height="34" rx="6"/><text class="mono" x="459" y="52">25</text>
+      <rect class="box" x="488" y="30" width="50" height="34" rx="6"/><text class="mono" x="513" y="52">24</text>
+      <rect class="box" x="542" y="30" width="50" height="34" rx="6"/><text class="mono" x="567" y="52">23</text>
+      <rect class="box" x="596" y="30" width="50" height="34" rx="6"/><text class="mono" x="621" y="52">22</text>
+      <rect class="box" x="650" y="30" width="50" height="34" rx="6"/><text class="mono" x="675" y="52">21</text>
+      <text class="lbl-sl" x="110" y="80">Blue: page 1 already showed 30 to 26. Yellow: the new order 31.</text>
+
+      <text class="lbl-l" x="10" y="122">offset=5</text>
+      <rect class="box box-faint" x="110" y="100" width="50" height="34" rx="6"/><text class="mono" x="135" y="122">31</text>
+      <rect class="box box-faint" x="164" y="100" width="50" height="34" rx="6"/><text class="mono" x="189" y="122">30</text>
+      <rect class="box box-faint" x="218" y="100" width="50" height="34" rx="6"/><text class="mono" x="243" y="122">29</text>
+      <rect class="box box-faint" x="272" y="100" width="50" height="34" rx="6"/><text class="mono" x="297" y="122">28</text>
+      <rect class="box box-faint" x="326" y="100" width="50" height="34" rx="6"/><text class="mono" x="351" y="122">27</text>
+      <rect class="box box-pink" x="380" y="100" width="50" height="34" rx="6"/><text class="mono" x="405" y="122">26</text>
+      <rect class="box box-green" x="434" y="100" width="50" height="34" rx="6"/><text class="mono" x="459" y="122">25</text>
+      <rect class="box box-green" x="488" y="100" width="50" height="34" rx="6"/><text class="mono" x="513" y="122">24</text>
+      <rect class="box box-green" x="542" y="100" width="50" height="34" rx="6"/><text class="mono" x="567" y="122">23</text>
+      <rect class="box box-green" x="596" y="100" width="50" height="34" rx="6"/><text class="mono" x="621" y="122">22</text>
+      <rect class="box" x="650" y="100" width="50" height="34" rx="6"/><text class="mono" x="675" y="122">21</text>
+      <text class="lbl-sl" x="110" y="150">Skips 5 places. Order 26 is now in place 6, so Budi sees 26 twice.</text>
+
+      <text class="lbl-l" x="10" y="192">after=26</text>
+      <rect class="box box-faint" x="110" y="170" width="50" height="34" rx="6"/><text class="mono" x="135" y="192">31</text>
+      <rect class="box box-faint" x="164" y="170" width="50" height="34" rx="6"/><text class="mono" x="189" y="192">30</text>
+      <rect class="box box-faint" x="218" y="170" width="50" height="34" rx="6"/><text class="mono" x="243" y="192">29</text>
+      <rect class="box box-faint" x="272" y="170" width="50" height="34" rx="6"/><text class="mono" x="297" y="192">28</text>
+      <rect class="box box-faint" x="326" y="170" width="50" height="34" rx="6"/><text class="mono" x="351" y="192">27</text>
+      <rect class="box box-faint" x="380" y="170" width="50" height="34" rx="6"/><text class="mono" x="405" y="192">26</text>
+      <rect class="box box-green" x="434" y="170" width="50" height="34" rx="6"/><text class="mono" x="459" y="192">25</text>
+      <rect class="box box-green" x="488" y="170" width="50" height="34" rx="6"/><text class="mono" x="513" y="192">24</text>
+      <rect class="box box-green" x="542" y="170" width="50" height="34" rx="6"/><text class="mono" x="567" y="192">23</text>
+      <rect class="box box-green" x="596" y="170" width="50" height="34" rx="6"/><text class="mono" x="621" y="192">22</text>
+      <rect class="box box-green" x="650" y="170" width="50" height="34" rx="6"/><text class="mono" x="675" y="192">21</text>
+      <text class="lbl-sl" x="110" y="220">Only ids below 26. Nothing twice, nothing missed.</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Offset counts places, so when a row is added or removed, every row below it moves and the next page shows one twice or skips one. A cursor is the id of the last item the app saw, so the server asks for ids below it, and it does not care where rows moved."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · The Express line, and the jump to the error middleware (lesson 03)</h3>
+    <p class="note">Each function fills something on <code>req</code> for the next one. An error skips every normal function.</p>
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <text class="lbl-l" x="10" y="26">Added top to bottom, run left to right. Each arrow is next().</text>
+      <rect class="box box-blue" x="10" y="50" width="100" height="48" rx="8"/><text class="lbl" x="60" y="70">logger</text><text class="lbl-s" x="60" y="88">req.id</text>
+      <rect class="box box-blue" x="130" y="50" width="100" height="48" rx="8"/><text class="lbl" x="180" y="70">express.json</text><text class="lbl-s" x="180" y="88">req.body</text>
+      <rect class="box box-purple" x="250" y="50" width="100" height="48" rx="8"/><text class="lbl" x="300" y="70">auth</text><text class="lbl-s" x="300" y="88">req.user</text>
+      <rect class="box box-green" x="370" y="50" width="100" height="48" rx="8"/><text class="lbl" x="420" y="70">routes</text><text class="lbl-s" x="420" y="88">send the answer</text>
+      <rect class="box box-faint" x="490" y="50" width="100" height="48" rx="8"/><text class="lbl" x="540" y="70">404 catch-all</text><text class="lbl-s" x="540" y="88">no route matched</text>
+      <rect class="box box-pink" x="610" y="50" width="100" height="48" rx="8"/><text class="lbl" x="660" y="70">catch errors</text><text class="lbl-s" x="660" y="88">4 parameters</text>
+      <path class="arrow" d="M110,74 L128,74"/><path class="arrow" d="M230,74 L248,74"/><path class="arrow" d="M350,74 L368,74"/><path class="arrow" d="M470,74 L488,74"/>
+      <path class="arrow" d="M300,98 L300,140"/>
+      <rect class="box box-pink" x="240" y="142" width="120" height="34" rx="8"/><text class="lbl" x="300" y="164">401 and stop</text>
+      <text class="lbl-s" x="300" y="192">no token: return and send</text>
+      <path class="arrow-pink" d="M420,98 C420,160 660,160 660,100"/>
+      <text class="lbl-s" x="540" y="166">throw or next(err) skips the rest</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Express runs one line of functions in the order I added them: logger, express.json, auth, routes, a 404 catch-all, error middleware. They all share one req, so auth puts req.user there and the route reads it. If anything throws or calls next with an error, Express skips every normal function and jumps to the error middleware, which has four parameters and goes last."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · How one middleware can end: three are fine, two are bugs (lesson 03)</h3>
+    <p class="note">The rule: next or send, never neither, never both.</p>
+    <svg viewBox="0 0 720 236" xmlns="http://www.w3.org/2000/svg">
+      <rect class="box box-green" x="20" y="14" width="300" height="34" rx="8"/><text class="mono" x="170" y="36">next()</text>
+      <path class="arrow" d="M320,31 L378,31"/>
+      <rect class="box box-green" x="380" y="14" width="320" height="34" rx="8"/><text class="lbl" x="540" y="36">OK: pass it on to the next function</text>
+
+      <rect class="box box-green" x="20" y="58" width="300" height="34" rx="8"/><text class="mono" x="170" y="80">return res.status(401).json(...)</text>
+      <path class="arrow" d="M320,75 L378,75"/>
+      <rect class="box box-green" x="380" y="58" width="320" height="34" rx="8"/><text class="lbl" x="540" y="80">OK: send the answer and stop</text>
+
+      <rect class="box box-green" x="20" y="102" width="300" height="34" rx="8"/><text class="mono" x="170" y="124">next(err)  or  throw</text>
+      <path class="arrow" d="M320,119 L378,119"/>
+      <rect class="box box-green" x="380" y="102" width="320" height="34" rx="8"/><text class="lbl" x="540" y="124">OK: jump to the error middleware</text>
+
+      <rect class="box box-pink" x="20" y="146" width="300" height="34" rx="8"/><text class="mono" x="170" y="168">neither</text>
+      <path class="arrow-pink" d="M320,163 L378,163"/>
+      <rect class="box box-pink" x="380" y="146" width="320" height="34" rx="8"/><text class="lbl" x="540" y="161">BUG: the request hangs</text><text class="lbl-s" x="540" y="175">the app waits until it times out</text>
+
+      <rect class="box box-pink" x="20" y="190" width="300" height="34" rx="8"/><text class="mono" x="170" y="212">send, then next()</text>
+      <path class="arrow-pink" d="M320,207 L378,207"/>
+      <rect class="box box-pink" x="380" y="190" width="320" height="34" rx="8"/><text class="lbl" x="540" y="205">BUG: the route still runs</text><text class="lbl-s" x="540" y="219">then ERR_HTTP_HEADERS_SENT</text>
+    </svg>
+    <div class="say"><b>Say this:</b> "Every middleware must do exactly one of three things: call next, send an answer with return, or pass an error with next(err). If it does neither, the request hangs. If it sends and then calls next, the route still runs, so a 401 can still create an order."</div>
+  </div>
+</section>
+
+<!-- ============ CODES ============ -->
+<section id="codes">
+  <p class="hint">The status codes worth knowing, coloured by family. Cover the right side and say what each code means. A gateway is a server in front of yours, like nginx or a load balancer.</p>
+  <div class="table-wrap"><table class="words" id="codeTable"><tr><th>Code</th><th>Name</th><th>Send it when</th><th>In the shop</th></tr></table></div>
+</section>
+
+<!-- ============ PREDICT ============ -->
+<section id="predict">
+  <p class="hint">Say your answer out loud first, then open it. Every answer below was run on 2026-10-22 with Node 24. The Express ones used Express 5.3.0.</p>
+  <div id="quizList"></div>
+</section>
+
+<!-- ============ PICK ONE ============ -->
+<section id="pick">
+  <p class="hint">Choices interviewers ask about. All sides are visible. The yellow line is your short answer.</p>
+  <div id="decisionList"></div>
+</section>
+
+<!-- ============ INTERVIEW ============ -->
+<section id="interview">
+  <p class="hint">The questions you are most likely to hear about these 3 lessons. Learn the yellow "Say this" line, then open the lesson for the full four-part answer.</p>
+  <div id="qaList"></div>
+  <h2 class="block">Also asked often, but not in these lessons yet</h2>
+  <div class="notyet">
+    <p>Backend rounds also ask about these. They are planned lessons in this subject, so learn them next:</p>
+    <ul>
+      <li><b>GraphQL basics</b> (lesson 04): schema, query and mutation, and how it differs from REST.</li>
+      <li><b>Resolvers and the N+1 problem</b> (lesson 05): why one list query can turn into 100 database queries.</li>
+      <li><b>Sessions against JWT</b> (lesson 06) and <b>access and refresh tokens</b> (lesson 07).</li>
+      <li><b>Validation and error handling</b> (lesson 10): one error shape for every route.</li>
+      <li><b>Rate limiting</b> (lesson 11): where 429 and Retry-After come from.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ WORDS ============ -->
+<section id="words">
+  <p class="hint">The interview word on the left, what it really means on the right. Use the plain meaning to explain, and the interview word to show you know the name.</p>
+  <div class="table-wrap"><table class="words" id="wordTable"><tr><th>Interview word</th><th>Plain meaning</th><th>Lesson</th></tr></table></div>
+</section>
+
+<!-- ============ HOOKS ============ -->
+<section id="hooks">
+  <p class="hint">Short lines that make the idea stick. Say them in your head when you see the code.</p>
+  <div id="hookList"></div>
+</section>
+
+<footer>Made 2026-10-22 from Backend and API lessons 01 to 03 in this folder. Practice files: <code>learn/backend-api/practice/</code></footer>
+
+<script>
+const V = n => "../../viewer.html?note=learn/backend-api/" + n;
+
+const lessons = [
+  { group: "Basics", n: "01", t: "HTTP basics", slug: "01-http-basics", step: "01-http-basics",
+    d: "Your app sends the server a short text message that says what it wants. The server sends back a text message that starts with a number saying how it went.",
+    r: "Read the status first: 2xx worked, 4xx your request is wrong, 5xx the server broke. 401 is who are you, 403 is I know you and no. fetch does not throw on a 404, so check res.ok." },
+  { group: "Basics", n: "02", t: "REST API design", slug: "02-rest-api-design", step: "02-rest-api-design",
+    d: "Name things with nouns in the URL, let the HTTP method be the verb, and send long lists in pages, so any developer can guess the next URL.",
+    r: "Lists come as { data, next_cursor, has_more } with a capped limit. Use a cursor, not an offset. Add fields freely, remove or rename only in a new version." },
+  { group: "Basics", n: "03", t: "Express middleware", slug: "03-express-middleware", step: "03-express-middleware",
+    d: "Express passes every request down a line of small functions, in the order you added them. Each one passes it on or sends the answer.",
+    r: "Call next() or return a send, never neither and never both. A throw or next(err) jumps to the 4-parameter error middleware, which goes last." },
+];
+
+const codes = [
+  ["200", "OK", "it worked and there is a body", "GET /products/41", 2],
+  ["201", "Created", "a new thing was made. Add a Location header with its path", "POST /orders", 2],
+  ["204", "No Content", "it worked and there is nothing to send", "DELETE /products/41", 2],
+  ["301 / 302", "Moved Permanently / Found", "the thing lives at another address, for good or for now", "an old link to /item/41", 3],
+  ["304", "Not Modified", "your saved copy is still good, no body", "the app asks again for an image it has", 3],
+  ["400", "Bad Request", "I cannot read your request", "broken JSON", 4],
+  ["401", "Unauthorized", "I do not know who you are", "no token, or a token that is too old", 4],
+  ["403", "Forbidden", "I know you, and you may not", "a buyer tries to delete a product", 4],
+  ["404", "Not Found", "the thing is not there", "GET /products/999", 4],
+  ["409", "Conflict", "it clashes with what is already there", "sign up with a taken email, cancel a shipped order", 4],
+  ["422", "Unprocessable Content", "I can read it, but it breaks a rule", "a price below 0", 4],
+  ["429", "Too Many Requests", "slow down. Add Retry-After", "100 logins in a minute", 4],
+  ["500", "Internal Server Error", "my code broke", "an uncaught error in a route", 5],
+  ["502", "Bad Gateway", "the gateway got a broken answer from your server", "your Node app crashed mid answer", 5],
+  ["503", "Service Unavailable", "down for now, on purpose or overloaded", "a deploy or maintenance", 5],
+  ["504", "Gateway Timeout", "the gateway waited too long for your server", "a slow database query", 5],
+];
+
+const quizzes = [
+  { tag: "01", code: 'const server = http.createServer((req, res) => {\n  res.writeHead(404, { "Content-Type": "application/json" });\n  res.end(JSON.stringify({ error: "no product 999" }));\n});\nserver.listen(3000, async () => {\n  try {\n    const res = await fetch("http://localhost:3000/products/999");\n    console.log("status:", res.status, "ok:", res.ok);\n    const product = await res.json();\n    console.log("name:", product.name);\n  } catch (e) {\n    console.log("catch:", e.message);\n  }\n  server.close();\n});',
+    out: "status: 404 ok: false\nname: undefined", why: "The catch never runs. A 404 is a real answer, so fetch hands it back. The body has no name. fetch only throws when no answer comes back at all." },
+  { tag: "01", code: 'console.log([200, 201, 204, 304, 404, 500].map(s => new Response(null, { status: s }).ok));',
+    out: "[ true, true, true, false, false, false ]", why: "res.ok is true only for 200 to 299. So a 304 is not ok, even though nothing went wrong." },
+  { tag: "01", code: 'await fetch("http://localhost:3000/products", { method: "GET", body: "x" });',
+    out: "TypeError: Request with GET/HEAD method cannot have body.", why: "A GET has no body. fetch refuses before anything is sent. Put search values in the query string instead." },
+  { tag: "02", code: 'let orders = [30, 29, 28, 27, 26, 25, 24, 23, 22, 21];\nconst byOffset = (offset, limit) => orders.slice(offset, offset + limit);\nconst byCursor = (after, limit) => orders.filter((id) => id < after).slice(0, limit);\nconst offPage1 = byOffset(0, 5);\nconst curPage1 = byCursor(Infinity, 5);\norders = [31, ...orders];            // a new order arrives\nconst offPage2 = byOffset(5, 5);\nconst curPage2 = byCursor(curPage1.at(-1), 5);\nconsole.log("offset:", offPage1, offPage2);\nconsole.log("cursor:", curPage1, curPage2);',
+    out: "offset: [ 30, 29, 28, 27, 26 ] [ 26, 25, 24, 23, 22 ]\ncursor: [ 30, 29, 28, 27, 26 ] [ 25, 24, 23, 22, 21 ]", why: "Order 31 pushed every row down one place, so offset 5 lands on 26 again. The cursor asks for ids below 26 and does not care where rows moved." },
+  { tag: "02", code: 'let orders = [30, 29, 28, 27, 26, 25, 24, 23, 22, 21];\nconst page1 = orders.slice(0, 5);\norders = orders.filter((id) => id !== 28);   // order 28 leaves the list\nconst page2 = orders.slice(5, 10);\nconsole.log("page 1:", page1);\nconsole.log("page 2:", page2);',
+    out: "page 1: [ 30, 29, 28, 27, 26 ]\npage 2: [ 24, 23, 22, 21 ]", why: "Order 28 left, so every row below it moved up one place. Order 25 slid into place 5, which offset 5 skips. Order 25 is never shown, and nothing looks wrong on screen." },
+  { tag: "02", code: 'const orders = [30, 29, 28, 27, 26, 25, 24, 23, 22, 21];\nconst byCursor = (after, limit) => orders.filter((id) => id <= after).slice(0, limit);\nconsole.log(byCursor(26, 5));   // page 2, after the last id we saw',
+    out: "[ 26, 25, 24, 23, 22 ]", why: "<= includes the bookmark itself, so order 26 shows twice. A cursor means \"after this one\", so use <." },
+  { tag: "03", code: 'app.use((req, res, next) => { console.log("A"); next(); });\napp.use((err, req, res, next) => { console.log("E1"); next(err); });\napp.get("/x", (req, res, next) => { console.log("route"); next(new Error("boom")); });\napp.use((req, res, next) => { console.log("B"); next(); });\napp.use((err, req, res, next) => {\n  console.log("E2", err.message);\n  res.status(500).json({ error: "something went wrong" });\n});\n// the client asks for GET /x and prints status and body',
+    out: "A\nroute\nE2 boom\n500 {\"error\":\"something went wrong\"}", why: "E1 is skipped: there is no error yet, so error middleware does not run. B is skipped: after next(err), Express skips every normal function." },
+  { tag: "03", code: 'app.use((req, res, next) => {                       // auth\n  if (req.get("authorization") !== "Bearer t-7") {\n    res.status(401).json({ error: "log in first" });\n  }\n  req.user = { id: 7 };\n  next();\n});\napp.post("/orders", (req, res) => {\n  orders.push({ user: req.user.id });\n  console.log("orders saved:", orders.length);\n  res.status(201).json({ ok: true });\n});\n// the client sends POST /orders with NO token',
+    out: "orders saved: 1\n401 {\"error\":\"log in first\"}\nError [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client", why: "Auth sent the 401 but did not return, so it kept going and called next. The order was saved by someone with no token. Fix: return res.status(401).json(...)." },
+  { tag: "03", code: 'app.use((req, res, next) => {\n  console.log("logger: before next");\n  res.on("finish", () => console.log("logger: response sent", res.statusCode));\n  next();\n  console.log("logger: after next");\n});\napp.use(express.json());\n// first GET /health, then POST /orders with a JSON body',
+    out: "GET /health:\nlogger: before next\nroute\nlogger: after next\nlogger: response sent 200\n\nPOST /orders:\nlogger: before next\nlogger: after next\nroute\nlogger: response sent 201", why: "next() is a normal call, so code after it still runs. With no body, the whole line runs inside next(). With a body, express.json waits for it, so next() returns early. To run code after the answer, use res.on(\"finish\")." },
+];
+
+const decisions = [
+  { q: "401 vs 403 vs 404", cols: [["401", "Who are you? No token or a bad one. It must carry a WWW-Authenticate header. Fix: log in again."], ["403", "I know you, and no. The same token gets the same 403."], ["404", "Not there. A server may answer 404 instead of 403 to hide that a thing exists, like GitHub does for private repositories."]],
+    v: "401 fails \"who are you\", 403 fails \"may you do this\". 403 can only happen after the first question passed." },
+  { q: "400 vs 422", cols: [["400", "I cannot read it. Broken JSON."], ["422", "I can read it, but it breaks a rule. Quantity -3, a price below 0."]],
+    v: "Many teams send 400 for both. That is fine. Pick one way and use it everywhere." },
+  { q: "POST vs PUT vs PATCH", cols: [["POST /orders", "Make something new. Two POSTs make two orders. Not safe to repeat."], ["PUT /orders/41", "Replace the whole thing. Safe to repeat."], ["PATCH /orders/41", "Change some fields. Safe to repeat is not promised."]],
+    v: "PUT replaces, PATCH changes some fields. Retrying a POST needs an Idempotency-Key." },
+  { q: "Offset paging vs cursor paging", cols: [["Offset ?offset=20", "Counts places. Can jump to page 9. Shows a row twice or skips one when rows are added or removed. Deep pages are slow."], ["Cursor ?after=26", "Remembers the last id. Nothing twice, nothing missed. Cannot jump to page 9."]],
+    v: "A cursor for anything a user scrolls. Offset is fine for a small admin table with page numbers." },
+  { q: "POST /orders/41/cancel vs PATCH status", cols: [["POST /orders/41/cancel", "Clear intent. One place for the rules, the refund and the email. A verb in the path."], ["PATCH /orders/41 { status: cancelled }", "Pure nouns. The server must spot the change and run the same rules."]],
+    v: "An action path when the action does more than change one field. PATCH for a plain edit. A shipped order answers 409." },
+  { q: "Version in the path vs in a header", cols: [["/v1/orders/41", "Easy to see and to try in a browser. The URL changes for the same order."], ["Api-Version: 2024-06-01", "One URL for one order. Easy to forget, harder to try by hand."]],
+    v: "Either works. The real rule: adding a field is safe, removing, renaming or changing its type needs a new version." },
+  { q: "Where a middleware runs", cols: [["app.use(fn)", "Every request."], ["app.use(\"/admin\", fn)", "Every request whose path starts with /admin."], ["app.get(\"/orders\", auth, handler)", "Only this one route."]],
+    v: "Put shared jobs like logging and JSON reading on app.use. Put a check that only some routes need on those routes." },
+  { q: "next() vs return send vs next(err)", cols: [["next()", "I am done, run the next function."], ["return res.status(...).json(...)", "I answered. Stop here."], ["next(err) or throw", "Something failed. Skip to the error middleware."]],
+    v: "Exactly one of the three, every time. Neither hangs the request. Both runs the route after you answered." },
+  { q: "Express 4 vs Express 5", cols: [["Express 4", "A throw inside an async route is not caught. Node stops the whole server with exit code 1."], ["Express 5", "A rejected promise goes to the error middleware. app.all(\"*\") now throws, write /*splat or app.use(fn)."]],
+    v: "On Express 4, wrap async routes and call next(err). On Express 5, throwing is enough." },
+];
+
+const qas = [
+  { l: "01", q: "Walk me through what happens when the app calls GET /products/41.",
+    s: "The app writes a text message: the request line with method and path, then headers like Host and Authorization, an empty line, and no body for a GET. The server reads the method and path first, checks the token, finds the product, and answers with a status line, headers, an empty line and the JSON body. The app reads the status before the body.",
+    t: "The status goes out first. Once the body has started, the server cannot change the status." },
+  { l: "01", q: "What is the difference between 401 and 403?",
+    s: "The server asks two questions in order. 401 fails the first: who are you? There is no token, or it is bad or old, so the client should log in. 403 passes the first and fails the second: may you do this? Logging in again does not help.",
+    t: "The label says Unauthorized, but 401 really means not logged in. A 401 must carry a WWW-Authenticate header." },
+  { l: "01", q: "Does fetch throw on a 404 or a 500?",
+    s: "No. fetch only throws when no answer comes back, like a network error. A 404 is a real answer, so I check res.ok, which is true only for 200 to 299. axios is different: it rejects any status outside 2xx.",
+    t: "res.ok is false for a 304 too, even though nothing went wrong." },
+  { l: "01", q: "HTTP is stateless. What does that mean, and why is it good?",
+    s: "The server keeps no memory between two requests. So who I am must ride along on every request, in the Authorization header or a cookie. The good side: any server copy can answer any request, so I can add copies behind a load balancer.",
+    t: "Stateless does not mean the app has no data. It means each request carries everything the server needs." },
+  { l: "01", q: "Why does a GraphQL API often answer 200 even when something failed?",
+    s: "With plain application/json, many servers answer 200 and put an errors list in the body, because part of the query can work while another part fails. The GraphQL over HTTP spec is still a draft, and with its application/graphql-response+json type a server can answer 4xx for a broken request. So for GraphQL I always read the errors list, not only res.ok.",
+    t: "Do not say GraphQL can never send 4xx. Say it usually sends 200 with an errors list." },
+  { l: "02", q: "Design the endpoints for orders, with paging.",
+    s: "One resource, orders. GET /orders lists, POST /orders creates with 201 and a Location header, and GET, PATCH and DELETE /orders/41 work on one. The list answers { data, next_cursor, has_more }. The server runs WHERE id < $cursor ORDER BY id DESC LIMIT n + 1, and the extra row only says there is more. I cap the limit at 100.",
+    t: "Offset paging shows an order twice when a new one arrives, and skips one when an order leaves." },
+  { l: "02", q: "How do you change an API without breaking old mobile apps?",
+    s: "Old app builds stay on phones for months. Adding a field or an endpoint is safe, because old apps ignore what they do not know. Removing a field, renaming it or changing its type is a breaking change, so it goes into /v2, and /v1 keeps running until the old apps are gone.",
+    t: "Changing a field from a number to text is breaking too, even with the same name." },
+  { l: "02", q: "Is POST safe to retry?",
+    s: "No. Two POST /orders make two orders. The client sends an Idempotency-Key header with the create, and the server keeps the first answer for that key and sends it again on a retry. GET, PUT and DELETE are safe to repeat already.",
+    t: "PATCH is not promised to be safe to repeat. See system design lesson 13 for the full idea." },
+  { l: "03", q: "Walk a request through an Express app.",
+    s: "Express keeps one line of functions in the order I added them: logger, express.json, auth, routes, a 404 catch-all, error middleware. Each one gets the same req and res. It either calls next to pass it on, or sends the answer. Middleware puts things on req, like req.body and req.user, so the route can read them.",
+    t: "Order is the bug. If express.json comes after the route, req.body is undefined when the route runs." },
+  { l: "03", q: "How do you handle errors in one place?",
+    s: "One error middleware with four parameters, err, req, res and next, added last. A route throws or calls next(err), and Express skips every normal function and jumps there. It logs the real error and sends a safe 500 message, so no stack trace leaks to the client.",
+    t: "With only three parameters, Express treats it as normal middleware and skips it on errors. On Express 4, a throw inside an async route is not caught." },
+  { l: "03", q: "The client got a 401, but the order was still created. Why?",
+    s: "The auth middleware sent the 401 but did not return. It kept going, set req.user and called next, so the route ran and saved the order. Then Express failed with ERR_HTTP_HEADERS_SENT. The fix is return res.status(401).json(...).",
+    t: "Every middleware: next or send, never neither, never both." },
+];
+
+const words = [
+  ["HTTP method (verb)", "The first word of a request. It says what you want: GET reads, POST makes, PUT replaces, PATCH changes some fields, DELETE removes.", "01"],
+  ["Status code", "The 3 digit number in the first line of the answer. It says how it went.", "01"],
+  ["Header", "One Name: value line with extra facts, like who you are or the format of the data.", "01"],
+  ["Body (payload)", "The data after the empty line, usually JSON. A GET has none.", "01"],
+  ["Stateless", "The server keeps no memory between two requests, so the token rides on every one.", "01"],
+  ["Idempotent", "Safe to repeat: doing it twice leaves the server the same as doing it once.", "01, 02"],
+  ["Content-Type", "The header that says what format the body is in, like application/json.", "01"],
+  ["WWW-Authenticate", "The header a 401 must carry. It says how to log in, like Bearer.", "01"],
+  ["Resource / collection", "One kind of thing your API keeps, named by a plural noun. /orders is the list, /orders/41 is one.", "02"],
+  ["Pagination / offset", "Sending a long list in small pieces. Offset says how many rows to skip.", "02"],
+  ["Cursor / keyset pagination", "A bookmark: the id of the last item the app saw. The next page starts after it.", "02"],
+  ["API versioning", "A name like v1 for one shape of your answers, so old apps keep the old shape.", "02"],
+  ["Breaking change", "Removing, renaming or changing the type of a field. Old apps stop working.", "02"],
+  ["Idempotency-Key", "A header with a unique key, so the server can spot a retried POST and not do it twice.", "02"],
+  ["Middleware", "A function that runs before your route, does one job, then passes the request on.", "03"],
+  ["Middleware pipeline (chain)", "All your middleware and routes, in the order you added them. Each request walks it from the top.", "03"],
+  ["next()", "The function Express gives you. Calling it means: I am done, run the next one.", "03"],
+  ["Error-handling middleware", "A middleware with four parameters, (err, req, res, next). It only runs when something failed.", "03"],
+  ["req.user", "The logged-in user, put on req by the auth middleware so routes can read it.", "03"],
+  ["ERR_HTTP_HEADERS_SENT", "The error when code tries to send a second answer after the first one went out.", "03"],
+];
+
+const hooks = [
+  { b: "2 worked, 4 your fault, 5 my fault", p: "Read the first digit of the status. 3 means look somewhere else, and 1 you can skip." },
+  { b: "401 who are you, 403 I know you and no", p: "Two questions, in that order. A new login fixes a 401, never a 403." },
+  { b: "fetch only throws when no answer comes back", p: "A 404 or a 500 is still an answer. Check res.ok before you read the body." },
+  { b: "Same four parts, both ways", p: "First line, headers, empty line, body. For the request and for the response." },
+  { b: "The method is the verb", p: "Nouns in the path, the method says what to do. No /getOrders, no /deleteOrder." },
+  { b: "Offset counts places, a cursor remembers ids", p: "Places move when rows are added or removed. Ids do not." },
+  { b: "Add freely, remove only in a new version", p: "Old apps ignore new fields. They break on missing or renamed ones." },
+  { b: "Parse, check, route, catch", p: "The order of the Express line: express.json, auth, routes, then the error middleware last." },
+  { b: "next or send, never neither, never both", p: "Neither hangs the request. Both runs the route after you already answered." },
+  { b: "Four parameters means error handler", p: "(err, req, res, next). Drop one parameter and Express treats it as normal middleware." },
+  { b: "Four-part answer for every theory question", p: "Problem, how it works, tradeoff, my example. Then stop talking." },
+];
+
+// ---------- progress (browser storage may be blocked, so every access is guarded) ----------
+const KEY = "backend-api-cheatsheet-known";
+let known = new Set();
+try { known = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+function saveKnown() { try { localStorage.setItem(KEY, JSON.stringify([...known])); } catch (e) {} }
+function updateProgress() {
+  const pct = Math.round((known.size / lessons.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressLabel").textContent = known.size + " / " + lessons.length + " lessons I can explain";
+}
+
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// ---------- map ----------
+const mapList = document.getElementById("mapList");
+let lastGroup = null, grid = null;
+lessons.forEach(c => {
+  if (c.group !== lastGroup) {
+    const h = document.createElement("div"); h.className = "group-title"; h.textContent = c.group; mapList.appendChild(h);
+    grid = document.createElement("div"); grid.className = "grid"; mapList.appendChild(grid); lastGroup = c.group;
+  }
+  const el = document.createElement("div");
+  el.className = "concept" + (known.has(c.n) ? " known" : "");
+  el.innerHTML = '<span class="num-chip">' + c.n + '</span><button class="got" title="I can explain this">✓</button>' +
+    "<h3>" + esc(c.t) + "</h3><p>" + esc(c.d) + '</p><div class="rule"><b>Rule:</b> ' + esc(c.r) + "</div>" +
+    '<div class="links"><a href="' + V(c.slug) + '">Lesson ↗</a><a href="visuals/' + c.step + '.html">Stepper ↗</a></div>';
+  el.querySelector(".got").addEventListener("click", () => {
+    known.has(c.n) ? known.delete(c.n) : known.add(c.n);
+    saveKnown(); el.classList.toggle("known", known.has(c.n)); updateProgress();
+  });
+  grid.appendChild(el);
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  known.clear(); saveKnown();
+  document.querySelectorAll(".concept").forEach(el => el.classList.remove("known")); updateProgress();
+});
+updateProgress();
+
+// ---------- codes ----------
+const codeTable = document.getElementById("codeTable");
+codes.forEach(c => {
+  const tr = document.createElement("tr"); tr.className = "fam" + c[4];
+  tr.innerHTML = '<td class="plain">' + esc(c[0]) + "</td><td>" + esc(c[1]) + "</td><td>" + esc(c[2]) + '</td><td class="where">' + esc(c[3]) + "</td>";
+  codeTable.appendChild(tr);
+});
+
+// ---------- predict ----------
+const quizList = document.getElementById("quizList");
+quizzes.forEach((q, i) => {
+  const el = document.createElement("div"); el.className = "quiz";
+  el.innerHTML = '<h3><span class="tag">Lesson ' + q.tag + "</span> " + (i + 1) + ". What does it print?</h3><pre>" + esc(q.code) +
+    '</pre><details><summary>Show the answer</summary><div class="ans"><b class="out">' + esc(q.out) + "</b><br>" + esc(q.why) + "</div></details>";
+  quizList.appendChild(el);
+});
+
+// ---------- pick one ----------
+const decisionList = document.getElementById("decisionList");
+decisions.forEach(d => {
+  const el = document.createElement("div"); el.className = "decision";
+  el.innerHTML = '<div class="vs"><span class="badge">VS</span> ' + esc(d.q) + '</div><div class="cols">' +
+    d.cols.map(c => '<div class="col"><b>' + esc(c[0]) + "</b>" + esc(c[1]) + "</div>").join("") +
+    '</div><div class="verdict"><b>Say:</b> ' + esc(d.v) + "</div>";
+  decisionList.appendChild(el);
+});
+
+// ---------- interview ----------
+const qaList = document.getElementById("qaList");
+qas.forEach((x, i) => {
+  const lesson = lessons.find(c => c.n === x.l);
+  const el = document.createElement("div"); el.className = "qa";
+  el.innerHTML = '<div class="q">' + (i + 1) + ". " + esc(x.q) + '</div><div class="say"><b>Say this:</b> ' + esc(x.s) +
+    '</div><div class="trap"><b>Trap:</b> ' + esc(x.t) + '</div><div class="more">Full four-part answer: <a href="' + V(lesson.slug) +
+    '">lesson ' + esc(x.l) + " ↗</a>, section 10. Add your own story from DBO, Unloan, ZWS or Skyworx there.</div>";
+  qaList.appendChild(el);
+});
+
+// ---------- words ----------
+const wordTable = document.getElementById("wordTable");
+words.forEach(w => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td class="plain">' + esc(w[0]) + "</td><td>" + esc(w[1]) + '</td><td class="where">' + esc(w[2]) + "</td>";
+  wordTable.appendChild(tr);
+});
+
+// ---------- hooks ----------
+const hookList = document.getElementById("hookList");
+hooks.forEach(h => {
+  const el = document.createElement("div"); el.className = "hook";
+  el.innerHTML = "<b>" + esc(h.b) + "</b><p>" + esc(h.p) + "</p>";
+  hookList.appendChild(el);
+});
+
+// ---------- tabs (open one directly with #predict, #interview ...) ----------
+function openTab(id) {
+  if (!document.getElementById(id)) return;
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === id));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("active", s.id === id));
+}
+document.querySelectorAll("nav button").forEach(btn => btn.addEventListener("click", () => {
+  openTab(btn.dataset.tab);
+  try { history.replaceState(null, "", "#" + btn.dataset.tab); } catch (e) {}
+}));
+if (location.hash.length > 1) openTab(location.hash.slice(1));
+</script>
+</body>
+</html>
