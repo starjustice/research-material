@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How a Query Runs Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --unk: #b7791f; --unk-bg: #fdf0d2;
+    --fresh: #2f9e6b; --fresh-bg: #dff3ea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 300px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; display: flex; justify-content: space-between; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.used { color: var(--ink); border-color: #c9d6e2; }
+  .st.skip { border-style: dashed; opacity: .55; }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .count { font-weight: 800; color: var(--ink); letter-spacing: 0; text-transform: none; font-size: .8rem; }
+  table.rows { border-collapse: collapse; width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: .84rem; }
+  table.rows th, table.rows td { border-bottom: 1px solid var(--border); padding: 5px 8px; text-align: left; white-space: nowrap; }
+  table.rows th { font-size: .75rem; color: var(--muted); background: #f6f2ea; }
+  table.rows th.test { color: var(--stage); background: var(--stage-bg); }
+  table.rows th.fresh, table.rows td.fresh { background: var(--fresh-bg); color: var(--fresh); font-weight: 800; }
+  table.rows th.fade, table.rows td.fade { opacity: .3; text-decoration: line-through; }
+  table.rows tr.keep td { background: var(--keep-bg); }
+  table.rows tr.drop td { background: var(--drop-bg); text-decoration: line-through; color: #a5534b; }
+  table.rows tr.drop td.t { text-decoration: none; }
+  .null { color: var(--muted); font-style: italic; }
+  .tv { border-radius: 999px; padding: 1px 8px; font-size: .75rem; font-weight: 800; }
+  .tv.true { background: var(--keep); color: #fff; }
+  .tv.false { background: var(--drop); color: #fff; }
+  .tv.unknown { background: var(--unk); color: #fff; }
+  .empty { color: var(--muted); font-size: .8rem; font-style: italic; padding: 6px 0; }
+  .errbox { margin-top: 8px; background: var(--drop-bg); border: 1px solid #f2b8b2; color: var(--drop); border-radius: 10px; padding: 8px 10px; font-family: ui-monospace, Menlo, monospace; font-size: .84rem; font-weight: 700; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; color: #fff; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox table { border-collapse: collapse; font-family: ui-monospace, Menlo, monospace; font-size: .86rem; }
+  .outbox th, .outbox td { padding: 3px 10px; border-bottom: 1px solid #3a4b58; text-align: left; }
+  .outbox th { color: #9fb4c3; }
+  .outbox .null { color: #9fb4c3; }
+  .outbox .e { color: #ffd9d4; font-family: ui-monospace, Menlo, monospace; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../01-sql-basics-and-query-order.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>How a query runs: stepper</h1>
+  <p class="sub">Press Next and watch the rows travel through the pipeline. Every table on this page came from a real run on PostgreSQL 18.3.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> Which order ids come back, in order? Write them with spaces, like <code>5 6</code>. Write <code>none</code> for no rows, or <code>error</code>. Then step to the end.<br>
+    <input id="guess" placeholder="for example: 5 6" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your query</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The order Postgres works in</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Dashed boxes are not in this query, so Postgres skips them. Blue is the part running now. Green parts are done.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2><span id="rowsTitle">Rows right now</span><span class="count" id="rowCount"></span></h2>
+        <div id="rows"></div>
+      </div>
+      <div class="outbox"><h3>Result sent back to you</h3><div id="out"></div></div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> Postgres works in this order: <b>FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, LIMIT</b>. A name you make in SELECT with <code>AS</code> exists only after SELECT. So WHERE cannot use it, but ORDER BY can. WHERE keeps a row only when its test says <b>true</b>. Any <code>= NULL</code> test says <b>unknown</b>, so use <code>IS NULL</code>.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Clause:</b> one part of a query that starts with a keyword, like WHERE or ORDER BY.</li>
+      <li><b>New name (alias):</b> a name you give a column with <code>AS</code>, like <code>total_cents / 100 AS total</code>.</li>
+      <li><b>NULL:</b> an empty box. Postgres treats it as <b>unknown</b>, not as zero and not as empty text.</li>
+      <li><b>unknown:</b> the third answer a test can give, next to true and false. WHERE throws away rows that answer unknown.</li>
+    </ul>
+    <p>This is the <b>logical order</b>: the order Postgres promises the result matches. The real work can take shortcuts (lesson 11, Reading EXPLAIN), but the answer is always the same.</p>
+  </div>
+</div>
+
+<script>
+// Built from real query results (PostgreSQL 18.3). See the lesson for the setup SQL.
+const PROGRAMS = [{"name":"The full trip","why":"Postgres ran FROM, then WHERE (4 PAID rows left), then SELECT (two columns), then ORDER BY (biggest first), then LIMIT (keep 2). So the answer is order 5, then order 6.","code":["SELECT id, total_cents","FROM l01_orders","WHERE status = 'PAID'","ORDER BY total_cents DESC","LIMIT 2;"],"used":["FROM","WHERE","SELECT","ORDER BY","LIMIT"],"steps":[{"kind":"start","stage":null,"line":null,"note":"Postgres reads the <b>whole query</b> first. It does <b>not</b> start at line 1. It runs the parts in a fixed order. Watch the pipeline under the query.","cols":[],"rows":[]},{"kind":"rows","stage":"FROM","line":1,"note":"<b>FROM runs first.</b> Postgres opens the table and takes every row: 6 rows, 4 columns. (This page shows them in id order so they are easy to read.)","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"test","stage":"WHERE","line":2,"note":"<b>WHERE runs second.</b> Postgres asks the question <code>status = 'PAID'</code> for every row. Rows that answer <b>true</b> stay. Rows that answer false are thrown away.","cols":["id","status","total_cents","coupon"],"label":"status = 'PAID'","rows":[{"c":["1","PAID","5000",null],"t":"true","m":"keep"},{"c":["2","PENDING","12000","NEW10"],"t":"false","m":"drop"},{"c":["3","PAID","8000",null],"t":"true","m":"keep"},{"c":["4","CANCELLED","3000","NEW10"],"t":"false","m":"drop"},{"c":["5","PAID","20000","VIP"],"t":"true","m":"keep"},{"c":["6","PAID","15000",null],"t":"true","m":"keep"}]},{"kind":"rows","stage":"WHERE","line":2,"note":"4 rows are left. Orders 2 and 4 are gone.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["3","PAID","8000",null]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"skip","stage":["GROUP BY","HAVING"],"line":null,"note":"There is no <b>GROUP BY</b> and no <b>HAVING</b> in this query, so Postgres skips them. (Grouping is lesson 03.)","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["3","PAID","8000",null]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"pick","stage":"SELECT","line":0,"note":"<b>SELECT runs now, almost last.</b> You asked for <code>id</code> and <code>total_cents</code>. The faded columns are about to go.","cols":["id","status","total_cents","coupon"],"keep":["id","total_cents"],"fresh":[],"rows":[{"c":["1","PAID","5000",null]},{"c":["3","PAID","8000",null]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"rows","stage":"SELECT","line":0,"note":"Each row now has only the two columns you asked for.","cols":["id","total_cents"],"rows":[{"c":["1","5000"]},{"c":["3","8000"]},{"c":["5","20000"]},{"c":["6","15000"]}]},{"kind":"rows","stage":"ORDER BY","line":3,"note":"<b>ORDER BY</b> sorts the rows. <code>DESC</code> means biggest first: 20000, 15000, 8000, 5000.","cols":["id","total_cents"],"rows":[{"c":["5","20000"]},{"c":["6","15000"]},{"c":["3","8000"]},{"c":["1","5000"]}]},{"kind":"cut","stage":"LIMIT","line":4,"note":"<b>LIMIT runs last.</b> It keeps the first 2 rows and throws away the rest. It runs <b>after</b> the sort, so you get the 2 biggest.","cols":["id","total_cents"],"rows":[{"c":["5","20000"],"m":"keep"},{"c":["6","15000"],"m":"keep"},{"c":["3","8000"],"m":"drop"},{"c":["1","5000"],"m":"drop"}]},{"kind":"rows","stage":"LIMIT","line":4,"note":"2 rows are left.","cols":["id","total_cents"],"rows":[{"c":["5","20000"]},{"c":["6","15000"]}]},{"kind":"done","stage":null,"line":null,"note":"Finished. Postgres sends you <b>2 rows</b>: order 5 and order 6.","cols":["id","total_cents"],"rows":[{"c":["5","20000"]},{"c":["6","15000"]}],"out":{"cols":["id","total_cents"],"rows":[["5","20000"],["6","15000"]]}}]},{"name":"Name in WHERE fails","why":"WHERE runs before SELECT. The name total is made by SELECT, so when WHERE looks for it, it does not exist yet. Postgres stops with an error.","code":["SELECT id, total_cents / 100 AS total","FROM l01_orders","WHERE total >= 100;"],"used":["FROM","WHERE","SELECT"],"steps":[{"kind":"start","stage":null,"line":null,"note":"This query gives a new name, <code>total</code>, to <code>total_cents / 100</code>. Then it uses that name in WHERE. Will it work?","cols":[],"rows":[]},{"kind":"rows","stage":"FROM","line":1,"note":"<b>FROM</b> takes all 6 rows. Look at the column names: <code>id</code>, <code>status</code>, <code>total_cents</code>, <code>coupon</code>. There is no <code>total</code>.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"error","stage":"WHERE","line":2,"note":"<b>WHERE</b> looks for a column named <code>total</code>. It is not there. The name <code>total</code> is made by SELECT, and SELECT has <b>not run yet</b>. Postgres stops with an error.","error":"column \"total\" does not exist","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"done","stage":null,"line":null,"note":"Finished with an error. No rows came back. The fix is in the next tab.","error":"column \"total\" does not exist","cols":["id","status","total_cents","coupon"],"rows":[],"out":{"error":"column \"total\" does not exist"}}]},{"name":"Name in ORDER BY works","why":"ORDER BY runs after SELECT, so the name total already exists. In WHERE you write the full expression total_cents / 100 instead of the name.","code":["SELECT id, total_cents / 100 AS total","FROM l01_orders","WHERE total_cents / 100 >= 100","ORDER BY total DESC;"],"used":["FROM","WHERE","SELECT","ORDER BY"],"steps":[{"kind":"start","stage":null,"line":null,"note":"The fix: WHERE uses the full expression <code>total_cents / 100</code>. ORDER BY uses the new name <code>total</code>.","cols":[],"rows":[]},{"kind":"rows","stage":"FROM","line":1,"note":"<b>FROM</b> takes all 6 rows.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"test","stage":"WHERE","line":2,"note":"<b>WHERE</b> works out <code>total_cents / 100</code> for each row and asks <code>&gt;= 100</code>. It only uses columns that exist now, so there is no error.","cols":["id","status","total_cents","coupon"],"label":"total_cents / 100 >= 100","rows":[{"c":["1","PAID","5000",null],"t":"false","m":"drop"},{"c":["2","PENDING","12000","NEW10"],"t":"true","m":"keep"},{"c":["3","PAID","8000",null],"t":"false","m":"drop"},{"c":["4","CANCELLED","3000","NEW10"],"t":"false","m":"drop"},{"c":["5","PAID","20000","VIP"],"t":"true","m":"keep"},{"c":["6","PAID","15000",null],"t":"true","m":"keep"}]},{"kind":"rows","stage":"WHERE","line":2,"note":"3 rows are left: orders 2, 5 and 6.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["2","PENDING","12000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"skip","stage":["GROUP BY","HAVING"],"line":null,"note":"No GROUP BY and no HAVING here. Postgres skips them.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["2","PENDING","12000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"pick","stage":"SELECT","line":0,"note":"<b>SELECT</b> works out <code>total_cents / 100</code> again and <b>gives it the name</b> <code>total</code>. The green column is new. Only now does the name exist.","cols":["id","status","total_cents","coupon","total"],"keep":["id","total"],"fresh":["total"],"rows":[{"c":["2","PENDING","12000","NEW10","120"]},{"c":["5","PAID","20000","VIP","200"]},{"c":["6","PAID","15000",null,"150"]}]},{"kind":"rows","stage":"SELECT","line":0,"note":"Each row now has <code>id</code> and <code>total</code>.","cols":["id","total"],"rows":[{"c":["2","120"]},{"c":["5","200"]},{"c":["6","150"]}]},{"kind":"rows","stage":"ORDER BY","line":3,"note":"<b>ORDER BY</b> runs after SELECT, so it can use the name <code>total</code>. Biggest first: 200, 150, 120.","cols":["id","total"],"rows":[{"c":["5","200"]},{"c":["6","150"]},{"c":["2","120"]}]},{"kind":"done","stage":null,"line":null,"note":"Finished. 3 rows: order 5, order 6, order 2.","cols":["id","total"],"rows":[{"c":["5","200"]},{"c":["6","150"]},{"c":["2","120"]}],"out":{"cols":["id","total"],"rows":[["5","200"],["6","150"],["2","120"]]}}]},{"name":"= NULL finds nothing","why":"coupon = NULL never answers true. For every row the answer is unknown, and WHERE keeps only rows that answer true. So no row is kept, not even the rows where coupon is empty.","code":["SELECT id, coupon","FROM l01_orders","WHERE coupon = NULL;"],"used":["FROM","WHERE","SELECT"],"steps":[{"kind":"start","stage":null,"line":null,"note":"Three orders have no coupon. Their <code>coupon</code> is <b>NULL</b>. This query tries to find them with <code>= NULL</code>.","cols":[],"rows":[]},{"kind":"rows","stage":"FROM","line":1,"note":"<b>FROM</b> takes all 6 rows. Orders 1, 3 and 6 show NULL in <code>coupon</code>.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"test","stage":"WHERE","line":2,"note":"Postgres asks <code>coupon = NULL</code> for every row. NULL means <b>unknown</b>. Is 'VIP' equal to an unknown value? Nobody knows. Is unknown equal to unknown? Nobody knows either. So <b>every</b> answer is <b>unknown</b>.","cols":["id","status","total_cents","coupon"],"label":"coupon = NULL","rows":[{"c":["1","PAID","5000",null],"t":"unknown","m":"drop"},{"c":["2","PENDING","12000","NEW10"],"t":"unknown","m":"drop"},{"c":["3","PAID","8000",null],"t":"unknown","m":"drop"},{"c":["4","CANCELLED","3000","NEW10"],"t":"unknown","m":"drop"},{"c":["5","PAID","20000","VIP"],"t":"unknown","m":"drop"},{"c":["6","PAID","15000",null],"t":"unknown","m":"drop"}]},{"kind":"rows","stage":"WHERE","line":2,"note":"WHERE keeps a row only when the answer is <b>true</b>. Unknown is not true. So all 6 rows are thrown away.","cols":["id","status","total_cents","coupon"],"rows":[]},{"kind":"skip","stage":["GROUP BY","HAVING"],"line":null,"note":"No GROUP BY and no HAVING. Skipped.","cols":["id","status","total_cents","coupon"],"rows":[]},{"kind":"rows","stage":"SELECT","line":0,"note":"<b>SELECT</b> picks <code>id</code> and <code>coupon</code>, but there are no rows to pick from.","cols":["id","coupon"],"rows":[]},{"kind":"done","stage":null,"line":null,"note":"Finished. <b>0 rows</b>, and no error. That is why this bug is easy to miss.","cols":["id","coupon"],"rows":[],"out":{"cols":["id","coupon"],"rows":[]}}]},{"name":"IS NULL works","why":"IS NULL is a special test made for NULL. It always answers true or false, never unknown. It answers true for orders 1, 3 and 6.","code":["SELECT id, coupon","FROM l01_orders","WHERE coupon IS NULL;"],"used":["FROM","WHERE","SELECT"],"steps":[{"kind":"start","stage":null,"line":null,"note":"Same goal, right tool: <code>IS NULL</code>.","cols":[],"rows":[]},{"kind":"rows","stage":"FROM","line":1,"note":"<b>FROM</b> takes all 6 rows.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"test","stage":"WHERE","line":2,"note":"<code>IS NULL</code> asks a different question: <b>is this box empty?</b> That question always has a clear answer, true or false.","cols":["id","status","total_cents","coupon"],"label":"coupon IS NULL","rows":[{"c":["1","PAID","5000",null],"t":"true","m":"keep"},{"c":["2","PENDING","12000","NEW10"],"t":"false","m":"drop"},{"c":["3","PAID","8000",null],"t":"true","m":"keep"},{"c":["4","CANCELLED","3000","NEW10"],"t":"false","m":"drop"},{"c":["5","PAID","20000","VIP"],"t":"false","m":"drop"},{"c":["6","PAID","15000",null],"t":"true","m":"keep"}]},{"kind":"rows","stage":"WHERE","line":2,"note":"3 rows are left: orders 1, 3 and 6.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["3","PAID","8000",null]},{"c":["6","PAID","15000",null]}]},{"kind":"skip","stage":["GROUP BY","HAVING"],"line":null,"note":"No GROUP BY and no HAVING. Skipped.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["3","PAID","8000",null]},{"c":["6","PAID","15000",null]}]},{"kind":"rows","stage":"SELECT","line":0,"note":"<b>SELECT</b> keeps <code>id</code> and <code>coupon</code>.","cols":["id","coupon"],"rows":[{"c":["1",null]},{"c":["3",null]},{"c":["6",null]}]},{"kind":"done","stage":null,"line":null,"note":"Finished. 3 rows: orders 1, 3 and 6. (No ORDER BY here, so Postgres promises no order. Add <code>ORDER BY id</code> when order matters.)","cols":["id","coupon"],"rows":[{"c":["1",null]},{"c":["3",null]},{"c":["6",null]}],"out":{"cols":["id","coupon"],"rows":[["1",null],["3",null],["6",null]]}}]},{"name":"Where NULL sorts","why":"When Postgres sorts from small to big, it puts NULL at the end, as if NULL were bigger than every value. With DESC it would come first. id breaks ties, so the order is fixed.","code":["SELECT id, coupon","FROM l01_orders","ORDER BY coupon, id;"],"used":["FROM","SELECT","ORDER BY"],"steps":[{"kind":"start","stage":null,"line":null,"note":"Sort by <code>coupon</code>, small to big. Where do the three NULL rows go?","cols":[],"rows":[]},{"kind":"rows","stage":"FROM","line":1,"note":"<b>FROM</b> takes all 6 rows.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"skip","stage":["WHERE","GROUP BY","HAVING"],"line":null,"note":"No WHERE, no GROUP BY, no HAVING. All 6 rows go on.","cols":["id","status","total_cents","coupon"],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"pick","stage":"SELECT","line":0,"note":"<b>SELECT</b> keeps <code>id</code> and <code>coupon</code>.","cols":["id","status","total_cents","coupon"],"keep":["id","coupon"],"fresh":[],"rows":[{"c":["1","PAID","5000",null]},{"c":["2","PENDING","12000","NEW10"]},{"c":["3","PAID","8000",null]},{"c":["4","CANCELLED","3000","NEW10"]},{"c":["5","PAID","20000","VIP"]},{"c":["6","PAID","15000",null]}]},{"kind":"rows","stage":"SELECT","line":0,"note":"Two columns left.","cols":["id","coupon"],"rows":[{"c":["1",null]},{"c":["2","NEW10"]},{"c":["3",null]},{"c":["4","NEW10"]},{"c":["5","VIP"]},{"c":["6",null]}]},{"kind":"rows","stage":"ORDER BY","line":2,"note":"<b>ORDER BY</b> sorts text A to Z: NEW10, NEW10, VIP. Then come the NULL rows. Postgres sorts NULL <b>as if it were bigger than every value</b>, so NULL goes <b>last</b> here. Two rows have NEW10, so <code>id</code> decides between them.","cols":["id","coupon"],"rows":[{"c":["2","NEW10"]},{"c":["4","NEW10"]},{"c":["5","VIP"]},{"c":["1",null]},{"c":["3",null]},{"c":["6",null]}]},{"kind":"done","stage":null,"line":null,"note":"Finished. With <code>ORDER BY coupon DESC</code> the NULL rows would come <b>first</b>. You can choose with <code>NULLS FIRST</code> or <code>NULLS LAST</code>.","cols":["id","coupon"],"rows":[{"c":["2","NEW10"]},{"c":["4","NEW10"]},{"c":["5","VIP"]},{"c":["1",null]},{"c":["3",null]},{"c":["6",null]}],"out":{"cols":["id","coupon"],"rows":[["2","NEW10"],["4","NEW10"],["5","VIP"],["1",null],["3",null],["6",null]]}}]}];
+const STAGES = ["FROM", "WHERE", "GROUP BY", "HAVING", "SELECT", "ORDER BY", "LIMIT"];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const cell = v => v === null ? '<span class="null">NULL</span>' : esc(v);
+
+function stageOf(s) { return Array.isArray(s.stage) ? s.stage : (s.stage ? [s.stage] : []); }
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.kind === "error" ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderPipe() {
+  const p = PROGRAMS[cur];
+  const s = steps[idx];
+  // Which stages are finished: every stage named in an earlier step, except the current one.
+  const seen = new Set(), failed = new Set();
+  for (let i = 0; i <= idx; i++) stageOf(steps[i]).forEach(x => (steps[i].kind === "error" ? failed : seen).add(x));
+  const nowSet = new Set(stageOf(s));
+  const finished = s.kind === "done" && !s.out.error;
+  const html = STAGES.map(name => {
+    let c = "st";
+    const used = p.used.includes(name);
+    c += used ? " used" : " skip";
+    if (failed.has(name)) c += " bad";
+    else if (nowSet.has(name) && used) c += " now";
+    else if (used && (seen.has(name) || finished)) c += " past";
+    return '<span class="' + c + '">' + name + "</span>";
+  }).join('<span class="arrow">→</span>');
+  $("pipe").innerHTML = html;
+}
+
+function renderRows(s, fresh) {
+  const box = $("rows");
+  if (s.kind === "start") {
+    box.innerHTML = '<div class="empty">Nothing yet. Postgres has only read the query.</div>';
+    $("rowCount").textContent = ""; return;
+  }
+  const keep = s.keep || null, freshCols = s.fresh || [];
+  let h = '<table class="rows"><thead><tr>';
+  s.cols.forEach(c => {
+    let cls = "";
+    if (freshCols.includes(c)) cls = "fresh"; else if (keep && !keep.includes(c)) cls = "fade";
+    h += '<th class="' + cls + '">' + esc(c) + "</th>";
+  });
+  if (s.label) h += '<th class="test">' + esc(s.label) + " ?</th>";
+  h += "</tr></thead><tbody>";
+  s.rows.forEach(r => {
+    h += '<tr class="' + (r.m || "") + '">';
+    r.c.forEach((v, i) => {
+      const c = s.cols[i];
+      let cls = "";
+      if (freshCols.includes(c)) cls = "fresh"; else if (keep && !keep.includes(c)) cls = "fade";
+      h += '<td class="' + cls + '">' + cell(v) + "</td>";
+    });
+    if (s.label) h += '<td class="t"><span class="tv ' + r.t + '">' + r.t + "</span></td>";
+    h += "</tr>";
+  });
+  h += "</tbody></table>";
+  if (!s.rows.length) h += '<div class="empty">No rows.</div>';
+  if (s.error) h += '<div class="errbox">ERROR: ' + esc(s.error) + "</div>";
+  box.innerHTML = h;
+  const kept = s.rows.filter(r => r.m !== "drop").length;
+  $("rowCount").textContent = (s.rows.some(r => r.m === "drop") ? s.rows.length + " rows, " + kept + " stay" : s.rows.length + (s.rows.length === 1 ? " row" : " rows"));
+}
+
+function renderOut(s) {
+  const o = $("out");
+  if (s.kind !== "done") { o.innerHTML = '<span class="empty">nothing yet</span>'; return; }
+  if (s.out.error) { o.innerHTML = '<span class="e">ERROR: ' + esc(s.out.error) + "</span>"; return; }
+  let h = "<table><tr>" + s.out.cols.map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>";
+  s.out.rows.forEach(r => { h += "<tr>" + r.map(v => "<td>" + cell(v) + "</td>").join("") + "</tr>"; });
+  h += "</table><div style='color:#9fb4c3;font-size:.8rem;margin-top:4px'>(" + s.out.rows.length + (s.out.rows.length === 1 ? " row)" : " rows)") + "</div>";
+  o.innerHTML = h;
+}
+
+let lastIdx = -1;
+function render() {
+  const s = steps[idx];
+  renderCode(s);
+  renderPipe();
+  renderRows(s, idx !== lastIdx);
+  renderOut(s);
+  lastIdx = idx;
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function realAnswer() {
+  const last = steps[steps.length - 1];
+  if (last.out.error) return "error";
+  if (!last.out.rows.length) return "none";
+  return last.out.rows.map(r => r[0]).join(" ");
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").trim().replace(/^(0|no rows|nothing|empty)$/, "none");
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = realAnswer();
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + PROGRAMS[cur].why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Guessing first is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real);
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which part runs before which.");
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0; lastIdx = -1;
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2200);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>
