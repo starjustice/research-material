@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL basics: one query, step by step</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: 1fr 1.25fr 1.15fr; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .5; border-style: dashed; }
+  .comp.mw { padding: 6px 10px 6px; margin-bottom: 6px; }
+  .comp.mw h3 { margin: 0; }
+  .comp.mw small { margin: 2px 0 0; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.dim { background: var(--border); color: var(--muted); }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.dup { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .line { font-size: .84rem; }
+  .arrow { text-align: center; color: var(--muted); font-size: .7rem; margin: -2px 0 4px; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .query { margin: 0; padding: 6px 8px; background: var(--chip); border-radius: 8px; font-size: .8rem; white-space: pre; overflow-x: auto; }
+  .query span { display: block; padding: 0 4px; border-radius: 4px; }
+  .query span.cur { background: var(--accent); color: #1e3a4c; }
+  .trips { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+  .types { display: grid; gap: 6px; }
+  .type { font-size: .76rem; }
+  .type b { display: inline-block; min-width: 64px; }
+  .chip { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .72rem;
+    padding: 1px 7px; border-radius: 999px; background: var(--chip); border: 1px solid var(--border); margin: 2px 2px 0 0; }
+  .chip.asked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .chip.ok { background: var(--srv); color: #fff; border-color: var(--srv); }
+  .chip.bad { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .chip.waste { text-decoration: line-through; color: var(--muted); }
+  table.store { width: 100%; border-collapse: collapse; font-size: .74rem; }
+  table.store th, table.store td { text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--border); }
+  table.store th { color: var(--muted); font-weight: 600; }
+  table.store td.new { background: var(--accent); color: #1e3a4c; font-weight: 700; }
+  pre.json { margin: 0; padding: 6px 8px; background: var(--chip); border-radius: 8px; font-size: .74rem; white-space: pre-wrap; word-break: break-word; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; Backend and API lessons</a>
+    <a href="../04-graphql-basics.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>GraphQL basics: one query, step by step</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the query text, the menu of fields (the schema), the data, and the answer being built. Guess first, then check. Stories 1 to 3 match the real output of the code in section 4 of the lesson.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note" role="status" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the app sends one text, the query, to one URL, <code>POST /graphql</code>. The server first checks every field against the schema. If one field is wrong, nothing runs and the answer has only <code>errors</code>. If all fields are fine, the server runs the functions and sends back <code>data</code> with exactly the fields that were asked, in the same shape as the query.</p>
+</div>
+
+<script>
+// Data from section 4 of the lesson.
+const START = {
+  orders: [
+    { id: "41", status: "PAID", total: "250000", note: "leave at gate", shopId: "3" },
+    { id: "42", status: "NEW", total: "90000", note: "null", shopId: "3" }
+  ],
+  shops: [{ id: "3", name: "Toko Maju", city: "Bandung" }]
+};
+const SCHEMA = [
+  { name: "Query", fields: ["orders"] },
+  { name: "Mutation", fields: ["cancelOrder"] },
+  { name: "Order", fields: ["id", "status", "total", "note", "shop"] },
+  { name: "Shop", fields: ["id", "name", "city"] }
+];
+const GQL_BOXES = [
+  { id: "http", name: "POST /graphql", code: "one URL for every query and mutation", kind: "lb" },
+  { id: "parse", name: "1. Read the text", code: "text into a tree of fields (parse)", kind: "lb" },
+  { id: "check", name: "2. Check against the schema", code: "is every field on the menu? (validate)", kind: "lb" },
+  { id: "run", name: "3. Run and fill in", code: "call functions, keep only asked fields (execute)", kind: "srv" }
+];
+const REST_BOXES = [
+  { id: "r1", name: "GET /orders", code: "trip 1: the list, with every field", kind: "srv" },
+  { id: "r2", name: "GET /shops/3", code: "trip 2: shop for order 41", kind: "srv" },
+  { id: "r3", name: "GET /shops/3", code: "trip 3: shop for order 42", kind: "srv" }
+];
+
+const Q1 = ["{", "  orders {", "    id", "    status", "    shop { name }", "  }", "}"];
+const R1 = '{"data":{"orders":[\n  {"id":"41","status":"PAID","shop":{"name":"Toko Maju"}},\n  {"id":"42","status":"NEW","shop":{"name":"Toko Maju"}}\n]}}';
+
+const STORIES = [
+  {
+    name: "1. A query",
+    query: Q1, boxes: GQL_BOXES,
+    why: "The client listed id, status and shop name. The server checked those fields against the schema, ran the orders function once, and kept only the listed fields. total and note exist on Order but were not asked, so they are not in the answer. The shop name came in the same trip.",
+    predict: { q: "The app asks for id, status and shop name of every order. Which fields come back?",
+               options: ["Every field of every order", "Only id, status and shop name", "id and status, the shop needs a second request"], answer: "Only id, status and shop name" },
+    steps: [
+      ["setup", "The setup", "The app needs a list of orders with their status and the shop name. Nothing more. The server has a schema, the menu of every type and field, and some data.", [], w => {}],
+      ["run", "The request leaves", "The app sends <b>one</b> request: <code>POST /graphql</code>. The body is the query text on the left. Every GraphQL request goes to this same URL.", ["client", "box-http"], w => { w.trips = 1; w.now = "waiting for an answer"; w.box.http = ["got the text", "ok"]; }],
+      ["run", "Read the text", "The server reads the text and turns it into a tree: <code>orders</code>, and inside it <code>id</code>, <code>status</code> and <code>shop</code>, and inside <code>shop</code> the field <code>name</code>. The words are marked on the menu.", ["box-parse", "schema"], w => { w.box.parse = ["tree ready", "ok"]; w.marks = { "Query.orders": "asked", "Order.id": "asked", "Order.status": "asked", "Order.shop": "asked", "Shop.name": "asked" }; }],
+      ["run", "Check every field", "The server checks each field on the menu. <code>orders</code> is on Query. <code>id</code>, <code>status</code>, <code>shop</code> are on Order. <code>name</code> is on Shop. All good, so the query may run.", ["box-check", "schema"], w => { w.box.check = ["all fields found", "ok"]; for (const k in w.marks) w.marks[k] = "ok"; }],
+      ["run", "Run the orders function", "Now the server runs. It calls the function for <code>orders</code>. That function returns the two orders, with every column. The server does not send them yet.", ["box-run", "store", "log"], w => { w.box.run = ["running", "ok"]; w.log.push("orders function runs"); w.lit = ["41", "42"]; w.qline = 1; }],
+      ["run", "Keep only the asked fields", "For order 41 the server keeps <code>id</code> and <code>status</code>. It goes inside <code>shop</code> and keeps only <code>name</code>. It drops <code>total</code>, <code>note</code> and <code>city</code>, because the query did not ask for them.", ["box-run", "resp"], w => { w.qline = 4; w.resp = '{"data":{"orders":[\n  {"id":"41","status":"PAID","shop":{"name":"Toko Maju"}},\n  ...'; }],
+      ["run", "Same for order 42", "The server does the same for order 42. The answer now has the exact shape of the query: a list, and in each item <code>id</code>, <code>status</code>, and <code>shop</code> with <code>name</code>.", ["box-run", "resp"], w => { w.qline = -1; w.resp = R1; w.box.run = ["done", "ok"]; }],
+      ["srv", "The answer arrives", "The client gets <code>200</code> and the JSON on the right. Everything is under <code>data</code>. One trip, no extra fields.", ["client", "resp"], w => { w.now = "got 200"; w.got = "200, data with 3 fields per order"; }],
+      ["done", "Finished", "One request, one answer, the exact fields the screen needs. The client chose the fields, not the server. Compare with story 4, where REST needs three trips for the same screen.", [], w => { w.verdict = ["ok", "1 trip, only the asked fields"]; }]
+    ]
+  },
+  {
+    name: "2. A mutation",
+    query: ["mutation {", "  cancelOrder(id: \"42\") {", "    id", "    status", "  }", "}"], boxes: GQL_BOXES,
+    why: "A mutation is the GraphQL word for a write. It still goes to POST /graphql. The server ran cancelOrder, which changed order 42 to CANCELLED, then answered with the fields the client listed after the change.",
+    predict: { q: "The app sends the mutation cancelOrder(id: \"42\") and asks for id and status. What status comes back?",
+               options: ["NEW, the old value", "CANCELLED, the new value", "Nothing, mutations have no answer"], answer: "CANCELLED, the new value" },
+    steps: [
+      ["setup", "The setup", "The shop owner taps Cancel on order 42. To change data, the app sends a <b>mutation</b>. It starts with the word <code>mutation</code>. The rest looks like a query.", [], w => {}],
+      ["run", "The request leaves", "Same URL as a query: <code>POST /graphql</code>. GraphQL does not use the method or the path to say what to do. The first word of the text does.", ["client", "box-http"], w => { w.trips = 1; w.now = "waiting for an answer"; w.box.http = ["got the text", "ok"]; }],
+      ["run", "Read the text", "The server reads it: a mutation, the field <code>cancelOrder</code> with the argument <code>id: \"42\"</code>, and inside it <code>id</code> and <code>status</code>.", ["box-parse", "schema"], w => { w.box.parse = ["tree ready", "ok"]; w.marks = { "Mutation.cancelOrder": "asked", "Order.id": "asked", "Order.status": "asked" }; }],
+      ["run", "Check every field", "<code>cancelOrder</code> is on Mutation and it needs an <code>id</code>, which the text gives. It returns an Order, and <code>id</code> and <code>status</code> are on Order. All good.", ["box-check", "schema"], w => { w.box.check = ["all fields found", "ok"]; for (const k in w.marks) w.marks[k] = "ok"; }],
+      ["run", "Run cancelOrder", "The server calls the <code>cancelOrder</code> function with <code>{ id: \"42\" }</code>. It finds order 42 and changes its status from <code>NEW</code> to <code>CANCELLED</code>. The data really changed.", ["box-run", "store", "log"], w => { w.box.run = ["running", "ok"]; w.log.push("cancelOrder function runs for 42"); w.orders[1].status = "CANCELLED"; w.changed = "42.status"; w.qline = 1; }],
+      ["run", "Keep only the asked fields", "The function returns the changed order. The server keeps <code>id</code> and <code>status</code>, as the text asked.", ["box-run", "resp"], w => { w.qline = -1; w.box.run = ["done", "ok"]; w.resp = '{"data":{"cancelOrder":\n  {"id":"42","status":"CANCELLED"}\n}}'; }],
+      ["srv", "The answer arrives", "The client gets <code>200</code> and the new status. The app can update the screen without asking again.", ["client", "resp"], w => { w.now = "got 200"; w.got = "200, status CANCELLED"; }],
+      ["done", "Finished", "Query means read. Mutation means write. Both go to the same URL, both say which fields to send back. The answer shows the data after the change.", [], w => { w.verdict = ["ok", "order 42 changed, new status in the answer"]; }]
+    ]
+  },
+  {
+    name: "3. A wrong field",
+    query: ["{ orders { id price } }"], boxes: GQL_BOXES,
+    why: "price is not on the Order type. The server checks every field before running anything, so it stopped at the check. The orders function never ran. The answer has errors and no data key. With a plain application/json request, Yoga still sends status 200.",
+    predict: { q: "The app asks for price, but Order has no price field. What happens?",
+               options: ["price comes back as null", "The orders function runs, then it fails", "Nothing runs, the answer has only errors"], answer: "Nothing runs, the answer has only errors" },
+    steps: [
+      ["setup", "The setup", "A developer types <code>price</code>. But the schema calls it <code>total</code>. Watch when the server notices.", [], w => {}],
+      ["run", "The request leaves", "<code>POST /graphql</code>, the same as always.", ["client", "box-http"], w => { w.trips = 1; w.now = "waiting for an answer"; w.box.http = ["got the text", "ok"]; }],
+      ["run", "Read the text", "The text has no typing mistakes in its brackets, so the server can read it: <code>orders</code>, then <code>id</code> and <code>price</code>.", ["box-parse", "schema"], w => { w.box.parse = ["tree ready", "ok"]; w.marks = { "Query.orders": "asked", "Order.id": "asked", "Order.price": "asked" }; w.extra = "price"; }],
+      ["bad", "The check fails", "<code>orders</code> is fine. <code>id</code> is fine. <code>price</code> is <b>not</b> on Order. The server stops here and writes the message <code>Cannot query field \"price\" on type \"Order\".</code>", ["box-check", "schema"], w => { w.box.check = ["price not found", "bad"]; w.marks = { "Query.orders": "ok", "Order.id": "ok", "Order.price": "bad" }; w.qline = 0; }],
+      ["bad", "Nothing runs", "The server skips step 3. The <code>orders</code> function never runs. No data is read. One wrong field stops the whole query, even the good fields.", ["box-run", "log"], w => { w.box.run = ["skipped", "dim"]; w.off = ["run"]; }],
+      ["srv", "The answer arrives", "The answer has <code>errors</code> and no <code>data</code> key. The message even says the line and column. With a plain <code>application/json</code> request, Yoga still sends status <code>200</code>.", ["client", "resp"], w => { w.qline = -1; w.resp = '{"errors":[{\n  "message":"Cannot query field \\"price\\" on type \\"Order\\".",\n  "locations":[{"line":1,"column":15}]\n}]}'; w.now = "got 200"; w.got = "200, but only errors"; }],
+      ["done", "Finished", "The schema caught the mistake before any database work. But the status is <code>200</code>, so a client that only checks <code>res.ok</code> thinks it worked. Always look at <code>errors</code> in the body.", [], w => { w.verdict = ["bad", "errors only, status still 200"]; }]
+    ]
+  },
+  {
+    name: "4. Same screen with REST",
+    query: ["GET /orders", "GET /shops/3", "GET /shops/3"], boxes: REST_BOXES, rest: true,
+    why: "With REST the server decides what each URL sends. GET /orders sends every field of every order, and only a shopId, not the shop name. So the app makes one more trip per order. 3 trips for 2 orders, and most fields sent were never shown.",
+    predict: { q: "The same screen: id, status and shop name for 2 orders, using plain REST URLs. How many requests?",
+               options: ["1", "2", "3"], answer: "3" },
+    steps: [
+      ["setup", "The setup", "The same screen as story 1, built on a REST API like lesson 02. The URLs are <code>GET /orders</code> and <code>GET /shops/:id</code>. The server decides what each one sends.", [], w => {}],
+      ["run", "Trip 1: the list", "The app calls <code>GET /orders</code>. The server sends every field of every order: <code>id</code>, <code>status</code>, <code>total</code>, <code>note</code>, <code>shopId</code>. The screen needs only two of them. That is too much data (over-fetching).", ["client", "box-r1", "schema"], w => { w.trips = 1; w.qline = 0; w.box.r1 = ["200, 5 fields each", "ok"]; w.marks = { "Order.id": "ok", "Order.status": "ok", "Order.total": "waste", "Order.note": "waste", "Order.shopId": "asked" }; w.resp = '[{"id":"41","status":"PAID","total":250000,\n  "note":"leave at gate","shopId":3},\n {"id":"42","status":"NEW","total":90000,\n  "note":null,"shopId":3}]'; w.lit = ["41", "42"]; }],
+      ["bad", "No shop name", "The orders have <code>shopId: 3</code>, not the shop name. The screen cannot show the name yet. The list did not have enough (under-fetching).", ["client", "resp"], w => { w.now = "has orders, still needs shop names"; }],
+      ["run", "Trip 2: shop for order 41", "The app calls <code>GET /shops/3</code>. It gets <code>id</code>, <code>name</code> and <code>city</code>. It uses only <code>name</code>.", ["client", "box-r2", "schema"], w => { w.trips = 2; w.qline = 1; w.box.r2 = ["200, 3 fields", "ok"]; w.marks["Shop.id"] = "waste"; w.marks["Shop.name"] = "ok"; w.marks["Shop.city"] = "waste"; w.lit = []; w.resp = '{"id":3,"name":"Toko Maju","city":"Bandung"}'; }],
+      ["run", "Trip 3: shop for order 42", "A simple app does it again for order 42. Same shop, one more trip. With 20 orders on the screen, that is 21 trips.", ["client", "box-r3"], w => { w.trips = 3; w.qline = 2; w.box.r3 = ["200, 3 fields", "ok"]; }],
+      ["srv", "The screen can draw", "After 3 trips the app has what it needs. It glues the orders and the shop names together itself.", ["client"], w => { w.qline = -1; w.now = "done after 3 trips"; w.got = "3 answers, glued by the app"; }],
+      ["done", "Finished", "REST is not wrong. You can cache the repeated shop request or add <code>/orders?include=shop</code>. A new screen may need another server change. With GraphQL the app can write a new query using fields already in the schema.", [], w => { w.verdict = ["bad", "3 trips in this simple REST example"]; }]
+    ]
+  }
+];
+
+function simulate(p) {
+  const w = {
+    trips: 0, now: "ready", got: null, qline: -1, verdict: null,
+    box: {}, off: [], marks: {}, extra: null, log: [], lit: [], changed: null, resp: null,
+    orders: JSON.parse(JSON.stringify(START.orders))
+  };
+  p.boxes.forEach(b => { w.box[b.id] = ["waiting", "dim"]; });
+  return p.steps.map(([phase, hop, note, active, fn]) => {
+    fn(w);
+    return { w: JSON.parse(JSON.stringify(w)), phase, hop, note, active };
+  });
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something goes wrong", "bad"], srv: ["An answer is sent", "srv"], done: ["Finished", "done"] };
+
+function renderStage(s) {
+  const w = s.w, p = STORIES[cur];
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const q = p.query.map((t, i) => '<span class="' + (i === w.qline ? "cur" : "") + '">' + esc(t) + "</span>").join("");
+  const boxes = p.boxes.map((b, i) => {
+    const st = w.box[b.id];
+    const off = w.off.includes(b.id) ? " off" : "";
+    return (i ? '<div class="arrow">&#8595;</div>' : "") +
+      '<div class="comp mw ' + b.kind + lit("box-" + b.id) + off + '"><h3><span>' + esc(b.name) +
+      '</span><span class="tag ' + st[1] + '">' + esc(st[0]) + "</span></h3><small>" + esc(b.code) + "</small></div>";
+  }).join("");
+  const types = (p.rest
+    ? [{ name: "Order", fields: ["id", "status", "total", "note", "shopId"] }, { name: "Shop", fields: ["id", "name", "city"] }]
+    : SCHEMA.map(t => t.name === "Order" && w.extra ? { name: t.name, fields: t.fields.concat([w.extra]) } : t)
+  ).map(t => '<div class="type"><b>' + t.name + "</b>" + t.fields.map(f => {
+    const m = w.marks[t.name + "." + f] || "";
+    return '<span class="chip ' + m + '">' + esc(f) + "</span>";
+  }).join("") + "</div>").join("");
+  const store = '<table class="store"><tr><th>id</th><th>status</th><th>total</th><th>note</th><th>shopId</th></tr>' +
+    w.orders.map(o => '<tr style="' + (w.lit.includes(o.id) ? "box-shadow:inset 3px 0 0 var(--accent)" : "") + '">' +
+      ["id", "status", "total", "note", "shopId"].map(k => '<td class="mono' + (w.changed === o.id + "." + k ? " new" : "") + '">' + esc(o[k]) + "</td>").join("") + "</tr>").join("") +
+    "</table>" + '<div class="line mono" style="margin-top:4px;font-size:.74rem">shop 3: Toko Maju, Bandung</div>';
+  const log = w.log.length ? w.log.map(l => '<li><span class="mono">' + esc(l) + "</span></li>").join("") : '<li class="empty">no function has run</li>';
+  const verdict = w.verdict ? '<div class="verdict ' + w.verdict[0] + '">' + esc(w.verdict[1]) + "</div>" : "";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>The app</h2>' +
+      '<div class="comp user' + lit("client") + '"><h3>' + (p.rest ? "Requests" : "The query text") + "</h3><small>" + (p.rest ? "what the app calls" : "what the app sends") + '</small><div class="query mono">' + q + "</div>" +
+        '<div class="line" style="margin-top:8px"><b>Trips so far:</b> <span class="trips">' + w.trips + "</span></div>" +
+        '<div class="line"><b>Now:</b> ' + esc(w.now) + "</div>" +
+        (w.got ? '<div class="line"><b>Got:</b> ' + esc(w.got) + "</div>" : "") + verdict + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>' + (p.rest ? "The REST server" : "The GraphQL server") + "</h2>" + boxes +
+      '<div class="comp lb' + lit("schema") + '" style="margin-top:10px"><h3>' + (p.rest ? "Fields sent" : "The schema, the menu") + "</h3><small>" +
+        (p.rest ? "green: shown on screen. Crossed out: sent, never shown" : "yellow: asked. Green: found. Red: not on the menu") + '</small><div class="types">' + types + "</div></div>" +
+    "</div>" +
+    '<div class="panel"><h2>Data and answer</h2>' +
+      '<div class="comp store' + lit("store") + '"><h3>Orders in the database</h3>' + store + "</div>" +
+      (p.rest ? "" : '<div class="comp lb' + lit("log") + '"><h3>Functions that ran</h3><ul class="rows">' + log + "</ul></div>") +
+      '<div class="comp srv' + lit("resp") + '"><h3>' + (p.rest ? "Last answer body" : "The answer body") + '</h3><pre class="json mono">' + (w.resp ? esc(w.resp) : '<span class="empty">nothing yet</span>') + "</pre></div>" +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderStage(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(real) + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(p.q) + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>

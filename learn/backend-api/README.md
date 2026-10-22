@@ -38,8 +38,8 @@ Each ready lesson has a step-through page in [visuals/](visuals/) and a practice
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 04 | GraphQL basics `04-graphql-basics.md` | schema, query, mutation, how it differs from REST | planned |
-| 05 | Resolvers and the N+1 problem `05-resolvers-and-the-n-1-problem.md` | how resolvers run and why DataLoader exists | planned |
+| 04 | [GraphQL basics](04-graphql-basics.md) | schema, query, mutation, how it differs from REST | ready |
+| 05 | [Resolvers and the N+1 problem](05-resolvers-and-the-n-1-problem.md) | how resolvers run and why DataLoader exists | ready |
 
 ### Auth
 

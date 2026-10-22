@@ -27,6 +27,10 @@
   "Hasura",
   "Compiler not resolver, permissions, Actions, CLI commands, v2 vs DDN"
  ],
+ "learn/backend-api/visuals/05-resolvers-and-the-n-1-problem.html": [
+  "Resolvers and N+1 stepper",
+  "Watch the shop resolver run per order, then see DataLoader batch it into one query"
+ ],
  "learn/database/postgresql-queries-interview-guide-cheatsheet.html": [
   "PostgreSQL Queries",
   "Joins, composite indexes, reading EXPLAIN, window functions, isolation levels"

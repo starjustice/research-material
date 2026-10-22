@@ -1,0 +1,77 @@
+{
+  "observations": [
+    {
+      "label": "Query complete",
+      "step": "Step 9 of 9",
+      "trips": "1",
+      "answer": "{\"data\":{\"orders\":[\n  {\"id\":\"41\",\"status\":\"PAID\",\"shop\":{\"name\":\"Toko Maju\"}},\n  {\"id\":\"42\",\"status\":\"NEW\",\"shop\":{\"name\":\"Toko Maju\"}}\n]}}"
+    },
+    {
+      "label": "Back from final query",
+      "step": "Step 8 of 9",
+      "trips": "1",
+      "answer": "{\"data\":{\"orders\":[\n  {\"id\":\"41\",\"status\":\"PAID\",\"shop\":{\"name\":\"Toko Maju\"}},\n  {\"id\":\"42\",\"status\":\"NEW\",\"shop\":{\"name\":\"Toko Maju\"}}\n]}}"
+    },
+    {
+      "label": "Reset query",
+      "step": "Step 1 of 9",
+      "trips": "0",
+      "answer": "nothing yet"
+    },
+    {
+      "label": "Mutation complete",
+      "step": "Step 8 of 8",
+      "trips": "1",
+      "answer": "{\"data\":{\"cancelOrder\":\n  {\"id\":\"42\",\"status\":\"CANCELLED\"}\n}}"
+    },
+    {
+      "label": "Invalid field complete",
+      "step": "Step 7 of 7",
+      "trips": "1",
+      "answer": "{\"errors\":[{\n  \"message\":\"Cannot query field \\\"price\\\" on type \\\"Order\\\".\",\n  \"locations\":[{\"line\":1,\"column\":15}]\n}]}"
+    },
+    {
+      "label": "REST complete",
+      "step": "Step 7 of 7",
+      "trips": "3",
+      "answer": "{\"id\":3,\"name\":\"Toko Maju\",\"city\":\"Bandung\"}"
+    },
+    {
+      "label": "Repeated ArrowRight stops at final step",
+      "step": "Step 9 of 9",
+      "trips": "1",
+      "answer": "{\"data\":{\"orders\":[\n  {\"id\":\"41\",\"status\":\"PAID\",\"shop\":{\"name\":\"Toko Maju\"}},\n  {\"id\":\"42\",\"status\":\"NEW\",\"shop\":{\"name\":\"Toko Maju\"}}\n]}}"
+    },
+    {
+      "label": "Repeated ArrowLeft stops at first step",
+      "step": "Step 1 of 9",
+      "trips": "0",
+      "answer": "nothing yet"
+    },
+    {
+      "label": "Switch story midway resets state",
+      "step": "Step 1 of 8",
+      "trips": "0",
+      "answer": "nothing yet"
+    },
+    {
+      "label": "Mobile query complete",
+      "step": "Step 9 of 9",
+      "trips": "1",
+      "answer": "{\"data\":{\"orders\":[\n  {\"id\":\"41\",\"status\":\"PAID\",\"shop\":{\"name\":\"Toko Maju\"}},\n  {\"id\":\"42\",\"status\":\"NEW\",\"shop\":{\"name\":\"Toko Maju\"}}\n]}}"
+    },
+    {
+      "label": "Auto advances; Pause stops playback",
+      "step": "Step 2 of 9",
+      "trips": "1",
+      "answer": "nothing yet"
+    },
+    {
+      "label": "Reset after playback",
+      "step": "Step 1 of 9",
+      "trips": "0",
+      "answer": "nothing yet"
+    }
+  ],
+  "issues": []
+}

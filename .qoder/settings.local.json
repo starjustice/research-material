@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /Users/wing/Desktop/claude/AiLearner && ls -la && find . -path ./node_modules -prune -o \\\\\\( -iname \"CLAUDE.md\" -o -iname \"AGENTS.md\" -o -iname \"SKILL.md\" -o -path \"*/.claude/*\" \\\\\\) -print | head -50 && find . -ipath \"*system-design*\" -not -path \"*/node_modules/*\" | head -80)",
+      "Bash(cd /Users/wing/Desktop/claude/AiLearner && ls .claude .claude/skills 2>/dev/null; find .claude -maxdepth 3 -not -path \"*/worktrees/*\" | head -50; ls .qoder; find .qoder | head; ls templates scripts)",
+      "Bash(ls; echo ---; git ls-files | head -100; echo; git ls-files | wc -l)"
+    ]
+  }
+}
