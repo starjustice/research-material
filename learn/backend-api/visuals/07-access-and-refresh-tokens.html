@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access and Refresh Tokens Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../07-access-and-refresh-tokens.md">Open the lesson ↗</a>
+  </div>
+  <h1>Access and refresh tokens stepper</h1>
+  <p class="sub">Ana uses a notes app. A1 and A2 are access tokens (short life). R1 and R2 are refresh tokens (long life). The database keeps only a hash of each refresh token. The times are made up, so you can see tokens run out.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> the <b>access token</b> is used on every request and ends fast. The <b>refresh token</b> is used rarely, lives in the database, and works <b>once</b>.
+  <ul>
+    <li><b>Access token:</b> a short JWT (about 15 minutes) that you send with every request.</li>
+    <li><b>Refresh token:</b> a long random string (about 7 days) that you send only to get a new pair of tokens.</li>
+    <li><b>Rotation:</b> each time you use a refresh token, the server marks it used and gives you a new one.</li>
+    <li><b>HttpOnly cookie:</b> a cookie that JavaScript on the page cannot read. A good place for the refresh token on the web.</li>
+  </ul></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "app",
+  "title": "Browser or app",
+  "sub": "what Ana's device holds",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "server",
+  "title": "Server",
+  "sub": "what it checks, and the time",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "db",
+  "title": "Database",
+  "sub": "table refresh_tokens (hashes only)",
+  "color": "c3",
+  "empty": "empty"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "Normal use",
+  "question": "At 10:16 Ana's access token has ended. What does the app send to get a new one, and what happens to the old refresh token?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /login",
+   "const access = signJwt({ sub: user.id }, SECRET, \"15m\");",
+   "const refresh = randomBytes(32).toString(\"base64url\");",
+   "db.insert({ hash: sha256(refresh), userId, status: \"active\" });",
+   "// every other request",
+   "verifyJwt(accessToken);                 // no database",
+   "// POST /refresh",
+   "const row = db.find(sha256(refreshToken));",
+   "if (!row || row.status !== \"active\") return reject();",
+   "row.status = \"used\";                    // the old one dies",
+   "// then make a new access token and a new refresh token"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [],
+     "server": [
+      [
+       "Now",
+       "10:00",
+       ""
+      ]
+     ],
+     "db": []
+    },
+    "note": "10:00. Ana opens the app. The app holds nothing. The database has no refresh tokens."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "App",
+     "Server",
+     "POST /login  email + password"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:00",
+       ""
+      ],
+      [
+       "Made",
+       "access token A1, ends 10:15",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana logs in. The password is right. The server makes the <b>access token A1</b>. It ends after 15 minutes."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:00",
+       ""
+      ],
+      [
+       "Made",
+       "A1 (ends 10:15) and R1",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, active, ends in 7 days",
+       ""
+      ]
+     ]
+    },
+    "note": "The server also makes the <b>refresh token R1</b>, a long random string. It saves only the <b>hash</b> of R1 in the database. If the database leaks, nobody can use the hashes."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "App",
+     "200 OK   A1 in the body, R1 in an HttpOnly cookie"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Access token",
+       "A1 (ends 10:15), kept in memory",
+       ""
+      ],
+      [
+       "Refresh token",
+       "R1, in an HttpOnly cookie",
+       ""
+      ]
+     ]
+    },
+    "note": "The app gets both. It keeps A1 in memory. R1 sits in an <b>HttpOnly cookie</b>, so scripts on the page cannot read it."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "App",
+     "Server",
+     "GET /notes   Authorization: Bearer A1"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:05",
+       ""
+      ],
+      [
+       "Check",
+       "A1 stamp fits, ends 10:15",
+       "good"
+      ]
+     ]
+    },
+    "note": "10:05. Ana asks for her notes. The server checks the stamp and the time of A1. <b>No database.</b> This is the fast path, used on almost every request."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "App",
+     "Server",
+     "GET /notes   Authorization: Bearer A1"
+    ],
+    "status": [
+     "bad",
+     "401 token ended"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Check",
+       "A1 ended at 10:15",
+       "bad"
+      ]
+     ]
+    },
+    "note": "10:16. A1 has ended. The server says <b>401</b>. Ana did nothing wrong. This is how a short life is meant to work."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "App",
+     "Server",
+     "POST /refresh   Cookie: refresh=R1"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Step",
+       "find the hash of R1",
+       ""
+      ]
+     ]
+    },
+    "note": "The app quietly sends <b>R1</b> to <code>/refresh</code>. The server hashes it and looks in the database."
+   },
+   {
+    "line": 8,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Step",
+       "R1 found, active, not ended",
+       "good"
+      ]
+     ]
+    },
+    "note": "It finds the row. Status is <code>active</code> and 7 days have not passed. So R1 is good."
+   },
+   {
+    "line": 9,
+    "wire": null,
+    "boxes": {
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, USED",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>Rotation.</b> The server marks R1 as <code>used</code> at once. R1 can never be used again."
+   },
+   {
+    "line": 10,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Made",
+       "A2 (ends 10:31) and R2",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, used",
+       ""
+      ],
+      [
+       "b81e… (hash of R2)",
+       "user 7, active, same family",
+       ""
+      ]
+     ]
+    },
+    "note": "The server makes a new access token <b>A2</b> and a new refresh token <b>R2</b>. It saves the hash of R2 in the same family."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "App",
+     "200 OK   A2 in the body, R2 in the cookie"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Access token",
+       "A2 (ends 10:31), kept in memory",
+       ""
+      ],
+      [
+       "Refresh token",
+       "R2, in an HttpOnly cookie",
+       ""
+      ]
+     ]
+    },
+    "note": "The app replaces A1 and R1 with A2 and R2."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "App",
+     "Server",
+     "GET /notes   Authorization: Bearer A2"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Check",
+       "A2 stamp fits, ends 10:31",
+       "good"
+      ]
+     ]
+    },
+    "note": "The app repeats the request with A2. It works. Ana never saw a login screen."
+   }
+  ],
+  "answer": "<b>Answer:</b> the app sends the <b>refresh token R1</b> to <code>/refresh</code>. The server marks R1 as <b>used</b> and gives back a <b>new pair</b>: access token A2 and refresh token R2. This is rotation. Ana stays logged in and never types her password again."
+ },
+ {
+  "tab": "A thief copies the access token",
+  "question": "A thief gets a copy of Ana's access token A1 at 10:03. How long can the thief use it? Can the thief get a new one?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /login",
+   "const access = signJwt({ sub: user.id }, SECRET, \"15m\");",
+   "const refresh = randomBytes(32).toString(\"base64url\");",
+   "db.insert({ hash: sha256(refresh), userId, status: \"active\" });",
+   "// every other request",
+   "verifyJwt(accessToken);                 // no database",
+   "// POST /refresh",
+   "const row = db.find(sha256(refreshToken));",
+   "if (!row || row.status !== \"active\") return reject();",
+   "row.status = \"used\";                    // the old one dies",
+   "// then make a new access token and a new refresh token"
+  ],
+  "boxes": [
+   {
+    "key": "app",
+    "title": "Browser or app",
+    "sub": "what Ana's device holds",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "server",
+    "title": "Server",
+    "sub": "what it checks, and the time",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "table refresh_tokens (hashes only)",
+    "color": "c3",
+    "empty": "empty"
+   },
+   {
+    "key": "thief",
+    "title": "Thief",
+    "sub": "someone who copied a token",
+    "color": "c4",
+    "empty": "holds nothing"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [
+      [
+       "Access token",
+       "A1 (ends 10:15), kept in memory",
+       ""
+      ],
+      [
+       "Refresh token",
+       "R1, in an HttpOnly cookie",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Now",
+       "10:00",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, active",
+       ""
+      ]
+     ],
+     "thief": []
+    },
+    "note": "10:00. Ana is logged in. She holds A1 and R1. The database has the hash of R1."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:03",
+       ""
+      ]
+     ],
+     "thief": [
+      [
+       "Copied",
+       "A1 (ends 10:15)",
+       "bad"
+      ]
+     ]
+    },
+    "note": "10:03. A thief gets a copy of <b>A1</b>. Maybe it leaked into a log file. The thief does <b>not</b> have R1. R1 sits in an HttpOnly cookie that scripts cannot read."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Thief",
+     "Server",
+     "GET /notes   Authorization: Bearer A1"
+    ],
+    "status": [
+     "warn",
+     "200 OK (thief gets in)"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:04",
+       ""
+      ],
+      [
+       "Check",
+       "A1 stamp fits, ends 10:15",
+       "warn"
+      ]
+     ]
+    },
+    "note": "10:04. The thief sends A1. The server cannot tell Ana from the thief. The stamp fits. The thief gets in. <b>This is the damage.</b>"
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Thief",
+     "Server",
+     "GET /notes   Authorization: Bearer A1"
+    ],
+    "status": [
+     "bad",
+     "401 token ended"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Check",
+       "A1 ended at 10:15",
+       "bad"
+      ]
+     ]
+    },
+    "note": "10:16. A1 has ended. The thief is out. The damage lasted <b>at most 15 minutes</b>."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Thief",
+     "Server",
+     "POST /refresh   (no refresh cookie)"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Check",
+       "no refresh token sent",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The thief tries <code>/refresh</code>, but has no refresh token. The server says 401. The thief cannot make a new access token."
+   }
+  ],
+  "answer": "<b>Answer:</b> at most <b>15 minutes</b>, until A1 ends. The thief cannot get a new one, because the refresh token is held somewhere the thief could not copy. This is the main reason for a short access token."
+ },
+ {
+  "tab": "A thief copies the refresh token",
+  "question": "A thief and Ana both hold R1. The thief uses it first. Then Ana's app uses R1 too. What does the server do when it sees R1 a second time?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /login",
+   "const access = signJwt({ sub: user.id }, SECRET, \"15m\");",
+   "const refresh = randomBytes(32).toString(\"base64url\");",
+   "db.insert({ hash: sha256(refresh), userId, status: \"active\" });",
+   "// every other request",
+   "verifyJwt(accessToken);                 // no database",
+   "// POST /refresh",
+   "const row = db.find(sha256(refreshToken));",
+   "if (!row || row.status !== \"active\") return reject();",
+   "row.status = \"used\";                    // the old one dies",
+   "// then make a new access token and a new refresh token"
+  ],
+  "boxes": [
+   {
+    "key": "app",
+    "title": "Browser or app",
+    "sub": "what Ana's device holds",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "server",
+    "title": "Server",
+    "sub": "what it checks, and the time",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "table refresh_tokens (hashes only)",
+    "color": "c3",
+    "empty": "empty"
+   },
+   {
+    "key": "thief",
+    "title": "Thief",
+    "sub": "someone who copied a token",
+    "color": "c4",
+    "empty": "holds nothing"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [
+      [
+       "Access token",
+       "A1 (ends 10:15)",
+       ""
+      ],
+      [
+       "Refresh token",
+       "R1",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Now",
+       "10:10",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, active, family F1",
+       ""
+      ]
+     ],
+     "thief": [
+      [
+       "Copied",
+       "R1",
+       "bad"
+      ]
+     ]
+    },
+    "note": "10:10. Both Ana and a thief hold <b>R1</b>. The thief copied it, for example from a stolen backup. The database says R1 is active."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Thief",
+     "Server",
+     "POST /refresh   R1"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:10",
+       ""
+      ],
+      [
+       "Check",
+       "R1 found, active",
+       "good"
+      ]
+     ]
+    },
+    "note": "The thief is first. The thief sends R1. The server finds it active. Everything looks normal."
+   },
+   {
+    "line": 9,
+    "wire": [
+     "Server",
+     "Thief",
+     "200 OK   A2 and R2"
+    ],
+    "status": [
+     "warn",
+     "200 OK (thief gets a new pair)"
+    ],
+    "boxes": {
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, USED, family F1",
+       "warn"
+      ],
+      [
+       "b81e… (hash of R2)",
+       "user 7, active, family F1",
+       ""
+      ]
+     ],
+     "thief": [
+      [
+       "Holds",
+       "A2 and R2",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Rotation works as designed. R1 becomes <code>used</code>. The thief gets A2 and R2. The thief is now logged in as Ana."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "App",
+     "Server",
+     "POST /refresh   R1"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Check",
+       "R1 found, but it is USED",
+       "bad"
+      ]
+     ]
+    },
+    "note": "10:16. Ana's access token ended, so her app sends <b>R1</b>. The server finds R1, but it is <code>used</code>. A used token should never come back. <b>Two people hold R1.</b> Someone copied it."
+   },
+   {
+    "line": 8,
+    "wire": [
+     "Server",
+     "App",
+     "401   login again"
+    ],
+    "status": [
+     "bad",
+     "401 reuse found"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Action",
+       "cancel the whole family F1",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, revoked, family F1",
+       "bad"
+      ],
+      [
+       "b81e… (hash of R2)",
+       "user 7, revoked, family F1",
+       "bad"
+      ]
+     ]
+    },
+    "note": "This is <b>reuse detection</b>. The server cancels <b>every token in the family</b>, including R2 in the thief's hands. Ana is also logged out, which is annoying but safe."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Thief",
+     "Server",
+     "POST /refresh   R2"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:17",
+       ""
+      ],
+      [
+       "Check",
+       "R2 is revoked",
+       "bad"
+      ]
+     ],
+     "thief": [
+      [
+       "Holds",
+       "A2 (works until 10:25) and R2 (dead)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The thief tries R2. It is revoked. The thief can still use A2 until it ends, because an access token cannot be taken back. After that, the thief is out."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "App",
+     "Server",
+     "POST /login  email + password"
+    ],
+    "status": [
+     "ok",
+     "200 OK (new family F2)"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Access token",
+       "A3, new",
+       ""
+      ],
+      [
+       "Refresh token",
+       "R3, new family F2",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Now",
+       "10:18",
+       ""
+      ],
+      [
+       "Check",
+       "password is right",
+       "good"
+      ]
+     ]
+    },
+    "note": "Ana logs in again with her <b>password</b>. She gets a new family. The thief never had the password, so the thief stays out."
+   }
+  ],
+  "answer": "<b>Answer:</b> the server sees that a <b>used</b> refresh token came back, so two people hold it. It <b>cancels the whole family</b>, including the thief's new token. Ana has to log in again, and the thief cannot. If Ana had used R1 first, the thief's later try would cause the same cancel."
+ },
+ {
+  "tab": "Logout",
+  "question": "Ana taps Logout. Which token stops working at once, and which one keeps working for a while?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /logout",
+   "const row = db.find(sha256(refreshToken));",
+   "row.status = \"revoked\";                // cancel the family",
+   "// every other request",
+   "verifyJwt(accessToken);                // no database, so it cannot see the logout"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [
+      [
+       "Access token",
+       "A1 (ends 10:15)",
+       ""
+      ],
+      [
+       "Refresh token",
+       "R1",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Now",
+       "10:05",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, active",
+       ""
+      ]
+     ]
+    },
+    "note": "10:05. Ana is logged in on her phone. She holds A1 and R1."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "App",
+     "Server",
+     "POST /logout   Cookie: refresh=R1"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:05",
+       ""
+      ],
+      [
+       "Step",
+       "find the hash of R1",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana taps <b>Logout</b>. The app sends R1 to <code>/logout</code>."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "db": [
+      [
+       "7c3f… (hash of R1)",
+       "user 7, REVOKED",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The server marks the refresh token <code>revoked</code> in the database. <b>The login is cancelled at the source.</b>"
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "App",
+     "204 No Content"
+    ],
+    "status": [
+     "ok",
+     "204"
+    ],
+    "boxes": {
+     "app": []
+    },
+    "note": "The app deletes A1 and R1 from the device. Ana is logged out."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Someone with a copy of A1",
+     "Server",
+     "GET /notes   Authorization: Bearer A1"
+    ],
+    "status": [
+     "warn",
+     "200 OK (until 10:15)"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:08",
+       ""
+      ],
+      [
+       "Check",
+       "A1 stamp fits, ends 10:15",
+       "warn"
+      ]
+     ]
+    },
+    "note": "10:08. If someone copied A1 earlier, it <b>still works</b>, because the server does no database lookup for an access token. It cannot see the logout. It ends by itself at 10:15."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Someone with a copy of A1",
+     "Server",
+     "POST /refresh   (R1 is revoked)"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Now",
+       "10:16",
+       ""
+      ],
+      [
+       "Check",
+       "A1 ended, R1 revoked",
+       "bad"
+      ]
+     ]
+    },
+    "note": "After 10:15 there is no way back. A1 ended, and R1 is revoked."
+   }
+  ],
+  "answer": "<b>Answer:</b> the <b>refresh token</b> stops working at once, because the server revoked it in the database. The <b>access token</b> keeps working until its time ends (at most 15 minutes), because nobody checks a database for it. That is the price of a stateless access token."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

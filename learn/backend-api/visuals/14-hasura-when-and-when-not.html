@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hasura Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../14-hasura-when-and-when-not.md">Open the lesson ↗</a>
+  </div>
+  <h1>Hasura: when and when not, stepper</h1>
+  <p class="sub">A notes app with Ana (user 7) and Budi (user 8). Each story shows what Hasura does for you, and where your own code starts.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> let Hasura do the boring CRUD and the row filters. Keep rules about money, other services and many steps in your own code.
+  <ul>
+    <li><b>Permission rule:</b> for one role, table and action: a row filter and a list of columns. It can use the user id from the token.</li>
+    <li><b>Session variable:</b> a fact from the token, like <code>x-hasura-user-id</code>.</li>
+    <li><b>Action:</b> an operation in the API whose code is your own server.</li>
+    <li><b>Event trigger:</b> Hasura calls your webhook when a row changes. It delivers at least once.</li>
+  </ul>
+  <b>Remember:</b> the <code>admin</code> role skips every rule, so test as the real role. The admin secret must never be in a client. API limits are on paid and Enterprise plans only.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "client",
+  "title": "Client",
+  "sub": "the app and its token",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "hasura",
+  "title": "Hasura",
+  "sub": "the rules, applied for you",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "db",
+  "title": "PostgreSQL",
+  "sub": "table notes",
+  "color": "c3",
+  "empty": "empty"
+ },
+ {
+  "key": "reply",
+  "title": "Client gets",
+  "sub": "the answer",
+  "color": "c4",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "A select with a row rule",
+  "question": "Ana (user 7) sends <code>query { notes { id title } }</code> with no filter at all. The table has 5 notes. Which ones come back?",
+  "codeTitle": "The permission rule",
+  "code": [
+   "# Hasura rule: table notes, role user, action select",
+   "filter:  owner_id _eq X-Hasura-User-Id",
+   "columns: id, title, owner_id",
+   "limit:   2",
+   "# the query has no filter:   query { notes { id title } }"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7, role user",
+       ""
+      ]
+     ],
+     "hasura": [],
+     "db": [
+      [
+       "note 5",
+       "owner 7 (Ana): shopping list",
+       ""
+      ],
+      [
+       "note 6",
+       "owner 8 (Budi): private diary",
+       ""
+      ],
+      [
+       "note 9",
+       "owner 7 (Ana): ideas",
+       ""
+      ],
+      [
+       "note 10",
+       "owner 7 (Ana): plans",
+       ""
+      ],
+      [
+       "note 11",
+       "owner 8 (Budi): more",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "Five notes in the table. Ana owns 5, 9 and 10. Budi (user 8) owns 6 and 11."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Ana",
+     "Hasura",
+     "query { notes { id title } }     Authorization: Bearer <token>"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7, role user",
+       ""
+      ],
+      [
+       "Sends",
+       "the query. No filter. No owner.",
+       ""
+      ]
+     ]
+    },
+    "note": "The app asks for <b>all</b> notes. It writes no filter, because it does not have to."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "hasura": [
+      [
+       "Token",
+       "signature is good",
+       "good"
+      ],
+      [
+       "Session variables",
+       "x-hasura-role = user, x-hasura-user-id = 7",
+       "good"
+      ]
+     ]
+    },
+    "note": "Hasura checks the token and reads the claims. The role and the user id become <b>session variables</b>."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "hasura": [
+      [
+       "Token",
+       "signature is good",
+       "good"
+      ],
+      [
+       "Session variables",
+       "x-hasura-role = user, x-hasura-user-id = 7",
+       "good"
+      ],
+      [
+       "Rule found",
+       "notes, role user, select",
+       "good"
+      ],
+      [
+       "Filter",
+       "owner_id = 7",
+       "good"
+      ]
+     ]
+    },
+    "note": "Hasura looks for the rule of this table, this role and this action. It finds it. The filter becomes <code>owner_id = 7</code>."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Hasura",
+     "PostgreSQL",
+     "SELECT id, title FROM notes WHERE owner_id = 7 LIMIT 2   (roughly)"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Filter",
+       "owner_id = 7",
+       "good"
+      ],
+      [
+       "Columns",
+       "only id, title (from the rule)",
+       "good"
+      ],
+      [
+       "Limit",
+       "2 rows at most",
+       "warn"
+      ],
+      [
+       "SQL",
+       "ONE query, with the rule inside as a WHERE",
+       "good"
+      ]
+     ]
+    },
+    "note": "Hasura makes <b>one</b> SQL query. The filter, the allowed columns and the limit are all part of it. The database is never asked for the other rows."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Hasura",
+     "Ana",
+     "200   [ note 5, note 9 ]"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "db": [
+      [
+       "note 5",
+       "owner 7 (Ana): shopping list",
+       "good"
+      ],
+      [
+       "note 6",
+       "owner 8 (Budi): private diary",
+       "bad"
+      ],
+      [
+       "note 9",
+       "owner 7 (Ana): ideas",
+       "good"
+      ],
+      [
+       "note 10",
+       "owner 7 (Ana): plans",
+       "warn"
+      ],
+      [
+       "note 11",
+       "owner 8 (Budi): more",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Rows",
+       "note 5, note 9 (2 rows)",
+       "good"
+      ],
+      [
+       "Not there",
+       "6 and 11 are Budi's. 10 is cut by the limit of 2.",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana gets <b>two</b> notes. Budi's notes are not in the answer, and not in an error either. Note 10 is also hers, but the limit of 2 cuts it off."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Budi",
+     "Hasura",
+     "the same query, with Budi's token"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Budi, user 8, role user",
+       ""
+      ]
+     ],
+     "hasura": [
+      [
+       "Session variables",
+       "x-hasura-role = user, x-hasura-user-id = 8",
+       "good"
+      ],
+      [
+       "Filter",
+       "owner_id = 8",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "note 5",
+       "owner 7 (Ana): shopping list",
+       "bad"
+      ],
+      [
+       "note 6",
+       "owner 8 (Budi): private diary",
+       "good"
+      ],
+      [
+       "note 9",
+       "owner 7 (Ana): ideas",
+       "bad"
+      ],
+      [
+       "note 10",
+       "owner 7 (Ana): plans",
+       "bad"
+      ],
+      [
+       "note 11",
+       "owner 8 (Budi): more",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Rows",
+       "note 6, note 11",
+       "good"
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "note": "The <b>same query</b> from Budi gives a different answer, because the session variable is different. One rule, written once, serves every user."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Stranger",
+     "Hasura",
+     "the same query, role anonymous"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "a caller with role anonymous",
+       ""
+      ]
+     ],
+     "hasura": [
+      [
+       "Rule found",
+       "none for notes, role anonymous",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "note 5",
+       "owner 7 (Ana): shopping list",
+       ""
+      ],
+      [
+       "note 6",
+       "owner 8 (Budi): private diary",
+       ""
+      ],
+      [
+       "note 9",
+       "owner 7 (Ana): ideas",
+       ""
+      ],
+      [
+       "note 10",
+       "owner 7 (Ana): plans",
+       ""
+      ],
+      [
+       "note 11",
+       "owner 8 (Budi): more",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "an error. No data.",
+       "bad"
+      ]
+     ]
+    },
+    "status": [
+     "bad",
+     "error"
+    ],
+    "note": "A role with <b>no rule</b> for this table gets no data. You give access one table and one action at a time."
+   }
+  ],
+  "answer": "<b>Answer:</b> notes <b>5 and 9</b>. Ana did not write a filter. Hasura read her user id from the token and put <code>owner_id = 7</code> into the SQL. The limit of 2 cut off note 10. Budi, with the same query, gets 6 and 11."
+ },
+ {
+  "tab": "An insert: wrong, then right",
+  "question": "Ana tries to insert a note with <code>owner_id: 8</code>, so that it shows up in Budi's list. What does the wrong rule do? What does the right rule do?",
+  "codeTitle": "The WRONG insert rule",
+  "code": [
+   "# WRONG insert rule for role user",
+   "check:   {}                             # anything is allowed",
+   "columns: title, owner_id                # the client may choose the owner"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7",
+       ""
+      ]
+     ],
+     "hasura": [
+      [
+       "Rule",
+       "WRONG: check is empty, and the client may send owner_id",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "Budi's notes",
+       "6, 11",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 1: the wrong rule.</b> An empty <code>check</code> lets every row in. And the column <code>owner_id</code> is on the list of columns the client may send."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Ana",
+     "Hasura",
+     "insert note { title: \"hi\", owner_id: 8 }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7",
+       ""
+      ],
+      [
+       "Sends",
+       "title \"hi\", owner_id 8 (Budi)",
+       "warn"
+      ]
+     ],
+     "hasura": [
+      [
+       "Check",
+       "{} means anything passes",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Ana names Budi as the owner."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Hasura",
+     "Ana",
+     "200   inserted"
+    ],
+    "status": [
+     "bad",
+     "200 OK (a leak)"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Check",
+       "{} means anything passes",
+       "bad"
+      ],
+      [
+       "Result",
+       "row saved with owner 8",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "Budi's notes",
+       "6, 11, and a new one from Ana",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "inserted",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The row is saved with <b>Budi</b> as the owner. Now Budi sees a note that Ana wrote. Ana can fill Budi's account with rubbish."
+   },
+   {
+    "line": 0,
+    "code": [
+     "# RIGHT insert rule for role user",
+     "check:   owner_id _eq X-Hasura-User-Id",
+     "set:     owner_id = X-Hasura-User-Id     # a preset: Hasura writes it",
+     "columns: title                           # the client sends only the title"
+    ],
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7",
+       ""
+      ]
+     ],
+     "hasura": [
+      [
+       "Rule",
+       "RIGHT: a check, a preset, and only title may be sent",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Budi's notes",
+       "6, 11",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 2: the right rule.</b> Three parts: a <code>check</code> on the owner, a <code>set</code> preset that writes the owner, and a column list with only <code>title</code>."
+   },
+   {
+    "line": 3,
+    "code": [
+     "# RIGHT insert rule for role user",
+     "check:   owner_id _eq X-Hasura-User-Id",
+     "set:     owner_id = X-Hasura-User-Id     # a preset: Hasura writes it",
+     "columns: title                           # the client sends only the title"
+    ],
+    "wire": [
+     "Ana",
+     "Hasura",
+     "insert note { title: \"hi\" }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7",
+       ""
+      ],
+      [
+       "Sends",
+       "only the title",
+       "good"
+      ]
+     ],
+     "hasura": [
+      [
+       "Columns",
+       "title is allowed",
+       "good"
+      ]
+     ]
+    },
+    "note": "The app sends only the title. It does not decide who owns the note."
+   },
+   {
+    "line": 2,
+    "code": [
+     "# RIGHT insert rule for role user",
+     "check:   owner_id _eq X-Hasura-User-Id",
+     "set:     owner_id = X-Hasura-User-Id     # a preset: Hasura writes it",
+     "columns: title                           # the client sends only the title"
+    ],
+    "wire": null,
+    "boxes": {
+     "hasura": [
+      [
+       "Columns",
+       "title is allowed",
+       "good"
+      ],
+      [
+       "Preset",
+       "Hasura writes owner_id = 7 from the token",
+       "good"
+      ]
+     ]
+    },
+    "note": "The <b>preset</b>: Hasura writes <code>owner_id = 7</code> itself, from the token. If Ana's app also sends an owner, what Ana chooses does not matter. (Exactly how Hasura treats a preset column that the client still sends is in the permissions docs. The practice file simply ignores it.)"
+   },
+   {
+    "line": 1,
+    "code": [
+     "# RIGHT insert rule for role user",
+     "check:   owner_id _eq X-Hasura-User-Id",
+     "set:     owner_id = X-Hasura-User-Id     # a preset: Hasura writes it",
+     "columns: title                           # the client sends only the title"
+    ],
+    "wire": [
+     "Hasura",
+     "Ana",
+     "200   inserted with owner 7"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Columns",
+       "title is allowed",
+       "good"
+      ],
+      [
+       "Preset",
+       "Hasura writes owner_id = 7 from the token",
+       "good"
+      ],
+      [
+       "Check",
+       "owner_id 7 equals my id 7. Passes.",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Ana's notes",
+       "5, 9, 10 and the new one",
+       "good"
+      ],
+      [
+       "Budi's notes",
+       "6, 11",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "inserted, owner 7",
+       "good"
+      ]
+     ]
+    },
+    "note": "The <b>check</b> runs on the final row: the owner equals Ana's id. It passes. The note belongs to Ana, and Budi's list is unchanged."
+   }
+  ],
+  "answer": "<b>Answer:</b> the wrong rule saves a note owned by <b>Budi</b>, because the client picks the owner and the check is empty. The right rule has a <b>preset</b> that writes the owner from the token, a <b>check</b> on the owner, and only <code>title</code> in the columns."
+ },
+ {
+  "tab": "An Action for the logic",
+  "question": "A user redeems points for a gift. It needs a transaction, a call to a partner, and a ledger row. Can a row filter do that? Where does the code live?",
+  "codeTitle": "The Action and its handler",
+  "code": [
+   "# Action redeemPoints(itemId) calls  http://my-api/redeem",
+   "app.post(\"/redeem\", async (req, res) => {",
+   "  const { input, session_variables } = req.body;                 // what, and who",
+   "  const user = session_variables[\"x-hasura-user-id\"];",
+   "  const result = await redeemInTransaction(user, input.itemId);  // points, partner call, ledger",
+   "  if (!result.ok) return res.status(400).json({ message: result.reason });",
+   "  res.json({ redeemed: true, pointsLeft: result.pointsLeft });",
+   "});"
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Client",
+    "sub": "Ana, role user",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "hasura",
+    "title": "Hasura",
+    "sub": "forwards the call",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "handler",
+    "title": "Your handler",
+    "sub": "your Node code",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "world",
+    "title": "Database and other services",
+    "sub": "where the real work happens",
+    "color": "c4",
+    "empty": "not used yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7, role user",
+       ""
+      ]
+     ],
+     "hasura": [
+      [
+       "Action",
+       "redeemPoints(itemId) is in the API, with a permission for role user",
+       ""
+      ]
+     ],
+     "handler": [],
+     "world": []
+    },
+    "note": "A row filter cannot do this job. It has a transaction, a partner API and a ledger. So the operation is an <b>Action</b>: a part of the Hasura API whose code is <b>your server</b>."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Ana",
+     "Hasura",
+     "mutation { redeemPoints(itemId: 12) { redeemed pointsLeft } }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Sends",
+       "mutation redeemPoints, itemId 12",
+       ""
+      ]
+     ]
+    },
+    "note": "To the app it looks like any other mutation."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "hasura": [
+      [
+       "Action",
+       "redeemPoints is in the API",
+       ""
+      ],
+      [
+       "Permission",
+       "role user may call it",
+       "good"
+      ]
+     ]
+    },
+    "note": "Hasura first checks the <b>permission to call the Action</b> for this role. It does not run your logic itself."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Hasura",
+     "Your handler",
+     "POST /redeem   { action: {name}, input: {itemId: 12}, session_variables: {...} }"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Permission",
+       "role user may call it",
+       "good"
+      ],
+      [
+       "Forwards",
+       "POST with the action name, the input and the session variables",
+       ""
+      ]
+     ],
+     "handler": [
+      [
+       "Gets",
+       "input.itemId = 12, x-hasura-user-id = 7",
+       ""
+      ]
+     ]
+    },
+    "note": "Hasura sends a <code>POST</code> with the action name, the <b>input</b> and the <b>session variables</b>. Your handler knows what to do and for whom."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Your handler",
+     "Database and partner",
+     "one transaction: take points, call the partner, write the ledger"
+    ],
+    "boxes": {
+     "handler": [
+      [
+       "Gets",
+       "input.itemId = 12, x-hasura-user-id = 7",
+       ""
+      ],
+      [
+       "Does",
+       "redeemInTransaction(7, 12)",
+       "warn"
+      ]
+     ],
+     "world": [
+      [
+       "Points",
+       "100 down to 60",
+       "warn"
+      ],
+      [
+       "Partner API",
+       "called once",
+       ""
+      ],
+      [
+       "Ledger",
+       "one row added",
+       "good"
+      ]
+     ]
+    },
+    "note": "This is the careful work: a transaction, an outside call, a ledger row. It belongs in <b>real code</b> with real tests."
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Your handler",
+     "Hasura",
+     "200   { redeemed: true, pointsLeft: 60 }"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "handler": [
+      [
+       "Answers",
+       "2xx and the result",
+       "good"
+      ]
+     ],
+     "hasura": [
+      [
+       "Gets",
+       "a 2xx and the output type",
+       "good"
+      ]
+     ]
+    },
+    "note": "On success the handler answers with a <code>2xx</code> and a body that matches the Action's output type."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Hasura",
+     "Ana",
+     "200   { redeemed: true, pointsLeft: 60 }"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, user 7, role user",
+       ""
+      ],
+      [
+       "Gets",
+       "redeemed: true, pointsLeft: 60",
+       "good"
+      ]
+     ]
+    },
+    "note": "Hasura gives the result back to the app in the normal GraphQL shape."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Your handler",
+     "Hasura",
+     "400   { message: \"not enough points\" }"
+    ],
+    "status": [
+     "bad",
+     "400"
+    ],
+    "boxes": {
+     "handler": [
+      [
+       "Case",
+       "Ana has 10 points, the gift costs 40",
+       "bad"
+      ],
+      [
+       "Answers",
+       "4xx and a message",
+       "bad"
+      ]
+     ],
+     "world": [
+      [
+       "Points",
+       "unchanged at 10",
+       "good"
+      ]
+     ],
+     "client": [
+      [
+       "Who",
+       "Ana, user 7, role user",
+       ""
+      ],
+      [
+       "Gets",
+       "an error with the message: not enough points",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The other case. If the handler refuses, it answers with a <code>4xx</code> and a <code>message</code>. Hasura passes the message back to the app as a GraphQL error."
+   }
+  ],
+  "answer": "<b>Answer:</b> no, a row filter cannot do it. The code lives in <b>your handler</b>, and Hasura forwards the call as an <b>Action</b>, with the input and the session variables. CRUD stays in Hasura. Anything with an \"if\" about money goes to an Action."
+ },
+ {
+  "tab": "An event trigger arrives twice",
+  "question": "A new order row should send a confirmation email. Hasura calls your webhook, but your first answer is a 500. What happens next, and how do you avoid two emails?",
+  "codeTitle": "The event trigger and its webhook",
+  "code": [
+   "# Event trigger: table orders, INSERT. retries: 3, interval: 10 s, timeout: 60 s",
+   "app.post(\"/events/order-created\", async (req, res) => {",
+   "  const order = req.body.event.data.new;                  // the new row",
+   "  const first = await insertIfNew(\"order-created\", order.id);   // a key from OUR data",
+   "  if (first) await queue.add(\"send-confirmation-email\", order);",
+   "  res.sendStatus(200);",
+   "});"
+  ],
+  "boxes": [
+   {
+    "key": "app",
+    "title": "The app",
+    "sub": "creates orders",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "hasura",
+    "title": "Hasura",
+    "sub": "the event trigger",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "handler",
+    "title": "Your webhook",
+    "sub": "/events/order-created",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "ids",
+    "title": "Seen table",
+    "sub": "UNIQUE on the order id",
+    "color": "c4",
+    "empty": "empty"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [],
+     "hasura": [
+      [
+       "Trigger",
+       "orders, INSERT, retries 3, every 10 s",
+       ""
+      ]
+     ],
+     "handler": [],
+     "ids": []
+    },
+    "note": "An <b>event trigger</b> starts by itself when a row changes. Nobody calls it from the app. It is built to deliver <b>at least once</b>."
+   },
+   {
+    "line": null,
+    "wire": [
+     "App",
+     "Hasura",
+     "insert order 42"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Action",
+       "insert order 42",
+       ""
+      ]
+     ],
+     "hasura": [
+      [
+       "Trigger",
+       "orders, INSERT, retries 3, every 10 s",
+       ""
+      ],
+      [
+       "Sees",
+       "a new row: order 42",
+       "good"
+      ]
+     ]
+    },
+    "note": "The app saves order 42. Hasura sees the insert and starts the trigger."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Hasura",
+     "Webhook",
+     "POST /events/order-created   { event: { op: INSERT, data: { new: { id: 42, ... } } } }"
+    ],
+    "boxes": {
+     "handler": [
+      [
+       "Gets",
+       "the new row: order 42",
+       ""
+      ]
+     ]
+    },
+    "note": "Hasura <code>POST</code>s the event, with the new row in <code>event.data.new</code>."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "handler": [
+      [
+       "Gets",
+       "the new row: order 42",
+       ""
+      ],
+      [
+       "Step",
+       "insertIfNew(order-created, 42)",
+       ""
+      ]
+     ],
+     "ids": [
+      [
+       "order-created / 42",
+       "saved",
+       "good"
+      ]
+     ]
+    },
+    "note": "The webhook saves a key built from <b>your own data</b>: the order id. A row is inserted once, so \"order-created 42\" can only be new once."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Webhook",
+     "Queue",
+     "add job: send-confirmation-email"
+    ],
+    "boxes": {
+     "handler": [
+      [
+       "Gets",
+       "the new row: order 42",
+       ""
+      ],
+      [
+       "Step",
+       "queue.add(...)",
+       "bad"
+      ],
+      [
+       "Crash",
+       "the queue is down, an error is thrown",
+       "bad"
+      ]
+     ],
+     "ids": [
+      [
+       "order-created / 42",
+       "saved",
+       "good"
+      ]
+     ]
+    },
+    "note": "The queue is down and throws an error. In lesson 13 you saw the gap: the key is saved, but no job was queued."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Webhook",
+     "Hasura",
+     "500"
+    ],
+    "status": [
+     "bad",
+     "500"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Trigger",
+       "orders, INSERT, retries 3, every 10 s",
+       ""
+      ],
+      [
+       "Result",
+       "500 is not a 2xx, so FAILED",
+       "bad"
+      ],
+      [
+       "Plan",
+       "retry in 10 s (1 of 3)",
+       "warn"
+      ]
+     ],
+     "ids": [
+      [
+       "order-created / 42",
+       "forget this key, so the retry works",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Any answer that is not <code>2xx</code> is a failure. Hasura will retry. So the webhook must <b>forget the key</b> when the queue fails (the same fix as lesson 13), or the retry would be skipped as a repeat."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Hasura",
+     "Webhook",
+     "POST again   (a retry, 10 seconds later)"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Retry",
+       "1 of 3",
+       "warn"
+      ]
+     ],
+     "handler": [
+      [
+       "Gets",
+       "the same row: order 42",
+       ""
+      ]
+     ],
+     "ids": [
+      [
+       "order-created / 42",
+       "free again",
+       ""
+      ]
+     ]
+    },
+    "note": "Ten seconds later, Hasura sends the same event again."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Webhook",
+     "Hasura",
+     "200 OK"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "hasura": [
+      [
+       "Retry",
+       "1 of 3",
+       "warn"
+      ],
+      [
+       "Result",
+       "2xx. DONE.",
+       "good"
+      ]
+     ],
+     "handler": [
+      [
+       "Gets",
+       "the same row: order 42",
+       ""
+      ],
+      [
+       "Insert returned",
+       "1 (new). Queued the job.",
+       "good"
+      ]
+     ],
+     "ids": [
+      [
+       "order-created / 42",
+       "saved",
+       "good"
+      ]
+     ]
+    },
+    "note": "This time the queue works. One job, one email, and a <code>200</code>. If the first try had <b>not</b> failed and the event came twice anyway, the second insert would return 0, and no second job would be queued."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "ids": [
+      [
+       "About the payload id",
+       "the docs call it a UUID for the invocation, but do not say a retry keeps it. Test it before you trust it.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The payload also has an <code>id</code> field. The docs describe it as the id of the invocation, but they <b>do not say</b> that a retry carries the same one. A key built from your own data (the order id here) is the safer choice. Test the <code>id</code> yourself before you use it."
+   }
+  ],
+  "answer": "<b>Answer:</b> Hasura <b>retries</b> after any non-2xx answer, and it may also deliver an event twice. To avoid two emails, save a key from your own data (the order id) with a UNIQUE rule, queue the job, answer 200, and forget the key if queueing fails."
+ },
+ {
+  "tab": "Should I use Hasura?",
+  "question": "Three projects: an admin panel for the ops team, a points redeem flow, and a shop app. Decide for each: Hasura, your own API, or both? Use the four questions.",
+  "codeTitle": "The four questions",
+  "code": [
+   "Q1. Is most of the API plain create, read, update, delete on Postgres tables?",
+   "Q2. Are the access rules about WHICH ROWS (my rows, my company's rows)?",
+   "Q3. Are there steps with money, other services, or many tables in one go?",
+   "Q4. Do you need rate limits, and do you have a paid plan or a gateway?"
+  ],
+  "boxes": [
+   {
+    "key": "project",
+    "title": "The project",
+    "sub": "what is being built",
+    "color": "c1",
+    "empty": "choose a project"
+   },
+   {
+    "key": "answers",
+    "title": "Your answers",
+    "sub": "the questions on the left",
+    "color": "c2",
+    "empty": "no answers yet"
+   },
+   {
+    "key": "verdict",
+    "title": "Verdict",
+    "sub": "what to build",
+    "color": "c3",
+    "empty": "not decided yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "project": [],
+     "answers": [],
+     "verdict": []
+    },
+    "note": "Read the four questions on the left. For each project, answer them, then look at the verdict. Guess first."
+   },
+   {
+    "line": 0,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project A",
+       "an internal admin panel for the ops team. Lists, filters and edits of Postgres tables.",
+       ""
+      ]
+     ],
+     "answers": [
+      [
+       "Q1 plain CRUD?",
+       "yes, almost all of it",
+       "good"
+      ]
+     ],
+     "verdict": []
+    },
+    "note": "<b>Project A: an admin panel.</b> Q1: most screens are lists and forms over tables. Yes."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "answers": [
+      [
+       "Q1 plain CRUD?",
+       "yes, almost all of it",
+       "good"
+      ],
+      [
+       "Q2 row rules?",
+       "yes. Roles see different tables and rows.",
+       "good"
+      ],
+      [
+       "Q3 money or many steps?",
+       "no",
+       "good"
+      ],
+      [
+       "Q4 limits needed?",
+       "only a few internal users. A gateway is enough.",
+       "good"
+      ]
+     ]
+    },
+    "note": "Q2: yes. Q3: no, nothing with money. Q4: a handful of internal users, so limits matter little."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "verdict": [
+      [
+       "Project A",
+       "HASURA. Fast to build and the rules live in one place.",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Hasura fits well.</b> Tracking the tables and adding role rules takes hours. There is almost no code to write."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project B",
+       "a points redeem flow: take points, call a partner API, write a ledger, handle failures.",
+       ""
+      ]
+     ],
+     "answers": [
+      [
+       "Q1 plain CRUD?",
+       "no. It is one operation with many steps.",
+       "bad"
+      ],
+      [
+       "Q2 row rules?",
+       "some (my own points)",
+       ""
+      ],
+      [
+       "Q3 money or many steps?",
+       "YES. Points are like money.",
+       "bad"
+      ],
+      [
+       "Q4 limits needed?",
+       "yes, abuse costs real points",
+       "warn"
+      ]
+     ],
+     "verdict": []
+    },
+    "note": "<b>Project B: the redeem flow.</b> Q1: no. Q3: <b>yes</b>, it has points, an outside call and a ledger."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "verdict": [
+      [
+       "Project B",
+       "OWN SERVICE (reached as an Action if you already use Hasura for the reads)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>Write your own code.</b> If Hasura serves the rest of the app, expose this one operation as an <b>Action</b>. If you made the whole project from Actions like this one, Hasura adds little."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project C",
+       "a shop app: product lists, carts, order history, plus a payment and a points flow.",
+       ""
+      ]
+     ],
+     "answers": [
+      [
+       "Q1 plain CRUD?",
+       "about 80% (lists, carts, history)",
+       "good"
+      ],
+      [
+       "Q2 row rules?",
+       "yes (my cart, my orders)",
+       "good"
+      ],
+      [
+       "Q3 money or many steps?",
+       "yes, but only for checkout and points",
+       "warn"
+      ],
+      [
+       "Q4 limits needed?",
+       "yes, on login, checkout and OTP",
+       "warn"
+      ]
+     ],
+     "verdict": []
+    },
+    "note": "<b>Project C: a shop app.</b> Most of it is CRUD with row rules. A small part has money and steps. Limits matter for login and checkout."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "verdict": [
+      [
+       "Project C",
+       "HYBRID. Hasura for the CRUD 80%. Actions and your service for checkout and points. Limits at a gateway.",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Hybrid.</b> This is the pattern in your Hasura guide: Hasura for CRUD with permissions, a small Node service for the logic. On the free self-hosted version, rate limits go in a gateway in front (lesson 11)."
+   }
+  ],
+  "answer": "<b>Answer:</b> A: <b>Hasura</b>. B: <b>your own service</b> (an Action if Hasura serves the reads). C: <b>hybrid</b>, with limits in a gateway. The questions to ask: is it mostly CRUD, are the rules about rows, is there money or many steps, and who does the limiting."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

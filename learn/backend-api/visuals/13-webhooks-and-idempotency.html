@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webhooks and Idempotency Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../13-webhooks-and-idempotency.md">Open the lesson ↗</a>
+  </div>
+  <h1>Webhooks and idempotency stepper</h1>
+  <p class="sub">A shop that receives events from a loyalty partner (like TADA in your DBO notes). Each story shows what the server checks, saves and answers.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> verify the signature, save the event id, answer <b>200</b> fast, do the real work later, and make the work safe to repeat.
+  <ul>
+    <li><b>Webhook:</b> another service calls your URL when something happens.</li>
+    <li><b>Signature:</b> a code made from the message and a shared secret. Only the real sender can make it.</li>
+    <li><b>Idempotent:</b> doing it twice has the same result as doing it once.</li>
+    <li><b>Idempotency key:</b> a unique id for one action, so you can spot a repeat.</li>
+  </ul>
+  <b>Status codes:</b> <code>200</code> = got it, stop retrying (also for repeats). <code>400</code> = refused (bad signature or body). <code>5xx</code> = we failed, please try again.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "sender",
+  "title": "Sender",
+  "sub": "the other service",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "endpoint",
+  "title": "Your endpoint",
+  "sub": "the checks, in order",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "ids",
+  "title": "Event ids table",
+  "sub": "UNIQUE on (provider, event_id)",
+  "color": "c3",
+  "empty": "empty"
+ },
+ {
+  "key": "queue",
+  "title": "Queue and worker",
+  "sub": "the real work happens here",
+  "color": "c4",
+  "empty": "empty"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "A good delivery",
+  "question": "A real event arrives, and a retry of it arrives a moment later. How many jobs end up in the queue, and what does the sender get both times?",
+  "codeTitle": "The webhook route",
+  "code": [
+   "app.post(\"/webhooks/tada\", express.raw({ type: \"application/json\" }), async (req, res) => {",
+   "  if (!verify(req.get(\"X-Signature\"), req.body, nowSec())) return res.sendStatus(400);",
+   "  const event = JSON.parse(req.body.toString(\"utf8\"));",
+   "  const inserted = await insertEventIdIfNew(\"tada\", event.id);       // 1 or 0",
+   "  if (inserted === 1) await queue.add(\"handle-event\", event);",
+   "  res.sendStatus(200);",
+   "});"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "sender": [
+      [
+       "Event",
+       "evt_1, order shipped",
+       ""
+      ],
+      [
+       "Signature",
+       "t=1000,v1=0d6ad678...",
+       ""
+      ]
+     ],
+     "endpoint": [],
+     "ids": [],
+     "queue": []
+    },
+    "note": "The sender (for example TADA) has an event. It signs the <b>exact bytes</b> of the body with a secret that you and it both know."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "Sender",
+     "Endpoint",
+     "POST /webhooks/tada   X-Signature: t=1000,v1=0d6a...   body: {\"id\":\"evt_1\", ...}"
+    ],
+    "boxes": {
+     "endpoint": [
+      [
+       "Body kept as",
+       "raw bytes (a Buffer)",
+       "good"
+      ]
+     ]
+    },
+    "note": "<code>express.raw</code> keeps the body as <b>bytes</b>. A JSON parser would turn it into an object and lose the exact bytes."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "endpoint": [
+      [
+       "Body kept as",
+       "raw bytes (a Buffer)",
+       "good"
+      ],
+      [
+       "Signature",
+       "the same code. Time is 10 s old. OK.",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Check 1.</b> Make the same code from the secret, the time and the raw body. It matches, and the time is close. This message is from the real sender."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "endpoint": [
+      [
+       "Body kept as",
+       "raw bytes (a Buffer)",
+       "good"
+      ],
+      [
+       "Signature",
+       "the same code. Time is 10 s old. OK.",
+       "good"
+      ],
+      [
+       "Parsed",
+       "{ id: evt_1, type: order.shipped }",
+       ""
+      ]
+     ]
+    },
+    "note": "Only now is the JSON parsed."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Endpoint",
+     "Database",
+     "INSERT evt_1 ON CONFLICT DO NOTHING"
+    ],
+    "boxes": {
+     "endpoint": [
+      [
+       "Signature",
+       "OK",
+       "good"
+      ],
+      [
+       "Insert returned",
+       "1 row. The event is NEW.",
+       "good"
+      ]
+     ],
+     "ids": [
+      [
+       "tada / evt_1",
+       "saved",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Check 2.</b> Write the event id. The table has a rule: one row per (provider, event id). The insert worked, so this is the <b>first</b> copy."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Endpoint",
+     "Queue",
+     "add job: handle evt_1"
+    ],
+    "boxes": {
+     "queue": [
+      [
+       "Job",
+       "handle evt_1 (waiting)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Put a job in the queue. The work will happen later, in a worker."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Endpoint",
+     "Sender",
+     "200 OK"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Event",
+       "evt_1. Delivered. Stop retrying.",
+       "good"
+      ]
+     ],
+     "endpoint": [
+      [
+       "Answered in",
+       "a few milliseconds",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Answer 200 at once.</b> The sender marks the event as delivered. Nothing slow happened before the answer."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Sender",
+     "Endpoint",
+     "POST /webhooks/tada   (a retry of evt_1)"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Event",
+       "evt_1 again. Its own retry timer fired.",
+       "warn"
+      ]
+     ],
+     "endpoint": [
+      [
+       "Signature",
+       "OK",
+       "good"
+      ],
+      [
+       "Insert returned",
+       "0 rows. Seen before. SKIP.",
+       "warn"
+      ]
+     ],
+     "ids": [
+      [
+       "tada / evt_1",
+       "saved",
+       "good"
+      ]
+     ],
+     "queue": [
+      [
+       "Job",
+       "handle evt_1 (waiting)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The same event comes again. The signature is fine, but the insert returns <b>0 rows</b>. The line <code>if (inserted === 1)</code> is false, so <b>no second job</b>."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Endpoint",
+     "Sender",
+     "200 OK"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Event",
+       "evt_1 again. Answered 200. Stop.",
+       "good"
+      ]
+     ],
+     "queue": [
+      [
+       "Job",
+       "handle evt_1 (done, ran once)",
+       "good"
+      ]
+     ]
+    },
+    "note": "The repeat also gets <b>200</b>, so the sender stops. In the end the worker ran <b>once</b>."
+   }
+  ],
+  "answer": "<b>Answer:</b> <b>one</b> job, and the sender gets <b>200</b> both times. The second copy is found by the unique event id, and it is answered with 200 so that the sender stops retrying."
+ },
+ {
+  "tab": "A fake caller",
+  "question": "A stranger posts a fake \"refund 1,000,000 points\" event to your public URL. Another time, someone sends a real message again, 70 minutes late. Which check stops each one?",
+  "codeTitle": "The webhook route",
+  "code": [
+   "app.post(\"/webhooks/tada\", express.raw({ type: \"application/json\" }), async (req, res) => {",
+   "  if (!verify(req.get(\"X-Signature\"), req.body, nowSec())) return res.sendStatus(400);",
+   "  const event = JSON.parse(req.body.toString(\"utf8\"));",
+   "  const inserted = await insertEventIdIfNew(\"tada\", event.id);       // 1 or 0",
+   "  if (inserted === 1) await queue.add(\"handle-event\", event);",
+   "  res.sendStatus(200);",
+   "});"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "sender": [
+      [
+       "Who",
+       "a stranger, no secret",
+       "bad"
+      ]
+     ],
+     "endpoint": [],
+     "ids": [],
+     "queue": []
+    },
+    "note": "Your webhook URL is public. Anyone can send a POST to it. The stranger does not know the secret."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "Stranger",
+     "Endpoint",
+     "POST /webhooks/tada   X-Signature: t=1000,v1=000000...   body: refund 1,000,000"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Who",
+       "a stranger, no secret",
+       "bad"
+      ],
+      [
+       "Signature",
+       "made up: v1=0000...",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The stranger invents a signature, because he cannot make a real one."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Endpoint",
+     "Stranger",
+     "400"
+    ],
+    "status": [
+     "bad",
+     "400"
+    ],
+    "boxes": {
+     "endpoint": [
+      [
+       "Signature",
+       "the code does not match",
+       "bad"
+      ],
+      [
+       "Stopped at",
+       "line 1. Nothing parsed, nothing saved.",
+       "bad"
+      ]
+     ],
+     "ids": [],
+     "queue": []
+    },
+    "note": "<b>Check 1 stops it.</b> The code that the server makes does not match the code in the header. The answer is <b>400</b>. The body is never even parsed. The table and the queue stay empty."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "Thief",
+     "Endpoint",
+     "POST the real evt_1 with its real header, 70 minutes late"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Who",
+       "a thief who saved a real message",
+       "bad"
+      ],
+      [
+       "Message",
+       "real body, real code, t=1000",
+       "warn"
+      ]
+     ],
+     "endpoint": [],
+     "ids": [],
+     "queue": []
+    },
+    "note": "A thief saved a real message and its real header. He sends them again later. The code is <b>correct</b>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Endpoint",
+     "Thief",
+     "400"
+    ],
+    "status": [
+     "bad",
+     "400"
+    ],
+    "boxes": {
+     "endpoint": [
+      [
+       "Signature",
+       "the code matches",
+       "good"
+      ],
+      [
+       "Time",
+       "t=1000, now is 5200. Too old.",
+       "bad"
+      ],
+      [
+       "Stopped at",
+       "line 1",
+       "bad"
+      ]
+     ]
+    },
+    "note": "<b>The time check stops it.</b> The time is <b>part of what is signed</b>, so the thief cannot change it to look new. The server only accepts a few minutes of difference (5 minutes is a common limit)."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "endpoint": [
+      [
+       "Signature",
+       "the code matches",
+       "good"
+      ],
+      [
+       "Time",
+       "too old",
+       "bad"
+      ]
+     ],
+     "ids": [
+      [
+       "Note",
+       "the event id table is a second guard for repeats, but it is not the check against fakes",
+       ""
+      ]
+     ]
+    },
+    "note": "The two guards do different jobs. The <b>signature and time</b> say \"is this from the real sender, and is it fresh?\". The <b>event id</b> says \"have I done this one already?\"."
+   }
+  ],
+  "answer": "<b>Answer:</b> the <b>signature check</b> stops the fake (the code does not match). The <b>time check</b> stops the late copy of a real message (it is too old, and the time is signed, so it cannot be changed). Both happen before the JSON is parsed."
+ },
+ {
+  "tab": "Two copies at the same moment",
+  "question": "The sender delivers the same refund event twice, almost together. Each copy first asks \"already done?\". How many times are the 50 points added?",
+  "codeTitle": "The WRONG code",
+  "code": [
+   "// WRONG: check, then act",
+   "const done = await db.refund.findUnique({ where: { eventId } });",
+   "if (!done) {",
+   "  await addPoints(storeId, 50);",
+   "  await db.refund.create({ data: { eventId } });",
+   "}"
+  ],
+  "boxes": [
+   {
+    "key": "a",
+    "title": "Copy 1",
+    "sub": "one delivery of the event",
+    "color": "c1",
+    "empty": "not here yet"
+   },
+   {
+    "key": "b",
+    "title": "Copy 2",
+    "sub": "the same event, a duplicate",
+    "color": "c2",
+    "empty": "not here yet"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "the store has 100 points",
+    "color": "c3",
+    "empty": "empty"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "Event",
+       "refund evt_7, +50 points",
+       ""
+      ]
+     ],
+     "b": [
+      [
+       "Event",
+       "refund evt_7, +50 points (the same)",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Store points",
+       "100",
+       ""
+      ],
+      [
+       "Refund rows",
+       "none",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Part 1: check, then act.</b> This is the shape of the TADA incident in your DBO notes. Two copies of one event arrive within milliseconds."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "Step",
+       "SELECT: is evt_7 done? No.",
+       ""
+      ],
+      [
+       "Next",
+       "add the points",
+       ""
+      ]
+     ],
+     "b": [
+      [
+       "Step",
+       "SELECT: is evt_7 done? No.",
+       "bad"
+      ],
+      [
+       "Why no",
+       "copy 1 has not written anything yet",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Store points",
+       "100",
+       ""
+      ],
+      [
+       "Refund rows",
+       "none",
+       ""
+      ]
+     ]
+    },
+    "note": "Both copies ask before either has written. Both get the same answer: <b>not done</b>. This gap between the <b>check</b> and the <b>act</b> is the bug."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "Step",
+       "add 50 points",
+       "good"
+      ]
+     ],
+     "b": [
+      [
+       "Step",
+       "add 50 points",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "Store points",
+       "200",
+       "bad"
+      ],
+      [
+       "Refund rows",
+       "none yet",
+       ""
+      ]
+     ]
+    },
+    "note": "Copy 1 adds 50. Copy 2 adds 50. The store now has <b>200</b>, and it should have 150. This is the double refund."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: write first, and let the database decide",
+     "const n = await sql`INSERT INTO webhook_events (provider, event_id) VALUES ('tada', ${id}) ON CONFLICT DO NOTHING`;",
+     "if (n === 1) await queue.add(\"refund\", event);          // only the first copy gets here",
+     "res.sendStatus(200);                                      // both copies get 200"
+    ],
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "Event",
+       "refund evt_7, +50 points",
+       ""
+      ]
+     ],
+     "b": [
+      [
+       "Event",
+       "refund evt_7, +50 points (the same)",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Store points",
+       "100",
+       ""
+      ],
+      [
+       "webhook_events",
+       "empty",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Part 2: write first.</b> Same two copies. Now the first thing each one does is to <b>write</b> the id, with a UNIQUE rule."
+   },
+   {
+    "line": 1,
+    "code": [
+     "// RIGHT: write first, and let the database decide",
+     "const n = await sql`INSERT INTO webhook_events (provider, event_id) VALUES ('tada', ${id}) ON CONFLICT DO NOTHING`;",
+     "if (n === 1) await queue.add(\"refund\", event);          // only the first copy gets here",
+     "res.sendStatus(200);                                      // both copies get 200"
+    ],
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "INSERT evt_7",
+       "1 row inserted. I am first.",
+       "good"
+      ]
+     ],
+     "b": [
+      [
+       "INSERT evt_7",
+       "0 rows. The rule says one row only. SKIP.",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Store points",
+       "100",
+       ""
+      ],
+      [
+       "webhook_events",
+       "tada / evt_7",
+       "good"
+      ]
+     ]
+    },
+    "note": "The database lets only <b>one</b> insert win, even when two arrive at the same moment. The loser gets <code>0</code>. The decision is made in <b>one step</b> by the database, so there is no gap."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: write first, and let the database decide",
+     "const n = await sql`INSERT INTO webhook_events (provider, event_id) VALUES ('tada', ${id}) ON CONFLICT DO NOTHING`;",
+     "if (n === 1) await queue.add(\"refund\", event);          // only the first copy gets here",
+     "res.sendStatus(200);                                      // both copies get 200"
+    ],
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "INSERT evt_7",
+       "1 row inserted. I am first.",
+       "good"
+      ],
+      [
+       "Queue",
+       "add job: refund evt_7",
+       "good"
+      ]
+     ],
+     "b": [
+      [
+       "INSERT evt_7",
+       "0 rows. SKIP.",
+       "warn"
+      ],
+      [
+       "Queue",
+       "nothing to add",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Store points",
+       "150",
+       "good"
+      ],
+      [
+       "webhook_events",
+       "tada / evt_7",
+       "good"
+      ]
+     ]
+    },
+    "note": "Only copy 1 queues the job. The worker adds 50 points once. The store has <b>150</b>."
+   },
+   {
+    "line": 3,
+    "code": [
+     "// RIGHT: write first, and let the database decide",
+     "const n = await sql`INSERT INTO webhook_events (provider, event_id) VALUES ('tada', ${id}) ON CONFLICT DO NOTHING`;",
+     "if (n === 1) await queue.add(\"refund\", event);          // only the first copy gets here",
+     "res.sendStatus(200);                                      // both copies get 200"
+    ],
+    "wire": [
+     "Endpoint",
+     "Sender",
+     "200 OK to both copies"
+    ],
+    "status": [
+     "ok",
+     "200 and 200"
+    ],
+    "boxes": {
+     "a": [
+      [
+       "Answer",
+       "200",
+       "good"
+      ]
+     ],
+     "b": [
+      [
+       "Answer",
+       "200 (a repeat is not an error)",
+       "good"
+      ]
+     ]
+    },
+    "note": "Both copies get <b>200</b>. A repeat is normal. Your real fix in DBO was a row lock (<code>SELECT ... FOR UPDATE</code>) in the same transaction. The unique id table is a second layer that also works when the copies come hours apart."
+   }
+  ],
+  "answer": "<b>Answer:</b> with check-then-act, <b>twice</b> (the store ends with 200 instead of 150). With the id written first under a UNIQUE rule, <b>once</b>. Let the database decide, in one step."
+ },
+ {
+  "tab": "A slow handler",
+  "question": "The handler needs 30 seconds. The sender gives up after 10 seconds. What does the sender do, and how can you stop that?",
+  "codeTitle": "The WRONG order",
+  "code": [
+   "// WRONG: do the work, then answer",
+   "app.post(\"/webhooks/tada\", async (req, res) => {",
+   "  await recalculateEverything(req.body);      // takes 30 seconds",
+   "  res.sendStatus(200);",
+   "});"
+  ],
+  "boxes": [
+   {
+    "key": "sender",
+    "title": "Sender",
+    "sub": "gives up after its time limit (10 s here)",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "endpoint",
+    "title": "Your endpoint",
+    "sub": "the handler",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "queue",
+    "title": "Queue and worker",
+    "sub": "",
+    "color": "c4",
+    "empty": "empty"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "sender": [
+      [
+       "Rule",
+       "no 2xx in 10 s means: failed, try again later",
+       ""
+      ]
+     ],
+     "endpoint": [],
+     "queue": []
+    },
+    "note": "<b>Part 1: work first, answer last.</b> Every sender has a time limit, and its own retry plan. Here the limit is 10 seconds."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Sender",
+     "Endpoint",
+     "POST event evt_9"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Rule",
+       "no 2xx in 10 s means: failed, try again later",
+       ""
+      ],
+      [
+       "Clock",
+       "0 s. Waiting.",
+       "warn"
+      ]
+     ],
+     "endpoint": [
+      [
+       "Working",
+       "recalculateEverything... 30 s",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The handler starts the 30 second job. The sender waits."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "sender": [
+      [
+       "Clock",
+       "10 s. No answer. FAILED.",
+       "bad"
+      ],
+      [
+       "Plan",
+       "send evt_9 again later",
+       "bad"
+      ]
+     ],
+     "endpoint": [
+      [
+       "Working",
+       "still running (20 s more)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "At 10 seconds the sender gives up. As far as the sender knows, the event was <b>not delivered</b>."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Sender",
+     "Endpoint",
+     "POST event evt_9   (the retry)"
+    ],
+    "status": [
+     "bad",
+     "two copies running"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Clock",
+       "retry sent",
+       "bad"
+      ]
+     ],
+     "endpoint": [
+      [
+       "Copy 1",
+       "still running",
+       "warn"
+      ],
+      [
+       "Copy 2",
+       "started a second 30 s job",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The retry arrives while the first job still runs. Now <b>two</b> copies work on the same event. This is how slow handlers create repeats."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: save, queue, answer",
+     "app.post(\"/webhooks/tada\", async (req, res) => {",
+     "  await saveEventIdAndQueueJob(req.body);       // 20 milliseconds",
+     "  res.sendStatus(200);                          // the worker does the 30 seconds later",
+     "});"
+    ],
+    "wire": null,
+    "boxes": {
+     "sender": [
+      [
+       "Rule",
+       "no 2xx in 10 s means: failed, try again later",
+       ""
+      ]
+     ],
+     "endpoint": [],
+     "queue": []
+    },
+    "note": "<b>Part 2: answer first.</b> The same sender, the same 30 seconds of work."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: save, queue, answer",
+     "app.post(\"/webhooks/tada\", async (req, res) => {",
+     "  await saveEventIdAndQueueJob(req.body);       // 20 milliseconds",
+     "  res.sendStatus(200);                          // the worker does the 30 seconds later",
+     "});"
+    ],
+    "wire": [
+     "Sender",
+     "Endpoint",
+     "POST event evt_9"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Clock",
+       "0 s. Waiting.",
+       ""
+      ]
+     ],
+     "endpoint": [
+      [
+       "Saves the id, adds a job",
+       "20 ms",
+       "good"
+      ]
+     ],
+     "queue": [
+      [
+       "Job",
+       "recalculate for evt_9 (waiting)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The handler only saves the id and puts a job in the queue. This takes milliseconds."
+   },
+   {
+    "line": 3,
+    "code": [
+     "// RIGHT: save, queue, answer",
+     "app.post(\"/webhooks/tada\", async (req, res) => {",
+     "  await saveEventIdAndQueueJob(req.body);       // 20 milliseconds",
+     "  res.sendStatus(200);                          // the worker does the 30 seconds later",
+     "});"
+    ],
+    "wire": [
+     "Endpoint",
+     "Sender",
+     "200 OK   (after 20 ms)"
+    ],
+    "status": [
+     "ok",
+     "200 in 20 ms"
+    ],
+    "boxes": {
+     "sender": [
+      [
+       "Clock",
+       "0.02 s. Delivered. Stop.",
+       "good"
+      ]
+     ],
+     "queue": [
+      [
+       "Worker",
+       "runs the 30 s job on its own time",
+       "good"
+      ]
+     ]
+    },
+    "note": "The sender gets <b>200</b> in 20 ms and is happy. The worker takes 30 seconds, but nobody is waiting. No retry, no second copy."
+   }
+  ],
+  "answer": "<b>Answer:</b> the sender gives up at 10 s and sends the event again, so two copies run. The fix is to <b>save the id, queue the job and answer first</b>, and let a worker do the slow part. Stripe's docs say the same: return a 2xx before any complex logic."
+ },
+ {
+  "tab": "Idempotency-Key on a POST",
+  "question": "A user pays 50. The server charges, but the answer is lost on the way back, and the app retries. How do you make sure the user is charged once?",
+  "codeTitle": "A payment route with a key",
+  "code": [
+   "app.post(\"/payments\", async (req, res) => {",
+   "  const key = req.get(\"Idempotency-Key\");",
+   "  const saved = key && await store.get(key);",
+   "  if (saved) return res.status(saved.status).json(saved.body);     // a retry: the same answer",
+   "  const result = await charge(req.body);                            // the real work, once",
+   "  if (key) await store.set(key, result);",
+   "  res.status(result.status).json(result.body);",
+   "});"
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Client",
+    "sub": "the app that pays",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "server",
+    "title": "Server",
+    "sub": "POST /payments",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "store",
+    "title": "Saved answers",
+    "sub": "by Idempotency-Key",
+    "color": "c3",
+    "empty": "empty"
+   },
+   {
+    "key": "account",
+    "title": "The account",
+    "sub": "starts with 200",
+    "color": "c4",
+    "empty": "balance 200"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [],
+     "server": [],
+     "store": [],
+     "account": [
+      [
+       "Balance",
+       "200",
+       ""
+      ]
+     ]
+    },
+    "note": "The client is a phone app. It makes a unique id for this one payment (a UUID) and will send it in a header named <code>Idempotency-Key</code>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /payments   Idempotency-Key: K1   { amount: 50 }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Key",
+       "K1 (made by the client)",
+       ""
+      ],
+      [
+       "Body",
+       "{ amount: 50 }",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Key",
+       "K1",
+       ""
+      ]
+     ]
+    },
+    "note": "The first request carries the key."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Key",
+       "K1",
+       ""
+      ],
+      [
+       "Saved answer for K1?",
+       "none. This is new.",
+       "warn"
+      ]
+     ],
+     "store": []
+    },
+    "note": "The server looks for an answer saved under K1. There is none, so this is a <b>new</b> payment."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Key",
+       "K1",
+       ""
+      ],
+      [
+       "Charges",
+       "50, once",
+       "good"
+      ]
+     ],
+     "account": [
+      [
+       "Balance",
+       "150",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The real work, <b>once</b>. The balance goes from 200 to 150."
+   },
+   {
+    "line": 5,
+    "wire": null,
+    "boxes": {
+     "store": [
+      [
+       "K1",
+       "201 Created, { paymentId: 77 }, body { amount: 50 }",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server saves the answer under K1, together with what the request looked like."
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Server",
+     "Client",
+     "201 Created   (the connection drops, the client never sees this)"
+    ],
+    "status": [
+     "bad",
+     "answer lost"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Key",
+       "K1",
+       ""
+      ],
+      [
+       "Got an answer?",
+       "no. Timeout. Did it work?",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The answer is lost on the way. The client does not know if the payment happened. Without a key, a retry would charge <b>again</b>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /payments   Idempotency-Key: K1   { amount: 50 }   (the retry)"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Retry",
+       "the same key K1, the same body",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Key",
+       "K1",
+       ""
+      ]
+     ]
+    },
+    "note": "The client retries with the <b>same key</b> and the same body."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Server",
+     "Client",
+     "201 Created   { paymentId: 77 }   (the saved answer)"
+    ],
+    "status": [
+     "ok",
+     "201, replayed"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Saved answer for K1?",
+       "yes. Send it. Do NOT charge.",
+       "good"
+      ]
+     ],
+     "account": [
+      [
+       "Balance",
+       "150. Charged once.",
+       "good"
+      ]
+     ]
+    },
+    "note": "Line 3 finds the saved answer and returns it. <code>charge</code> is <b>not</b> called. The balance is still 150. The client now knows the payment worked."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /payments   Idempotency-Key: K1   { amount: 9999 }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Mistake",
+       "the same key K1 but a different body",
+       "bad"
+      ]
+     ],
+     "server": [
+      [
+       "Check",
+       "the saved request was amount 50, this one says 9999",
+       "bad"
+      ],
+      [
+       "Answer",
+       "422. A key belongs to one action only.",
+       "bad"
+      ]
+     ],
+     "account": [
+      [
+       "Balance",
+       "150",
+       "good"
+      ]
+     ]
+    },
+    "status": [
+     "bad",
+     "422"
+    ],
+    "note": "Last case. The same key comes with a different body, so it is not a retry. The server refuses (<code>422</code> is what the IETF draft suggests, Stripe also returns an error). A key is for <b>one</b> action."
+   }
+  ],
+  "answer": "<b>Answer:</b> the client sends an <b>Idempotency-Key</b> with the payment. The server saves the answer under that key. The retry gets the saved answer and the charge is <b>not</b> repeated. The same key with a different body is refused."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

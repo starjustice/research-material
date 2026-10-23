@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caching in APIs Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../12-caching-in-apis.md">Open the lesson ↗</a>
+  </div>
+  <h1>Caching in APIs stepper</h1>
+  <p class="sub">A shop site with a product list. Each story shows what is saved, where, and how old data can show up.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> a cache buys <b>speed</b> and pays with <b>old data</b>. Decide how old is fine, delete the copy when the data changes, and never share a copy of private data.
+  <ul>
+    <li><b>Cache:</b> a saved copy of an answer, so you do not repeat the slow work.</li>
+    <li><b>TTL:</b> how many seconds the copy is trusted.</li>
+    <li><b>ETag:</b> a short tag for one version of an answer. Same tag, nothing changed.</li>
+    <li><b>Cache-aside:</b> check the cache first. On a miss, ask the database and save the result.</li>
+  </ul>
+  <b>Headers:</b> <code>max-age=60</code> = fresh for 60 s. <code>private</code> = only the user's own browser may save it. <code>no-store</code> = do not save it at all. <code>304</code> = not changed, keep your copy.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "api",
+  "title": "Your API code",
+  "sub": "getProduct(1)",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "redis",
+  "title": "Redis",
+  "sub": "the cache",
+  "color": "c2",
+  "empty": "empty"
+ },
+ {
+  "key": "db",
+  "title": "Database",
+  "sub": "how often it is asked",
+  "color": "c3",
+  "empty": "not asked yet"
+ },
+ {
+  "key": "reply",
+  "title": "Caller gets",
+  "sub": "the answer",
+  "color": "c4",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "Browser copy and ETag",
+  "question": "A browser has a copy of /products that is 70 seconds old. The server says max-age is 60. What does the browser send, and can the answer be tiny?",
+  "codeTitle": "The route",
+  "code": [
+   "app.get(\"/products\", async (req, res) => {",
+   "  res.set(\"Cache-Control\", \"public, max-age=60\");",
+   "  res.json(await db.products());          // Express adds the ETag",
+   "});"
+  ],
+  "boxes": [
+   {
+    "key": "browser",
+    "title": "Browser",
+    "sub": "its saved copy",
+    "color": "c1",
+    "empty": "no copy yet"
+   },
+   {
+    "key": "api",
+    "title": "Your API",
+    "sub": "what the server does",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "how often it is asked",
+    "color": "c3",
+    "empty": "not asked yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [],
+     "api": [],
+     "db": [
+      [
+       "Products table",
+       "Cement, price 65000",
+       ""
+      ]
+     ]
+    },
+    "note": "A product list on a shop site. The server sends <code>max-age=60</code>, so a copy is <b>fresh</b> for 60 seconds."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Browser",
+     "API",
+     "GET /products     (at 0 s, no copy yet)"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Copy",
+       "none",
+       "warn"
+      ]
+     ],
+     "api": [
+      [
+       "Runs the route",
+       "yes",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "Cement, price 65000",
+       ""
+      ],
+      [
+       "Database was asked",
+       "1 time",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The first visit. The browser has nothing, so it asks. The server runs the route and asks the database."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "API",
+     "Browser",
+     "200 OK   ETag: abc   Cache-Control: public, max-age=60   + the body"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Copy",
+       "body + tag abc",
+       "good"
+      ],
+      [
+       "Fresh until",
+       "60 s",
+       "good"
+      ]
+     ],
+     "api": [
+      [
+       "Runs the route",
+       "yes",
+       ""
+      ],
+      [
+       "Made the tag",
+       "abc, from the body",
+       ""
+      ]
+     ]
+    },
+    "note": "The answer has the body, the <b>ETag</b> (the tag of this version) and the rule <code>max-age=60</code>. The browser keeps all three."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [
+      [
+       "Copy",
+       "body + tag abc",
+       "good"
+      ],
+      [
+       "At 30 s",
+       "still fresh. The browser uses it. NO request is sent.",
+       "good"
+      ]
+     ],
+     "api": [
+      [
+       "Requests since",
+       "none",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "Cement, price 65000",
+       ""
+      ],
+      [
+       "Database was asked",
+       "1 time",
+       ""
+      ]
+     ]
+    },
+    "note": "At 30 seconds the user opens the page again. The copy is fresh, so the browser <b>does not ask anybody</b>. This is the fastest answer there is."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "API",
+     "GET /products   If-None-Match: abc     (at 70 s)"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Copy",
+       "old now (70 s is more than 60 s)",
+       "warn"
+      ],
+      [
+       "Sends",
+       "the saved tag in If-None-Match",
+       ""
+      ]
+     ],
+     "api": [
+      [
+       "Requests since",
+       "1",
+       "warn"
+      ]
+     ]
+    },
+    "note": "At 70 seconds the copy is old. The browser does not throw it away. It asks the server: <b>\"I have version abc. Is it still the current one?\"</b>"
+   },
+   {
+    "line": 2,
+    "wire": [
+     "API",
+     "Browser",
+     "304 Not Modified     (no body)"
+    ],
+    "status": [
+     "ok",
+     "304"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Copy",
+       "kept. Fresh for another 60 s.",
+       "good"
+      ]
+     ],
+     "api": [
+      [
+       "Runs the route",
+       "yes, again",
+       "warn"
+      ],
+      [
+       "New tag",
+       "abc. Same as the browser's.",
+       "good"
+      ],
+      [
+       "Sends",
+       "304 and no body",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "Cement, price 65000",
+       ""
+      ],
+      [
+       "Database was asked",
+       "2 times",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The server runs the route again, so the database is asked <b>again</b>. The new tag is the same, so it sends a tiny <b>304</b> with no body. The ETag saved the <b>bandwidth</b>, not the database work."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "db": [
+      [
+       "Products table",
+       "Cement, price 70000 (changed at 100 s)",
+       "warn"
+      ],
+      [
+       "Database was asked",
+       "2 times",
+       ""
+      ]
+     ],
+     "browser": [
+      [
+       "Copy",
+       "still fresh until 130 s, shows 65000",
+       "warn"
+      ]
+     ]
+    },
+    "note": "At 100 seconds the price changes in the database. The browser's copy is still <b>fresh</b>, so it still shows the old price until 130 s. That is the price of a cache: <b>old data</b>."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "API",
+     "Browser",
+     "200 OK   ETag: def   + the new body     (at 140 s)"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Copy",
+       "new body + tag def",
+       "good"
+      ]
+     ],
+     "api": [
+      [
+       "Runs the route",
+       "yes",
+       ""
+      ],
+      [
+       "New tag",
+       "def. Different from abc.",
+       "warn"
+      ],
+      [
+       "Sends",
+       "200 and the new body",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "Cement, price 70000",
+       ""
+      ],
+      [
+       "Database was asked",
+       "3 times",
+       ""
+      ]
+     ]
+    },
+    "note": "At 140 s the copy is old and the browser asks with tag <code>abc</code>. The data has changed, so the new tag is <code>def</code>. The tags differ, and the server sends <b>200</b> with the new body."
+   }
+  ],
+  "answer": "<b>Answer:</b> it sends the request with <code>If-None-Match: abc</code>, and if nothing changed, the server answers <b>304</b> with no body. The browser keeps its copy. Remember: the server still ran your route, so the ETag saves <b>bandwidth</b>. To save the database work too, check a cheap version first."
+ },
+ {
+  "tab": "Cache-aside with Redis",
+  "question": "A product is asked for at 0 s, 1 s, 59 s and 61 s. The copy is saved for 60 seconds. How many times is the database asked?",
+  "codeTitle": "Cache-aside",
+  "code": [
+   "async function getProduct(id) {",
+   "  const saved = await redis.get(`product:${id}`);",
+   "  if (saved) return JSON.parse(saved);                                  // a hit",
+   "  const row = await db.product.findUnique({ where: { id } });          // a miss: ask the database",
+   "  await redis.set(`product:${id}`, JSON.stringify(row), \"EX\", 60);      // save for 60 seconds",
+   "  return row;",
+   "}"
+  ],
+  "boxes": [
+   {
+    "key": "api",
+    "title": "Your API code",
+    "sub": "getProduct(1)",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "redis",
+    "title": "Redis",
+    "sub": "the cache",
+    "color": "c2",
+    "empty": "empty"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "how often it is asked",
+    "color": "c3",
+    "empty": "not asked yet"
+   },
+   {
+    "key": "reply",
+    "title": "Caller gets",
+    "sub": "the answer",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "api": [],
+     "redis": [],
+     "db": [
+      [
+       "Products table",
+       "{ id: 1, price: 65000 }",
+       ""
+      ],
+      [
+       "Database was asked",
+       "0 times",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "Redis is empty. The code asks Redis first. It only asks the database when Redis has no copy."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "API",
+     "Redis",
+     "GET product:1     (at 0 s)"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Call",
+       "getProduct(1) at 0 s",
+       ""
+      ]
+     ],
+     "redis": [
+      [
+       "product:1",
+       "nothing here. A MISS.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "First call. Redis has nothing for <code>product:1</code>. This is a <b>miss</b>."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "API",
+     "Database",
+     "SELECT product 1"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Call",
+       "getProduct(1) at 0 s",
+       ""
+      ],
+      [
+       "Next",
+       "ask the database",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "{ id: 1, price: 65000 }",
+       ""
+      ],
+      [
+       "Database was asked",
+       "1 time",
+       "warn"
+      ]
+     ]
+    },
+    "note": "On a miss, the code asks the <b>database</b>. It gets the row."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "API",
+     "Redis",
+     "SET product:1 ... EX 60"
+    ],
+    "boxes": {
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 65000 }",
+       "good"
+      ],
+      [
+       "Time left",
+       "60 s",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "From",
+       "the database",
+       "warn"
+      ],
+      [
+       "Value",
+       "{ id: 1, price: 65000 }",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "from database"
+    ],
+    "note": "The row is saved in Redis with a <b>TTL of 60 seconds</b>. Then the code returns the row."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "API",
+     "Redis",
+     "GET product:1     (at 1 s)"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Call",
+       "getProduct(1) at 1 s",
+       ""
+      ]
+     ],
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 65000 }",
+       "good"
+      ],
+      [
+       "Time left",
+       "59 s",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "{ id: 1, price: 65000 }",
+       ""
+      ],
+      [
+       "Database was asked",
+       "1 time",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "From",
+       "the cache. A HIT.",
+       "good"
+      ],
+      [
+       "Value",
+       "{ id: 1, price: 65000 }",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "from cache"
+    ],
+    "note": "Second call. Redis has the copy. This is a <b>hit</b>. The code returns at line 2, and the database is not asked."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "API",
+     "Redis",
+     "GET product:1     (at 59 s)"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Call",
+       "getProduct(1) at 59 s",
+       ""
+      ]
+     ],
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 65000 }",
+       "warn"
+      ],
+      [
+       "Time left",
+       "1 s",
+       "warn"
+      ]
+     ],
+     "reply": [
+      [
+       "From",
+       "the cache. A HIT.",
+       "good"
+      ],
+      [
+       "Value",
+       "{ id: 1, price: 65000 }",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "from cache"
+    ],
+    "note": "At 59 s the copy has 1 second left. Still a hit. The database has still been asked <b>once</b>."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "API",
+     "Database",
+     "SELECT product 1     (at 61 s)"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Call",
+       "getProduct(1) at 61 s",
+       ""
+      ]
+     ],
+     "redis": [
+      [
+       "product:1",
+       "gone. The TTL ran out.",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "{ id: 1, price: 65000 }",
+       ""
+      ],
+      [
+       "Database was asked",
+       "2 times",
+       "warn"
+      ]
+     ],
+     "reply": [
+      [
+       "From",
+       "the database",
+       "warn"
+      ],
+      [
+       "Value",
+       "{ id: 1, price: 65000 }",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "warn",
+     "from database"
+    ],
+    "note": "At 61 s Redis threw the copy away on its own (the TTL). It is a miss again, so the database is asked a <b>second</b> time and the answer is saved again."
+   }
+  ],
+  "answer": "<b>Answer:</b> <b>two times</b>: at 0 s (first miss) and at 61 s (the copy ran out). The calls at 1 s and 59 s were hits. For most of the time the database does no work at all."
+ },
+ {
+  "tab": "A write must delete the copy",
+  "question": "A product price changes from 65000 to 70000. The cache has the old copy with 40 seconds left. What does a reader see in the next 40 seconds?",
+  "codeTitle": "The WRONG write",
+  "code": [
+   "// WRONG: change the row and forget the copy",
+   "await db.product.update({ where: { id: 1 }, data: { price: 70000 } });"
+  ],
+  "boxes": [
+   {
+    "key": "api",
+    "title": "Your API code",
+    "sub": "getProduct(1)",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "redis",
+    "title": "Redis",
+    "sub": "the cache",
+    "color": "c2",
+    "empty": "empty"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "how often it is asked",
+    "color": "c3",
+    "empty": "not asked yet"
+   },
+   {
+    "key": "reply",
+    "title": "Caller gets",
+    "sub": "the answer",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "api": [],
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 65000 }",
+       "good"
+      ],
+      [
+       "Time left",
+       "40 s",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "price 65000",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 1: the wrong write.</b> The cache has a good copy with 40 seconds left."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "API",
+     "Database",
+     "UPDATE price = 70000"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Code",
+       "updates the row and stops here",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "price 70000",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The code changes the row. Nobody touches the copy in Redis."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Reader",
+     "API",
+     "GET product 1     (10 seconds later)"
+    ],
+    "status": [
+     "bad",
+     "old price"
+    ],
+    "boxes": {
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 65000 }",
+       "bad"
+      ],
+      [
+       "Time left",
+       "30 s",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "Value",
+       "price 65000 (OLD)",
+       "bad"
+      ],
+      [
+       "From",
+       "the cache. A HIT.",
+       ""
+      ]
+     ]
+    },
+    "note": "A reader asks. Redis has a copy, so it is a hit. The reader sees <b>65000</b>. The database says <b>70000</b>. This goes on for up to 40 more seconds. With a TTL of one hour it would be an hour."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: change the row, then delete the copy",
+     "await db.product.update({ where: { id: 1 }, data: { price: 70000 } });",
+     "await redis.del(\"product:1\");"
+    ],
+    "wire": null,
+    "boxes": {
+     "api": [],
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 65000 }",
+       "good"
+      ],
+      [
+       "Time left",
+       "40 s",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "price 65000",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 2: the right write.</b> The same start: a copy with 40 seconds left."
+   },
+   {
+    "line": 1,
+    "code": [
+     "// RIGHT: change the row, then delete the copy",
+     "await db.product.update({ where: { id: 1 }, data: { price: 70000 } });",
+     "await redis.del(\"product:1\");"
+    ],
+    "wire": [
+     "API",
+     "Database",
+     "UPDATE price = 70000"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Step 1",
+       "update the row",
+       ""
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "price 70000",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Step 1: change the row."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: change the row, then delete the copy",
+     "await db.product.update({ where: { id: 1 }, data: { price: 70000 } });",
+     "await redis.del(\"product:1\");"
+    ],
+    "wire": [
+     "API",
+     "Redis",
+     "DEL product:1"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Step 1",
+       "update the row",
+       "good"
+      ],
+      [
+       "Step 2",
+       "delete the copy",
+       "good"
+      ]
+     ],
+     "redis": [
+      [
+       "product:1",
+       "deleted",
+       "good"
+      ]
+     ]
+    },
+    "note": "Step 2: <b>delete the copy</b>. Now Redis has nothing for this product."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: change the row, then delete the copy",
+     "await db.product.update({ where: { id: 1 }, data: { price: 70000 } });",
+     "await redis.del(\"product:1\");"
+    ],
+    "wire": [
+     "Reader",
+     "API",
+     "GET product 1"
+    ],
+    "status": [
+     "ok",
+     "new price"
+    ],
+    "boxes": {
+     "redis": [
+      [
+       "product:1",
+       "{ id: 1, price: 70000 }",
+       "good"
+      ],
+      [
+       "Time left",
+       "60 s",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Products table",
+       "price 70000",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "Value",
+       "price 70000 (NEW)",
+       "good"
+      ],
+      [
+       "From",
+       "the database, then saved again",
+       ""
+      ]
+     ]
+    },
+    "note": "The next reader finds a miss, loads <b>70000</b> and saves it. Nobody sees the old price. The TTL stays as a safety net for any path that forgot to delete."
+   }
+  ],
+  "answer": "<b>Answer:</b> with the wrong write, the reader sees the <b>old price</b> for up to 40 seconds. With the right write (update, then <code>DEL</code>), the next read is a miss and loads the new price. Every path that changes the data must delete the copy."
+ },
+ {
+  "tab": "The crowd at expiry",
+  "question": "A popular copy runs out. In the next 50 ms, 100 requests arrive. How many times is the database asked? Can we make it one?",
+  "codeTitle": "The WRONG version",
+  "code": [
+   "// WRONG: every miss asks the database",
+   "const saved = await redis.get(key);",
+   "if (!saved) { const row = await db.load(); await redis.set(key, row, \"EX\", 60); }"
+  ],
+  "boxes": [
+   {
+    "key": "api",
+    "title": "Your API code",
+    "sub": "getProduct(1)",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "redis",
+    "title": "Redis",
+    "sub": "the cache",
+    "color": "c2",
+    "empty": "empty"
+   },
+   {
+    "key": "db",
+    "title": "Database",
+    "sub": "how often it is asked",
+    "color": "c3",
+    "empty": "not asked yet"
+   },
+   {
+    "key": "reply",
+    "title": "Caller gets",
+    "sub": "the answer",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "api": [],
+     "redis": [
+      [
+       "home-page-list",
+       "saved, 1 second left",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Database",
+       "asked 0 times now",
+       ""
+      ],
+      [
+       "One query takes",
+       "200 ms",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 1: the wrong version.</b> A busy page. The copy has 1 second left. One query to rebuild it takes 200 ms."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "100 requests",
+     "Redis",
+     "GET home-page-list     (all within 50 ms)"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Requests",
+       "100 arrive in 50 ms",
+       "warn"
+      ]
+     ],
+     "redis": [
+      [
+       "home-page-list",
+       "gone. The TTL ran out.",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The copy runs out. 100 requests arrive before anyone has saved a new one. Every one of them finds a <b>miss</b>."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "100 requests",
+     "Database",
+     "100 identical queries"
+    ],
+    "status": [
+     "bad",
+     "100 queries"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Requests",
+       "100, all say: not saved, I will ask",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "Database",
+       "asked 100 times at once",
+       "bad"
+      ],
+      [
+       "One query takes",
+       "200 ms",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "slow page. A spike on the database.",
+       "bad"
+      ]
+     ]
+    },
+    "note": "All 100 ask the database in the same moment, for the <b>same answer</b>. This is the <b>stampede</b>. The cache that was meant to protect the database causes a spike."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: single flight",
+     "if (loading.has(key)) return loading.get(key);      // someone is already asking, wait for them",
+     "const p = db.load().then((row) => save(key, row));",
+     "loading.set(key, p);  return p;"
+    ],
+    "wire": null,
+    "boxes": {
+     "api": [],
+     "redis": [
+      [
+       "home-page-list",
+       "saved, 1 second left",
+       "warn"
+      ]
+     ],
+     "db": [
+      [
+       "Database",
+       "asked 0 times now",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 2: single flight.</b> Same moment, new code. The code keeps a list of loads that are running."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: single flight",
+     "if (loading.has(key)) return loading.get(key);      // someone is already asking, wait for them",
+     "const p = db.load().then((row) => save(key, row));",
+     "loading.set(key, p);  return p;"
+    ],
+    "wire": [
+     "Request 1",
+     "Database",
+     "the only query"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Request 1",
+       "nobody is loading, so I start the load",
+       "good"
+      ],
+      [
+       "loading",
+       "{ home-page-list: Promise }",
+       "good"
+      ]
+     ],
+     "redis": [
+      [
+       "home-page-list",
+       "gone. The TTL ran out.",
+       "bad"
+      ]
+     ],
+     "db": [
+      [
+       "Database",
+       "asked 1 time",
+       "good"
+      ]
+     ]
+    },
+    "note": "Request 1 finds that nobody is loading. It starts the query and puts its <b>Promise</b> in the <code>loading</code> list."
+   },
+   {
+    "line": 1,
+    "code": [
+     "// RIGHT: single flight",
+     "if (loading.has(key)) return loading.get(key);      // someone is already asking, wait for them",
+     "const p = db.load().then((row) => save(key, row));",
+     "loading.set(key, p);  return p;"
+    ],
+    "wire": [
+     "Requests 2 to 100",
+     "loading list",
+     "wait for the same Promise"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Request 1",
+       "loading",
+       "good"
+      ],
+      [
+       "Requests 2 to 100",
+       "found it in the loading list. They wait.",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Database",
+       "asked 1 time",
+       "good"
+      ]
+     ]
+    },
+    "note": "Requests 2 to 100 look in <code>loading</code>, see the load, and <b>wait for the same Promise</b>. They send no query."
+   },
+   {
+    "line": 3,
+    "code": [
+     "// RIGHT: single flight",
+     "if (loading.has(key)) return loading.get(key);      // someone is already asking, wait for them",
+     "const p = db.load().then((row) => save(key, row));",
+     "loading.set(key, p);  return p;"
+    ],
+    "wire": [
+     "Database",
+     "100 requests",
+     "one row for everyone"
+    ],
+    "status": [
+     "ok",
+     "100 answers"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Result",
+       "all 100 get the same row",
+       "good"
+      ]
+     ],
+     "redis": [
+      [
+       "home-page-list",
+       "saved again, 60 s",
+       "good"
+      ]
+     ],
+     "db": [
+      [
+       "Database",
+       "asked 1 time",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "100 answers from 1 query",
+       "good"
+      ]
+     ]
+    },
+    "note": "The query finishes. All 100 get the same row, and it is saved again. <b>One query, 100 answers.</b>"
+   }
+  ],
+  "answer": "<b>Answer:</b> without a guard, <b>100</b> times. With <b>single flight</b>, once: the first request loads, the rest wait for the same Promise. (Another fix is to add a little random time to each TTL, so popular keys do not all end together.)"
+ },
+ {
+  "tab": "Who may share it?",
+  "question": "Ana opens /api/me. Then Budi opens /api/me through the same CDN. The route says public, max-age=3600. Whose profile does Budi get?",
+  "codeTitle": "The WRONG headers",
+  "code": [
+   "// WRONG: GET /api/me",
+   "res.set(\"Cache-Control\", \"public, max-age=3600\");",
+   "res.json(await db.user.find(req.user.id));"
+  ],
+  "boxes": [
+   {
+    "key": "who",
+    "title": "Who asks",
+    "sub": "two people, one URL",
+    "color": "c1",
+    "empty": "nobody yet"
+   },
+   {
+    "key": "cdn",
+    "title": "Shared cache",
+    "sub": "a CDN or proxy between users and your API",
+    "color": "c2",
+    "empty": "empty"
+   },
+   {
+    "key": "reply",
+    "title": "Caller gets",
+    "sub": "the answer",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "who": [
+      [
+       "Ana",
+       "user 7",
+       ""
+      ],
+      [
+       "Budi",
+       "user 8",
+       ""
+      ]
+     ],
+     "cdn": [],
+     "reply": []
+    },
+    "note": "<b>Part 1: the wrong header.</b> The URL <code>/api/me</code> is the <b>same</b> for everybody. Only the login token is different."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Ana",
+     "CDN",
+     "GET /api/me     (token of Ana)"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Ana",
+       "asks first",
+       "good"
+      ]
+     ],
+     "cdn": [
+      [
+       "Saved?",
+       "no. Pass it on to the API.",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "Ana asks. The CDN has nothing, so it passes the request to your API."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "API",
+     "Ana",
+     "200   Ana's profile   Cache-Control: public, max-age=3600"
+    ],
+    "status": [
+     "ok",
+     "Ana's profile"
+    ],
+    "boxes": {
+     "cdn": [
+      [
+       "/api/me",
+       "Ana's profile, for 1 hour (public)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Ana gets",
+       "Ana's profile",
+       "good"
+      ]
+     ]
+    },
+    "note": "The answer says <code>public</code>. So the CDN <b>saves it for everybody</b>, under the URL <code>/api/me</code>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Budi",
+     "CDN",
+     "GET /api/me     (token of Budi)"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Ana",
+       "has her profile",
+       "good"
+      ],
+      [
+       "Budi",
+       "asks the same URL",
+       "warn"
+      ]
+     ],
+     "cdn": [
+      [
+       "/api/me",
+       "Ana's profile, for 1 hour (public)",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Budi asks the same URL. The CDN has a saved copy for that URL."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "CDN",
+     "Budi",
+     "200   Ana's profile"
+    ],
+    "status": [
+     "bad",
+     "a leak"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Budi gets",
+       "ANA'S PROFILE",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The CDN answers without asking your API. Budi sees <b>Ana's private data</b>. This is a real kind of bug. The login check never ran, because the request never arrived."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: GET /api/me",
+     "res.set(\"Cache-Control\", \"private, no-cache\");",
+     "res.json(await db.user.find(req.user.id));"
+    ],
+    "wire": null,
+    "boxes": {
+     "who": [
+      [
+       "Ana",
+       "user 7",
+       ""
+      ],
+      [
+       "Budi",
+       "user 8",
+       ""
+      ]
+     ],
+     "cdn": [],
+     "reply": []
+    },
+    "note": "<b>Part 2: the right header.</b> The same two people."
+   },
+   {
+    "line": 1,
+    "code": [
+     "// RIGHT: GET /api/me",
+     "res.set(\"Cache-Control\", \"private, no-cache\");",
+     "res.json(await db.user.find(req.user.id));"
+    ],
+    "wire": [
+     "API",
+     "Ana",
+     "200   Ana's profile   Cache-Control: private, no-cache"
+    ],
+    "status": [
+     "ok",
+     "Ana's profile"
+    ],
+    "boxes": {
+     "cdn": [
+      [
+       "/api/me",
+       "not saved. private means only Ana's own browser may keep it.",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Ana gets",
+       "Ana's profile",
+       "good"
+      ]
+     ]
+    },
+    "note": "<code>private</code>: shared caches must not save it. <code>no-cache</code>: Ana's own browser may keep it, but must check before each use."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: GET /api/me",
+     "res.set(\"Cache-Control\", \"private, no-cache\");",
+     "res.json(await db.user.find(req.user.id));"
+    ],
+    "wire": [
+     "API",
+     "Budi",
+     "200   Budi's profile"
+    ],
+    "status": [
+     "ok",
+     "Budi's profile"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Ana",
+       "has her profile",
+       "good"
+      ],
+      [
+       "Budi",
+       "asks the same URL",
+       ""
+      ]
+     ],
+     "cdn": [
+      [
+       "/api/me",
+       "nothing saved, so it goes to the API",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Budi gets",
+       "Budi's profile",
+       "good"
+      ]
+     ]
+    },
+    "note": "Budi's request goes through to your API with <b>his</b> token. He gets his own profile."
+   }
+  ],
+  "answer": "<b>Answer:</b> with <code>public</code>, Budi gets <b>Ana's</b> profile from the shared cache. Data about one person must be <code>private</code> (or <code>no-store</code>). The same rule applies to Redis keys: put the user id in the key."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

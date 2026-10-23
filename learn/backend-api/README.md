@@ -16,6 +16,11 @@ graph LR
     D --> E["Authentication"]
     E --> F["Authorization"]
     C --> G["Resolvers and N+1"]
+    F --> H["Validation and errors"]
+    H --> I["Rate limiting"]
+    I --> J["Caching"]
+    J --> K["Webhooks and idempotency"]
+    F --> L["Hasura"]
 ```
 
 ## Lessons, one concept per file
@@ -43,20 +48,22 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 06 | Authentication: sessions vs JWT `06-authentication-sessions-vs-jwt.md` | where the state lives, pros and cons | planned |
-| 07 | Access and refresh tokens `07-access-and-refresh-tokens.md` | why two tokens, rotation, where to store them | planned |
-| 08 | Authorization `08-authorization.md` | roles, permissions, row level rules | planned |
-| 09 | Password hashing `09-password-hashing.md` | bcrypt and argon2, why not plain hashing | planned |
+| 06 | [Authentication: sessions vs JWT](06-authentication-sessions-vs-jwt.md) | where the state lives, what each one does better, and how to pick | ready |
+| 07 | [Access and refresh tokens](07-access-and-refresh-tokens.md) | why two tokens, rotation and reuse detection, where to store them | ready |
+| 08 | [Authorization](08-authorization.md) | roles, permissions, row level rules, IDOR, and 401 against 403 against 404 | ready |
+| 09 | [Password hashing](09-password-hashing.md) | hash, salt and cost, argon2id against bcrypt and scrypt, why not a fast hash | ready |
 
 ### Senior level
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 10 | Validation and error handling `10-validation-and-error-handling.md` | validating input at the edge, consistent error shapes | planned |
-| 11 | Rate limiting `11-rate-limiting.md` | token bucket, sliding window | planned |
-| 12 | Caching in APIs `12-caching-in-apis.md` | HTTP caching, ETags, Redis | planned |
-| 13 | Webhooks and idempotency `13-webhooks-and-idempotency.md` | verify, dedupe, queue, acknowledge | planned |
-| 14 | Hasura: when and when not `14-hasura-when-and-when-not.md` | permissions, actions, limits | planned |
+| 10 | [Validation and error handling](10-validation-and-error-handling.md) | checking input at the door, which status for which problem, one error shape that leaks nothing | ready |
+| 11 | [Rate limiting](11-rate-limiting.md) | fixed window, sliding window and token bucket, choosing the key, why servers must share the count | ready |
+| 12 | [Caching in APIs](12-caching-in-apis.md) | Cache-Control and ETag, cache-aside with a TTL in Redis, deleting the copy, the crowd at expiry | ready |
+| 13 | [Webhooks and idempotency](13-webhooks-and-idempotency.md) | verify the signature, dedupe by event id, queue, answer fast, Idempotency-Key | ready |
+| 14 | [Hasura: when and when not](14-hasura-when-and-when-not.md) | permission rules, Actions, event triggers, limits, and when to choose it | ready |
+
+Each lesson from 06 to 14 (the Auth group and the Senior level group) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
 
 **To make the next lesson:** in a chat with this folder open, say `/learn backend-api 01` to learn it live with Claude, or ask "make lesson backend-api 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

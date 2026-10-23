@@ -1,0 +1,499 @@
+# 09. Password hashing
+
+> **Subject:** Backend and API · **Lesson:** 09 · **Made:** 2026-10-23 · **Status:** ready
+> **You will be able to:** say why a server never stores a password, why a plain hash is not enough, what salt and cost do, and which algorithm to pick.
+> **Before this:** [Authorization](08-authorization.md) · **Next:** [Validation and error handling](10-validation-and-error-handling.md)
+
+## 1. The idea in one sentence
+
+Never save the password. Save a **hash**: a one-way scramble of the password, with a random **salt**, made **slow on purpose**. At login, scramble what the user typed in the same way, and check if the result is the same.
+
+New words:
+
+- **Hash:** a one-way scramble. The same input always gives the same result. You cannot turn the result back into the password.
+- **Salt:** random text, new for each password. It is saved next to the hash. It makes two equal passwords give two different hashes.
+- **Cost:** how slow the hash is on purpose. (Interview word: *work factor*.) One login can wait 50 ms. A thief who needs billions of guesses cannot.
+- **Brute force:** trying guess after guess until one fits.
+
+The rule to remember: **one-way, salted, slow. Never plain text, never encryption, never a fast hash.**
+
+## 2. The pictures
+
+### 2a. The big picture
+
+Notice that the password is never saved, and that login does the same work again.
+
+```mermaid
+graph LR
+    S["Sign up with hunter2"] --> H["Server adds a random salt and runs a slow hash"]
+    H --> D["Database saves the salt and the hash"]
+    L["Log in with a password"] --> H2["Server reads the salt and runs the same slow hash"]
+    D --> H2
+    H2 --> C["Same result means the password is right"]
+```
+
+### 2b. The problem, drawn
+
+Databases get stolen. Notice what the thief can do in each case.
+
+```mermaid
+graph TB
+    LEAK["The users table is stolen"] --> P["Saved as plain text"]
+    LEAK --> E["Saved encrypted"]
+    LEAK --> F["Saved with a fast hash and no salt"]
+    P --> P1["The thief reads every password at once"]
+    E --> E1["The key is on the same server, so it is stolen too"]
+    F --> F1["The thief guesses very fast and uses ready-made lists"]
+```
+
+### 2c. How it works over time
+
+Sign up, then log in. Notice that the server does the **same** steps both times.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant S as Server
+    participant D as Database
+    U->>S: sign up with password hunter2
+    S->>S: make a random salt
+    S->>S: slow hash of the salt and the password
+    S->>D: save the salt and the hash
+    U->>S: log in with password hunter2
+    S->>D: read the salt and the hash for this user
+    S->>S: slow hash of the same salt and the typed password
+    S->>S: compare the two hashes
+    S-->>U: welcome, or wrong password
+```
+
+### 2d. What the database holds right now
+
+Two users with the same password `hunter2`. These are real values made with Node's scrypt. Notice that the hashes are different.
+
+| email | salt | hash |
+|---|---|---|
+| ana@example.com | `obLD1OX2BxgpOktcbX6PkA` | `NMkrDYAyXIYnEJlVHJXzkvgEkZSUlsixxzfHhvGBYYk` |
+| budi@example.com | `Dx4tPEtaaXiHlqW0w9Lh8A` | `ONb0M2MHd9_hmDZjwbBUyfomNK4qQiuFdLzTkLDKmU4` |
+
+Compare with a hash that has **no salt**. The SHA-256 of `hunter2` is `f52fbd32b2b3b86ff88ef6c490628285f482af15ddcb29541f94bcf526a3f6c7` for **everyone** who uses that password.
+
+In real apps the algorithm, the cost, the salt and the hash are saved in **one string**. This one was made with Node's `argon2Sync` and the OWASP minimum cost:
+
+```
+$argon2id$v=19$m=19456,t=2,p=1$ASNFZ4mrze8BI0VniavN7w$EKGBopU32AoyyER/n4paaG6OZn9IGLOwM+JAuiw5PzI
+```
+
+| Piece | Meaning |
+|---|---|
+| `argon2id` | the algorithm |
+| `v=19` | the version of Argon2 |
+| `m=19456,t=2,p=1` | the cost: 19,456 KiB of memory (19 MiB), 2 passes, 1 lane |
+| `ASNFZ4mr…` | the salt (the demo used a fixed salt. Never reuse a salt.) |
+| `EKGBopU3…` | the hash |
+
+### 2e. Right against wrong
+
+**Wrong picture 1:** "Encryption is safer, because I can decrypt for support."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["passwords are encrypted"]
+    B --> C["the server needs the key to log you in"]
+    C --> D["a thief who gets the table often gets the key"]
+```
+
+**Right picture 1:** a hash has no key and no way back. Forgot your password? You **reset** it. Nobody reads the old one.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["the password is hashed"]
+    B --> C["there is no key to steal"]
+    C --> D["forgot password means make a new one"]
+```
+
+**Wrong picture 2:** "SHA-256 is a strong hash, so it is good for passwords."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["SHA-256 is strong"]
+    B --> C["so it is good for passwords"]
+```
+
+**Right picture 2:** SHA-256 is strong **and fast**. For passwords, fast is bad, because the thief also gets fast guesses.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["a password hash must be slow on purpose"]
+    B --> C["one login pays 50 ms"]
+    C --> D["billions of guesses pay 50 ms each"]
+```
+
+### 2f. Which one should I pick?
+
+OWASP's Password Storage Cheat Sheet gives this order. Notice that **argon2id** is first.
+
+```mermaid
+graph TB
+    Q["Which one"] --> A["New app"]
+    A --> A1["argon2id, 19 MiB memory, 2 passes, 1 lane"]
+    Q --> B["No argon2 available"]
+    B --> B1["scrypt, N is 2 to the 17, r is 8, p is 1"]
+    Q --> C["Old system already on bcrypt"]
+    C --> C1["bcrypt, cost 10 or more, keep it and upgrade at login"]
+    Q --> D["You must follow FIPS rules"]
+    D --> D1["PBKDF2 with HMAC SHA-256, 600000 rounds"]
+```
+
+## 3. Real life analogy
+
+A **blender**.
+
+- You put the password in a blender with a pinch of random seasoning (the **salt**) and blend for a long time (the **cost**). You get a drink (the **hash**).
+- You cannot turn the drink back into fruit. It is **one-way**.
+- To check you, the server blends what you typed, with the same seasoning, for the same time. If the drink tastes the same, you know the password.
+- A thief with the drink cannot get the fruit. A thief can only blend guesses one by one. The long blend time is the wall.
+
+Where the analogy stops: a real blender gives a slightly different drink every time. A hash gives **exactly** the same result for the same input. That is what makes the login check work.
+
+## 4. The smallest code that shows it
+
+```js
+const { scryptSync, randomBytes, timingSafeEqual } = require("node:crypto");
+
+function hashPassword(plain) {
+  const salt = randomBytes(16);                        // new random salt every time
+  const hash = scryptSync(plain, salt, 32);            // slow on purpose
+  return salt.toString("hex") + ":" + hash.toString("hex");
+}
+function verifyPassword(plain, stored) {
+  const [salt, hash] = stored.split(":");
+  const again = scryptSync(plain, Buffer.from(salt, "hex"), 32);
+  return timingSafeEqual(again, Buffer.from(hash, "hex"));
+}
+const a = hashPassword("hunter2"), b = hashPassword("hunter2");
+console.log(a === b);                                  // same password, different result
+console.log(verifyPassword("hunter2", a), verifyPassword("hunter3", a));
+```
+
+**Output:**
+
+```
+false
+true false
+```
+
+The first line is the salt at work: the same password gives two different saved strings. Both still verify, because each string carries its own salt. (This uses the sync function to stay short. In a server, use the async one. See section 7.)
+
+## 5. What really happens, step by step
+
+| Step | Who | What happens | Database after |
+|---|---|---|---|
+| 1 | User | Sends email and password `hunter2` over HTTPS. | empty |
+| 2 | Server | Makes a random salt, 16 bytes. | empty |
+| 3 | Server | Runs the slow hash on the salt and the password. About 40 ms here. | empty |
+| 4 | Server | Saves email, salt and hash. **Forgets** the password. | one row |
+| 5 | User | Later sends email and password `hunter2` to log in. | one row |
+| 6 | Server | Finds the row. Reads the salt. | one row |
+| 7 | Server | Runs the **same** slow hash on the saved salt and the typed password. | one row |
+| 8 | Server | Compares the two hashes with `timingSafeEqual`. Equal means welcome. | one row |
+| 9 | Server | A wrong password, even one letter off, gives a completely different hash. The answer is 401. | one row |
+
+**How slow is slow?** These are real numbers from one laptop core (Apple M1 Pro, Node v24.15.0, 2026-10-23). They are not a benchmark. They show the size of the gap.
+
+| How the password is hashed | Time for one guess | Guesses per second |
+|---|---|---|
+| SHA-256 (called from Node) | about 1 microsecond | about 960,000 |
+| scrypt, N = 2^14 | about 40 ms | about 25 |
+| argon2id, 19 MiB, 2 passes (OWASP minimum) | about 45 ms | about 22 |
+| scrypt, N = 2^17 (OWASP minimum for scrypt) | about 330 ms | about 3 |
+
+SHA-256 tries about **40,000 times more guesses** than scrypt at N = 2^14. A thief also does not use a laptop. A graphics card tries far more fast-hash guesses, which is one reason the memory-hungry algorithms (scrypt, argon2) exist. I did not measure graphics cards.
+
+**Step through it yourself:** [open the password hashing stepper](visuals/09-password-hashing.html). It has five stories: sign up, log in (right and wrong password), two users with the same password, the table is stolen (three ways to save), and raising the cost later. Guess first, then press Next. The salts and hashes in it are real.
+
+## 6. Why it exists and what it costs
+
+- **Problem without it:** tables get stolen. People reuse passwords, so one leak opens their accounts on other sites too. OWASP's Top 10 for 2025 lists weak hashing under A04, Cryptographic Failures, and tells you to avoid old hashes such as MD5 and SHA1.
+- **How it solves it:** one-way means the thief cannot read the passwords. A salt per password stops ready-made lists and hides who shares a password. A slow cost makes every guess expensive.
+- **Cost:**
+  - **Every login does real work.** About 50 ms of CPU, and with argon2id about 19 MiB of memory. A login route is a good target for people who want to slow your server. Add **rate limiting** (lesson 11).
+  - **It blocks the server if you use the wrong function.** See below.
+  - **No "forgot password" by reading it.** You send a reset link. That is the right behavior.
+  - **A slow hash does not save a weak password.** `password123` is in the first guesses of every list. It buys time for strong passwords.
+  - **Upgrading is slow.** You can only rehash when the user logs in, because only then do you have the password.
+
+**The Node trap.** `scryptSync` blocks the **whole server** while it runs, because Node has one main thread. I tried four hashes of scrypt N = 2^15 on this laptop. The sync version blocked for about 330 ms, and a 10 ms timer ticked once. The async version took about 90 ms (the work ran in parallel on helper threads), and the same timer ticked 8 times. So in a request handler, always use the **async** version (`crypto.scrypt`, or the async function of the library you use).
+
+<details><summary>Go deeper (optional): settings, bcrypt, peppers and compare time</summary>
+
+**OWASP settings (Password Storage Cheat Sheet, checked 2026-10-23):**
+
+| Algorithm | Minimum | Note |
+|---|---|---|
+| argon2id | m = 19456 KiB (19 MiB), t = 2, p = 1 | The first choice. Other equal choices trade more passes for less memory, for example m = 47104, t = 1. |
+| scrypt | N = 2^17, r = 8, p = 1 | If argon2id is not available. |
+| bcrypt | cost 10 or more | Only for old systems. Maximum password length is 72 bytes. |
+| PBKDF2 | HMAC-SHA-256, 600,000 rounds | Only if you must follow FIPS-140. |
+
+**Node built-ins.** Node has `crypto.scrypt` for a long time. Node **24.7.0** added `crypto.argon2` and `crypto.argon2Sync`, with the names `argon2id`, `argon2i` and `argon2d`. The inputs are `message` (the password), `nonce` (the salt, at least 8 bytes, 16 or more is recommended), `parallelism`, `tagLength`, `memory` (in KiB) and `passes`. So on a new Node you need no package for argon2id. On older Node, use a library.
+
+**bcrypt in one minute.** bcrypt is older and very common in Node apps (`bcrypt`, `bcryptjs`). It makes its own salt and saves it inside the output string. It reads only the first **72 bytes** of the password. OWASP warns that pre-hashing a long password to get around this is dangerous (a null byte can cut the input, and a trick called "password shucking" becomes possible). If you must pre-hash, OWASP shows a safe form with an HMAC and a pepper.
+
+**Pepper.** A pepper is one extra secret shared by all passwords, kept **outside** the database (for example in a secrets vault). It adds defense in depth. It is not a replacement for salt. If it leaks, you must force password resets.
+
+**Compare in constant time.** `===` on two strings can stop at the first different byte. `crypto.timingSafeEqual` takes the same time either way. It throws if the lengths differ, so check the lengths first. Many libraries do this for you in their `verify` function. Use that.
+
+**Upgrade at login.** OWASP: store the algorithm and the cost with each hash (the PHC string format does this). When a user logs in, check the cost. If it is lower than today's, hash again and save. For very old hashes such as MD5, rehash at login too, and consider expiring the old password.
+
+**The standard.** Argon2 is described in RFC 9106 (September 2021), "Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications".
+
+</details>
+
+## 7. Common mistakes
+
+**Wrong:** plain text, or a reversible way.
+
+```js
+db.insert({ email, password });                          // plain text
+db.insert({ email, password: encrypt(password, KEY) });  // encryption
+```
+
+**Right:**
+
+```js
+db.insert({ email, stored: await hashPassword(password) });
+```
+
+**Why:** both wrong ways let a thief (or your own support staff) get the passwords back.
+
+**Wrong:** a fast hash, with or without a salt.
+
+```js
+const hash = createHash("sha256").update(salt + password).digest("hex");
+```
+
+**Right:** a slow password hash such as argon2id, scrypt or bcrypt.
+
+**Why:** a salt stops ready-made lists, but the guesses are still very fast.
+
+**Wrong:** one salt for the whole app, or the username as the salt.
+
+**Right:** a new random salt for every password. The libraries do this for you.
+
+**Wrong:** the sync function inside a request handler.
+
+```js
+app.post("/login", (req, res) => {
+  const ok = verifyPasswordSync(req.body.password, row.stored);   // blocks every other request
+```
+
+**Right:**
+
+```js
+app.post("/login", async (req, res) => {
+  const ok = await verifyPassword(req.body.password, row.stored);   // runs on helper threads
+```
+
+**Wrong:** comparing the hashes with `===`, or telling the user which part was wrong.
+
+```js
+if (hash === row.hash) { ... }
+return res.status(401).json({ error: "no user with that email" });
+```
+
+**Right:**
+
+```js
+if (!timingSafeEqual(hash, row.hash)) { ... }                    // equal lengths first
+return res.status(401).json({ error: "wrong email or password" });   // same answer for both
+```
+
+**Wrong:** writing the password anywhere by accident.
+
+```js
+console.log("login body", req.body);        // the password is in the log
+```
+
+**Right:** never log request bodies of login and signup routes. Leave the password out of error messages and monitoring tools too.
+
+## 8. Watch and play
+
+Links checked on 2026-10-23. I opened every page, and I checked each video's title and channel. I did not watch the video, so I did not check its length.
+
+- **Video:** [How NOT to Store Passwords!](https://www.youtube.com/watch?v=8ZtInClXe1Q) by Computerphile. A classic from 2013. It shows why plain text and plain hashes are weak. It is old, so use it for the **why**, and use OWASP for the **current settings**.
+- **Play with it:** [The password hashing stepper](visuals/09-password-hashing.html) in this folder. In "The table is stolen", say out loud why 40,000 times fewer guesses matters.
+- **Play with it:** [argon2.online](https://argon2.online/). Type a password, then change memory, iterations and parallelism, and see the hash change. The page does not show the time, so use `practice/09-password-hashing.js` to feel the time yourself.
+- **Read:** [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). The current minimum settings, salts, peppers and upgrading.
+- **Read:** [Node.js crypto documentation](https://nodejs.org/api/crypto.html). Search the page for `argon2Sync` (added in v24.7.0), `scrypt` and `timingSafeEqual`.
+- **Read:** [OWASP Top 10:2025, A04 Cryptographic Failures](https://top10.owasp.org/2025/A04_2025-Cryptographic_Failures). It tells you to store passwords with a work factor and to avoid MD5 and SHA1.
+- **Code in this repo:** [the Express and GraphQL auth tutorial](express-graphql-auth-tutorial.md). Its example app uses bcrypt with cost 12.
+
+<details><summary>More links (optional)</summary>
+
+- **Read:** [RFC 9106, Argon2](https://www.rfc-editor.org/rfc/rfc9106.html). The standard. Its abstract calls Argon2 a memory-hard function for password hashing.
+- **Read:** [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html). What to do after the password is right: make a new session id.
+
+</details>
+
+## 9. Practice
+
+**A. Predict the output** (write your answer before opening)
+
+```js
+const { createHash } = require("node:crypto");
+const h = (s) => createHash("sha256").update(s).digest("hex").slice(0, 8);
+console.log(h("hunter2") === h("hunter2"));
+console.log(h("salt1" + "hunter2") === h("salt2" + "hunter2"));
+console.log(h("hunter2").length);
+```
+
+<details><summary>Answer</summary>
+
+```
+true
+false
+8
+```
+
+The same input always gives the same hash. A different salt gives a different hash. `slice(0, 8)` keeps 8 letters.
+
+</details>
+
+**B. Fix the bug**
+
+```js
+const { createHash } = require("node:crypto");
+
+function signUp(email, password) {
+  const hash = createHash("md5").update(password).digest("hex");
+  db.insert({ email, hash });
+}
+function login(email, password) {
+  const row = db.find(email);
+  return createHash("md5").update(password).digest("hex") === row.hash;
+}
+```
+
+What is wrong? There are four problems.
+
+<details><summary>Answer</summary>
+
+1. **MD5 is fast and old.** A thief tries billions of guesses. OWASP says to avoid MD5 and SHA1.
+2. **No salt.** Two users with the same password have the same hash, and ready-made lists work.
+3. **`===` compares in a way that can leak timing.** Use `timingSafeEqual` or the `verify` function of the library.
+4. **It does not say how to upgrade later.** Nothing in the saved string tells you the algorithm or the cost.
+
+```js
+async function signUp(email, password) {
+  await db.insert({ email, stored: await hashPassword(password) });   // salt and cost inside
+}
+async function login(email, password) {
+  const row = await db.find(email);
+  return row ? await verifyPassword(password, row.stored) : false;
+}
+```
+
+</details>
+
+**C. Write it yourself**
+
+Open `practice/09-password-hashing.js`. You write `hashPassword`, `verifyPassword` and `needsRehash` with the async `crypto.scrypt`, and a small table that says which ways of saving are good or bad. The tests also check that your functions return a Promise, so the server is never blocked.
+
+```
+node --test learn/backend-api/practice/09-password-hashing.test.js
+```
+
+<details><summary>One possible answer</summary>
+
+```js
+async function hashPassword(plain, { N = 16384, r = 8, p = 1 } = {}) {
+  const salt = randomBytes(16);
+  const hash = await derive(plain, salt, { N, r, p });
+  return ["scrypt", N, r, p, salt.toString("base64url"), hash.toString("base64url")].join("$");
+}
+
+function parse(stored) {
+  if (typeof stored !== "string") return null;
+  const parts = stored.split("$");
+  if (parts.length !== 6 || parts[0] !== "scrypt") return null;
+  const [N, r, p] = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
+  if (![N, r, p].every((n) => Number.isInteger(n) && n > 0)) return null;
+  return { N, r, p, salt: Buffer.from(parts[4], "base64url"), hash: Buffer.from(parts[5], "base64url") };
+}
+
+async function verifyPassword(plain, stored) {
+  const row = parse(stored);
+  if (!row || row.hash.length !== 32 || typeof plain !== "string") return false;   // the hash is always 32 bytes
+  try {
+    const again = await derive(plain, row.salt, row);
+    return timingSafeEqual(again, row.hash);       // both are 32 bytes, so it cannot throw
+  } catch {
+    return false;
+  }
+}
+
+function needsRehash(stored, wanted = { N: 16384, r: 8, p: 1 }) {
+  const row = parse(stored);
+  if (!row) return true;
+  return row.N < wanted.N || row.r < wanted.r || row.p < wanted.p;
+}
+
+const verdict = {
+  plainText: "bad", encrypted: "bad", md5WithSalt: "bad", sha256NoSalt: "bad",
+  bcryptCost12: "good", scryptSalted: "good", argon2id: "good",
+};
+```
+
+Notice four things. The cost (`N`, `r`, `p`) is saved **in the string**, so `verifyPassword` always uses the cost the hash was made with. `verifyPassword` never throws: a broken string just gives `false`. `needsRehash` treats a string it cannot read as "needs a new hash". And `verifyPassword` insists that the saved hash is exactly 32 bytes. Do not trust the saved length: scrypt's short output is only the **start** of its long output, so a cut hash saved by mistake (or by an attacker) would match a short guess. A test in this lesson caught exactly this bug in my first solution.
+
+</details>
+
+## 10. Interview question
+
+**Q:** "How do you store passwords? Why not just SHA-256? What are salt and cost?"
+
+<details><summary>A strong answer, in four parts</summary>
+
+1. **Problem:** databases get stolen. If passwords are plain text, the thief has them at once, and people reuse passwords on other sites. Encryption needs a key, and the key is usually on the same server. A fast hash such as SHA-256 or MD5 lets the thief try billions of guesses, and equal passwords give equal hashes.
+2. **How it works:** I save a **one-way, salted, slow hash**. At sign up I make a random salt for that password and run a password hash (argon2id first, or scrypt, or bcrypt for old systems). I save the salt, the cost and the hash together in one string. At login I run the same hash on what the user typed, with the saved salt and cost, and compare in constant time. I use the async version so I do not block Node, and I say the same error for a wrong email and a wrong password.
+3. **Tradeoff:** every login costs about 50 ms of CPU, and about 19 MiB of memory for argon2id at the OWASP minimum. So I rate-limit login. A slow hash buys time but does not save a weak password. The cost must be raised over time, and I do that at login, when I have the password. bcrypt is still fine for old systems but only reads 72 bytes.
+4. **My example:** your DBO notes say the **Auth service** owns login, forgot-password and OTP by WhatsApp, and issues the JWT. That is a good place to say that the password hashing lives in that one service, so the smallest piece of code holds the most sensitive data. *Your notes do not say which algorithm DBO uses.* The auth tutorial in this repo uses bcrypt with cost 12. Check which one your real projects use before you claim it.
+
+</details>
+
+## 11. Explain it back
+
+Close this file. Press the **Record my explanation** button under this heading and explain it out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "salt", "slow on purpose" and "one-way". Then save the transcript into `my-learning/recordings/`, or write your best version below. Run `/explain-check password hashing` or ask the `explain-coach` agent to review it.
+
+### My explanation
+
+<write here>
+
+### Coach feedback
+
+<the explain-coach agent writes here>
+
+## 12. Review questions (day 1, 3, 7, 21)
+
+1. Why do we save a hash and not the password? Why not encrypt it?
+2. What does a salt do? What does cost do? Which one is secret?
+3. A user logs in. Walk through what the server does, step by step. Why does it not need to reverse the hash?
+4. Draw the picture from section 2c from memory: sign up and login, with the salt and the database.
+
+<details><summary>Answers</summary>
+
+1. A hash is one-way, so a thief who steals the table cannot read the passwords. Encryption can be reversed with a key, and the server needs that key at login, so a thief who breaks in often gets the key too.
+2. A **salt** is random text, new for each password, saved next to the hash. It makes equal passwords give different hashes, which stops ready-made lists and hides who shares a password. The **cost** makes each guess slow, so billions of guesses become too expensive. **Neither is secret.** The secret is the password. (A pepper is secret, but that is a different thing.)
+3. The server finds the row, reads the saved salt and cost, runs the same hash on the typed password, and compares the result with the saved hash in constant time. Equal means the password is right. It never reverses anything. It only repeats the work.
+4. Sign up: user sends the password, the server makes a salt, runs the slow hash, saves salt and hash. Login: user sends the password, the server reads salt and hash from the database, runs the same hash on the typed password, compares, and answers.
+
+</details>
+
+## Connected lessons
+
+- [Authentication: sessions vs JWT](06-authentication-sessions-vs-jwt.md): what the server makes after the password is right.
+- [Access and refresh tokens](07-access-and-refresh-tokens.md): the refresh token is also saved as a hash. A fast hash is fine there, because the token is 256 random bits and nobody can guess it.
+- [Authorization](08-authorization.md): the step after "who are you".
+- [Express GraphQL auth tutorial](express-graphql-auth-tutorial.md): a full app with bcrypt, JWT and refresh tokens.
+- [Rate limiting](11-rate-limiting.md): protect the login route from guessing and from being used to overload the server.
+- [Validation and error handling](10-validation-and-error-handling.md): the next lesson in this folder. Keep the same answer for a wrong email and a wrong password.

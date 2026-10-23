@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sessions vs JWT Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../06-authentication-sessions-vs-jwt.md">Open the lesson ↗</a>
+  </div>
+  <h1>Sessions vs JWT stepper</h1>
+  <p class="sub">Ana logs in to a notes app. You watch what the browser holds and what the server keeps. The cookie value and the token parts are real: the token was made with the code from lesson section 4.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> a session keeps the facts on the <b>server</b> and gives you a ticket number. A JWT puts the facts <b>in the token</b> and signs it, so the server keeps nothing.
+  <ul>
+    <li><b>Session:</b> a note the server keeps about you. The browser holds only a random id.</li>
+    <li><b>Cookie:</b> text the browser stores and sends back by itself with every request to that site.</li>
+    <li><b>JWT:</b> a signed note you carry. It has three parts: header, payload and signature.</li>
+    <li><b>Signature:</b> a stamp only the server can make. If anyone changes the note, the stamp no longer fits.</li>
+  </ul></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "browser",
+  "title": "Browser",
+  "sub": "what Ana's browser holds",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "server",
+  "title": "Server",
+  "sub": "what the server works out",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "store",
+  "title": "Session store",
+  "sub": "the server's notebook",
+  "color": "c3",
+  "empty": "empty. No notes are kept."
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "Session: log in and use",
+  "question": "After Ana logs in, what does her browser hold: her name and role, or something else? Where are her name and role?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "app.post(\"/login\", (req, res) => {",
+   "  const user = checkPassword(req.body);",
+   "  const id = randomBytes(16).toString(\"hex\");",
+   "  sessions.set(id, { userId: user.id, role: user.role });",
+   "  res.cookie(\"sid\", id, { httpOnly: true });",
+   "});",
+   "// every other route",
+   "const session = sessions.get(req.cookies.sid);",
+   "if (!session) return res.sendStatus(401);"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [],
+     "server": [],
+     "store": []
+    },
+    "note": "Ana opens the app. Her browser holds nothing. The server has no note about her."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Browser",
+     "Server",
+     "POST /login  email + password"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Step",
+       "checks the password",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana types her email and password. The server checks them. (How it checks safely is lesson 09.)"
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Step",
+       "password is right",
+       "good"
+      ],
+      [
+       "New id",
+       "a91f3c07…",
+       ""
+      ]
+     ]
+    },
+    "note": "The password is right. The server makes a <b>random id</b>. The id means nothing by itself. Nobody can work out a name from it."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "store": [
+      [
+       "a91f3c07…",
+       "userId 7, role user",
+       ""
+      ]
+     ]
+    },
+    "note": "The server writes a note in its notebook: this id belongs to user 7, role <code>user</code>. <b>The facts stay on the server.</b>"
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Browser",
+     "200 OK   Set-Cookie: sid=a91f3c07…; HttpOnly"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Cookie sid",
+       "a91f3c07…",
+       ""
+      ]
+     ]
+    },
+    "note": "The server sends the id back as a <b>cookie</b>. The browser saves it. Look at the Browser box: it holds only the id."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "Server",
+     "GET /notes   Cookie: sid=a91f3c07…"
+    ],
+    "boxes": {
+     "server": []
+    },
+    "note": "Later Ana opens her notes. The browser adds the cookie <b>by itself</b>. Her code does not have to do anything."
+   },
+   {
+    "line": 7,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Looked up",
+       "a91f3c07… → user 7",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server looks the id up in its notebook. It finds user 7. This is <b>one lookup on every request</b>."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Browser",
+     "200 OK   Ana's notes"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Looked up",
+       "a91f3c07… → user 7",
+       "good"
+      ],
+      [
+       "Answer",
+       "Ana's notes",
+       ""
+      ]
+     ]
+    },
+    "note": "The server sends Ana's notes. Done."
+   }
+  ],
+  "answer": "<b>Answer:</b> the browser holds only a <b>random id</b>. Ana's name and role are in the <b>server's notebook</b>. The cost is one lookup on every request. The gain is that the server decides everything."
+ },
+ {
+  "tab": "JWT: log in and use",
+  "question": "After Ana logs in with a JWT, does the server keep a note about her? What does the server do when she asks for her notes?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "app.post(\"/login\", (req, res) => {",
+   "  const user = checkPassword(req.body);",
+   "  const token = jwt.sign(",
+   "    { sub: user.id, role: user.role }, SECRET, { expiresIn: \"15m\" });",
+   "  res.json({ token });",
+   "});",
+   "// every other route",
+   "const payload = jwt.verify(token, SECRET);   // no database",
+   "// payload.sub says who you are"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [],
+     "server": [],
+     "store": []
+    },
+    "note": "Same start. Ana's browser holds nothing. The server has no note about her."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Browser",
+     "Server",
+     "POST /login  email + password"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Step",
+       "checks the password",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana sends her email and password. The server checks them, as before."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Step",
+       "password is right",
+       "good"
+      ],
+      [
+       "Payload",
+       "sub 7, role user, 15 min",
+       ""
+      ]
+     ]
+    },
+    "note": "This time the server writes the facts <b>into the token</b>: user 7, role <code>user</code>, and a time limit of 15 minutes."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Step",
+       "password is right",
+       "good"
+      ],
+      [
+       "Payload",
+       "sub 7, role user, 15 min",
+       ""
+      ],
+      [
+       "Signature",
+       "stamp made with SECRET",
+       ""
+      ]
+     ]
+    },
+    "note": "Then the server <b>signs</b> it. It makes a stamp from the payload and a secret that only the server knows. Nobody else can make a stamp that fits."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Browser",
+     "200 OK   { token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ… }"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Token",
+       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ…",
+       ""
+      ]
+     ]
+    },
+    "note": "The server sends the token. The browser holds the <b>whole note</b>. Look at the Session store: it is still empty. The server wrote nothing down."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "Server",
+     "GET /notes   Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ…"
+    ],
+    "boxes": {
+     "server": []
+    },
+    "note": "Ana asks for her notes. This time her code adds the token to the request header. (A token can also be kept in a cookie. Then the browser adds it by itself.)"
+   },
+   {
+    "line": 7,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Check",
+       "stamp fits, not expired",
+       "good"
+      ],
+      [
+       "Who",
+       "user 7, role user",
+       ""
+      ]
+     ]
+    },
+    "note": "The server makes the stamp again from the payload and checks the time. It fits. <b>No database. No lookup.</b> Only maths."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Browser",
+     "200 OK   Ana's notes"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Check",
+       "stamp fits, not expired",
+       "good"
+      ],
+      [
+       "Who",
+       "user 7, role user",
+       ""
+      ],
+      [
+       "Answer",
+       "Ana's notes",
+       ""
+      ]
+     ]
+    },
+    "note": "The server sends Ana's notes. Done."
+   }
+  ],
+  "answer": "<b>Answer:</b> no, the server keeps <b>no note</b>. The facts travel inside the token. On each request the server only checks the stamp and the time. The cost is that the server cannot easily take a token back (see the ban tab)."
+ },
+ {
+  "tab": "Two servers",
+  "question": "Ana logs in on Server A, and her next request lands on Server B. With sessions kept in each server's own memory, what happens?",
+  "codeTitle": "What each server runs",
+  "code": [
+   "// session version",
+   "const session = sessions.get(req.cookies.sid);",
+   "if (!session) return res.sendStatus(401);",
+   "// JWT version",
+   "const payload = jwt.verify(token, SECRET);"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [],
+     "store": [],
+     "server": [
+      [
+       "Server A memory",
+       "empty",
+       ""
+      ],
+      [
+       "Server B memory",
+       "empty",
+       ""
+      ]
+     ]
+    },
+    "note": "Your app now runs on <b>two servers</b> behind a load balancer. The load balancer sends each request to any one of them. Each server keeps sessions in its <b>own memory</b>."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "Server A",
+     "POST /login  → Set-Cookie: sid=a91f3c07…"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Cookie sid",
+       "a91f3c07…",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Server A memory",
+       "a91f3c07… → user 7",
+       ""
+      ],
+      [
+       "Server B memory",
+       "empty",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana logs in. The load balancer picks <b>Server A</b>. Server A writes the note in its own memory."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Browser",
+     "Server B",
+     "GET /notes   Cookie: sid=a91f3c07…"
+    ],
+    "boxes": {},
+    "note": "Ana's next request goes to <b>Server B</b>. The load balancer is allowed to choose any server."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server B",
+     "Browser",
+     "401 Unauthorized"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Server A memory",
+       "a91f3c07… → user 7",
+       ""
+      ],
+      [
+       "Server B memory",
+       "no note for a91f3c07…",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Server B looks in its own memory and finds nothing. It says <b>401</b>. Ana did nothing wrong, but she looks logged out."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Server B",
+     "Session store",
+     "get a91f3c07…"
+    ],
+    "boxes": {
+     "store": [
+      [
+       "a91f3c07…",
+       "userId 7, role user",
+       "new"
+      ]
+     ],
+     "server": [
+      [
+       "Server A memory",
+       "not used",
+       ""
+      ],
+      [
+       "Server B memory",
+       "not used",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Fix 1:</b> move the notebook out of the servers into one <b>shared store</b>, for example Redis. Both servers read the same notebook, so Server B finds the note. It costs one more service, and one more network trip on every request."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Browser",
+     "Server B",
+     "GET /notes   Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ…"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "browser": [
+      [
+       "Token",
+       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ…",
+       ""
+      ]
+     ],
+     "store": [],
+     "server": [
+      [
+       "Server A has",
+       "SECRET",
+       ""
+      ],
+      [
+       "Server B has",
+       "SECRET",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Fix 2:</b> use a JWT. Both servers share only the <b>secret</b>. Server B checks the stamp itself. There is no shared notebook and no extra trip."
+   }
+  ],
+  "answer": "<b>Answer:</b> Server B has no note, so Ana gets 401 and looks logged out. Fix it with a <b>shared session store</b> (extra service, extra trip), or use a <b>JWT</b>, where every server only needs the secret. This is the strongest reason people choose JWT."
+ },
+ {
+  "tab": "Ban a user now",
+  "question": "An admin bans Ana at 10:00. At 10:01 she sends a request. With a session, is she blocked? With a JWT that was made at 9:55 and lasts 15 minutes?",
+  "codeTitle": "What the admin runs",
+  "code": [
+   "// session version",
+   "sessions.delete(id);",
+   "// JWT version",
+   "// ... there is nothing to delete.",
+   "// The token is a note Ana carries."
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [
+      [
+       "Cookie sid",
+       "a91f3c07…",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Mode",
+       "SESSION",
+       ""
+      ]
+     ],
+     "store": [
+      [
+       "a91f3c07…",
+       "userId 7, role user",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Part 1: sessions.</b> Ana is logged in with a session. The notebook has her note."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "store": []
+    },
+    "note": "10:00. An admin bans Ana. The server <b>deletes her note</b> from the notebook. The cookie in her browser is still there, but it points at nothing."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "Server",
+     "GET /notes   Cookie: sid=a91f3c07…"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Mode",
+       "SESSION",
+       ""
+      ],
+      [
+       "Lookup",
+       "no note found",
+       "bad"
+      ]
+     ]
+    },
+    "note": "10:01. Ana sends a request. The server looks for her id. No note."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Browser",
+     "401 Unauthorized"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {},
+    "note": "Ana is blocked <b>at once</b>. This is the biggest strength of sessions."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "browser": [
+      [
+       "Token",
+       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ…",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Mode",
+       "JWT",
+       ""
+      ]
+     ],
+     "store": []
+    },
+    "note": "<b>Part 2: JWT.</b> Ana logged in at 9:55 and holds a token that lasts 15 minutes. The server has no notebook."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Mode",
+       "JWT",
+       ""
+      ],
+      [
+       "Ban list",
+       "nothing to delete",
+       "warn"
+      ]
+     ]
+    },
+    "note": "10:00. The admin bans Ana. But the server kept no note, so <b>there is nothing to delete</b>. The token is in Ana's hands."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "Server",
+     "GET /notes   Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ.qB7gXZ…"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Mode",
+       "JWT",
+       ""
+      ],
+      [
+       "Check",
+       "stamp fits, not expired",
+       "warn"
+      ]
+     ]
+    },
+    "note": "10:01. Ana sends her token. The stamp still fits and the time has not run out. The server cannot see the ban."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Browser",
+     "200 OK   Ana's notes"
+    ],
+    "status": [
+     "warn",
+     "200 OK (a banned user got in)"
+    ],
+    "boxes": {},
+    "note": "The banned user still gets in, until the token runs out at 10:10. To fix this you either use a <b>short life</b> for tokens (lesson 07) or keep a <b>ban list</b>. A ban list is a notebook again."
+   }
+  ],
+  "answer": "<b>Answer:</b> the session is blocked <b>at once</b> because the server deletes the note. The JWT keeps working until it runs out, because the server holds nothing to delete. This is the main price of a JWT."
+ },
+ {
+  "tab": "Someone changes the token",
+  "question": "Ana reads her own token, changes <code>role</code> from <code>user</code> to <code>admin</code>, and sends it. Does the server believe her?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "const payload = jwt.verify(token, SECRET);",
+   "// verify makes the stamp again",
+   "// from header + payload + SECRET,",
+   "// then compares it with the stamp in the token."
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [
+      [
+       "Header",
+       "eyJhbGciOiJIUzI1NiJ9",
+       ""
+      ],
+      [
+       "Payload",
+       "eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ",
+       ""
+      ],
+      [
+       "Signature",
+       "qB7gXZ…",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Knows",
+       "SECRET",
+       ""
+      ]
+     ],
+     "store": []
+    },
+    "note": "Ana holds a real token. It has three parts split by dots. Only the server knows the secret."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [
+      [
+       "Header",
+       "eyJhbGciOiJIUzI1NiJ9",
+       ""
+      ],
+      [
+       "Payload",
+       "eyJzdWIiOiI3Iiwicm9sZSI6InVzZXIifQ",
+       ""
+      ],
+      [
+       "Signature",
+       "qB7gXZ…",
+       ""
+      ],
+      [
+       "Ana reads the payload",
+       "{\"sub\":\"7\",\"role\":\"user\"}",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Ana decodes the middle part. It is only base64, a way to write text with safe letters. <b>Anyone can read it.</b> A signature stops changes. It does not hide anything. So never put secrets in a JWT."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "browser": [
+      [
+       "Header",
+       "eyJhbGciOiJIUzI1NiJ9",
+       ""
+      ],
+      [
+       "Payload (edited)",
+       "eyJzdWIiOiI3Iiwicm9sZSI6ImFkbWluIn0",
+       "bad"
+      ],
+      [
+       "Signature (old)",
+       "qB7gXZ…",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana changes the payload so it says <code>role: admin</code>. She cannot make a new stamp, so she keeps the <b>old</b> one."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Browser",
+     "Server",
+     "GET /admin   Authorization: Bearer eyJhbGci….eyJzdWIi…IifQ.qB7gXZ…"
+    ],
+    "boxes": {},
+    "note": "Ana sends the changed token."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Knows",
+       "SECRET",
+       ""
+      ],
+      [
+       "Stamp it makes now",
+       "L932xt…",
+       "bad"
+      ],
+      [
+       "Stamp in the token",
+       "qB7gXZ…",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The server makes the stamp again, from the <b>changed</b> payload and the secret. It gets <code>L932xt…</code>. The token says <code>qB7gXZ…</code>. They do not match."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Browser",
+     "401 Unauthorized  (bad signature)"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {},
+    "note": "The server rejects the token. Ana cannot become admin by editing the note."
+   }
+  ],
+  "answer": "<b>Answer:</b> no. The server makes the stamp again and it does not match the old one, so it says 401. Remember both halves: the token <b>cannot be changed</b> without being caught, but it <b>can be read</b> by anyone."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

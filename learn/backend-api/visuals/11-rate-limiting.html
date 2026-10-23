@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rate Limiting Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../11-rate-limiting.md">Open the lesson ↗</a>
+  </div>
+  <h1>Rate limiting stepper</h1>
+  <p class="sub">A limiter in front of an API. Each story shows what the limiter remembers, and what the caller gets back.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> count by <b>who</b>, over a <b>stretch of time</b>, share the count between servers, and answer <b>429</b> with <code>Retry-After</code>.
+  <ul>
+    <li><b>Rate limit:</b> the most requests one caller may send in a stretch of time.</li>
+    <li><b>Key:</b> what you count by. The user id, the IP address or the API key.</li>
+    <li><b>Window:</b> the stretch of time you count in.</li>
+    <li><b>Token bucket:</b> a bucket that fills at a steady speed. Each request takes one token.</li>
+  </ul>
+  <b>Status codes:</b> <code>200</code> = allowed. <code>429</code> = too many requests, try again later. <code>Retry-After</code> = the number of seconds to wait.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "request",
+  "title": "Request",
+  "sub": "who asks, and when",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "limiter",
+  "title": "Limiter",
+  "sub": "the check",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "bucket",
+  "title": "The count",
+  "sub": "what the limiter remembers",
+  "color": "c3",
+  "empty": "empty"
+ },
+ {
+  "key": "reply",
+  "title": "Caller gets",
+  "sub": "the answer",
+  "color": "c4",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "Token bucket",
+  "question": "A bucket holds 3 tokens and gets 1 back each second. Four requests arrive at the same moment. Which one is refused, and how long must that caller wait?",
+  "codeTitle": "The bucket",
+  "code": [
+   "// bucket: capacity 3, refill 1 token per second",
+   "tokens = Math.min(capacity, tokens + secondsPassed * refillPerSec);   // refill first",
+   "if (tokens >= 1) { tokens -= 1; return allowed; }                      // pay one token",
+   "return refused(retryAfter = Math.ceil((1 - tokens) / refillPerSec));   // wait for a token"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [],
+     "limiter": [
+      [
+       "Capacity",
+       "3 tokens",
+       ""
+      ],
+      [
+       "Refill",
+       "1 token per second",
+       ""
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "3 of 3 (full)",
+       "good"
+      ]
+     ],
+     "reply": []
+    },
+    "note": "A new caller starts with a <b>full</b> bucket. The bucket holds at most 3 tokens."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "request 1 at 0 ms"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "1 at 0 ms",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "0 ms passed, nothing added",
+       ""
+      ],
+      [
+       "Decision",
+       "pay 1 token, allowed",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "2 of 3",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Status",
+       "200 OK",
+       "good"
+      ],
+      [
+       "Header",
+       "none needed",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "note": "Request 1 pays one token. <b>2</b> are left."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "request 2 at 0 ms"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "2 at 0 ms",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "0 ms passed, nothing added",
+       ""
+      ],
+      [
+       "Decision",
+       "pay 1 token, allowed",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "1 of 3",
+       "warn"
+      ]
+     ],
+     "reply": [
+      [
+       "Status",
+       "200 OK",
+       "good"
+      ],
+      [
+       "Header",
+       "none needed",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "note": "Request 2 pays one token. <b>1</b> is left."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "request 3 at 0 ms"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "3 at 0 ms",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "0 ms passed, nothing added",
+       ""
+      ],
+      [
+       "Decision",
+       "pay 1 token, allowed",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "0 of 3 (empty)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Status",
+       "200 OK",
+       "good"
+      ],
+      [
+       "Header",
+       "none needed",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "note": "Request 3 pays the last token. The bucket is <b>empty</b>. A burst of 3 was fine."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Limiter",
+     "Caller",
+     "429 Too Many Requests   Retry-After: 1"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "4 at 0 ms",
+       "warn"
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "0 ms passed, nothing added",
+       ""
+      ],
+      [
+       "Decision",
+       "no token. Wait (1 - 0) / 1 = 1 second",
+       "bad"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "0 of 3 (empty)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Status",
+       "429 Too Many Requests",
+       "bad"
+      ],
+      [
+       "Header",
+       "Retry-After: 1",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "bad",
+     "429"
+    ],
+    "note": "Request 4 finds no token. It is <b>refused</b>, and the caller is told to wait <b>1 second</b>. The refused request takes nothing from the bucket."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Time",
+       "now it is 1000 ms",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "1.0 second passed, add 1.0 token",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "1 of 3",
+       "warn"
+      ]
+     ],
+     "reply": []
+    },
+    "note": "One second later. The refill line adds <code>1.0 x 1 = 1</code> token."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "request 5 at 1000 ms"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "5 at 1000 ms",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "1.0 token added",
+       ""
+      ],
+      [
+       "Decision",
+       "pay 1 token, allowed",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "0 of 3 (empty)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Status",
+       "200 OK",
+       "good"
+      ],
+      [
+       "Header",
+       "none needed",
+       ""
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "note": "Request 5 is allowed. Over time the caller can go no faster than <b>1 per second</b>."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Time",
+       "10 quiet seconds later",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Refill",
+       "10 tokens would be added, but the cap is 3",
+       "warn"
+      ]
+     ],
+     "bucket": [
+      [
+       "Tokens",
+       "3 of 3 (full again, not 10)",
+       "good"
+      ]
+     ],
+     "reply": []
+    },
+    "note": "A long quiet time does not save up tokens for ever. <code>Math.min(capacity, ...)</code> keeps the bucket at <b>3</b>. So the biggest burst is always 3."
+   }
+  ],
+  "answer": "<b>Answer:</b> the <b>fourth</b> is refused, and the caller must wait <b>1 second</b>. A token bucket lets a short burst through (the first 3) and then holds the caller to the refill speed. A long quiet time never stores more than the capacity."
+ },
+ {
+  "tab": "Fixed window and its edge",
+  "question": "The limit is 5 requests per 10 seconds. A caller sends 5 requests at 9 seconds and 5 more at 10 seconds. How many get through?",
+  "codeTitle": "A fixed window",
+  "code": [
+   "// limit 5 requests, window 10 seconds",
+   "const window = Math.floor(nowMs / 10000);      // 0 for 0 to 10 s, 1 for 10 to 20 s",
+   "count[window] = (count[window] || 0) + 1;       // a new window starts at 0",
+   "return count[window] <= 5;"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [],
+     "limiter": [
+      [
+       "Rule",
+       "5 requests per window",
+       ""
+      ],
+      [
+       "Window length",
+       "10 seconds",
+       ""
+      ]
+     ],
+     "bucket": [
+      [
+       "Window 0 (0 to 10 s)",
+       "0 of 5",
+       ""
+      ],
+      [
+       "Window 1 (10 to 20 s)",
+       "0 of 5",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "The clock is cut into windows of 10 seconds. Each window has its own count."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "5 requests from 9.0 to 9.4 s"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Requests",
+       "5, from 9.0 s to 9.4 s",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Window",
+       "floor(9000 / 10000) = 0",
+       ""
+      ]
+     ],
+     "bucket": [
+      [
+       "Window 0 (0 to 10 s)",
+       "5 of 5 (full)",
+       "bad"
+      ],
+      [
+       "Window 1 (10 to 20 s)",
+       "0 of 5",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "5 x 200 OK",
+       "good"
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "5 x 200"
+    ],
+    "note": "All five fall in window 0. The count reaches 5. All five are allowed."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Limiter",
+     "Caller",
+     "429 for a 6th request at 9.5 s"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "6th, at 9.5 s",
+       "warn"
+      ]
+     ],
+     "limiter": [
+      [
+       "Window",
+       "0",
+       ""
+      ],
+      [
+       "Decision",
+       "6 is more than 5, refused",
+       "bad"
+      ]
+     ],
+     "bucket": [
+      [
+       "Window 0 (0 to 10 s)",
+       "6 of 5 (over)",
+       "bad"
+      ],
+      [
+       "Window 1 (10 to 20 s)",
+       "0 of 5",
+       ""
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "429, retry in 1 s",
+       "bad"
+      ]
+     ]
+    },
+    "status": [
+     "bad",
+     "429"
+    ],
+    "note": "Inside one window, the limit works. The sixth is refused."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "request at 10.0 s"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "at 10.0 s",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Window",
+       "floor(10000 / 10000) = 1. A NEW window.",
+       "warn"
+      ]
+     ],
+     "bucket": [
+      [
+       "Window 0 (0 to 10 s)",
+       "forgotten",
+       ""
+      ],
+      [
+       "Window 1 (10 to 20 s)",
+       "0 of 5",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "At 10.0 s the clock moves to <b>window 1</b>. Its count starts at 0. Window 0 is forgotten."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Limiter",
+     "5 requests from 10.0 to 10.4 s"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Requests",
+       "5, from 10.0 s to 10.4 s",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Window",
+       "1",
+       ""
+      ],
+      [
+       "Decision",
+       "5 is not more than 5, allowed",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "Window 0 (0 to 10 s)",
+       "forgotten",
+       ""
+      ],
+      [
+       "Window 1 (10 to 20 s)",
+       "5 of 5 (full)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "5 x 200 OK",
+       "good"
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "5 x 200"
+    ],
+    "note": "The five new requests are all allowed. Window 1 says yes to every one."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "From 9.0 s to 10.4 s",
+       "10 requests in 1.4 seconds",
+       "bad"
+      ]
+     ],
+     "limiter": [
+      [
+       "Rule was",
+       "5 per 10 seconds",
+       ""
+      ],
+      [
+       "What got through",
+       "10 in about 1.5 seconds",
+       "bad"
+      ]
+     ],
+     "bucket": [
+      [
+       "Window 0",
+       "5 of 5, right",
+       ""
+      ],
+      [
+       "Window 1",
+       "5 of 5, right",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>The edge problem.</b> Each window kept its own rule, and still the caller sent <b>double</b> the limit in a short time. A token bucket with the same average speed would let only about 5 through, because its tokens do not reset on the clock."
+   }
+  ],
+  "answer": "<b>Answer:</b> all <b>ten</b>. Window 0 allowed five and window 1 allowed five. The clock cut between them, so the count started again. A fixed window is simple and cheap, but it can let through double the limit around a window edge."
+ },
+ {
+  "tab": "Three servers",
+  "question": "The limit is 3 requests. A load balancer sends 9 requests from one caller to 3 servers, 3 each. Each server keeps its own count. How many get through?",
+  "codeTitle": "The WRONG limiter",
+  "code": [
+   "// WRONG: the count lives in this server's memory",
+   "const hits = {};",
+   "hits[key] = (hits[key] || 0) + 1;",
+   "if (hits[key] > 3) return res.sendStatus(429);"
+  ],
+  "boxes": [
+   {
+    "key": "servers",
+    "title": "The 3 servers",
+    "sub": "behind a load balancer",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "store",
+    "title": "Shared store",
+    "sub": "one count for everyone",
+    "color": "c3",
+    "empty": "not used yet"
+   },
+   {
+    "key": "reply",
+    "title": "Caller gets",
+    "sub": "the limit is 3 requests",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "servers": [
+      [
+       "Server A",
+       "hits: {}",
+       ""
+      ],
+      [
+       "Server B",
+       "hits: {}",
+       ""
+      ],
+      [
+       "Server C",
+       "hits: {}",
+       ""
+      ]
+     ],
+     "store": [],
+     "reply": []
+    },
+    "note": "<b>Part 1: each server counts in its own memory.</b> The caller is allowed 3 requests."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Caller",
+     "Servers",
+     "9 requests: A, B, C, A, B, C, A, B, C"
+    ],
+    "boxes": {
+     "servers": [
+      [
+       "Server A",
+       "hits: { caller: 3 }",
+       "warn"
+      ],
+      [
+       "Server B",
+       "hits: { caller: 3 }",
+       "warn"
+      ],
+      [
+       "Server C",
+       "hits: { caller: 3 }",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The load balancer spreads the caller over all three servers. Each server sees only <b>3</b> requests."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Servers",
+     "Caller",
+     "9 x 200 OK"
+    ],
+    "status": [
+     "bad",
+     "9 got through"
+    ],
+    "boxes": {
+     "servers": [
+      [
+       "Server A",
+       "3 is not more than 3, allowed",
+       "bad"
+      ],
+      [
+       "Server B",
+       "3 is not more than 3, allowed",
+       "bad"
+      ],
+      [
+       "Server C",
+       "3 is not more than 3, allowed",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "9 x 200 OK. The limit was 3.",
+       "bad"
+      ]
+     ]
+    },
+    "note": "No server ever sees more than 3, so nobody says no. The real limit is <b>3 x 3 = 9</b>. With 10 servers it would be 30."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: the count lives in a shared store",
+     "const n = await store.incr(key, windowSeconds);   // one step: add 1, set the expiry",
+     "if (n > 3) return res.sendStatus(429);",
+     "next();"
+    ],
+    "wire": null,
+    "boxes": {
+     "servers": [
+      [
+       "Server A",
+       "asks the store",
+       ""
+      ],
+      [
+       "Server B",
+       "asks the store",
+       ""
+      ],
+      [
+       "Server C",
+       "asks the store",
+       ""
+      ]
+     ],
+     "store": [
+      [
+       "Count for the caller",
+       "0",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Part 2: one shared store.</b> Every server asks the same place."
+   },
+   {
+    "line": 1,
+    "code": [
+     "// RIGHT: the count lives in a shared store",
+     "const n = await store.incr(key, windowSeconds);   // one step: add 1, set the expiry",
+     "if (n > 3) return res.sendStatus(429);",
+     "next();"
+    ],
+    "wire": [
+     "Servers",
+     "Store",
+     "incr(caller)  x 9"
+    ],
+    "boxes": {
+     "servers": [
+      [
+       "Server A",
+       "gets 1, then 4, then 7",
+       ""
+      ],
+      [
+       "Server B",
+       "gets 2, then 5, then 8",
+       ""
+      ],
+      [
+       "Server C",
+       "gets 3, then 6, then 9",
+       ""
+      ]
+     ],
+     "store": [
+      [
+       "Count for the caller",
+       "9",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The store adds 1 for each request, whichever server asked. The count goes <b>1, 2, 3, 4 ... 9</b>. The add and the expiry are one step, so two servers cannot add at the same moment and lose a count."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: the count lives in a shared store",
+     "const n = await store.incr(key, windowSeconds);   // one step: add 1, set the expiry",
+     "if (n > 3) return res.sendStatus(429);",
+     "next();"
+    ],
+    "wire": [
+     "Servers",
+     "Caller",
+     "3 x 200 OK, then 6 x 429"
+    ],
+    "status": [
+     "ok",
+     "3 got through"
+    ],
+    "boxes": {
+     "servers": [
+      [
+       "Requests 1 to 3",
+       "n is 1 to 3, allowed",
+       "good"
+      ],
+      [
+       "Requests 4 to 9",
+       "n is 4 to 9, refused",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Result",
+       "3 x 200 OK, then 6 x 429",
+       "good"
+      ]
+     ]
+    },
+    "note": "Now the limit is a real <b>3</b>. This is why a limiter needs a <b>shared store</b> (often Redis) as soon as you run more than one server."
+   }
+  ],
+  "answer": "<b>Answer:</b> with a count in each server's memory, <b>all 9</b> get through, because every server only sees 3. With one shared store, only <b>3</b> do. Run more than one server, share the count."
+ },
+ {
+  "tab": "Which key?",
+  "question": "Twenty people in one office share the address 203.0.113.9. Ana sends 30 requests. Budi sends none. The limit is 10 per minute. With the key set to the IP address, can Budi use the app?",
+  "codeTitle": "The WRONG key",
+  "code": [
+   "function keyFor(req) {",
+   "  return `ip:${req.ip}`;                        // WRONG for an office or a phone network",
+   "}"
+  ],
+  "boxes": [
+   {
+    "key": "request",
+    "title": "Who is asking",
+    "sub": "20 people share one office address",
+    "color": "c1",
+    "empty": "nobody yet"
+   },
+   {
+    "key": "limiter",
+    "title": "Key chosen",
+    "sub": "what the limiter counts by",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "bucket",
+    "title": "The count",
+    "sub": "limit: 10 per minute",
+    "color": "c3",
+    "empty": "empty"
+   },
+   {
+    "key": "reply",
+    "title": "Caller gets",
+    "sub": "the answer",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Ana",
+       "office address 203.0.113.9",
+       ""
+      ],
+      [
+       "Budi",
+       "office address 203.0.113.9",
+       ""
+      ]
+     ],
+     "limiter": [],
+     "bucket": [],
+     "reply": []
+    },
+    "note": "<b>Part 1: count by IP address only.</b> Ana and Budi sit in the same office. The server sees the <b>same address</b> for both."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Ana",
+     "Limiter",
+     "30 requests"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Ana",
+       "sends 30 requests",
+       ""
+      ],
+      [
+       "Budi",
+       "sends nothing",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Key",
+       "ip:203.0.113.9",
+       "warn"
+      ]
+     ],
+     "bucket": [
+      [
+       "ip:203.0.113.9",
+       "30 of 10 (over)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Ana",
+       "10 x 200, then 20 x 429",
+       "bad"
+      ]
+     ]
+    },
+    "status": [
+     "bad",
+     "Ana is blocked"
+    ],
+    "note": "The key is the address. Ana uses up the limit of the whole address."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Budi",
+     "Limiter",
+     "1 request"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Budi",
+       "sends 1 request",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Key",
+       "ip:203.0.113.9",
+       "warn"
+      ]
+     ],
+     "bucket": [
+      [
+       "ip:203.0.113.9",
+       "31 of 10 (over)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Budi",
+       "429. He did nothing wrong.",
+       "bad"
+      ]
+     ]
+    },
+    "status": [
+     "bad",
+     "Budi is blocked"
+    ],
+    "note": "Budi sends his very first request and gets a <b>429</b>. A whole office is blocked because of one person."
+   },
+   {
+    "line": 0,
+    "code": [
+     "function keyFor(req) {",
+     "  if (req.user) return `user:${req.user.id}`;   // logged in: count by the person",
+     "  return `ip:${req.ip}`;                        // not logged in: count by the address",
+     "}"
+    ],
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Ana",
+       "logged in, user 7",
+       ""
+      ],
+      [
+       "Budi",
+       "logged in, user 8",
+       ""
+      ]
+     ],
+     "limiter": [],
+     "bucket": [],
+     "reply": []
+    },
+    "note": "<b>Part 2: count by the person when you know the person.</b> Both are logged in."
+   },
+   {
+    "line": 1,
+    "code": [
+     "function keyFor(req) {",
+     "  if (req.user) return `user:${req.user.id}`;   // logged in: count by the person",
+     "  return `ip:${req.ip}`;                        // not logged in: count by the address",
+     "}"
+    ],
+    "wire": [
+     "Ana",
+     "Limiter",
+     "30 requests"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Ana",
+       "sends 30 requests",
+       ""
+      ],
+      [
+       "Budi",
+       "sends nothing",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Key",
+       "user:7",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "user:7",
+       "30 of 10 (over)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Ana",
+       "10 x 200, then 20 x 429",
+       "bad"
+      ]
+     ]
+    },
+    "status": [
+     "warn",
+     "Ana is blocked"
+    ],
+    "note": "Ana is counted as <code>user:7</code>. She is still blocked after 10, as she should be."
+   },
+   {
+    "line": 1,
+    "code": [
+     "function keyFor(req) {",
+     "  if (req.user) return `user:${req.user.id}`;   // logged in: count by the person",
+     "  return `ip:${req.ip}`;                        // not logged in: count by the address",
+     "}"
+    ],
+    "wire": [
+     "Budi",
+     "Limiter",
+     "1 request"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Budi",
+       "sends 1 request",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Key",
+       "user:8",
+       "good"
+      ]
+     ],
+     "bucket": [
+      [
+       "user:7",
+       "30 of 10 (over)",
+       "bad"
+      ],
+      [
+       "user:8",
+       "1 of 10",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Budi",
+       "200 OK",
+       "good"
+      ]
+     ]
+    },
+    "status": [
+     "ok",
+     "Budi is fine"
+    ],
+    "note": "Budi is counted as <code>user:8</code>, a separate count. He is not hurt by Ana."
+   },
+   {
+    "line": 2,
+    "code": [
+     "function keyFor(req) {",
+     "  if (req.user) return `user:${req.user.id}`;   // logged in: count by the person",
+     "  return `ip:${req.ip}`;                        // not logged in: count by the address",
+     "}"
+    ],
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "A stranger",
+       "not logged in, on the login page",
+       ""
+      ]
+     ],
+     "limiter": [
+      [
+       "Key",
+       "ip:198.51.100.4 (no user yet)",
+       "warn"
+      ]
+     ],
+     "bucket": [
+      [
+       "ip:198.51.100.4",
+       "1 of 10",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "<b>Not logged in yet?</b> Then the address is all you have. For the <b>login</b> route, many teams count by the address <b>and</b> the account name that is being tried. Behind a proxy, tell Express how many proxies you have (<code>trust proxy</code>), or every caller will look like the proxy."
+   }
+  ],
+  "answer": "<b>Answer:</b> no, Budi would be blocked. Ana used up the limit of the shared address. Count by the <b>user</b> when you know the user, and by the <b>address</b> only for callers who are not logged in."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

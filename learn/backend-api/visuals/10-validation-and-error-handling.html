@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validation and Errors Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../10-validation-and-error-handling.md">Open the lesson ↗</a>
+  </div>
+  <h1>Validation and errors stepper</h1>
+  <p class="sub">A signup route with Express 5 and Zod. Each story shows what the server checks, what the client sees, and what only the private log sees.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> never trust the input, never show the insides. Check at the door, answer every problem in <b>one shape</b>, and keep the details in the <b>private log</b>.
+  <ul>
+    <li><b>Validation:</b> checking the input before your code uses it.</li>
+    <li><b>Schema:</b> the written rule for good input, one line per field.</li>
+    <li><b>Error handler:</b> one function at the end. Every error ends up there.</li>
+    <li><b>Problem Details:</b> the standard error shape with <code>type</code>, <code>title</code>, <code>status</code> and <code>detail</code> (RFC 9457).</li>
+  </ul>
+  <b>Status codes:</b> <code>400</code> = the request is broken. <code>422</code> = well formed, but the values are wrong. <code>409</code> = clashes with what exists. <code>500</code> = our bug or something unknown.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "request",
+  "title": "Request",
+  "sub": "what the client sends",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "server",
+  "title": "Server",
+  "sub": "the checks, one by one",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "reply",
+  "title": "Client sees",
+  "sub": "what goes back over the wire",
+  "color": "c3",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "log",
+  "title": "Server log",
+  "sub": "private, the client never sees it",
+  "color": "c4",
+  "empty": "empty"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "A good request",
+  "question": "Ana adds a field called <code>admin: true</code> by hand. After the schema check, does the server save it?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /users",
+   "const r = Signup.safeParse(req.body);",
+   "if (!r.success) return res.status(422).json(problem(r.error));",
+   "const user = await db.user.create({ data: r.data });   // r.data, not req.body",
+   "res.status(201).json(user);"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "email",
+       "ana@example.com",
+       ""
+      ],
+      [
+       "age",
+       "\"30\" (a string)",
+       ""
+      ],
+      [
+       "admin",
+       "true (added by hand)",
+       "warn"
+      ]
+     ],
+     "server": [],
+     "reply": [],
+     "log": []
+    },
+    "note": "Ana signs up. Look at the extra field <code>admin: true</code>. She added it by hand, with a tool like curl."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Ana",
+     "Server",
+     "POST /users   { email, age: \"30\", admin: true }"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Check",
+       "email looks right, age 30 is 18 or more",
+       "good"
+      ],
+      [
+       "Clean data",
+       "{ email, age: 30 }",
+       "good"
+      ],
+      [
+       "Dropped",
+       "admin (not in the schema)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>The check at the door.</b> <code>safeParse</code> looks at each field. The email is fine. \"30\" becomes the number 30, and 30 is 18 or more. The field <code>admin</code> is not in the schema, so it is <b>dropped</b>."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Check",
+       "email looks right, age 30 is 18 or more",
+       "good"
+      ],
+      [
+       "Clean data",
+       "{ email, age: 30 }",
+       "good"
+      ],
+      [
+       "Dropped",
+       "admin (not in the schema)",
+       "warn"
+      ],
+      [
+       "Failed?",
+       "no, so the code goes on",
+       "good"
+      ]
+     ]
+    },
+    "note": "Nothing failed, so the <code>if</code> is skipped."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Check",
+       "email looks right, age 30 is 18 or more",
+       "good"
+      ],
+      [
+       "Clean data",
+       "{ email, age: 30 }",
+       "good"
+      ],
+      [
+       "Dropped",
+       "admin (not in the schema)",
+       "warn"
+      ],
+      [
+       "Failed?",
+       "no, so the code goes on",
+       "good"
+      ],
+      [
+       "Saved",
+       "row with email and age 30. No admin.",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server saves <code>r.data</code>, the cleaned copy. If it had saved <code>req.body</code>, the row would have <code>admin: true</code>."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Ana",
+     "201 Created   { id: 1, email: ana@example.com }"
+    ],
+    "status": [
+     "ok",
+     "201 Created"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "201 Created",
+       "good"
+      ],
+      [
+       "Body",
+       "{ id: 1, email: ana@example.com }",
+       ""
+      ]
+     ]
+    },
+    "note": "The server answers with a clear success status."
+   }
+  ],
+  "answer": "<b>Answer:</b> no. The schema <b>drops</b> every field it does not know, and the handler saves <code>r.data</code>, not <code>req.body</code>. Ana cannot make herself an admin by adding a field."
+ },
+ {
+  "tab": "Bad input",
+  "question": "Ana sends <code>email: ana@</code> and <code>age: 17</code>. Which line stops the request? Does the database line run?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /users",
+   "const r = Signup.safeParse(req.body);",
+   "if (!r.success) return res.status(422).json(problem(r.error));",
+   "const user = await db.user.create({ data: r.data });   // r.data, not req.body",
+   "res.status(201).json(user);"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "email",
+       "ana@",
+       "warn"
+      ],
+      [
+       "age",
+       "\"17\"",
+       "warn"
+      ]
+     ],
+     "server": [],
+     "reply": [],
+     "log": []
+    },
+    "note": "Ana types a half email and an age under 18."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Ana",
+     "Server",
+     "POST /users   { email: \"ana@\", age: \"17\" }"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "email",
+       "ana@ is not a valid email",
+       "bad"
+      ],
+      [
+       "age",
+       "17 is under 18",
+       "bad"
+      ]
+     ]
+    },
+    "note": "<code>safeParse</code> checks <b>every</b> field. It does not stop at the first mistake. It reports both problems."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Ana",
+     "422   { errors: { email: [...], age: [...] } }"
+    ],
+    "status": [
+     "bad",
+     "422"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "email",
+       "ana@ is not a valid email",
+       "bad"
+      ],
+      [
+       "age",
+       "17 is under 18",
+       "bad"
+      ],
+      [
+       "Failed?",
+       "yes, so the function ends here",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "Status",
+       "422 Unprocessable Content",
+       "bad"
+      ],
+      [
+       "Body",
+       "title: Invalid input, errors: { email: [Invalid email address], age: [Too small: expected number to be >=18] }",
+       ""
+      ]
+     ],
+     "log": [
+      [
+       "Log",
+       "422 invalid input. No stack trace needed.",
+       ""
+      ]
+     ]
+    },
+    "note": "The answer goes out, and <code>return</code> ends the function. The client can show each message under the right field."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "email",
+       "ana@ is not a valid email",
+       "bad"
+      ],
+      [
+       "age",
+       "17 is under 18",
+       "bad"
+      ],
+      [
+       "Failed?",
+       "yes, so the function ends here",
+       "bad"
+      ],
+      [
+       "Database",
+       "never touched",
+       "good"
+      ]
+     ]
+    },
+    "note": "Lines 3 and 4 never ran. No row was saved, and no time was spent on the database."
+   }
+  ],
+  "answer": "<b>Answer:</b> the <code>if (!r.success) return ...</code> line stops it. The database line never runs. Without <code>return</code>, the code would go on and save the bad data."
+ },
+ {
+  "tab": "A known error",
+  "question": "The body is good, but the email is already used. The schema passed. How does the client still get a clear <code>409</code>?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "// POST /users   (the check at the door passed)",
+   "const user = await db.user.create({ data: r.data });",
+   "// the database says: the UNIQUE rule on email is broken",
+   "throw new AppError(409, \"That email is already used.\");",
+   "// Express 5 sends a thrown error to the error handler",
+   "app.use((err, req, res, next) => { ... });"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "email",
+       "taken@example.com",
+       ""
+      ],
+      [
+       "age",
+       "30",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Door check",
+       "passed. The body is good.",
+       "good"
+      ]
+     ],
+     "reply": [],
+     "log": []
+    },
+    "note": "The schema cannot know that an email is already in the database. Only the database knows."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Server",
+     "Database",
+     "INSERT user taken@example.com"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Door check",
+       "passed. The body is good.",
+       "good"
+      ],
+      [
+       "Asked",
+       "database: save this user",
+       ""
+      ]
+     ]
+    },
+    "note": "The server asks the database to save the user."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Database",
+     "Server",
+     "error: UNIQUE rule on email is broken"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Door check",
+       "passed. The body is good.",
+       "good"
+      ],
+      [
+       "Asked",
+       "database: save this user",
+       ""
+      ],
+      [
+       "Database said",
+       "no, that email exists",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The database has a <code>UNIQUE</code> rule on the email column. It says no. This rule is the real guard. The schema could not do this job."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Door check",
+       "passed. The body is good.",
+       "good"
+      ],
+      [
+       "Database said",
+       "no, that email exists",
+       "bad"
+      ],
+      [
+       "Thrown",
+       "AppError 409, expose = true",
+       "warn"
+      ]
+     ]
+    },
+    "note": "You turn the database error into your own error. You mark it safe to show with <code>expose = true</code>, because you wrote the message."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Door check",
+       "passed. The body is good.",
+       "good"
+      ],
+      [
+       "Thrown",
+       "AppError 409, expose = true",
+       "warn"
+      ],
+      [
+       "Express 5",
+       "skips the normal code and calls the error handler",
+       "good"
+      ]
+     ],
+     "log": [
+      [
+       "Log",
+       "409 AppError: That email is already used.",
+       ""
+      ]
+     ]
+    },
+    "note": "In Express 5 the thrown error, even from an <code>async</code> function, goes to the error handler for you. The handler logs it."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Server",
+     "Ana",
+     "409   { title: Email already used, detail: That email is already used. }"
+    ],
+    "status": [
+     "warn",
+     "409"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "409 Conflict",
+       "warn"
+      ],
+      [
+       "Body",
+       "{ type, title, status: 409, detail: That email is already used. }",
+       ""
+      ]
+     ]
+    },
+    "note": "The error handler sees <code>expose = true</code> and a status under 500. So it sends your message as it is."
+   }
+  ],
+  "answer": "<b>Answer:</b> the database rule catches the clash. You turn it into an <code>AppError</code> with status 409 and a safe message. The error handler sends it in the standard shape. The client gets a clear answer, and you did not copy the database error text."
+ },
+ {
+  "tab": "A crash",
+  "question": "The database is down, and the error text holds its address and password. Part 1 is a bad error handler. What does the client learn?",
+  "codeTitle": "The WRONG error handler",
+  "code": [
+   "// WRONG error handler",
+   "app.use((err, req, res, next) => {",
+   "  res.status(500).json({ error: err.stack });",
+   "});"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "POST /users with a good body",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Version",
+       "WRONG: sends the stack to the client",
+       "bad"
+      ]
+     ],
+     "reply": [],
+     "log": []
+    },
+    "note": "<b>Part 1: the wrong handler.</b> It sends whatever the error holds."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Version",
+       "WRONG: sends the stack to the client",
+       "bad"
+      ],
+      [
+       "Thrown",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The database is down. The driver throws an error. Its text includes the address and the password."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Client",
+     "500   { error: \"Error: connect ECONNREFUSED 10.0.0.5:5432 password=hunter2 at ...\" }"
+    ],
+    "status": [
+     "bad",
+     "500 and a leak"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "500",
+       "bad"
+      ],
+      [
+       "Body",
+       "{ error: \"Error: connect ECONNREFUSED 10.0.0.5:5432 password=hunter2 at ...\" }",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The client now knows the <b>database address and the password</b>. This is the leak. It can happen to any app that sends <code>err.stack</code>."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT error handler",
+     "app.use((err, req, res, next) => {",
+     "  console.error(err);                                    // full details, private",
+     "  const known = err.expose === true && err.status < 500;",
+     "  res.status(known ? err.status : 500).json({ detail: known ? err.message : \"Something went wrong.\" });",
+     "});"
+    ],
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Request",
+       "POST /users with a good body",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Version",
+       "RIGHT: log it, send a safe message",
+       "good"
+      ]
+     ],
+     "reply": [],
+     "log": []
+    },
+    "note": "<b>Part 2: the right handler.</b> The same crash happens again. Now watch where each piece goes."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT error handler",
+     "app.use((err, req, res, next) => {",
+     "  console.error(err);                                    // full details, private",
+     "  const known = err.expose === true && err.status < 500;",
+     "  res.status(known ? err.status : 500).json({ detail: known ? err.message : \"Something went wrong.\" });",
+     "});"
+    ],
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Version",
+       "RIGHT: log it, send a safe message",
+       "good"
+      ],
+      [
+       "Thrown",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "warn"
+      ]
+     ],
+     "log": [
+      [
+       "Log",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2 + the stack + the time",
+       ""
+      ]
+     ]
+    },
+    "note": "<code>console.error(err)</code> writes the full error to the <b>log</b>. The log is on your server. Only your team reads it."
+   },
+   {
+    "line": 3,
+    "code": [
+     "// RIGHT error handler",
+     "app.use((err, req, res, next) => {",
+     "  console.error(err);                                    // full details, private",
+     "  const known = err.expose === true && err.status < 500;",
+     "  res.status(known ? err.status : 500).json({ detail: known ? err.message : \"Something went wrong.\" });",
+     "});"
+    ],
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Version",
+       "RIGHT: log it, send a safe message",
+       "good"
+      ],
+      [
+       "Thrown",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "warn"
+      ],
+      [
+       "Known?",
+       "no, expose is not true. It is an unknown error.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<code>expose</code> is not <code>true</code>, so the handler treats this as <b>unknown</b>. It will not read its text."
+   },
+   {
+    "line": 4,
+    "code": [
+     "// RIGHT error handler",
+     "app.use((err, req, res, next) => {",
+     "  console.error(err);                                    // full details, private",
+     "  const known = err.expose === true && err.status < 500;",
+     "  res.status(known ? err.status : 500).json({ detail: known ? err.message : \"Something went wrong.\" });",
+     "});"
+    ],
+    "wire": [
+     "Server",
+     "Client",
+     "500   { detail: \"Something went wrong. Try again later.\" }"
+    ],
+    "status": [
+     "ok",
+     "500 (safe)"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "500",
+       "warn"
+      ],
+      [
+       "Body",
+       "{ type, title: Internal Server Error, status: 500, detail: Something went wrong. Try again later. }",
+       "good"
+      ]
+     ]
+    },
+    "note": "The client gets a safe message in the standard shape. It learns nothing about the inside."
+   }
+  ],
+  "answer": "<b>Answer:</b> the wrong handler tells the client the database address and the password. The right handler writes the full error to the <b>log</b> and sends only a safe message. <b>Trust an error's text only when you wrote it and marked it safe.</b>"
+ },
+ {
+  "tab": "Broken JSON",
+  "question": "The client sends a body that is not valid JSON. The route code never runs. Who answers, and with which status?",
+  "codeTitle": "What the server runs",
+  "code": [
+   "app.use(express.json());      // runs before every route",
+   "// the body that arrives is:  {\"email\": ",
+   "// express.json() cannot read it, so it makes an error",
+   "// the error says: status 400, type entity.parse.failed, expose true",
+   "app.use((err, req, res, next) => { ... });   // the same error handler"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [
+      [
+       "Body (text)",
+       "{\"email\": ",
+       "warn"
+      ]
+     ],
+     "server": [],
+     "reply": [],
+     "log": []
+    },
+    "note": "The body stops in the middle. It was cut, or someone typed it badly."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /users   {\"email\": "
+    ],
+    "boxes": {
+     "server": [
+      [
+       "express.json()",
+       "tries to read the body",
+       ""
+      ]
+     ]
+    },
+    "note": "<code>express.json()</code> is the first thing that touches the body. It runs <b>before</b> your route."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "express.json()",
+       "cannot read it, so it makes an error",
+       "bad"
+      ],
+      [
+       "Route code",
+       "never runs",
+       "good"
+      ]
+     ]
+    },
+    "note": "The parse fails. The library makes an error and passes it on. Your route is skipped."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "express.json()",
+       "cannot read it, so it makes an error",
+       "bad"
+      ],
+      [
+       "The error says",
+       "status 400, type entity.parse.failed, expose true",
+       "warn"
+      ]
+     ],
+     "log": [
+      [
+       "Log",
+       "400 entity.parse.failed: Unexpected end of JSON input",
+       ""
+      ]
+     ]
+    },
+    "note": "The library marks its own error with status <code>400</code> and <code>expose: true</code>, because it is the client's fault and the message is safe."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Client",
+     "400   { title: Bad request, detail: Unexpected end of JSON input }"
+    ],
+    "status": [
+     "warn",
+     "400"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "400 Bad Request",
+       "warn"
+      ],
+      [
+       "Body",
+       "{ type, title: Bad request, status: 400, detail: Unexpected end of JSON input }",
+       ""
+      ]
+     ]
+    },
+    "note": "The <b>same</b> error handler answers, in the <b>same</b> shape as every other error. The client needs only one way to read errors."
+   }
+  ],
+  "answer": "<b>Answer:</b> the library breaks first, so it makes the error, and the one error handler answers with <b>400</b>. This is why one error handler at the end is worth it: it also catches the errors you did not write."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>
