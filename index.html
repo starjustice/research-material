@@ -246,11 +246,101 @@
   <span>Bridge vs JSI/Fabric, FlatList vs FlashList, Hermes, Expo vs bare, OTA update limits</span>
 </a>
 </details>
-<details class="subject"><summary><b>Backend and API</b><small>3 guides, 2 cheatsheets</small></summary>
+<details class="subject"><summary><b>Backend and API</b><small>9 lessons, 3 guides, 9 visuals, 2 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/backend-api/README">
   <span class="tag map">MAP</span>
   <b>Backend and API: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/06-authentication-sessions-vs-jwt">
+  <span class="tag lesson">LESSON 06</span>
+  <b>06. Authentication: sessions vs JWT</b>
+  <span>say where the &quot;this is user 7&quot; fact lives for a session and for a JWT, name what each one does better, and pick one for a real app.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/07-access-and-refresh-tokens">
+  <span class="tag lesson">LESSON 07</span>
+  <b>07. Access and refresh tokens</b>
+  <span>say why a login uses two tokens, draw the refresh flow with rotation, say what happens when an old refresh token comes back, and say where to keep each token.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/08-authorization">
+  <span class="tag lesson">LESSON 08</span>
+  <b>08. Authorization</b>
+  <span>say the difference between authentication and authorization, write the role check and the owner check on the server, and explain what IDOR is and how to stop it.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/09-password-hashing">
+  <span class="tag lesson">LESSON 09</span>
+  <b>09. Password hashing</b>
+  <span>say why a server never stores a password, why a plain hash is not enough, what salt and cost do, and which algorithm to pick.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/10-validation-and-error-handling">
+  <span class="tag lesson">LESSON 10</span>
+  <b>10. Validation and error handling</b>
+  <span>say why the server checks every input at the door, which status to send for each kind of problem, and how to send every error in one shape without leaking secrets.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/11-rate-limiting">
+  <span class="tag lesson">LESSON 11</span>
+  <b>11. Rate limiting</b>
+  <span>say why an API limits how fast one caller can go, explain fixed window, sliding window and token bucket, and say what changes when you run more than one server.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/12-caching-in-apis">
+  <span class="tag lesson">LESSON 12</span>
+  <b>12. Caching in APIs</b>
+  <span>say where a cache can live in an API, what `Cache-Control` and `ETag` do, how a Redis cache with a TTL works, and why changing data is the hard part.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/13-webhooks-and-idempotency">
+  <span class="tag lesson">LESSON 13</span>
+  <b>13. Webhooks and idempotency</b>
+  <span>receive a webhook safely (verify it, skip repeats, answer fast, do the work later), say why the same event can arrive twice, and make your own POST routes safe to retry.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/14-hasura-when-and-when-not">
+  <span class="tag lesson">LESSON 14</span>
+  <b>14. Hasura: when and when not</b>
+  <span>say what Hasura does for you, how its permission rules work, where your own code goes (Actions and event triggers), and when to choose it or not.</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/06-sessions-vs-jwt.html">
+  <span class="tag app">VISUAL</span>
+  <b>06-sessions-vs-jwt.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/07-access-and-refresh-tokens.html">
+  <span class="tag app">VISUAL</span>
+  <b>07-access-and-refresh-tokens.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/08-authorization.html">
+  <span class="tag app">VISUAL</span>
+  <b>08-authorization.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/09-password-hashing.html">
+  <span class="tag app">VISUAL</span>
+  <b>09-password-hashing.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/10-validation-and-error-handling.html">
+  <span class="tag app">VISUAL</span>
+  <b>10-validation-and-error-handling.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/11-rate-limiting.html">
+  <span class="tag app">VISUAL</span>
+  <b>11-rate-limiting.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/12-caching-in-apis.html">
+  <span class="tag app">VISUAL</span>
+  <b>12-caching-in-apis.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/13-webhooks-and-idempotency.html">
+  <span class="tag app">VISUAL</span>
+  <b>13-webhooks-and-idempotency.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/14-hasura-when-and-when-not.html">
+  <span class="tag app">VISUAL</span>
+  <b>14-hasura-when-and-when-not.html</b>
+  <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/backend-api/cheatsheet-api-auth-microservice">
   <span class="tag note">GUIDE</span>
@@ -288,11 +378,121 @@
   <span>Runnable: docker compose up → track tables → row permission → Action (10 minutes)</span>
 </a>
 </details>
-<details class="subject"><summary><b>Database</b><small>1 guide, 1 cheatsheet</small></summary>
+<details class="subject"><summary><b>Database</b><small>11 lessons, 1 guide, 11 visuals, 1 cheatsheet</small></summary>
 <a class="card" href="viewer.html?note=learn/database/README">
   <span class="tag map">MAP</span>
   <b>Database: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/01-sql-basics-and-query-order">
+  <span class="tag lesson">LESSON 01</span>
+  <b>01. SQL basics and the order a query runs</b>
+  <span>read a SELECT with WHERE, ORDER BY and LIMIT, say the order Postgres works in (FROM first, SELECT almost last), and use that order to explain why a new name from SELECT fails in WHERE, and why `= NULL` finds nothing.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/02-joins">
+  <span class="tag lesson">LESSON 02</span>
+  <b>02. Joins</b>
+  <span>draw what INNER, LEFT, RIGHT and FULL joins keep, say why one store with two orders becomes two rows, and explain why `LEFT JOIN ... WHERE o.status = &#x27;PAID&#x27;` quietly loses stores.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/03-grouping-and-aggregation">
+  <span class="tag lesson">LESSON 03</span>
+  <b>03. Grouping and aggregation</b>
+  <span>put rows into buckets with GROUP BY, say why WHERE runs before the buckets and HAVING after, pick the right COUNT, and spot a total that a join made too big.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/04-subqueries-ctes-and-exists">
+  <span class="tag lesson">LESSON 04</span>
+  <b>04. Subqueries, CTEs and EXISTS</b>
+  <span>put one query inside another, split a long query into named steps with WITH, and answer &quot;has at least one&quot; and &quot;has none&quot; questions with EXISTS and NOT EXISTS, without falling into the NOT IN trap.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/05-window-functions">
+  <span class="tag lesson">LESSON 05</span>
+  <b>05. Window functions</b>
+  <span>number, rank and add up rows inside each group without losing any row, and write &quot;top 3 orders per store&quot; while explaining why the filter needs an outer query.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/07-normalization">
+  <span class="tag lesson">LESSON 07</span>
+  <b>07. Normalization</b>
+  <span>show the three problems that duplicate data causes, split a messy table so each fact lives in one place, say 1NF, 2NF and 3NF in one plain sentence each, and explain when a senior engineer copies data on purpose and what that costs.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/08-constraints-and-data-types">
+  <span class="tag lesson">LESSON 08</span>
+  <b>08. Constraints and data types</b>
+  <span>add rules that make Postgres refuse bad rows, read the error it gives back, and say why money goes in cents, time goes in timestamptz, and most data goes in normal columns instead of JSONB.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/09-indexes-and-b-trees">
+  <span class="tag lesson">LESSON 09</span>
+  <b>09. Indexes and B-trees</b>
+  <span>draw a B-tree, walk a search from the top page down to the row, and say what every index costs when you write.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/10-composite-partial-and-covering-indexes">
+  <span class="tag lesson">LESSON 10</span>
+  <b>10. Composite, partial and covering indexes</b>
+  <span>pick the column order for a two-column index, say why it beats two single indexes, build a partial and a covering index, and list six reasons Postgres ignores an index.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/11-reading-explain">
+  <span class="tag lesson">LESSON 11</span>
+  <b>11. Reading EXPLAIN</b>
+  <span>read a query plan from the inside out, point at the slow step, compare guessed rows with real rows, and say a 5 step &quot;slow query&quot; plan in an interview.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/12-n-plus-1-queries-and-orms">
+  <span class="tag lesson">LESSON 12</span>
+  <b>12. N+1 queries and ORMs</b>
+  <span>say why one page can send 101 queries, find it in a query log, and fix it with a JOIN, an `= ANY($1)` batch, Prisma `include`, a GraphQL DataLoader, or Hasura.</span>
+</a>
+<a class="card" href="learn/database/visuals/01-sql-basics-and-query-order.html">
+  <span class="tag app">VISUAL</span>
+  <b>01-sql-basics-and-query-order.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/02-joins.html">
+  <span class="tag app">VISUAL</span>
+  <b>02-joins.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/03-grouping-and-aggregation.html">
+  <span class="tag app">VISUAL</span>
+  <b>03-grouping-and-aggregation.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/04-subqueries-ctes-and-exists.html">
+  <span class="tag app">VISUAL</span>
+  <b>04-subqueries-ctes-and-exists.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/05-window-functions.html">
+  <span class="tag app">VISUAL</span>
+  <b>05-window-functions.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/07-normalization.html">
+  <span class="tag app">VISUAL</span>
+  <b>07-normalization.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/08-constraints-and-data-types.html">
+  <span class="tag app">VISUAL</span>
+  <b>08-constraints-and-data-types.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/09-indexes-and-b-trees.html">
+  <span class="tag app">VISUAL</span>
+  <b>09-indexes-and-b-trees.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/10-composite-partial-and-covering-indexes.html">
+  <span class="tag app">VISUAL</span>
+  <b>10-composite-partial-and-covering-indexes.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/11-reading-explain.html">
+  <span class="tag app">VISUAL</span>
+  <b>11-reading-explain.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/12-n-plus-1-queries-and-orms.html">
+  <span class="tag app">VISUAL</span>
+  <b>12-n-plus-1-queries-and-orms.html</b>
+  <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/database/postgresql-queries-interview-guide">
   <span class="tag note">GUIDE</span>
@@ -310,11 +510,81 @@
   <span>Runnable: 100k seeded rows, 14 EXPLAIN exercises — watch the composite index kill the Sort node</span>
 </a>
 </details>
-<details class="subject"><summary><b>System Design</b><small>5 guides, 2 cheatsheets</small></summary>
+<details class="subject"><summary><b>System Design</b><small>5 lessons, 5 guides, 9 visuals, 2 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/system-design/README">
   <span class="tag map">MAP</span>
   <b>System Design: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/08-design-a-url-shortener">
+  <span class="tag lesson">LESSON 08</span>
+  <b>08. Design a URL shortener</b>
+  <span>draw how a short link is made and how a click is answered, compare three ways to make the code (hash, counter, random), explain why two links can get the same code and how the table stops it, and say what 301 and 302 do to caching and click counts.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/11-design-a-notification-system">
+  <span class="tag lesson">LESSON 11</span>
+  <b>11. Design a notification system</b>
+  <span>draw a notification system with one queue per channel and a fast lane for urgent messages, say what each part is for, and explain what happens when the provider fails, an event repeats, or the user is asleep.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/17-proxies-and-api-gateways">
+  <span class="tag lesson">LESSON 17</span>
+  <b>17. Proxies and API gateways</b>
+  <span>say which side a forward proxy and a reverse proxy speak for, name what an API gateway does and does not do, trace one request through it, tell a gateway from a load balancer and a service mesh, say when a mobile app and a web app each get their own backend for frontend (BFF), and name two ways a gateway goes wrong.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/26-slos-and-error-budgets">
+  <span class="tag lesson">LESSON 26</span>
+  <b>26. SLOs and error budgets</b>
+  <span>turn 99.9% into minutes per month and per year, say what an SLI, an SLO and an SLA each are, explain the error budget as permission to ship, and say why you alert on how fast the budget is going and not on CPU.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/29-security-in-a-design">
+  <span class="tag lesson">LESSON 29</span>
+  <b>29. Security in a design</b>
+  <span>say the difference between who you are and what you may do, find and fix the bug where changing an id shows someone else&#x27;s data, choose between roles and rules for permissions, and say where each check sits in a design.</span>
+</a>
+<a class="card" href="learn/system-design/visuals/08-design-a-url-shortener.html">
+  <span class="tag app">VISUAL</span>
+  <b>08-design-a-url-shortener.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/11-design-a-notification-system.html">
+  <span class="tag app">VISUAL</span>
+  <b>11-design-a-notification-system.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/14-observability.html">
+  <span class="tag app">VISUAL</span>
+  <b>14-observability.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/17-proxies-and-api-gateways.html">
+  <span class="tag app">VISUAL</span>
+  <b>17-proxies-and-api-gateways.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/19-replication-and-quorums.html">
+  <span class="tag app">VISUAL</span>
+  <b>19-replication-and-quorums.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/23-timeouts-retries-and-circuit-breakers.html">
+  <span class="tag app">VISUAL</span>
+  <b>23-timeouts-retries-and-circuit-breakers.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/26-slos-and-error-budgets.html">
+  <span class="tag app">VISUAL</span>
+  <b>26-slos-and-error-budgets.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/29-security-in-a-design.html">
+  <span class="tag app">VISUAL</span>
+  <b>29-security-in-a-design.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/30-llm-features-in-a-system.html">
+  <span class="tag app">VISUAL</span>
+  <b>30-llm-features-in-a-system.html</b>
+  <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/system-design/choosing-the-right-tool-frontend-backend-decisions">
   <span class="tag note">GUIDE</span>
