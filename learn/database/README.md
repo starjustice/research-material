@@ -29,25 +29,25 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 01 | [SQL basics and the order a query runs](01-sql-basics-and-query-order.md) | SELECT, WHERE, ORDER BY, LIMIT, and why the database runs FROM first and SELECT almost last | ready |
 | 02 | [Joins](02-joins.md) | inner, left, right and full joins as pictures, and the LEFT JOIN plus WHERE trap | ready |
 | 03 | [Grouping and aggregation](03-grouping-and-aggregation.md) | GROUP BY as buckets, HAVING against WHERE, COUNT traps, FILTER | ready |
-| 04 | Subqueries, CTEs and EXISTS `04-subqueries-ctes-and-exists.md` | queries inside queries, WITH, and "has one" or "has none" with EXISTS and NOT EXISTS | planned |
-| 05 | Window functions `05-window-functions.md` | ROW_NUMBER, RANK, running totals and "top N per group" without losing rows | planned |
+| 04 | [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md) | queries inside queries, WITH, and "has one" or "has none" with EXISTS and NOT EXISTS | ready |
+| 05 | [Window functions](05-window-functions.md) | ROW_NUMBER, RANK, running totals and "top N per group" without losing rows | ready |
 
 ### Design: why the tables look this way
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
 | 06 | Keys and relationships `06-keys-and-relationships.md` | primary and foreign keys, one to many, many to many, and id choices like serial against UUID | planned |
-| 07 | Normalization `07-normalization.md` | why we split tables, the problems duplicates cause, and when to copy data on purpose | planned |
-| 08 | Constraints and data types `08-constraints-and-data-types.md` | NOT NULL, UNIQUE, CHECK, money as cents, timestamptz, and JSONB against normal columns | planned |
+| 07 | [Normalization](07-normalization.md) | why we split tables, the problems duplicates cause, and when to copy data on purpose | ready |
+| 08 | [Constraints and data types](08-constraints-and-data-types.md) | NOT NULL, UNIQUE, CHECK, money as cents, timestamptz, and JSONB against normal columns | ready |
 
 ### Indexes and speed
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 09 | Indexes and B-trees `09-indexes-and-b-trees.md` | how an index finds a row without reading every row, and what it costs on writes | planned |
-| 10 | Composite, partial and covering indexes `10-composite-partial-and-covering-indexes.md` | the leftmost column rule, indexing only a hot slice, and when an index is NOT used | planned |
-| 11 | Reading EXPLAIN `11-reading-explain.md` | seq scan against index scan, estimated against actual rows, and a slow-query workflow | planned |
-| 12 | N+1 queries and ORMs `12-n-plus-1-queries-and-orms.md` | why one page can run 101 queries, and fixes in Prisma, GraphQL DataLoader and Hasura | planned |
+| 09 | [Indexes and B-trees](09-indexes-and-b-trees.md) | how an index finds a row without reading every row, and what it costs on writes | ready |
+| 10 | [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md) | the leftmost column rule, indexing only a hot slice, and when an index is NOT used | ready |
+| 11 | [Reading EXPLAIN](11-reading-explain.md) | seq scan against index scan, estimated against actual rows, and a slow-query workflow | ready |
+| 12 | [N+1 queries and ORMs](12-n-plus-1-queries-and-orms.md) | why one page can run 101 queries, and fixes in Prisma, GraphQL DataLoader and Hasura | ready |
 
 ### Transactions: many users at once
 

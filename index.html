@@ -246,11 +246,36 @@
   <span>Bridge vs JSI/Fabric, FlatList vs FlashList, Hermes, Expo vs bare, OTA update limits</span>
 </a>
 </details>
-<details class="subject"><summary><b>Backend and API</b><small>9 lessons, 3 guides, 9 visuals, 2 cheatsheets</small></summary>
+<details class="subject"><summary><b>Backend and API</b><small>14 lessons, 3 guides, 14 visuals, 3 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/backend-api/README">
   <span class="tag map">MAP</span>
   <b>Backend and API: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/01-http-basics">
+  <span class="tag lesson">LESSON 01</span>
+  <b>01. HTTP basics</b>
+  <span>read a request and a response line by line, pick the right status code, and say why 401 and 403 are different.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/02-rest-api-design">
+  <span class="tag lesson">LESSON 02</span>
+  <b>02. REST API design</b>
+  <span>name the method, path and status for any action on a resource, and explain why cursor paging does not show an order twice when offset paging does.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/03-express-middleware">
+  <span class="tag lesson">LESSON 03</span>
+  <b>03. Express middleware</b>
+  <span>walk one request through an Express app, say what `next()` does, and explain how one error middleware catches errors from every route.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/04-graphql-basics">
+  <span class="tag lesson">LESSON 04</span>
+  <b>04. GraphQL basics</b>
+  <span>read a schema, write a query and a mutation, say what the server does with them step by step, and explain when GraphQL beats REST and when it does not.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/backend-api/05-resolvers-and-the-n-1-problem">
+  <span class="tag lesson">LESSON 05</span>
+  <b>05. Resolvers and the N+1 problem</b>
+  <span>say what a resolver is, trace how GraphQL calls one for every field, show why a list of nested objects can flood the database, and explain how batching fixes it.</span>
 </a>
 <a class="card" href="viewer.html?note=learn/backend-api/06-authentication-sessions-vs-jwt">
   <span class="tag lesson">LESSON 06</span>
@@ -296,6 +321,31 @@
   <span class="tag lesson">LESSON 14</span>
   <b>14. Hasura: when and when not</b>
   <span>say what Hasura does for you, how its permission rules work, where your own code goes (Actions and event triggers), and when to choose it or not.</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/01-http-basics.html">
+  <span class="tag app">VISUAL</span>
+  <b>01-http-basics.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/02-rest-api-design.html">
+  <span class="tag app">VISUAL</span>
+  <b>02-rest-api-design.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/03-express-middleware.html">
+  <span class="tag app">VISUAL</span>
+  <b>03-express-middleware.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/04-graphql-basics.html">
+  <span class="tag app">VISUAL</span>
+  <b>04-graphql-basics.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/backend-api/visuals/05-resolvers-and-the-n-1-problem.html">
+  <span class="tag app">VISUAL</span>
+  <b>Resolvers and N+1 stepper</b>
+  <span>Watch the shop resolver run per order, then see DataLoader batch it into one query</span>
 </a>
 <a class="card" href="learn/backend-api/visuals/06-sessions-vs-jwt.html">
   <span class="tag app">VISUAL</span>
@@ -357,6 +407,11 @@
   <b>Hasura — What, How, and When</b>
   <span>How it compiles GraphQL to one SQL, permissions, Actions, when to use it</span>
 </a>
+<a class="card" href="learn/backend-api/backend-api-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Backend and API Lessons 01 to 03</b>
+  <span>Request anatomy, status families, 401 vs 403, REST map, offset vs cursor, the Express middleware line</span>
+</a>
 <a class="card" href="learn/backend-api/express-graphql-auth-tutorial-cheatsheet.html">
   <span class="tag sheet">CHEATSHEET</span>
   <b>Express + GraphQL + Auth</b>
@@ -378,7 +433,7 @@
   <span>Runnable: docker compose up → track tables → row permission → Action (10 minutes)</span>
 </a>
 </details>
-<details class="subject"><summary><b>Database</b><small>11 lessons, 1 guide, 11 visuals, 1 cheatsheet</small></summary>
+<details class="subject"><summary><b>Database</b><small>11 lessons, 6 guides, 11 visuals, 6 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/database/README">
   <span class="tag map">MAP</span>
   <b>Database: map and lesson list</b>
@@ -494,37 +549,152 @@
   <b>12-n-plus-1-queries-and-orms.html</b>
   <span>Interactive page</span>
 </a>
+<a class="card" href="viewer.html?note=learn/database/advanced-sql-workbook">
+  <span class="tag note">GUIDE</span>
+  <b>Advanced SQL workbook: 19 queries</b>
+  <span>Window functions to SKIP LOCKED, with a practice database and tested answers</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/database-design-and-why">
+  <span class="tag note">GUIDE</span>
+  <b>Database design: how to model it, and why</b>
+  <span>Normalization, keys, constraints, ledger pattern, multi-tenancy, SQL or NoSQL</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/database-scaling-and-correctness">
+  <span class="tag note">GUIDE</span>
+  <b>Scaling a database and keeping data correct</b>
+  <span>Locking tools, outbox, scaling ladder, backups and failover</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/postgres-internals-visual">
+  <span class="tag note">GUIDE</span>
+  <b>How Postgres works inside</b>
+  <span>B+tree, MVCC, WAL, planner, join algorithms, locks</span>
+</a>
 <a class="card" href="viewer.html?note=learn/database/postgresql-queries-interview-guide">
   <span class="tag note">GUIDE</span>
   <b>PostgreSQL Queries — Interview Guide</b>
   <span>Joins, indexing deep dive, EXPLAIN ANALYZE, transactions, window functions, production patterns</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/senior-database-interview-questions">
+  <span class="tag note">GUIDE</span>
+  <b>Senior database interview questions</b>
+  <span>47 questions: problem, how it works, tradeoff, my example</span>
+</a>
+<a class="card" href="learn/database/advanced-sql-workbook-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>SQL Patterns</b>
+  <span>16 patterns with before and after tables, window functions, pattern spotter quiz</span>
+</a>
+<a class="card" href="learn/database/database-design-and-why-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Database Design</b>
+  <span>Six design steps, normalization, keys, ledger, tenancy, zero downtime changes</span>
+</a>
+<a class="card" href="learn/database/database-scaling-and-correctness-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Scaling and Correctness</b>
+  <span>Races and locks, outbox, scaling ladder, replicas, partition vs shard, backups</span>
+</a>
+<a class="card" href="learn/database/postgres-internals-visual-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Postgres Internals</b>
+  <span>Pages, B+tree, MVCC, WAL, planner, joins, locks, with numbers</span>
 </a>
 <a class="card" href="learn/database/postgresql-queries-interview-guide-cheatsheet.html">
   <span class="tag sheet">CHEATSHEET</span>
   <b>PostgreSQL Queries</b>
   <span>Joins, composite indexes, reading EXPLAIN, window functions, isolation levels</span>
 </a>
+<a class="card" href="learn/database/senior-database-interview-questions-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Database Interview Drill</b>
+  <span>47 flashcards: say it out loud, open the card, mark got it or not yet</span>
+</a>
 <a class="card" href="https://github.com/starjustice/research-material/tree/main/learn/database/examples/postgres-practice">
   <span class="tag app">CODE</span>
   <b>postgres-practice</b>
   <span>Runnable: 100k seeded rows, 14 EXPLAIN exercises — watch the composite index kill the Sort node</span>
 </a>
+<a class="card" href="https://github.com/starjustice/research-material/tree/main/learn/database/examples/sql-workbook">
+  <span class="tag app">CODE</span>
+  <b>SQL workbook practice database</b>
+  <span>Seed data, answers to 19 exercises and a 1M row EXPLAIN demo</span>
+</a>
 </details>
-<details class="subject"><summary><b>System Design</b><small>5 lessons, 5 guides, 9 visuals, 2 cheatsheets</small></summary>
+<details class="subject"><summary><b>System Design</b><small>17 lessons, 16 guides, 19 visuals, 13 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/system-design/README">
   <span class="tag map">MAP</span>
   <b>System Design: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/01-the-interview-framework">
+  <span class="tag lesson">LESSON 01</span>
+  <b>01. The interview framework</b>
+  <span>name the six steps of a system design answer in order, give each one a time slot for a 45 minute round, and run all six on a small design (a paste bin) without drawing boxes first.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/02-scaling-up-vs-out">
+  <span class="tag lesson">LESSON 02</span>
+  <b>02. Scaling up vs out</b>
+  <span>say the difference between a bigger machine and more machines, name what each one costs, and explain why your servers must keep no user data in their own memory before you add a second one.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/03-load-balancers">
+  <span class="tag lesson">LESSON 03</span>
+  <b>03. Load balancers</b>
+  <span>say what a load balancer does, tell layer 4 from layer 7, choose between round robin and least connections, explain how a dead server is removed and how it returns, and name three things a load balancer cannot fix.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/04-caching">
+  <span class="tag lesson">LESSON 04</span>
+  <b>04. Caching</b>
+  <span>draw how a read and a write work with a cache (hit, miss, write), say why a copy goes old and what a TTL does about it, and explain a stampede with two fixes.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/05-cdn">
+  <span class="tag lesson">LESSON 05</span>
+  <b>05. CDN</b>
+  <span>say what a CDN keeps and where, follow a first request (a miss) and a second request (a hit) with the time each user waits, tell what a CDN may keep and what it must never keep, and explain why a file named `app.3f9a1c.js` never needs a purge.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/06-message-queues">
+  <span class="tag lesson">LESSON 06</span>
+  <b>06. Message queues</b>
+  <span>say why slow work goes into a queue, follow one job from the producer to the worker and its ack, explain why a job can run twice and what that asks of your code, and say what happens to a job that fails again and again.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/07-consistency-and-cap">
+  <span class="tag lesson">LESSON 07</span>
+  <b>07. Consistency and CAP</b>
+  <span>say why data has copies, why a copy can give an old answer, how to fix the part users feel, and what CAP really says (and three things it does not say).</span>
 </a>
 <a class="card" href="viewer.html?note=learn/system-design/08-design-a-url-shortener">
   <span class="tag lesson">LESSON 08</span>
   <b>08. Design a URL shortener</b>
   <span>draw how a short link is made and how a click is answered, compare three ways to make the code (hash, counter, random), explain why two links can get the same code and how the table stops it, and say what 301 and 302 do to caching and click counts.</span>
 </a>
+<a class="card" href="viewer.html?note=learn/system-design/09-design-a-rate-limiter">
+  <span class="tag lesson">LESSON 09</span>
+  <b>09. Design a rate limiter</b>
+  <span>draw where a rate limiter sits and where its count lives, compare fixed window, sliding window and token bucket with one picture each, explain why two servers can both let the last request in and how one step in Redis stops it, and say what happens when Redis is down.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/10-design-a-chat-app">
+  <span class="tag lesson">LESSON 10</span>
+  <b>10. Design a chat app</b>
+  <span>draw how one message travels from Alice&#x27;s phone to Bob&#x27;s phone when they sit on different servers, explain why the server saves the message before it delivers it, show how the three ticks work with only two numbers per person, and say what happens when Bob is offline.</span>
+</a>
 <a class="card" href="viewer.html?note=learn/system-design/11-design-a-notification-system">
   <span class="tag lesson">LESSON 11</span>
   <b>11. Design a notification system</b>
-  <span>draw a notification system with one queue per channel and a fast lane for urgent messages, say what each part is for, and explain what happens when the provider fails, an event repeats, or the user is asleep.</span>
+  <span>draw how one event, &quot;your loan is approved&quot;, reaches a user by push, email, SMS and in-app without slowing the request. You can also explain the dedupe key, retries, dead device tokens, and how a login code gets past a marketing blast.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/12-design-an-online-shop-checkout">
+  <span class="tag lesson">LESSON 12</span>
+  <b>12. Design an online shop checkout</b>
+  <span>show why two buyers can both &quot;win&quot; the last item and stop it with one SQL statement, draw the order&#x27;s status moves from RESERVED to PAID or CANCELLED, explain why the webhook and not the success page decides that an order is paid, and say which undo steps run when a payment fails.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/13-idempotency-and-retries">
+  <span class="tag lesson">LESSON 13</span>
+  <b>13. Idempotency and retries</b>
+  <span>explain why a timeout can charge a card twice, and how a request key stops it.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/14-observability">
+  <span class="tag lesson">LESSON 14</span>
+  <b>14. Observability</b>
+  <span>say which tool answers which question, follow one trace id across two services, find the slow step in a trace, and say why you watch p99.</span>
 </a>
 <a class="card" href="viewer.html?note=learn/system-design/17-proxies-and-api-gateways">
   <span class="tag lesson">LESSON 17</span>
@@ -541,14 +711,64 @@
   <b>29. Security in a design</b>
   <span>say the difference between who you are and what you may do, find and fix the bug where changing an id shows someone else&#x27;s data, choose between roles and rules for permissions, and say where each check sits in a design.</span>
 </a>
+<a class="card" href="learn/system-design/visuals/02-scaling-up-vs-out.html">
+  <span class="tag app">VISUAL</span>
+  <b>02-scaling-up-vs-out.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/03-load-balancers.html">
+  <span class="tag app">VISUAL</span>
+  <b>03-load-balancers.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/04-caching.html">
+  <span class="tag app">VISUAL</span>
+  <b>04-caching.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/05-cdn.html">
+  <span class="tag app">VISUAL</span>
+  <b>05-cdn.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/06-message-queues.html">
+  <span class="tag app">VISUAL</span>
+  <b>06-message-queues.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/07-consistency-and-cap.html">
+  <span class="tag app">VISUAL</span>
+  <b>07-consistency-and-cap.html</b>
+  <span>Interactive page</span>
+</a>
 <a class="card" href="learn/system-design/visuals/08-design-a-url-shortener.html">
   <span class="tag app">VISUAL</span>
   <b>08-design-a-url-shortener.html</b>
   <span>Interactive page</span>
 </a>
+<a class="card" href="learn/system-design/visuals/09-design-a-rate-limiter.html">
+  <span class="tag app">VISUAL</span>
+  <b>09-design-a-rate-limiter.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/10-design-a-chat-app.html">
+  <span class="tag app">VISUAL</span>
+  <b>10-design-a-chat-app.html</b>
+  <span>Interactive page</span>
+</a>
 <a class="card" href="learn/system-design/visuals/11-design-a-notification-system.html">
   <span class="tag app">VISUAL</span>
   <b>11-design-a-notification-system.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/12-design-an-online-shop-checkout.html">
+  <span class="tag app">VISUAL</span>
+  <b>12-design-an-online-shop-checkout.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/13-idempotency-and-retries.html">
+  <span class="tag app">VISUAL</span>
+  <b>13-idempotency-and-retries.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="learn/system-design/visuals/14-observability.html">
@@ -586,10 +806,45 @@
   <b>30-llm-features-in-a-system.html</b>
   <span>Interactive page</span>
 </a>
+<a class="card" href="viewer.html?note=learn/system-design/architecture-patterns-2026">
+  <span class="tag note">GUIDE</span>
+  <b>Architecture Patterns in 2026</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/caching-and-cdn-in-depth">
+  <span class="tag note">GUIDE</span>
+  <b>Caching and CDN in Depth</b>
+  <span>Longer guide</span>
+</a>
 <a class="card" href="viewer.html?note=learn/system-design/choosing-the-right-tool-frontend-backend-decisions">
   <span class="tag note">GUIDE</span>
   <b>Choosing the Right Tool — Frontend &amp;amp; Backend Decisions</b>
   <span>React vs Angular, native vs cross-platform, Java vs Node, SQL vs NoSQL, monolith vs microservices</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/data-storage-choices-for-system-design">
+  <span class="tag note">GUIDE</span>
+  <b>Data Storage Choices for System Design</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/design-workbook-part-1-classic-designs">
+  <span class="tag note">GUIDE</span>
+  <b>Design Workbook, Part 1: Six Classic Designs</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/design-workbook-part-2-correctness-designs">
+  <span class="tag note">GUIDE</span>
+  <b>Design Workbook, Part 2: Six Designs Where Correctness Matters</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/distributed-systems-and-reliability-patterns">
+  <span class="tag note">GUIDE</span>
+  <b>Distributed Systems and Reliability Patterns</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/frontend-system-design">
+  <span class="tag note">GUIDE</span>
+  <b>Frontend System Design (Web and Mobile)</b>
+  <span>Longer guide</span>
 </a>
 <a class="card" href="viewer.html?note=learn/system-design/load-balancers-microservices-online-shop">
   <span class="tag note">GUIDE</span>
@@ -601,37 +856,122 @@
   <b>Performance — Web, Mobile &amp;amp; Backend</b>
   <span>How to measure and fix: Core Web Vitals, frame budget, p95/p99, EXPLAIN ANALYZE, caching tradeoffs</span>
 </a>
+<a class="card" href="viewer.html?note=learn/system-design/production-readiness-observability-security">
+  <span class="tag note">GUIDE</span>
+  <b>Production Readiness: Observability, Deploys, Security and Cost</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/queues-streams-and-event-driven-design">
+  <span class="tag note">GUIDE</span>
+  <b>Queues, Streams and Event-Driven Design</b>
+  <span>Longer guide</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/senior-system-design-interview-questions">
+  <span class="tag note">GUIDE</span>
+  <b>System Design Interview Questions, Beginner to Senior</b>
+  <span>Longer guide</span>
+</a>
 <a class="card" href="viewer.html?note=learn/system-design/system-design-basics-senior-fullstack-interview">
   <span class="tag note">GUIDE</span>
   <b>System Design Basics for Senior Full-Stack Interviews</b>
   <span>The interview flow, caching, Postgres scaling ladder, queues, L4 vs L7</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/system-design-roadmap-beginner-to-senior">
+  <span class="tag note">GUIDE</span>
+  <b>System Design Roadmap: Beginner to Senior</b>
+  <span>Longer guide</span>
 </a>
 <a class="card" href="viewer.html?note=learn/system-design/system-design-step-by-step-walkthrough">
   <span class="tag note">GUIDE</span>
   <b>System Design, Step by Step — From Blank Page to Finished Design</b>
   <span>Longer guide</span>
 </a>
+<a class="card" href="learn/system-design/architecture-patterns-2026-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Architecture Patterns 2026</b>
+  <span>Monolith to microservices, BFF, serverless, multi-tenancy, RAG and LLM gateway, ADRs</span>
+</a>
+<a class="card" href="learn/system-design/caching-and-cdn-in-depth-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Caching and CDN</b>
+  <span>Cache layers, patterns, invalidation races, stampedes and hot keys, CDN and HTTP caching</span>
+</a>
+<a class="card" href="learn/system-design/data-storage-choices-for-system-design-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Data Storage Choices</b>
+  <span>The storage menu, presigned uploads, search sync, replication, sharding, IDs</span>
+</a>
+<a class="card" href="learn/system-design/design-workbook-part-1-classic-designs-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Design Workbook 1</b>
+  <span>Rate limiter, chat, news feed, file upload, autocomplete, video streaming</span>
+</a>
+<a class="card" href="learn/system-design/design-workbook-part-2-correctness-designs-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Design Workbook 2</b>
+  <span>Seat booking, ledger, loan workflow, job scheduler, proximity, RAG assistant</span>
+</a>
+<a class="card" href="learn/system-design/distributed-systems-and-reliability-patterns-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Distributed Systems</b>
+  <span>CAP and PACELC, consistency, retries with jitter, circuit breaker, Raft, failure checklist</span>
+</a>
+<a class="card" href="learn/system-design/frontend-system-design-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Frontend System Design</b>
+  <span>RADIO, rendering strategies, client data layer, offline mobile, design systems</span>
+</a>
 <a class="card" href="learn/system-design/load-balancers-microservices-online-shop-cheatsheet.html">
   <span class="tag sheet">CHEATSHEET</span>
   <b>Load Balancers + Microservices Online Shop</b>
   <span>L4 vs L7, algorithms, deploys, the shop architecture, webhooks (V-D-Q-A)</span>
+</a>
+<a class="card" href="learn/system-design/production-readiness-observability-security-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Production Readiness</b>
+  <span>Logs, metrics, traces, SLOs, safe deploys, disaster recovery, security, cost</span>
+</a>
+<a class="card" href="learn/system-design/queues-streams-and-event-driven-design-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Queues, Streams and Events</b>
+  <span>Delivery guarantees, DLQ, queue vs stream vs pub/sub, sagas, outbox, CQRS</span>
+</a>
+<a class="card" href="learn/system-design/senior-system-design-interview-questions-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>System Design Interview Drill</b>
+  <span>Flashcards for every question, four part answers, got it / not yet</span>
 </a>
 <a class="card" href="learn/system-design/system-design-cheatsheet.html">
   <span class="tag sheet">CHEATSHEET</span>
   <b>System Design Basics</b>
   <span>Concepts, whiteboard diagrams, numbers, decision verdicts, real cases</span>
 </a>
+<a class="card" href="learn/system-design/system-design-roadmap-beginner-to-senior-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>System Design Roadmap</b>
+  <span>Six layers, six stages, the seven steps, mid vs senior, the 10 week plan, I can ticks</span>
+</a>
 </details>
-<details class="subject"><summary><b>Networking</b><small>1 guide, 1 cheatsheet</small></summary>
+<details class="subject"><summary><b>Networking</b><small>2 guides, 2 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/networking/README">
   <span class="tag map">MAP</span>
   <b>Networking: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
 </a>
+<a class="card" href="viewer.html?note=learn/networking/networking-for-system-design">
+  <span class="tag note">GUIDE</span>
+  <b>Networking for System Design</b>
+  <span>Longer guide</span>
+</a>
 <a class="card" href="viewer.html?note=learn/networking/networking-url-to-page-step-by-step">
   <span class="tag note">GUIDE</span>
   <b>What Happens When You Type a URL — The Full Network Journey, Step by Step</b>
   <span>Longer guide</span>
+</a>
+<a class="card" href="learn/networking/networking-for-system-design-cheatsheet.html">
+  <span class="tag sheet">CHEATSHEET</span>
+  <b>Networking for System Design</b>
+  <span>Latency numbers, DNS as a tool, proxies and gateways, real time options, cloud network layout</span>
 </a>
 <a class="card" href="learn/networking/networking-url-to-page-step-by-step-cheatsheet.html">
   <span class="tag sheet">CHEATSHEET</span>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Patterns Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+<style>
+  /* Pattern cards are wide: one per row, with a before/after picture and a template */
+  #conceptGrid{grid-template-columns:minmax(0,1fr)}
+  .concept p{font-size:.9rem}
+  .sounds{display:inline-block;background:var(--violet-soft);border-radius:6px;padding:1px 8px;font-size:.8rem;font-weight:600;margin-bottom:8px}
+  .ba{display:grid;grid-template-columns:minmax(0,1fr) 2rem minmax(0,1fr);gap:8px;align-items:center;margin:8px 0 10px}
+  .ba .to{text-align:center;font-weight:800;color:var(--green);font-size:1.2rem}
+  @media (max-width:560px){.ba{grid-template-columns:minmax(0,1fr)}.ba .to{transform:rotate(90deg)}}
+  .mini{overflow-x:auto}
+  .mini table{border-collapse:collapse;font-family:ui-monospace,Menlo,monospace;font-size:.76rem;width:100%;background:var(--card)}
+  .mini th,.mini td{border:1px solid var(--border);padding:3px 6px;text-align:left;white-space:nowrap}
+  .mini th{background:var(--blue-soft);font-weight:700}
+  .mini caption{caption-side:top;text-align:left;font-size:.72rem;color:var(--muted);font-family:-apple-system,"Segoe UI",sans-serif;padding-bottom:2px}
+  .mini tr.keep td{background:var(--green-soft)}
+  .mini tr.drop td{background:var(--pink-soft);text-decoration:line-through;color:var(--muted)}
+  .mini td.hi{background:var(--accent-soft);font-weight:700}
+  .mini td.g1{background:var(--blue-soft)} .mini td.g2{background:var(--violet-soft)}
+  .concept pre{margin:6px 0 8px;padding:10px 12px;font-size:.76rem;border-radius:10px}
+  .tips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .tip{font-size:.78rem;border-radius:6px;padding:2px 8px}
+  .tip.idx{background:var(--green-soft)} .tip.trap{background:var(--pink-soft)}
+  /* pattern spotter quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:760px;margin:0 auto}
+  .quiz h3{font-size:1.1rem;margin-bottom:14px;text-wrap:balance}
+  .opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:8px}
+  .opts button{font:inherit;font-size:.88rem;text-align:left;border:2px solid var(--border);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;min-height:44px;cursor:pointer}
+  .opts button.right{border-color:var(--green);background:var(--green-soft)}
+  .opts button.wrong{border-color:var(--pink);background:var(--pink-soft)}
+  .qwhy{margin-top:12px;font-size:.88rem;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:8px;padding:8px 12px;display:none}
+  .qwhy.show{display:block}
+  .qnav{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
+  .qnav button{font:inherit;font-weight:700;border-radius:10px;padding:9px 16px;min-height:42px;cursor:pointer;border:2px solid var(--ink);background:var(--ink);color:var(--bg)}
+  .qscore{color:var(--muted);font-size:.86rem}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>SQL PATTERNS CHEATSHEET</h1>
+  <p class="sub">16 patterns behind most "advanced SQL" questions · name it, write it, index it</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="window" type="button">🪟 Window functions</button>
+  <button data-tab="concepts" type="button">🧩 16 patterns</button>
+  <button data-tab="spot" type="button">🎯 Pattern spotter</button>
+  <button data-tab="numbers" type="button">🔢 Proof &amp; traps</button>
+</nav>
+
+<section id="window" class="active">
+  <p class="hint">Half of the patterns are window functions. Understand this one picture and they all get easy.</p>
+
+  <div class="diagram-card">
+    <h3>1 · GROUP BY collapses rows. A window function keeps them.</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="GROUP BY turns four rows into one per store; a window function keeps four rows and adds a column">
+      <text class="lbl" x="120" y="18">orders</text>
+      <rect class="box box-blue" x="40" y="28" width="160" height="26" rx="4"/><text class="lbl-m" x="120" y="45">store 1 · 650</text>
+      <rect class="box box-blue" x="40" y="58" width="160" height="26" rx="4"/><text class="lbl-m" x="120" y="75">store 1 · 450</text>
+      <rect class="box box-violet" x="40" y="88" width="160" height="26" rx="4"/><text class="lbl-m" x="120" y="105">store 2 · 900</text>
+      <rect class="box box-violet" x="40" y="118" width="160" height="26" rx="4"/><text class="lbl-m" x="120" y="135">store 2 · 420</text>
+      <path class="arrow" d="M205,60 L300,60" marker-end="url(#arr)"/><text class="lbl-s" x="252" y="50">GROUP BY</text>
+      <rect class="box box-blue" x="305" y="40" width="130" height="26" rx="4"/><text class="lbl-m" x="370" y="57">store 1 · 1100</text>
+      <rect class="box box-violet" x="305" y="70" width="130" height="26" rx="4"/><text class="lbl-m" x="370" y="87">store 2 · 1320</text>
+      <text class="lbl-s" x="370" y="114">4 rows → 2 rows</text>
+      <path class="arrow-green" d="M205,130 L455,130" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="330" y="150">SUM(total) OVER (PARTITION BY store)</text>
+      <rect class="box box-blue" x="460" y="28" width="250" height="26" rx="4"/><text class="lbl-m" x="585" y="45">store 1 · 650 · 1100</text>
+      <rect class="box box-blue" x="460" y="58" width="250" height="26" rx="4"/><text class="lbl-m" x="585" y="75">store 1 · 450 · 1100</text>
+      <rect class="box box-violet" x="460" y="88" width="250" height="26" rx="4"/><text class="lbl-m" x="585" y="105">store 2 · 900 · 1320</text>
+      <rect class="box box-violet" x="460" y="118" width="250" height="26" rx="4"/><text class="lbl-m" x="585" y="135">store 2 · 420 · 1320</text>
+      <text class="lbl-s t-green" x="585" y="168">still 4 rows, each gets its group's value</text>
+      <text class="lbl-s" x="360" y="200">Need the detail row AND a group number on it? → window function.</text>
+    </svg></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Anatomy of OVER ( … )</h3>
+    <pre><code><span class="good">SUM(delta)</span> OVER (
+  <span class="no">PARTITION BY store_id</span>                     -- WHO are my neighbours?  (like GROUP BY, without collapsing)
+  <span class="no">ORDER BY created_at, id</span>                   -- in WHAT ORDER?          (needed for running, LAG, ranks)
+  <span class="no">ROWS BETWEEN 6 PRECEDING AND CURRENT ROW</span>  -- HOW FAR do I look?  (the frame)
+)</code></pre>
+    <div class="svgwrap"><svg viewBox="0 0 720 150" role="img" aria-label="Frames: whole partition, running from the start, sliding window of 7 rows">
+      <g>
+        <text class="lbl-sl" x="10" y="26">no ORDER BY</text>
+        <rect class="box box-green" x="170" y="12" width="540" height="22" rx="4"/><text class="lbl-s" x="440" y="27">whole partition → share of total, group average</text>
+        <text class="lbl-sl" x="10" y="70">ORDER BY (default)</text>
+        <rect class="box box-green" x="170" y="56" width="320" height="22" rx="4"/><rect class="box" x="490" y="56" width="220" height="22" rx="4"/>
+        <text class="lbl-s" x="330" y="71">start … current row (+ ties!)</text><text class="lbl-s" x="600" y="71">not yet</text>
+        <text class="lbl-sl" x="10" y="114">ROWS 6 PRECEDING</text>
+        <rect class="box" x="170" y="100" width="150" height="22" rx="4"/><rect class="box box-green" x="320" y="100" width="210" height="22" rx="4"/><rect class="box" x="530" y="100" width="180" height="22" rx="4"/>
+        <text class="lbl-s" x="425" y="115">7 rows: moving average</text>
+        <text class="lbl-s t-blue" x="440" y="145">▲ current row sits at the right edge of the green part</text>
+      </g>
+    </svg></div>
+    <div class="say"><b>Trap:</b> with ORDER BY and no frame, rows with the <b>same</b> sort value are treated as one step, so they show the same running total. Add a tiebreaker (<code>, id</code>) or write <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>.</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Ranking with ties: pick the right one</h3>
+    <div class="tablewrap"><table class="numbers">
+      <tr><th>revenue</th><th>ROW_NUMBER</th><th>RANK</th><th>DENSE_RANK</th></tr>
+      <tr><td>900</td><td class="val">1</td><td class="val">1</td><td class="val">1</td></tr>
+      <tr><td>700</td><td class="val">2</td><td class="val">2</td><td class="val">2</td></tr>
+      <tr><td>700</td><td class="val">3</td><td class="val">2</td><td class="val">2</td></tr>
+      <tr><td>500</td><td class="val">4</td><td class="val">4</td><td class="val">3</td></tr>
+      <tr><td class="why">use for</td><td class="why">exactly N rows, dedupe, latest per group</td><td class="why">Olympic medals: ties share, then a gap</td><td class="why">price tiers: ties share, no gap</td></tr>
+    </table></div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · The other window functions you need</h3>
+    <div class="tablewrap"><table class="numbers">
+      <tr><th>Function</th><th>Gives</th><th>Pattern</th></tr>
+      <tr><td class="val">LAG(x) / LEAD(x)</td><td>value from the previous / next row</td><td class="why">month over month, time between events</td></tr>
+      <tr><td class="val">SUM(x) OVER (ORDER BY …)</td><td>running total</td><td class="why">balance after each ledger row</td></tr>
+      <tr><td class="val">SUM(x) OVER (PARTITION BY …)</td><td>group total on every row</td><td class="why">percent of store total</td></tr>
+      <tr><td class="val">AVG(x) OVER (ROWS n PRECEDING)</td><td>moving average</td><td class="why">7-day average</td></tr>
+      <tr><td class="val">FIRST_VALUE / LAST_VALUE</td><td>first / last in the frame</td><td class="why">first order date per store</td></tr>
+      <tr><td class="val">NTILE(4)</td><td>bucket number 1–4</td><td class="why">quartiles of stores by revenue</td></tr>
+    </table></div>
+    <div class="say"><b>Order of SQL:</b> FROM → WHERE → GROUP BY → HAVING → SELECT (<b>window functions run here</b>) → ORDER BY → LIMIT. That is why you cannot put a window function in WHERE: wrap it in a subquery or CTE and filter outside.</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Each card: what it sounds like, the rows before and after, the template, the index, the trap. Tick ✓ when you can write it from memory.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="spot">
+  <p class="hint">Interviewers never say the pattern name. Read the request, pick the pattern. Aim for under 10 seconds each.</p>
+  <div class="quiz" id="quiz"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">Measured on 1,000,000 rows (Postgres 16)</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Query</th><th>Before</th><th>After</th><th>What changed</th></tr>
+    <tr><td>Latest 20 orders of one store</td><td class="val">37.2 ms · 8,242 pages</td><td class="val">0.087 ms · 23 pages</td><td class="why">Index (store_id, created_at DESC): Seq Scan + Sort became one Index Scan, no Sort node.</td></tr>
+    <tr><td>Page at depth 900,000</td><td class="val">109.9 ms · OFFSET</td><td class="val">0.047 ms · keyset</td><td class="why">OFFSET produced 900,020 rows and threw 900,000 away. Keyset started at the bookmark.</td></tr>
+  </table></div>
+
+  <h2 class="block">Traps that cost points</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Trap</th><th>What happens</th><th>Fix</th></tr>
+    <tr><td class="val">LEFT JOIN + WHERE on right table</td><td>Rows with no match vanish (becomes INNER JOIN).</td><td class="why">Move the filter into ON.</td></tr>
+    <tr><td class="val">COUNT(*) after LEFT JOIN</td><td>Counts 1 for a store with no orders.</td><td class="why">COUNT(o.id) counts only real matches.</td></tr>
+    <tr><td class="val">NOT IN (subquery with NULL)</td><td>Returns zero rows, silently.</td><td class="why">NOT EXISTS.</td></tr>
+    <tr><td class="val">Window function in WHERE</td><td>Error: windows run after WHERE.</td><td class="why">Wrap in a CTE, filter outside.</td></tr>
+    <tr><td class="val">ORDER BY without tiebreaker</td><td>Results change between runs; running totals jump on ties.</td><td class="why">Add , id.</td></tr>
+    <tr><td class="val">Missing days in time series</td><td>LAG / moving average skip empty days.</td><td class="why">Calendar from generate_series + LEFT JOIN.</td></tr>
+    <tr><td class="val">created_at::date = '…'</td><td>Plain index on created_at is not used.</td><td class="why">Range: &gt;= day AND &lt; day + 1.</td></tr>
+    <tr><td class="val">Division by zero</td><td>Error on a month with 0 revenue.</td><td class="why">NULLIF(x, 0).</td></tr>
+    <tr><td class="val">Upsert with += </td><td>Re-running the job double counts.</td><td class="why">SET col = EXCLUDED.col (idempotent).</td></tr>
+    <tr><td class="val">SELECT then INSERT for "once"</td><td>Two handlers both see nothing, both insert (TADA bug).</td><td class="why">UNIQUE + ON CONFLICT DO NOTHING RETURNING.</td></tr>
+    <tr><td class="val">Time zone</td><td>date_trunc and ::date use the session zone.</td><td class="why">SET timezone, or AT TIME ZONE 'Asia/Jakarta'.</td></tr>
+  </table></div>
+
+  <h2 class="block">Answer routine (say it out loud)</h2>
+  <div class="hook"><b>1 Name the pattern → 2 simplest correct query → 3 edge cases (NULL, ties, zero rows, time zone) → 4 the index and the scale risk.</b><p>"This is top-N per group, so ROW_NUMBER partitioned by category. Ties? The question says they share, so DENSE_RANK. On a big table I'd want an index on (category_id, revenue) or pre-aggregate revenue per product daily."</p></div>
+</section>
+
+<footer>Part of the Study Route database track · solve the exercises in "Advanced SQL workbook: 19 queries", then use this page to review</footer>
+
+<script>
+(function(){
+  function t(caption, head, rows){
+    // rows: array of [cells, rowClass] ; a cell may be {v, c} for a highlighted cell
+    var h = '<div class="mini"><table>' + (caption ? '<caption>' + caption + '</caption>' : '') + '<tr>' + head.map(function(x){ return '<th>' + x + '</th>' }).join('') + '</tr>';
+    rows.forEach(function(r){
+      h += '<tr' + (r[1] ? ' class="' + r[1] + '"' : '') + '>' + r[0].map(function(c){ return typeof c === 'object' ? '<td class="' + c.c + '">' + c.v + '</td>' : '<td>' + c + '</td>' }).join('') + '</tr>';
+    });
+    return h + '</table></div>';
+  }
+  function card(o){
+    return '<span class="sounds">sounds like: ' + o.s + '</span>' +
+      '<div class="ba">' + o.before + '<div class="to" aria-hidden="true">→</div>' + o.after + '</div>' +
+      '<pre><code>' + esc(o.sql) + '</code></pre>' +
+      '<div class="tips">' + (o.idx ? '<span class="tip idx">index: ' + o.idx + '</span>' : '') + (o.trap ? '<span class="tip trap">trap: ' + o.trap + '</span>' : '') + '</div>';
+  }
+  var P = [
+    { t: "1 · Keep rows with no match (ex 1)", d: card({ s: "\"including stores with zero orders\"",
+      before: t("store LEFT JOIN orders", ["store","status","total"], [[["Maju","PAID","650000"]],[["Maju","SHIPPED","450000"]],[["Jaya","CANCELLED","150000"],"drop"],[["Diam","NULL","NULL"]]]),
+      after: t("result", ["store","revenue","orders"], [[["Maju","1520000","4"]],[["Diam",{v:"0",c:"hi"},{v:"0",c:"hi"}],"keep"]]),
+      sql: "SELECT s.name, COALESCE(SUM(o.total), 0) AS revenue, COUNT(o.id) AS orders\nFROM store s\nLEFT JOIN orders o ON o.store_id = s.id\n                  AND o.status IN ('PAID','SHIPPED')   -- filter HERE, not in WHERE\nGROUP BY s.id, s.name;",
+      idx: "orders (store_id)", trap: "WHERE o.status … drops Diam; COUNT(*) gives 1" }) },
+    { t: "2 · Anti-join: never / without any (ex 2)", d: card({ s: "\"stores that never ordered\"",
+      before: t("store", ["store","has an order?"], [[["Maju","yes"],"drop"],[["Jaya","yes"],"drop"],[["Diam","no"],"keep"]]),
+      after: t("result", ["store"], [[["Diam"],"keep"]]),
+      sql: "SELECT s.name FROM store s\nWHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.store_id = s.id);",
+      idx: "orders (store_id)", trap: "NOT IN + one NULL = zero rows" }) },
+    { t: "3 · Latest row per group (ex 3)", d: card({ s: "\"each store's most recent order\"",
+      before: t("orders, sorted", ["store","order","created"], [[["1","11","03-15 18:00"],"keep"],[["1","3","03-15 11:00"],"drop"],[["1","2","02-02"],"drop"],[["2","6","03-03"],"keep"],[["2","5","02-10"],"drop"]]),
+      after: t("result", ["store","order"], [[["1","11"]],[["2","6"]]]),
+      sql: "SELECT DISTINCT ON (store_id) store_id, id, status, created_at\nFROM orders\nORDER BY store_id, created_at DESC, id DESC;   -- first row per store wins\n\n-- portable: ROW_NUMBER() OVER (PARTITION BY store_id ORDER BY created_at DESC, id DESC) = 1",
+      idx: "(store_id, created_at DESC)", trap: "no tiebreaker → random winner on equal times" }) },
+    { t: "4 · Top N per group, with ties (ex 4)", d: card({ s: "\"top 2 products in each category\"",
+      before: t("revenue per product", ["category","product","revenue"], [[["Cement","Semen 50kg","1235000"]],[["Cement","Semen Putih","900000"]],[["Paint","Cat Tembok","750000"]],[["Paint","Cat Kayu","360000"]]]),
+      after: t("ranked", ["category","product","rnk"], [[["Cement","Semen 50kg",{v:"1",c:"hi"}]],[["Cement","Semen Putih",{v:"2",c:"hi"}]],[["Paint","Cat Tembok",{v:"1",c:"hi"}]],[["Paint","Cat Kayu",{v:"2",c:"hi"}]]]),
+      sql: "WITH ranked AS (\n  SELECT *, DENSE_RANK() OVER (PARTITION BY category_id ORDER BY revenue DESC) AS rnk\n  FROM product_revenue\n)\nSELECT * FROM ranked WHERE rnk <= 2;   -- filter OUTSIDE",
+      idx: "pre-aggregate revenue if big", trap: "window function in WHERE = error" }) },
+    { t: "5 · Running total (ex 5)", d: card({ s: "\"balance after each change\"",
+      before: t("point_ledger, store 1", ["delta","reason"], [[["+650","EARN"]],[["+450","EARN"]],[["-500","REDEEM"]],[["+300","EARN"]]]),
+      after: t("with balance", ["delta","balance"], [[["+650",{v:"650",c:"hi"}]],[["+450",{v:"1100",c:"hi"}]],[["-500",{v:"600",c:"hi"}]],[["+300",{v:"900",c:"hi"}]]]),
+      sql: "SELECT store_id, delta,\n       SUM(delta) OVER (PARTITION BY store_id ORDER BY created_at, id) AS balance\nFROM point_ledger;",
+      idx: "(store_id, created_at)", trap: "ties without , id share one balance" }) },
+    { t: "6 · Compare with the previous row (ex 6)", d: card({ s: "\"month over month change\"",
+      before: t("monthly", ["month","revenue"], [[["Jan","1550000"]],[["Feb","2130000"]],[["Mar","840000"]]]),
+      after: t("with LAG", ["month","prev","change"], [[["Jan","NULL","NULL"]],[["Feb","1550000",{v:"+37.4%",c:"hi"}]],[["Mar","2130000",{v:"-60.6%",c:"hi"}]]]),
+      sql: "SELECT month, revenue,\n       LAG(revenue) OVER (ORDER BY month) AS prev,\n       ROUND(100.0 * (revenue - LAG(revenue) OVER (ORDER BY month))\n             / NULLIF(LAG(revenue) OVER (ORDER BY month), 0), 1) AS pct\nFROM monthly;",
+      trap: "missing months → LAG compares with 2 months ago" }) },
+    { t: "7 · Share of the group (ex 7)", d: card({ s: "\"each order as % of its store's total\"",
+      before: t("orders, store 1", ["order","total"], [[["1","650000"]],[["2","450000"]],[["3","300000"]],[["11","120000"]]]),
+      after: t("share", ["order","% of store"], [[["1",{v:"42.8",c:"hi"}]],[["2",{v:"29.6",c:"hi"}]],[["3",{v:"19.7",c:"hi"}]],[["11",{v:"7.9",c:"hi"}]]]),
+      sql: "SELECT id, total,\n       ROUND(100.0 * total / SUM(total) OVER (PARTITION BY store_id), 1) AS pct\nFROM orders;            -- no ORDER BY in OVER = whole partition",
+      trap: "adding ORDER BY turns it into a running total" }) },
+    { t: "8 · Gaps and islands (ex 8)", d: card({ s: "\"longest streak of consecutive days\"",
+      before: t("date − row_number", ["login","rn","date − rn"], [[["03-01","1",{v:"02-28",c:"g1"}]],[["03-02","2",{v:"02-28",c:"g1"}]],[["03-03","3",{v:"02-28",c:"g1"}]],[["03-05","4",{v:"03-01",c:"g2"}]],[["03-06","5",{v:"03-01",c:"g2"}]]]),
+      after: t("islands", ["start","end","days"], [[["03-01","03-03",{v:"3",c:"hi"}],"keep"],[["03-05","03-06","2"]]]),
+      sql: "WITH g AS (\n  SELECT store_id, login_date,\n         login_date - ROW_NUMBER() OVER (PARTITION BY store_id ORDER BY login_date)::int AS grp\n  FROM store_login\n)\nSELECT store_id, MIN(login_date), MAX(login_date), COUNT(*) AS days\nFROM g GROUP BY store_id, grp;",
+      trap: "duplicate dates break it: SELECT DISTINCT first" }) },
+    { t: "9 · Find and remove duplicates (ex 9)", d: card({ s: "\"same webhook delivered twice, keep the first\"",
+      before: t("webhook_event", ["id","event_id","rn"], [[["3","evt_77","1"],"keep"],[["4","evt_77","2"],"drop"],[["5","evt_78","1"],"keep"],[["6","evt_78","2"],"drop"],[["7","evt_78","3"],"drop"]]),
+      after: t("deleted", ["id"], [[["4"]],[["6"]],[["7"]]]),
+      sql: "DELETE FROM webhook_event w\nUSING (SELECT id, ROW_NUMBER() OVER (PARTITION BY provider, event_id\n                                     ORDER BY received_at, id) AS rn\n       FROM webhook_event) d\nWHERE w.id = d.id AND d.rn > 1;\n-- then: ADD UNIQUE (provider, event_id) so it never happens again",
+      trap: "run in BEGIN … ROLLBACK first" }) },
+    { t: "10 · Pivot rows into columns (ex 10)", d: card({ s: "\"one column per status\"",
+      before: t("orders", ["store","status"], [[["Jaya","PAID"]],[["Jaya","SHIPPED"]],[["Jaya","CANCELLED"]]]),
+      after: t("pivot", ["store","paid","shipped","cancelled"], [[["Jaya",{v:"1",c:"hi"},{v:"1",c:"hi"},{v:"1",c:"hi"}]]]),
+      sql: "SELECT store_id,\n       COUNT(*) FILTER (WHERE status = 'PAID')      AS paid,\n       COUNT(*) FILTER (WHERE status = 'SHIPPED')   AS shipped,\n       COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled\nFROM orders GROUP BY store_id;\n-- portable: SUM(CASE WHEN status = 'PAID' THEN 1 ELSE 0 END)" }) },
+    { t: "11 · Cohort retention (ex 11)", d: card({ s: "\"of stores that joined in January, how many came back?\"",
+      before: t("activity", ["store","cohort","month_n"], [[["1","Jan","0"]],[["1","Jan","1"]],[["2","Jan","0"]],[["2","Jan","2"]]]),
+      after: t("cohort table", ["cohort","stores","m0","m1","m2"], [[["Jan","2",{v:"2",c:"hi"},{v:"1",c:"hi"},{v:"2",c:"hi"}]]]),
+      sql: "-- 1. cohort month per store   2. months since cohort per order\n-- 3. count distinct stores per offset\nCOUNT(DISTINCT a.store_id) FILTER (WHERE a.month_n = 1) AS m1",
+      trap: "run on a replica or summary table, not the primary at peak" }) },
+    { t: "12 · Tree with full path (ex 12)", d: card({ s: "\"full category path\", \"all sub-categories\"",
+      before: t("category", ["id","name","parent"], [[["1","Building","NULL"]],[["3","Paint","1"]],[["4","Exterior","3"]]]),
+      after: t("tree", ["path","depth"], [[["Building","1"]],[["Building > Paint","2"]],[[{v:"Building > Paint > Exterior",c:"hi"},"3"]]]),
+      sql: "WITH RECURSIVE tree AS (\n  SELECT id, name::text AS path, 1 AS depth FROM category WHERE parent_id IS NULL\n  UNION ALL\n  SELECT c.id, t.path || ' > ' || c.name, t.depth + 1\n  FROM category c JOIN tree t ON c.parent_id = t.id\n  WHERE t.depth < 10                       -- cycle guard\n)\nSELECT * FROM tree;",
+      idx: "category (parent_id)", trap: "no depth guard + a cycle = endless query" }) },
+    { t: "13 · Calendar fill + moving average (ex 14)", d: card({ s: "\"7-day average, include days with no sales\"",
+      before: t("orders by day", ["day","revenue"], [[["02-01","-"],"drop"],[["02-02","450000"]],[["02-03","-"],"drop"]]),
+      after: t("calendar", ["day","revenue","avg_7d"], [[["02-01",{v:"0",c:"hi"},"0"]],[["02-02","450000","225000"]],[["02-03",{v:"0",c:"hi"},"150000"]]]),
+      sql: "WITH days AS (SELECT d::date AS day\n              FROM generate_series('2026-02-01'::date, '2026-02-21', '1 day') d)\nSELECT d.day, COALESCE(SUM(o.total), 0) AS revenue, …\n  AVG(revenue) OVER (ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)",
+      trap: "first 6 days average fewer than 7 values" }) },
+    { t: "14 · Upsert, safe to re-run (ex 16)", d: card({ s: "\"insert or update the daily stats\"",
+      before: t("run 1, run 2", ["run","store","day","count"], [[["1","1","03-15","2"]],[["2","1","03-15","2"]]]),
+      after: t("table", ["store","day","count"], [[["1","03-15",{v:"2",c:"hi"}],"keep"]]),
+      sql: "INSERT INTO daily_store_stats (store_id, day, order_count, revenue)\nSELECT …\nON CONFLICT (store_id, day) DO UPDATE\nSET order_count = EXCLUDED.order_count,   -- SET, not +=  → idempotent\n    revenue     = EXCLUDED.revenue;",
+      idx: "the UNIQUE / PK on (store_id, day)", trap: "revenue = revenue + EXCLUDED.revenue double counts on retry" }) },
+    { t: "15 · Job queue: no double work (ex 17)", d: card({ s: "\"many workers take jobs, never the same one\"",
+      before: t("job", ["id","status","locked by"], [[["1","queued","A has it"]],[["2","queued","-"]],[["3","queued","-"]]]),
+      after: t("worker B gets", ["id"], [[[{v:"2",c:"hi"}],"keep"]]),
+      sql: "WITH next AS (\n  SELECT id FROM job WHERE status = 'queued' AND run_at <= now()\n  ORDER BY run_at LIMIT 1\n  FOR UPDATE SKIP LOCKED          -- skip rows another worker holds\n)\nUPDATE job j SET status = 'running' FROM next WHERE j.id = next.id\nRETURNING j.id;",
+      idx: "(run_at) WHERE status = 'queued'", trap: "without SKIP LOCKED workers wait; without FOR UPDATE they collide" }) },
+    { t: "16 · Exactly once + keyset paging (ex 18, 19)", d: card({ s: "\"the same event must count once\" · \"page 5000 is slow\"",
+      before: t("insert evt_78 twice", ["try","RETURNING"], [[["1",{v:"id 9",c:"hi"}],"keep"],[["2","0 rows → stop"],"drop"]]),
+      after: t("keyset", ["page","WHERE"], [[["1","-"]],[["2","(created_at, id) < (last)"]]]),
+      sql: "INSERT INTO point_ledger (…) VALUES (…)\nON CONFLICT (reason, source_id) DO NOTHING RETURNING id;   -- 0 rows = already done\n\nSELECT … FROM orders\nWHERE (created_at, id) < ($last_created_at, $last_id)\nORDER BY created_at DESC, id DESC LIMIT 20;",
+      idx: "UNIQUE (reason, source_id) · (created_at DESC, id DESC)", trap: "SELECT-then-INSERT races (the TADA bug) · OFFSET reads and discards" }) }
+  ];
+  window.SHEET = { key: "db-sql-patterns", concepts: P };
+
+  /* pattern spotter */
+  var NAMES = ["Keep rows with no match","Anti-join","Latest per group","Top N per group","Running total","Compare with previous row","Share of group","Gaps and islands","Dedupe","Pivot","Cohort retention","Recursive tree","Calendar fill","Upsert","Job queue (SKIP LOCKED)","Exactly once (ON CONFLICT)","Keyset pagination"];
+  var QS = [
+    ["Show every product and how many times it was sold, including products never sold.", 0, "\"including … never\" with a count next to it → LEFT JOIN, filter in ON, COUNT(o.id)."],
+    ["Which stores have never redeemed points?", 1, "\"never\" with no number needed → NOT EXISTS."],
+    ["For each store, show the date of its last login.", 2, "One row per group, the newest → DISTINCT ON or ROW_NUMBER = 1. (MAX() also works if you only need the date.)"],
+    ["Show the 3 best-selling products in each city.", 3, "N per group → ROW_NUMBER / DENSE_RANK partitioned by city, filter outside."],
+    ["Show each store's cumulative revenue by day.", 4, "\"cumulative\" = running total → SUM() OVER (PARTITION BY store ORDER BY day)."],
+    ["How many days passed between each order and the store's previous order?", 5, "\"previous\" → LAG(created_at) OVER (PARTITION BY store_id ORDER BY created_at)."],
+    ["For each product, show what percent of its category's revenue it makes.", 6, "Detail row + group total → SUM() OVER (PARTITION BY category) without ORDER BY."],
+    ["Find stores that ordered in 3 or more consecutive months.", 7, "\"consecutive\" → gaps and islands: month number minus ROW_NUMBER."],
+    ["The import ran twice. Remove the repeated product rows, keep the oldest.", 8, "ROW_NUMBER over the duplicate key, DELETE where rn > 1, then add a UNIQUE constraint."],
+    ["One row per month, with a column for each payment method.", 9, "\"a column for each\" → COUNT/SUM … FILTER (WHERE …)."],
+    ["Of the stores that signed up in March, what percent ordered again 2 months later?", 10, "\"signed up in … then later\" → cohort month + month offset."],
+    ["Show the referral chain: who referred who, all the way up.", 11, "Chains and hierarchies of unknown depth → WITH RECURSIVE (with a depth guard)."],
+    ["Chart daily sign-ups for the last 30 days. Days with zero must show as 0.", 12, "\"days with zero must show\" → generate_series calendar + LEFT JOIN + COALESCE."],
+    ["A nightly job writes totals per store per day. It may be retried.", 13, "\"may be retried\" + write per key → INSERT … ON CONFLICT DO UPDATE SET col = EXCLUDED.col."],
+    ["Ten workers send emails from an outbox table. No email may be sent twice by two workers.", 14, "Many workers claiming rows → FOR UPDATE SKIP LOCKED."],
+    ["TADA may send the same refund webhook three times at once. Give the points only once.", 15, "\"only once\" under concurrency → UNIQUE event id + ON CONFLICT DO NOTHING RETURNING."],
+    ["The mobile app's infinite scroll of order history gets slow after many pages.", 16, "Deep paging → keyset: WHERE (created_at, id) < (last seen)."]
+  ];
+  var qi = 0, score = 0, answered = false, order = QS.map(function(_, i){ return i });
+  for (var k = order.length - 1; k > 0; k--){ var j = Math.floor(Math.random() * (k + 1)); var x = order[k]; order[k] = order[j]; order[j] = x }
+  var box = document.getElementById("quiz");
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c] }) }
+  function show(){
+    if (qi >= order.length){
+      box.innerHTML = '<h3>Done: ' + score + ' / ' + order.length + '</h3><p class="qscore">Under 14? Re-read the "sounds like" line on each pattern card, then try again.</p><div class="qnav"><button type="button" id="qAgain">Shuffle and restart</button></div>';
+      document.getElementById("qAgain").onclick = function(){ qi = 0; score = 0; order.sort(function(){ return Math.random() - .5 }); show() };
+      return;
+    }
+    var q = QS[order[qi]]; answered = false;
+    box.innerHTML = '<p class="qscore">' + (qi + 1) + ' / ' + order.length + ' · score ' + score + '</p><h3>' + esc(q[0]) + '</h3><div class="opts">' +
+      NAMES.map(function(n, i){ return '<button type="button" data-o="' + i + '">' + esc(n) + '</button>' }).join('') +
+      '</div><div class="qwhy" id="qwhy"><b>Why:</b> ' + esc(q[2]) + '</div><div class="qnav"><span class="qscore">Say the pattern out loud before you click.</span><button type="button" id="qNext">Next</button></div>';
+    document.getElementById("qNext").onclick = function(){ qi++; show() };
+  }
+  box.addEventListener("click", function(e){
+    var b = e.target.closest("[data-o]"); if (!b || answered) return;
+    answered = true;
+    var right = QS[order[qi]][1], pick = +b.getAttribute("data-o");
+    if (pick === right) score++; else b.classList.add("wrong");
+    box.querySelector('[data-o="' + right + '"]').classList.add("right");
+    document.getElementById("qwhy").classList.add("show");
+  });
+  show();
+})();
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Message queues: the happy path, a crash, and a bad job</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --prod: #3b82f6; --prod-bg: #e3eefe;
+    --queue: #8b5cf6; --queue-bg: #efe8fd;
+    --work: #2f9e6b; --work-bg: #dff3ea;
+    --inbox: #e8890c; --inbox-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --prod: #6aa5f7; --prod-bg: #1e3350;
+      --queue: #b79cf8; --queue-bg: #2f2650;
+      --work: #5fd09a; --work-bg: #163a2c;
+      --inbox: #f0a64a; --inbox-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; grid-template-columns: .9fr 1.5fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.prod  { border-color: var(--prod);  background: var(--prod-bg); }
+  .comp.queue { border-color: var(--queue); background: var(--queue-bg); }
+  .comp.work  { border-color: var(--work);  background: var(--work-bg); }
+  .comp.inbox { border-color: var(--inbox); background: var(--inbox-bg); }
+  .comp.dead  { border-color: var(--bad);   background: var(--bad-bg); border-style: dashed; }
+  .comp.prod h3 { color: var(--prod); } .comp.queue h3 { color: var(--queue); } .comp.work h3 { color: var(--work); }
+  .comp.inbox h3 { color: var(--inbox); } .comp.dead h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.crashed { border-color: var(--bad); background: var(--bad-bg); }
+  .comp.crashed h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.warn { background: var(--inbox); color: #fff; }
+
+  .big { font-size: 2.2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.front { border-color: var(--queue); box-shadow: 0 0 0 2px var(--queue-bg), 0 1px 3px rgba(0,0,0,.08); }
+  .chip.hid { border-style: dashed; }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .line { margin-top: 8px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+  .mail { display: flex; justify-content: space-between; gap: 8px; font-size: .8rem; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .mail.twice { color: var(--bad); font-weight: 800; }
+  .mail:last-child { border-bottom: 0; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.prod { background: #3b82f6; } .badge.queue { background: #8b5cf6; } .badge.work { background: #2f9e6b; }
+  .badge.mail { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--work); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">← System design lessons</a>
+    <a href="../06-message-queues.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Message queues: the happy path, a crash, and a bad job</h1>
+  <p class="sub">Press the buttons below and watch one job at a time. The big number is the queue length: how many jobs wait in the line right now.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage">
+    <div class="panel">
+      <h2>Your app</h2>
+      <div class="comp prod" id="prod">
+        <h3>Producer (the API)</h3>
+        <small>adds a job, then answers the customer at once</small>
+        <div class="line" id="prodline"></div>
+      </div>
+      <div class="comp inbox" id="inbox">
+        <h3>Customer inboxes</h3>
+        <small>what the customers really see</small>
+        <div id="mails"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The queue</h2>
+      <div class="comp queue" id="queue">
+        <h3>Waiting line <span class="tag" id="rule"></span></h3>
+        <div class="big" id="qlen">0</div>
+        <div class="biglabel">jobs waiting in the line (queue length)</div>
+        <div class="items" id="waiting"></div>
+        <div class="sect">Hidden: a worker holds the job</div>
+        <div class="items" id="held"></div>
+        <div class="line">Done and deleted: <b id="donec">0</b></div>
+      </div>
+      <div class="comp dead" id="dead">
+        <h3>Dead letter queue <span class="tag bad" id="deadc">0</span></h3>
+        <small>jobs that failed every try, parked for a human</small>
+        <div class="items" id="deadlist"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Workers</h2>
+      <div id="workers"></div>
+    </div>
+  </div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the queue never knows if the work happened. It only knows if an ack arrived. No ack before the timer ends means the job is shown again, so a job can run twice. That is why every worker must be safe to repeat.</p>
+</div>
+
+<script>
+// ---- The three stories. Each one is a short script. The simulator below plays it. ----
+const MAX_TRIES = 3;
+const PRESETS = [
+  {
+    name: "1. The happy path",
+    workers: ["A"],
+    jobs: { 41: { label: "order 41" }, 42: { label: "order 42" }, 43: { label: "order 43" } },
+    rule: "Ack deletes the job",
+    why: "The queue hides a job from every other worker while one worker holds it. The job is deleted only when the ack arrives. So order 41 left the waiting line when Worker A took it, but it was not deleted until the ack.",
+    predict: { q: "Worker A takes order 41 from the line. Is order 41 still in the waiting line?",
+               options: ["Yes, it stays in the line until the ack", "No, it is hidden until the ack arrives"], answer: "No, it is hidden until the ack arrives" },
+    ops: [
+      { t: "intro", note: "A shop's API (the <b>producer</b>) must send a receipt email for every order. The email is slow, so the API does not send it. It adds a <b>job</b> to a <b>queue</b> and moves on. A <b>worker</b> takes jobs from the line, one at a time. The big number is the <b>queue length</b>. It is <b>0</b> now." },
+      { t: "add", ids: [41], note: "A customer places <b>order 41</b>. The API saves the order, adds one job to the queue and answers <b>Order placed</b> in about 60 ms. It does not wait for the email." },
+      { t: "add", ids: [42, 43], note: "Two more orders arrive: <b>42</b> and <b>43</b>. The API adds two jobs and answers both customers at once. No worker has started yet. That is fine, because the jobs wait safely in the line." },
+      { t: "take", w: "A" },
+      { t: "send", w: "A" },
+      { t: "ack", w: "A" },
+      { t: "run", w: "A" },
+      { t: "run", w: "A" },
+      { t: "end", note: "Three orders, three emails, each sent <b>once</b>. The customers never waited for an email. The queue length went up to <b>3</b> and down to <b>0</b>. Nothing went wrong in this story. Story 2 shows what happens when a worker crashes." }
+    ]
+  },
+  {
+    name: "2. A worker crashes before the ack",
+    workers: ["A", "B"],
+    jobs: { 71: { label: "order 71" }, 72: { label: "order 72" } },
+    rule: "No ack in 30 s: shown again",
+    why: "The queue cannot see inside a worker. When the ack does not arrive before the hiding timer ends, the queue shows the job again, and another worker runs it. The first run already sent the email, so the customer got two. This is at least once delivery: a job runs one time or more, never zero.",
+    predict: { q: "Worker A sent the email for order 71 and then crashed before it sent the ack. What does the queue do with order 71?",
+               options: ["It deletes the job, because the email went out", "It loses the job", "When the timer ends, it shows the job again and another worker runs it"], answer: "When the timer ends, it shows the job again and another worker runs it" },
+    ops: [
+      { t: "intro", note: "Two workers, <b>A</b> and <b>B</b>, take jobs from one queue. When the queue hands out a job, it starts a <b>hiding timer</b> of 30 seconds. If no ack arrives before the timer ends, the queue shows the job again. The queue length is <b>0</b>." },
+      { t: "add", ids: [71, 72], note: "Two orders arrive: <b>71</b> and <b>72</b>. Two jobs wait in the line." },
+      { t: "take", w: "A" },
+      { t: "send", w: "A" },
+      { t: "crash", w: "A" },
+      { t: "timer", w: "A" },
+      { t: "take", w: "B" },
+      { t: "send", w: "B" },
+      { t: "ack", w: "B" },
+      { t: "run", w: "B" },
+      { t: "end", note: "Order 72 ran once. Order 71 ran <b>twice</b>, and one customer got two emails. The queue chose a repeat over a loss, because it cannot know what happened inside Worker A. The fix is in the worker, not in the queue. Before it sends, a worker writes <i>receipt 71 sent</i> in a shared notebook. A second worker reads the notebook and skips the job. Lesson 13 teaches this." }
+    ]
+  },
+  {
+    name: "3. A bad job fails 3 times",
+    workers: ["A"],
+    jobs: { 61: { label: "order 61" }, 62: { label: "order 62", bad: true, why: "the email address is empty" },
+            63: { label: "order 63" }, 64: { label: "order 64" } },
+    rule: "3 tries, then parked",
+    why: "A job that can never work must not use the worker for ever. The queue counts the tries. After the third failed try it moves the job to the dead letter queue with its error. A person looks at it later. The good jobs were never blocked.",
+    predict: { q: "Order 62 can never work, because its email address is empty. What should the queue do after the third failed try?",
+               options: ["Try again for ever", "Delete the job in silence", "Park the job in the dead letter queue for a person"], answer: "Park the job in the dead letter queue for a person" },
+    ops: [
+      { t: "intro", note: "Four orders will wait in the queue. <b>Order 62 has an empty email address</b>, so its job can never work. The rule here: <b>3 tries</b>, then the job moves to the <b>dead letter queue</b>. Watch what happens to the good jobs. The queue length is <b>0</b>." },
+      { t: "add", ids: [61, 62, 63, 64], note: "Four orders arrive: 61, 62, 63 and 64. The API adds four jobs and answers every customer at once." },
+      { t: "take", w: "A" },
+      { t: "finish", w: "A" },
+      { t: "take", w: "A" },
+      { t: "fail", w: "A" },
+      { t: "run", w: "A" },
+      { t: "run", w: "A" },
+      { t: "take", w: "A" },
+      { t: "fail", w: "A" },
+      { t: "take", w: "A" },
+      { t: "fail", w: "A" },
+      { t: "end", note: "Three good orders got their email once. The bad order is parked in the dead letter queue with its error, and a person can read it. The line never stopped. When a person fixes the address and replays the job, the worker must still be safe to repeat." }
+    ]
+  }
+];
+
+// ---- A small simulator. It plays the script and saves one snapshot per step. ----
+function simulate(p) {
+  const steps = [];
+  const st = {
+    waiting: [], held: [], done: [], dead: [], inbox: {}, tries: {}, added: 0, prodText: "No order yet.",
+    workers: p.workers.map(n => ({ name: n, alive: true, job: null }))
+  };
+  const lab = id => p.jobs[id].label;
+  const wk = n => st.workers.find(x => x.name === n);
+  const plural = (k, w) => k + " " + w + (k === 1 ? "" : "s");
+  const copy = () => ({
+    waiting: st.waiting.map(id => ({ id, label: lab(id), tries: st.tries[id] || 0 })),
+    held: st.held.map(h => ({ id: h.id, label: lab(h.id), w: h.w, timer: h.timer })),
+    done: st.done.length,
+    dead: st.dead.map(id => ({ id, label: lab(id), tries: st.tries[id] })),
+    inbox: Object.keys(p.jobs).filter(id => st.inbox[id]).map(id => ({ label: lab(id), n: st.inbox[id] })),
+    workers: st.workers.map(w => ({ name: w.name, alive: w.alive, job: w.job ? lab(w.job) : null,
+      timer: w.job ? (st.held.find(h => h.id === w.job) || {}).timer : null })),
+    prodText: st.prodText
+  });
+  const snap = (note, active, hop, phase) => steps.push(Object.assign(copy(), { active, hop, phase, note }));
+  const qlen = () => "Queue length: <b>" + st.waiting.length + "</b>.";
+
+  // primitive actions. Each one changes the state and returns a piece of the note.
+  function doTake(w) {
+    const id = st.waiting.shift();
+    st.tries[id] = (st.tries[id] || 0) + 1;
+    wk(w).job = id;
+    st.held.push({ id, w, timer: "running" });
+    return "Worker " + w + " takes <b>" + lab(id) + "</b> from the front of the line. The job is now <b>hidden</b>, so no other worker can take it. The queue starts a hiding timer of 30 seconds. " +
+      (st.tries[id] > 1 ? "This is <b>try " + st.tries[id] + "</b> for this job. " : "") + qlen() + " Hidden: <b>" + st.held.length + "</b>.";
+  }
+  function doSend(w) {
+    const id = wk(w).job;
+    st.inbox[id] = (st.inbox[id] || 0) + 1;
+    const n = st.inbox[id];
+    return "Worker " + w + " does the slow work: it sends the receipt email for " + lab(id) + ". " +
+      (n === 1 ? "The customer now has <b>1 email</b>." : (w === "B" ? "Worker B does not know that Worker A already sent it. " : "") + "The customer now has <b>" + n + " emails</b>. This is the visible cost of at least once delivery.");
+  }
+  function doAck(w) {
+    const id = wk(w).job;
+    st.held = st.held.filter(h => h.id !== id);
+    st.done.push(id);
+    wk(w).job = null;
+    return "Worker " + w + " sends the <b>ack</b>: I finished " + lab(id) + ". The queue deletes the job for good. Done: <b>" + st.done.length + "</b>.";
+  }
+
+  function take(w) {
+    const text = doTake(w);
+    snap(text, ["queue", "w:" + w], "Queue → Worker " + w, "queue");
+  }
+  function send(w) {
+    const text = doSend(w);
+    snap(text + (st.inbox[wk(w).job] === 1 ? " The queue still hides the job, because it has not heard from Worker " + w + " yet." : ""),
+      ["w:" + w, "inbox"], "Worker " + w + " → customer", "mail");
+  }
+  function ack(w) {
+    const text = doAck(w);
+    snap(text + " " + qlen(), ["w:" + w, "queue"], "Worker " + w + " → queue", "queue");
+  }
+  function finish(w) {
+    const id = wk(w).job;
+    const t1 = doSend(w), t2 = doAck(w);
+    snap("Worker " + w + " sends the email for " + lab(id) + " and then sends the ack. " + qlen() + " Done: <b>" + st.done.length + "</b>. The customer has <b>1 email</b>.",
+      ["w:" + w, "inbox", "queue"], "Worker " + w + " → customer and queue", "mail");
+  }
+  function run(w) {
+    const id = st.waiting[0];
+    doTake(w); doSend(w); doAck(w);
+    snap("Worker " + w + " takes <b>" + lab(id) + "</b>, sends the email and sends the ack, all in one step. " + qlen() + " Done: <b>" + st.done.length + "</b>." +
+      (p.jobs[61] && id === 63 ? " The bad job did not block the line." : ""),
+      ["queue", "w:" + w, "inbox"], "Queue → Worker " + w + " → customer", "mail");
+  }
+  function crash(w) {
+    const id = wk(w).job;
+    wk(w).alive = false;
+    snap("<b>Worker " + w + " crashes</b> right now, before it sends the ack. The email for " + lab(id) + " is already sent, but the queue cannot see that. It only sees that no ack has arrived. The job stays hidden while the timer runs.",
+      ["w:" + w], "Worker " + w + " stops", "bad");
+  }
+  function timer(w) {
+    const h = st.held.find(x => x.w === w);
+    st.held = st.held.filter(x => x !== h);
+    st.waiting.unshift(h.id);
+    wk(w).job = null;
+    snap("<b>30 seconds pass</b> and no ack has arrived. The queue decides the job was not finished. It shows <b>" + lab(h.id) + "</b> again, at the front of the line. " + qlen() + " Hidden: <b>" + st.held.length + "</b>.",
+      ["queue"], "Timer ends → job is visible again", "bad");
+  }
+  function fail(w) {
+    const id = wk(w).job, why = p.jobs[id].why, n = st.tries[id];
+    st.held = st.held.filter(h => h.id !== id);
+    wk(w).job = null;
+    if (n >= MAX_TRIES) {
+      st.dead.push(id);
+      snap("Worker " + w + " tries " + lab(id) + ", but " + why + ". The work fails and no ack is sent. This was <b>try " + n + " of " + MAX_TRIES + "</b>. The queue stops. It moves the job to the <b>dead letter queue</b> and keeps the error. " + qlen() + " Dead letters: <b>" + st.dead.length + "</b>. A person gets an alert, fixes the address and replays the job.",
+        ["w:" + w, "dead"], "Worker " + w + " → dead letter queue", "bad");
+    } else {
+      st.waiting.push(id);
+      snap("Worker " + w + " tries " + lab(id) + ", but " + why + ". The work fails and no ack is sent. This was <b>try " + n + " of " + MAX_TRIES + "</b>. The queue puts the job at the end of the line, so the other jobs go first. Real tools also add a wait that grows, such as 1 s, then 2 s. " + qlen(),
+        ["w:" + w, "queue"], "Worker " + w + " → end of the line", "bad");
+    }
+  }
+
+  for (const op of p.ops) {
+    if (op.t === "intro") snap(op.note, [], "The setup before any order", "setup");
+    else if (op.t === "add") {
+      op.ids.forEach(id => { st.waiting.push(id); st.added++; });
+      st.prodText = "Added " + plural(st.added, "job") + " so far. Each customer got the answer Order placed at once.";
+      snap(op.note + " " + qlen(), ["prod", "queue"], "Customer → API → queue", "prod");
+    }
+    else if (op.t === "take") take(op.w);
+    else if (op.t === "send") send(op.w);
+    else if (op.t === "ack") ack(op.w);
+    else if (op.t === "finish") finish(op.w);
+    else if (op.t === "run") run(op.w);
+    else if (op.t === "crash") crash(op.w);
+    else if (op.t === "timer") timer(op.w);
+    else if (op.t === "fail") fail(op.w);
+    else if (op.t === "end") snap(op.note, [], "Finished", "done");
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timerId = null, prev = {}, guess = null;
+
+function chips(box, items, key, emptyText) {
+  const old = prev[key] || [];
+  box.innerHTML = items.length ? "" : '<span class="empty">' + emptyText + "</span>";
+  items.forEach(t => {
+    const c = document.createElement("div");
+    c.className = "chip" + (t.cls ? " " + t.cls : "") + (old.includes(t.key) ? "" : " pop");
+    c.textContent = t.text;
+    box.appendChild(c);
+  });
+  prev[key] = items.map(t => t.key);
+}
+const BADGE = { setup: ["Setup", ""], prod: ["App adds a job", "prod"], queue: ["Queue", "queue"], mail: ["Customer sees it", "mail"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = PRESETS[cur];
+  const lit = id => s.active.includes(id);
+  ["prod", "inbox", "queue", "dead"].forEach(id => $(id).classList.toggle("lit", lit(id)));
+  $("rule").textContent = P.rule;
+  $("prodline").textContent = s.prodText;
+  $("qlen").textContent = s.waiting.length;
+  chips($("waiting"), s.waiting.map((j, i) => ({ key: j.id + ":" + j.tries, text: j.label + (j.tries ? " · tried " + j.tries + (j.tries === 1 ? " time" : " times") : ""), cls: i === 0 ? "front" : (j.tries ? "bad" : "") })), "waiting", "the line is empty");
+  chips($("held"), s.held.map(h => ({ key: h.id + ":" + h.w, text: h.label + " · held by " + h.w + " · timer " + h.timer, cls: "hid" })), "held", "no job is hidden");
+  $("donec").textContent = s.done;
+  $("deadc").textContent = s.dead.length;
+  chips($("deadlist"), s.dead.map(j => ({ key: "d" + j.id, text: j.label + " · tried " + j.tries + " times", cls: "bad" })), "dead", "empty");
+  $("mails").innerHTML = s.inbox.length
+    ? s.inbox.map(m => '<div class="mail' + (m.n > 1 ? " twice" : "") + '"><span>' + m.label + "</span><span>" + m.n + (m.n === 1 ? " email" : " emails (twice!)") + "</span></div>").join("")
+    : '<span class="empty">no email sent yet</span>';
+
+  const box = $("workers");
+  box.innerHTML = "";
+  s.workers.forEach(w => {
+    const d = document.createElement("div");
+    d.className = "comp work" + (w.alive ? "" : " crashed") + (lit("w:" + w.name) ? " lit" : "");
+    d.innerHTML = "<h3>Worker " + w.name + '<span class="tag' + (w.alive ? "" : " bad") + '">' + (w.alive ? "running" : "crashed") + "</span></h3>" +
+      '<div class="line">' + (w.job ? "Holding: <b>" + w.job + "</b>" : (w.alive ? "Holding nothing" : "Gone")) + "</div>" +
+      (w.job ? '<div class="line">Hiding timer: <b>' + (w.alive ? "30 s, running" : "30 s, running (nobody will send the ack)") + "</b></div>" : "");
+    box.appendChild(d);
+  });
+
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = PRESETS[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Go to the start and step through again. Watch the queue length, the hidden jobs and the inboxes.");
+}
+function renderPredict() {
+  const p = PRESETS[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickPreset(i) {
+  stop(); cur = i; steps = simulate(PRESETS[i]); idx = 0; prev = {}; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timerId) { clearInterval(timerId); timerId = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timerId) return stop();
+  if (idx === steps.length - 1) { idx = 0; prev = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timerId = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2200);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickPreset(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; prev = {}; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__presets = PRESETS; window.__simulate = simulate;
+pickPreset(0);
+</script>
+</body>
+</html>

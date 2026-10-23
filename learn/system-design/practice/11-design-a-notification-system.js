@@ -1,40 +1,69 @@
-// Lesson 11: Design a notification system. Write createDispatcher below, then run:
+// Lesson 11: Design a notification system. Write createNotifier below, then run:
 //   node --test learn/system-design/practice/11-design-a-notification-system.test.js
-
-// createDispatcher({ send, maxTries, baseMs, sleep }) makes a small dispatcher: the worker that
-// sits between a queue and an outside provider (push, email or SMS).
 //
-//   send(msg)   an async function that calls the provider. It resolves when the provider accepted
-//               the message. It throws when the provider failed. If the error has
-//               err.permanent === true (for example "this token is not registered"), retrying
-//               can never help. Any other error is temporary (for example "503 provider busy").
-//   maxTries    how many times to call send for one message. The default is 3.
-//   baseMs      the first wait between tries. The wait doubles each time. The default is 100.
-//   sleep(ms)   an async function that waits. The default does not wait at all, so tests are fast.
+// One object plays the notification service, the channel queues and the workers.
+// The outside companies (Apple, Google, the email and SMS providers) are a function you are given:
+// send(job) returns a number, like the HTTP status code a real provider sends back.
 //
-// It returns an object with these methods:
+// The three channels, always checked in this order: "push", "email", "sms".
+// The three priorities, worked in this order: "urgent" (an OTP), "normal" (loan approved), "bulk" (marketing).
 //
-//   dispatch(msg)   msg looks like { user, event, channel, body }.
-//                   The dedupe key is the three words user + ":" + event + ":" + channel.
-//                   It returns a promise of { status, tries, waits }:
+// createNotifier({ maxTries = 3, bulkPerDay = 2 } = {}) returns an object with:
 //
-//                   - If this key was already sent, or is being sent right now by another call,
-//                     do not call send. Return { status: "duplicate", tries: 0, waits: [] }.
-//                   - Otherwise call send(msg), up to maxTries times.
-//                       * On success return { status: "sent", tries, waits }.
-//                       * After a temporary error, call sleep(wait) and try again. The waits are
-//                         baseMs, then baseMs * 2, then baseMs * 4, and so on. `waits` lists the
-//                         waits used so far. There is no wait after the last try.
-//                       * After a permanent error, or when the last try fails, stop. Put the
-//                         message in the dead letters and return { status: "dead", tries, waits }.
+//   setPrefs(userId, { channels, quietStart, quietEnd })
+//     channels: the channels this user allows. A user with no prefs allows ["push", "email"].
+//     quietStart and quietEnd: hours 0 to 23 in the user's own time, for example 22 and 7.
+//     Quiet means hour >= quietStart or hour < quietEnd when the window crosses midnight,
+//     and quietStart <= hour < quietEnd when it does not. No numbers means no quiet hours.
 //
-//                   Two calls with the same key at the same moment must call send only once.
-//                   A dead message is not remembered as sent, so it can be dispatched again.
+//   addToken(userId, token) and tokensOf(userId) -> [tokens]
+//     A device token is the address of one app on one phone. A user can have several.
 //
-//   deadLetters()   an array of { msg, error, tries } for the dead messages, oldest first.
-//                   error is the error message text of the last failure.
-function createDispatcher(options) {
+//   notify({ eventId, userId, text, hour, priority = "normal", channels })
+//       -> { queued: [keys], held: [keys], skipped: [{ channel, reason }] }
+//     channels: the channels this event wants. If missing, all three.
+//     For each channel in order:
+//       1. If the priority is not "urgent" and the user does not allow it -> skip, reason "off".
+//          (An urgent job, like an OTP, ignores the user's channel choice.)
+//       2. If eventId + userId + channel was seen before -> skip, reason "duplicate". This is the dedupe key.
+//       3. push with no device tokens -> skip, reason "no device".
+//       4. Make one job per address. push: one job per token. email and sms: the address is the userId.
+//          A job is { key, eventId, userId, channel, to, text, priority, tries: 0, waitMs: 0 }
+//          and its key is "eventId:userId:channel:to", for example "evt77:sari:push:tA".
+//       5. Not urgent, in quiet hours, and the channel is push or sms -> hold the job (status "held").
+//          Email makes no sound, so it never waits for quiet hours. Otherwise put the job in its
+//          channel queue (status "queued").
+//     Bulk only: each user may get bulkPerDay bulk notifications. One notify call counts once.
+//     When the user is at the limit, every channel is skipped with reason "limit".
+//
+//   release()
+//     Quiet hours are over. Every held job goes into its queue and becomes "queued".
+//
+//   queueLength(channel) -> number of jobs waiting in that channel's queue
+//
+//   work(channel, send) -> null when the queue is empty, else { result, job }
+//     Take the next job: urgent first, then normal, then bulk. Inside a priority, first in first out.
+//     If this job's key already has status "sent" -> result "duplicate", do not call send.
+//     Else add 1 to job.tries and call send(job). Then, by the code:
+//       200               -> status "sent", result "sent"
+//       429, 500 or 503   -> a short problem. If tries < maxTries: set job.waitMs = 1000 * 2 ** (tries - 1)
+//                            (1000, 2000, 4000...), put the job at the back of its line, result "retry".
+//                            Else it goes to the dead letters, status "failed", result "dead".
+//       404 or 410        -> the token is dead. Remove job.to from the user's tokens.
+//                            No retry, no dead letter. Status "failed", result "token removed".
+//       anything else     -> a mistake in the request, for example 400. Retrying will not help.
+//                            Dead letters at once, status "failed", result "dead".
+//     A dead letter is the job plus reason: the last code, for example { ...job, reason: 503 }.
+//
+//   redeliver(job)
+//     The queue hands the same job over again, like after a lost ack in lesson 06.
+//     Put it at the back of its line, as it is.
+//
+//   status(key) -> "queued" | "held" | "sent" | "failed" | undefined
+//
+//   deadLetters() -> [dead jobs], oldest first
+function createNotifier({ maxTries = 3, bulkPerDay = 2 } = {}) {
   // TODO
 }
 
-module.exports = { createDispatcher };
+module.exports = { createNotifier };

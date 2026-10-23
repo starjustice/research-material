@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classic Designs Workbook</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>DESIGN WORKBOOK, PART 1: SIX CLASSIC DESIGNS</h1>
+  <p class="sub">Rate limiter · Chat · News feed · File upload · Autocomplete · Video streaming</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">Pictures</button>
+  <button data-tab="concepts" type="button">Concepts</button>
+  <button data-tab="numbers" type="button">Tables</button>
+  <button data-tab="decisions" type="button">Decisions</button>
+  <button data-tab="cases" type="button">Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">One picture per design. Cover the "Say this" line, redraw the picture, then say it out loud.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Rate limiter: the edge burst, and the token bucket that fixes it</h3>
+    <p class="lead">Two numbers per client in Redis, changed by one Lua script, so many servers share one count.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Fixed window lets 200 requests through in 2 seconds; a token bucket refills at a steady speed and blocks when empty">
+      <text class="lbl" x="175" y="22">Fixed window: the edge burst</text>
+      <rect class="box box-pink" x="20" y="40" width="140" height="48" rx="8"/><text class="lbl-m" x="90" y="60">12:00:59</text><text class="lbl-s" x="90" y="78">100 allowed</text>
+      <rect class="box box-pink" x="190" y="40" width="140" height="48" rx="8"/><text class="lbl-m" x="260" y="60">12:01:01</text><text class="lbl-s" x="260" y="78">100 allowed</text>
+      <rect class="box box-pink" x="60" y="122" width="230" height="40" rx="8"/><text class="lbl" x="175" y="147">200 requests in 2 seconds</text>
+      <path class="arrow-pink" d="M90,88 L140,120" marker-end="url(#arrp)"/><path class="arrow-pink" d="M260,88 L210,120" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="175" y="186">the count resets at 12:01:00</text><text class="lbl-s t-pink" x="175" y="204">but the limit says 100 per minute</text>
+      <path class="arrow-dash" d="M360,10 L360,210"/>
+      <text class="lbl" x="545" y="22">Token bucket: 2 numbers per client</text>
+      <rect class="box box-yellow" x="390" y="40" width="150" height="40" rx="8"/><text class="lbl" x="465" y="57">Refill</text><text class="lbl-s" x="465" y="73">1 token per second</text>
+      <rect class="box box-blue" x="570" y="40" width="140" height="40" rx="8"/><text class="lbl" x="640" y="57">Request</text><text class="lbl-s" x="640" y="73">takes 1 token</text>
+      <rect class="box" x="470" y="100" width="160" height="50" rx="10"/><text class="lbl" x="550" y="121">Bucket</text><text class="lbl-s" x="550" y="139">holds up to 20 tokens</text>
+      <path class="arrow" d="M465,80 L515,98" marker-end="url(#arr)"/><path class="arrow" d="M640,80 L590,98" marker-end="url(#arr)"/>
+      <rect class="box box-green" x="390" y="168" width="140" height="40" rx="8"/><text class="lbl" x="460" y="185">Allowed</text><text class="lbl-s" x="460" y="200">a token was there</text>
+      <rect class="box box-pink" x="570" y="168" width="140" height="40" rx="8"/><text class="lbl" x="640" y="185">429</text><text class="lbl-s" x="640" y="200">bucket empty</text>
+      <path class="arrow-green" d="M520,150 L475,166" marker-end="url(#arrg)"/><path class="arrow-pink" d="M580,150 L625,166" marker-end="url(#arrp)"/>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "A token bucket per client in Redis: tokens left and last refill time. One Lua script reads, adds the refill, takes a token and writes, all in one step, so 20 servers cannot both take the last token. Fail open on normal routes, fail closed on login."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Chat: save first, then deliver</h3>
+    <p class="lead">"Sent" means "on disk". Everything after that can fail and the message is still safe.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 215" role="img" aria-label="Alice sends through connection server A to the chat service, which saves, looks up Bob's server, and delivers through connection server B or sends a push if offline">
+      <rect class="box box-blue" x="10" y="30" width="100" height="40" rx="8"/><text class="lbl" x="60" y="55">Alice</text>
+      <rect class="box" x="140" y="30" width="120" height="40" rx="8"/><text class="lbl" x="200" y="55">Conn server A</text>
+      <rect class="box box-yellow" x="290" y="30" width="130" height="40" rx="8"/><text class="lbl" x="355" y="55">Chat service</text>
+      <rect class="box" x="450" y="30" width="120" height="40" rx="8"/><text class="lbl" x="510" y="55">Conn server B</text>
+      <rect class="box box-blue" x="600" y="30" width="110" height="40" rx="8"/><text class="lbl" x="655" y="55">Bob</text>
+      <rect class="box box-green" x="290" y="120" width="130" height="46" rx="8"/><text class="lbl" x="355" y="140">Message store</text><text class="lbl-s" x="355" y="157">by chat and time</text>
+      <rect class="box" x="450" y="120" width="120" height="46" rx="8"/><text class="lbl" x="510" y="140">Redis map</text><text class="lbl-s" x="510" y="157">who is where</text>
+      <rect class="box box-pink" x="600" y="120" width="110" height="46" rx="8"/><text class="lbl" x="655" y="140">Push queue</text><text class="lbl-s" x="655" y="157">Apple, Google</text>
+      <path class="arrow" d="M110,50 L138,50" marker-end="url(#arr)"/><path class="arrow" d="M260,50 L288,50" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M355,70 L355,118" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="322" y="98">1 save</text>
+      <path class="arrow" d="M400,70 L480,118" marker-end="url(#arr)"/><text class="lbl-s" x="470" y="92">2 look up</text>
+      <path class="arrow" d="M420,50 L448,50" marker-end="url(#arr)"/><text class="lbl-s" x="435" y="22">3 deliver</text>
+      <path class="arrow" d="M570,50 L598,50" marker-end="url(#arr)"/>
+      <path class="arrow-pink" d="M570,143 L598,143" marker-end="url(#arrp)"/><text class="lbl-s t-pink" x="585" y="185">if offline</text>
+      <text class="lbl-s" x="360" y="207">Offline phones get a push, then ask for "messages after my last id" when they reconnect.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Connection servers hold WebSockets and a Redis map says who is where. I save the message, then ack the sender, then deliver. Offline users get a push only as a wake-up; the store is the truth, and phones sync from their last message id."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · News feed: fan out on write, on read, and the mix</h3>
+    <p class="lead">Do the work when someone posts, or when someone reads. Big accounts break the first one.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Fan out on write copies a post into every follower feed; fan out on read merges at read time; the hybrid pushes for normal accounts and pulls for celebrities">
+      <text class="lbl" x="120" y="22">On write (push)</text>
+      <rect class="box box-blue" x="50" y="34" width="140" height="32" rx="8"/><text class="lbl" x="120" y="55">Ana posts</text>
+      <rect class="box" x="20" y="96" width="60" height="30" rx="6"/><text class="lbl-s" x="50" y="115">feed 1</text>
+      <rect class="box" x="90" y="96" width="60" height="30" rx="6"/><text class="lbl-s" x="120" y="115">feed 2</text>
+      <rect class="box" x="160" y="96" width="60" height="30" rx="6"/><text class="lbl-s" x="190" y="115">feed 3</text>
+      <path class="arrow" d="M100,66 L55,94" marker-end="url(#arr)"/><path class="arrow" d="M120,66 L120,94" marker-end="url(#arr)"/><path class="arrow" d="M140,66 L185,94" marker-end="url(#arr)"/>
+      <text class="lbl-s t-green" x="120" y="152">fast read, heavy post</text>
+      <text class="lbl-s t-pink" x="120" y="170">50M followers = 50M writes</text>
+      <path class="arrow-dash" d="M240,10 L240,200"/>
+      <text class="lbl" x="360" y="22">On read (pull)</text>
+      <rect class="box box-blue" x="280" y="34" width="160" height="32" rx="8"/><text class="lbl" x="360" y="55">Reader opens feed</text>
+      <rect class="box" x="270" y="96" width="60" height="30" rx="6"/><text class="lbl-s" x="300" y="115">author</text>
+      <rect class="box" x="335" y="96" width="50" height="30" rx="6"/><text class="lbl-s" x="360" y="115">author</text>
+      <rect class="box" x="390" y="96" width="60" height="30" rx="6"/><text class="lbl-s" x="420" y="115">author</text>
+      <path class="arrow" d="M300,94 L340,68" marker-end="url(#arr)"/><path class="arrow" d="M360,94 L360,68" marker-end="url(#arr)"/><path class="arrow" d="M420,94 L380,68" marker-end="url(#arr)"/>
+      <text class="lbl-s t-green" x="360" y="152">cheap post, slow read</text>
+      <text class="lbl-s t-pink" x="360" y="170">follows 3,000 = 3,000 lookups</text>
+      <path class="arrow-dash" d="M480,10 L480,200"/>
+      <text class="lbl" x="600" y="22">Hybrid</text>
+      <rect class="box box-green" x="500" y="36" width="200" height="32" rx="8"/><text class="lbl" x="600" y="57">Normal: push</text>
+      <rect class="box box-yellow" x="500" y="80" width="200" height="32" rx="8"/><text class="lbl" x="600" y="101">Celebrity: pull</text>
+      <rect class="box box-blue" x="530" y="134" width="140" height="32" rx="8"/><text class="lbl" x="600" y="155">Merge at read</text>
+      <path class="arrow" d="M600,112 L600,132" marker-end="url(#arr)"/>
+      <text class="lbl-s t-green" x="600" y="188">the usual senior answer</text>
+      <text class="lbl-s" x="360" y="222">The cut-off is a number you tune, for example 100,000 followers. Page with a cursor, never OFFSET.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Fan out on write for normal accounts so feeds are ready in the cache. Accounts over a follower cut-off are fetched at read time and merged. Only post ids go in the cache, and a cursor stops new posts from shifting pages."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · File upload: two paths, small JSON and big bytes</h3>
+    <p class="lead">The API checks and signs. The bytes go straight to object storage.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Browser sends small JSON to the API which signs a URL; browser sends bytes straight to object storage; a storage event goes to a queue and worker">
+      <rect class="box box-blue" x="10" y="75" width="120" height="50" rx="8"/><text class="lbl" x="70" y="97">Browser</text><text class="lbl-s" x="70" y="114">or app</text>
+      <rect class="box box-yellow" x="230" y="12" width="150" height="50" rx="8"/><text class="lbl" x="305" y="34">API server</text><text class="lbl-s" x="305" y="51">checks, signs URL</text>
+      <rect class="box" x="440" y="12" width="150" height="50" rx="8"/><text class="lbl" x="515" y="34">Postgres</text><text class="lbl-s" x="515" y="51">row: uploading</text>
+      <rect class="box box-green" x="230" y="135" width="150" height="50" rx="8"/><text class="lbl" x="305" y="157">Object storage</text><text class="lbl-s" x="305" y="174">bytes land here</text>
+      <rect class="box" x="440" y="135" width="150" height="50" rx="8"/><text class="lbl" x="515" y="157">Queue + worker</text><text class="lbl-s" x="515" y="174">thumbnail, mark ready</text>
+      <rect class="box box-blue" x="610" y="135" width="100" height="50" rx="8"/><text class="lbl" x="660" y="157">CDN</text><text class="lbl-s" x="660" y="174">signed downloads</text>
+      <path class="arrow" d="M130,88 L228,42" marker-end="url(#arr)"/><text class="lbl-s" x="160" y="52">1 small JSON</text>
+      <path class="arrow-green" d="M130,112 L228,158" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="160" y="152">2 big bytes</text>
+      <path class="arrow" d="M380,37 L438,37" marker-end="url(#arr)"/>
+      <path class="arrow" d="M380,160 L438,160" marker-end="url(#arr)"/><text class="lbl-s" x="409" y="152">3 event</text>
+      <path class="arrow" d="M515,135 L515,64" marker-end="url(#arr)"/>
+      <path class="arrow-dash" d="M590,160 L608,160" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="204">Multipart: a failed part is sent again alone, so a 5 GB upload resumes instead of restarting.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The API only handles metadata and signs short-lived URLs. Bytes go straight to object storage in parts, so uploads resume. A storage event starts thumbnail work in a queue, and private downloads go through the CDN with signed URLs."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · Autocomplete: a fast loop that reads, a slow loop that builds</h3>
+    <p class="lead">The data is small and changes slowly, so the answers are made ahead of time.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 215" role="img" aria-label="Fast loop: browser with debounce, CDN, suggest server with prefix table in memory. Slow loop: search log, nightly count, build top 10 per prefix, swap into servers">
+      <text class="lbl-sl" x="10" y="16">FAST LOOP: every key press, a few ms</text>
+      <rect class="box box-blue" x="10" y="26" width="150" height="50" rx="8"/><text class="lbl" x="85" y="48">Browser</text><text class="lbl-s" x="85" y="65">debounce 150 ms</text>
+      <rect class="box" x="200" y="26" width="140" height="50" rx="8"/><text class="lbl" x="270" y="48">CDN</text><text class="lbl-s" x="270" y="65">short prefixes</text>
+      <rect class="box box-green" x="380" y="26" width="200" height="50" rx="8"/><text class="lbl" x="480" y="48">Suggest server</text><text class="lbl-s" x="480" y="65">prefix to top 10, in memory</text>
+      <path class="arrow" d="M160,51 L198,51" marker-end="url(#arr)"/><path class="arrow" d="M340,51 L378,51" marker-end="url(#arr)"/>
+      <rect class="box" x="10" y="130" width="150" height="50" rx="8"/><text class="lbl" x="85" y="152">Search log</text><text class="lbl-s" x="85" y="169">append only</text>
+      <rect class="box box-yellow" x="200" y="130" width="140" height="50" rx="8"/><text class="lbl" x="270" y="152">Nightly count</text><text class="lbl-s" x="270" y="169">GROUP BY query</text>
+      <rect class="box box-yellow" x="380" y="130" width="200" height="50" rx="8"/><text class="lbl" x="480" y="152">Build new version</text><text class="lbl-s" x="480" y="169">top 10 for every prefix</text>
+      <path class="arrow" d="M85,76 L85,128" marker-end="url(#arr)"/><text class="lbl-sl" x="92" y="106">search done</text>
+      <path class="arrow" d="M160,155 L198,155" marker-end="url(#arr)"/><path class="arrow" d="M340,155 L378,155" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M480,128 L480,78" marker-end="url(#arrg)"/><text class="lbl-sl t-green" x="490" y="106">check, then swap</text>
+      <text class="lbl-sl" x="600" y="48">one lookup</text><text class="lbl-sl" x="600" y="64">per request</text>
+      <text class="lbl-sl" x="600" y="152">bad build?</text><text class="lbl-sl" x="600" y="168">keep yesterday</text>
+      <text class="lbl-s" x="360" y="205">Never count searches inside the request. Never run LIKE 'car%' on every key press.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I compute the top 10 for every prefix offline and serve it from memory, so each key press is one lookup. Debounce and caching cut requests, and each build is a new version that goes live only after a check."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · Video: a pipeline that makes qualities, a player that picks them</h3>
+    <p class="lead">Slow work goes through a queue. The CDN serves plain files. The player decides.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Raw video is split into chunks, queued, transcoded by workers into several qualities as segments; the player downloads segments and switches quality as the network changes">
+      <rect class="box" x="10" y="20" width="100" height="46" rx="8"/><text class="lbl" x="60" y="40">Raw video</text><text class="lbl-s" x="60" y="56">5 minutes</text>
+      <rect class="box" x="130" y="20" width="110" height="46" rx="8"/><text class="lbl" x="185" y="40">Split</text><text class="lbl-s" x="185" y="56">10 s chunks</text>
+      <rect class="box box-yellow" x="260" y="20" width="110" height="46" rx="8"/><text class="lbl" x="315" y="40">Queue</text><text class="lbl-s" x="315" y="56">chunk x quality</text>
+      <rect class="box box-yellow" x="390" y="20" width="120" height="46" rx="8"/><text class="lbl" x="450" y="40">Workers</text><text class="lbl-s" x="450" y="56">1080p 720p 480p</text>
+      <rect class="box box-green" x="530" y="20" width="180" height="46" rx="8"/><text class="lbl" x="620" y="40">Segments + playlists</text><text class="lbl-s" x="620" y="56">plain files on the CDN</text>
+      <path class="arrow" d="M110,43 L128,43" marker-end="url(#arr)"/><path class="arrow" d="M240,43 L258,43" marker-end="url(#arr)"/><path class="arrow" d="M370,43 L388,43" marker-end="url(#arr)"/><path class="arrow" d="M510,43 L528,43" marker-end="url(#arr)"/>
+      <rect class="box box-blue" x="10" y="110" width="110" height="44" rx="8"/><text class="lbl" x="65" y="129">Player</text><text class="lbl-s" x="65" y="145">measures speed</text>
+      <rect class="box box-green" x="150" y="110" width="160" height="44" rx="8"/><text class="lbl-m" x="230" y="129">seg 1 at 720p</text><text class="lbl-s" x="230" y="145">arrived fast</text>
+      <rect class="box box-pink" x="330" y="110" width="170" height="44" rx="8"/><text class="lbl-m" x="415" y="129">seg 2 at 1080p</text><text class="lbl-s" x="415" y="145">slow: network dropped</text>
+      <rect class="box box-green" x="520" y="110" width="160" height="44" rx="8"/><text class="lbl-m" x="600" y="129">seg 3 at 480p</text><text class="lbl-s" x="600" y="145">fast again, no stall</text>
+      <path class="arrow" d="M120,132 L148,132" marker-end="url(#arr)"/><path class="arrow" d="M310,132 L328,132" marker-end="url(#arr)"/><path class="arrow" d="M500,132 L518,132" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="186">The player, not the server, picks the quality of the next segment.</text>
+      <text class="lbl-s" x="360" y="206">View counts: add up in memory, then write views = views + N every 10 seconds.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "Upload with presigned parts, then a queue of chunk jobs turns one file into several qualities as short segments. The CDN serves plain files and the player switches quality per segment. View counts are batched so a viral video does not lock one row."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Five questions that pick the building block</h3>
+    <p class="lead">Ask these right after your estimation step.</p>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Five questions each pointing to one building block">
+      <rect class="box box-blue" x="10" y="8" width="380" height="32" rx="8"/><text class="lbl" x="200" y="29">Is the slow part bytes?</text>
+      <rect class="box box-green" x="430" y="8" width="280" height="32" rx="8"/><text class="lbl" x="570" y="29">Presigned URL + CDN</text>
+      <rect class="box box-blue" x="10" y="48" width="380" height="32" rx="8"/><text class="lbl" x="200" y="69">Is the slow part minutes of work?</text>
+      <rect class="box box-green" x="430" y="48" width="280" height="32" rx="8"/><text class="lbl" x="570" y="69">Queue + workers</text>
+      <rect class="box box-blue" x="10" y="88" width="380" height="32" rx="8"/><text class="lbl" x="200" y="109">Is one write read by many people?</text>
+      <rect class="box box-green" x="430" y="88" width="280" height="32" rx="8"/><text class="lbl" x="570" y="109">Fan out + cache</text>
+      <rect class="box box-blue" x="10" y="128" width="380" height="32" rx="8"/><text class="lbl" x="200" y="149">Must the server speak first?</text>
+      <rect class="box box-green" x="430" y="128" width="280" height="32" rx="8"/><text class="lbl" x="570" y="149">WebSocket or push</text>
+      <rect class="box box-blue" x="10" y="168" width="380" height="32" rx="8"/><text class="lbl" x="200" y="189">Do many servers share one number?</text>
+      <rect class="box box-green" x="430" y="168" width="280" height="32" rx="8"/><text class="lbl" x="570" y="189">Atomic step in Redis or SQL</text>
+      <path class="arrow" d="M390,24 L428,24" marker-end="url(#arr)"/><path class="arrow" d="M390,64 L428,64" marker-end="url(#arr)"/><path class="arrow" d="M390,104 L428,104" marker-end="url(#arr)"/><path class="arrow" d="M390,144 L428,144" marker-end="url(#arr)"/><path class="arrow" d="M390,184 L428,184" marker-end="url(#arr)"/>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "My numbers say the slow part is X, so the building block is Y. Here is what Y costs, and here is when I would pick something else."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick only when you can say it without looking.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">The driver number in each design</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Design</th><th>Math</th><th>Driver</th><th>So the design needs</th></tr>
+    <tr><td class="val">Rate limiter</td><td>10M users × 50 calls = 500M/day = 5k/s, peak 15k/s</td><td>Every request pays the check</td><td class="why">One Redis call, about 1 ms, one shared count</td></tr>
+    <tr><td class="val">Chat</td><td>50M × 40 = 2B msgs/day = 20k/s; 10M open sockets</td><td>Open connections, 146 TB/year</td><td class="why">Connection servers, a "who is where" map, a store partitioned by chat</td></tr>
+    <tr><td class="val">News feed</td><td>1k posts/s × 200 followers = 200k inserts/s</td><td>Fan out, and one 50M-follower account</td><td class="why">Hybrid fan out, ids only in a Redis feed cache</td></tr>
+    <tr><td class="val">File upload</td><td>20M × 1 MB = 20 TB/day, about 1.6 Gbit/s in</td><td>Bytes</td><td class="why">Presigned URLs, multipart, CDN</td></tr>
+    <tr><td class="val">Autocomplete</td><td>2B requests/day = 20k/s; table about 15 GB</td><td>Milliseconds per key press</td><td class="why">Precomputed prefix table in memory, debounce, cache</td></tr>
+    <tr><td class="val">Video</td><td>3M watching × 3 Mbps = 9 Tbps; 7,500 busy workers</td><td>Egress and transcode compute</td><td class="why">CDN for segments, queue of chunk jobs</td></tr>
+  </table></div>
+  <h2 class="block">Building blocks in each design</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Block</th><th>Rate limiter</th><th>Chat</th><th>Feed</th><th>Upload</th><th>Autocomplete</th><th>Video</th></tr>
+    <tr><td class="val">Cache</td><td>the count</td><td>who is online</td><td>feed lists</td><td></td><td>prefix table</td><td>live views</td></tr>
+    <tr><td class="val">Queue</td><td></td><td>push jobs</td><td>fan out jobs</td><td>thumbnails</td><td>nightly build</td><td>transcode</td></tr>
+    <tr><td class="val">CDN</td><td></td><td>photos</td><td>images</td><td>downloads</td><td>short prefixes</td><td>segments</td></tr>
+    <tr><td class="val">Fan out</td><td></td><td>groups</td><td>the core</td><td></td><td></td><td></td></tr>
+    <tr><td class="val">Presigned URL</td><td></td><td>photos</td><td>images</td><td>the core</td><td></td><td>raw upload</td></tr>
+    <tr><td class="val">WebSocket</td><td></td><td>the core</td><td>optional</td><td></td><td></td><td></td></tr>
+    <tr><td class="val">Sharding key</td><td>client key</td><td>chat id</td><td>user id</td><td>owner id</td><td>prefix</td><td>video id</td></tr>
+  </table></div>
+  <h2 class="block">Status codes and headers you will name</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Code or header</th><th>Where</th><th>Meaning</th></tr>
+    <tr><td class="val">429 Too Many Requests</td><td>Rate limiter</td><td class="why">Over the limit. From RFC 6585.</td></tr>
+    <tr><td class="val">Retry-After: 12</td><td>Rate limiter</td><td class="why">Seconds (or a date) to wait before trying again</td></tr>
+    <tr><td class="val">RateLimit-Policy, RateLimit</td><td>Rate limiter</td><td class="why">IETF draft 11, May 2026. Still a draft.</td></tr>
+    <tr><td class="val">202 Accepted</td><td>Video complete</td><td class="why">I took the work; it is not done yet</td></tr>
+    <tr><td class="val">302 to a signed URL</td><td>File download</td><td class="why">Send the browser to storage or CDN, with a short expiry</td></tr>
+    <tr><td class="val">Cache-Control: max-age=300</td><td>Autocomplete</td><td class="why">Browser and CDN keep the answer 5 minutes</td></tr>
+  </table></div>
+  <h2 class="block">What to monitor</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Design</th><th>Watch</th><th>Alert example</th></tr>
+    <tr><td class="val">Rate limiter</td><td>429s per route, Redis p99, limiter errors</td><td class="why">429s jump 5× in 5 minutes</td></tr>
+    <tr><td class="val">Chat</td><td>Send to deliver p99, open sockets, reconnects</td><td class="why">p99 delivery over 1 s for 5 minutes</td></tr>
+    <tr><td class="val">News feed</td><td>Fan out lag, feed p99, cache hit rate</td><td class="why">Fan out lag over 60 s for 10 minutes</td></tr>
+    <tr><td class="val">File upload</td><td>Upload success, time to ready, queue age</td><td class="why">Success under 98% for 15 minutes</td></tr>
+    <tr><td class="val">Autocomplete</td><td>p99, requests per search, build age</td><td class="why">Table older than 36 hours</td></tr>
+    <tr><td class="val">Video</td><td>Upload to ready, rebuffer rate, start time</td><td class="why">Transcode queue older than 15 minutes</td></tr>
+  </table></div>
+  <h2 class="block">Limits checked on 2026-10-16</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Fact</th><th>Value</th></tr>
+    <tr><td class="val">S3 multipart part size</td><td class="why">5 MiB to 5 GiB, up to 10,000 parts</td></tr>
+    <tr><td class="val">S3 presigned URL (CLI or SDK)</td><td class="why">Up to 7 days. Use minutes.</td></tr>
+    <tr><td class="val">Dropbox block size</td><td class="why">4 MB blocks, named by SHA-256</td></tr>
+    <tr><td class="val">Stripe basic API limit</td><td class="why">100 operations per second live, 25 in sandbox</td></tr>
+    <tr><td class="val">Discord message cluster</td><td class="why">177 Cassandra nodes became 72 ScyllaDB nodes</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every choice buys something and costs something. Say both, then pick.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">Watch and play</h2>
+  <div class="case"><span class="topic">Video</span><b><a href="https://arpitbhayani.me/videos/stripe-multi-tier-rate-limiter-architecture/">Inside Stripe's Multi-Tier Rate Limiter Architecture</a></b><p>Arpit Bhayani. Listen for "rate limiter" versus "load shedder".</p></div>
+  <div class="case"><span class="topic">Video (long talk)</span><b><a href="https://www.infoq.com/presentations/Twitter-Timeline-Scalability">Timelines at Scale</a></b><p>Raffi Krikorian, QCon SF 2012, on InfoQ. Listen for the write path and the read path.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://system-design.space/en/visuals/rate-limiting/">Rate limiting playground</a></b><p>System Design Space. Set bucket size and refill speed, predict, then run.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://hlsjs.video-dev.org/demo">hls.js demo player</a></b><p>Linked from the hls.js README. Play a stream and watch the quality level change.</p></div>
+  <div class="case"><span class="topic">Draw</span><b><a href="https://excalidraw.com">Excalidraw</a></b><p>Do each "Try it first" here before you open the answer.</p></div>
+  <div class="case"><span class="topic">Pictures</span><b><a href="https://bytebytego.com/guides/how-discord-stores-trillions-of-messages/">How Discord Stores Trillions of Messages</a></b><p>ByteByteGo. One page of diagrams for the chat data model.</p></div>
+  <div class="case"><span class="topic">Pictures</span><b><a href="https://dropbox.tech/infrastructure/streaming-file-synchronization">Streaming File Synchronization</a></b><p>Dropbox tech blog. Blocks moving between devices.</p></div>
+  <p class="hint">Links opened or found in web search on 2026-10-16.</p>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Design Workbook, Part 1: Six Classic Designs"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-workbook-1",
+  concepts: [
+    { t: "The seven steps", d: "Requirements, estimation, API, data model, high level, deep dive, failure and ops. Same order in every design. The deep dive gets the most time." },
+    { t: "The driver number", d: "The one estimate that decides the design: open connections, bytes per second, followers, or milliseconds. Say it: <code>so the driver here is X</code>." },
+    { t: "Token bucket", d: "Two numbers per client: tokens left and last refill time. Each request takes one token. Tokens grow back at a steady speed. Allows short bursts on purpose." },
+    { t: "Sliding window counter", d: "Count this minute and last minute. Estimate = last × (part still in the window) + this. No edge burst, only two counters." },
+    { t: "Atomic step in Redis", d: "Read, math and write inside Redis in one go: <code>INCR</code> or a Lua script. Two servers can no longer both take the last token." },
+    { t: "Fail open or fail closed", d: "Limiter down: let traffic through on normal routes (stay up), block on login and OTP (protect accounts and money)." },
+    { t: "WebSocket and connection servers", d: "One open two-way connection per phone. Dedicated servers hold them; a Redis map says which server each user is on." },
+    { t: "Save first, then deliver", d: "The chat server writes the message, then sends the one-tick ack. If delivery or push fails later, the message is still on disk." },
+    { t: "Sync from the last id", d: "Message ids grow with time. A phone that reconnects asks for <code>messages after my last id</code>. Push is only a wake-up call." },
+    { t: "Read ticks with one number", d: "Store the last read message id per member, not a row per message per person. Smaller ids are read too." },
+    { t: "Fan out on write vs read", d: "Write: copy the post id into every follower's feed when posting. Read: gather posts from everyone you follow when opening the feed." },
+    { t: "Celebrity problem and hybrid", d: "50M followers means 50M writes per post. Push for normal accounts, pull celebrity posts at read time, merge." },
+    { t: "Cursor pagination", d: "<code>WHERE id &lt; lastSeenId ORDER BY id DESC LIMIT 20</code>. No duplicates when new posts arrive, fast on deep pages. No page numbers." },
+    { t: "Presigned URL", d: "The API signs a link that allows one upload or download of one file name for a few minutes. Bytes skip your servers." },
+    { t: "Multipart upload", d: "Send a big file as parts (S3: 5 MiB to 5 GiB, up to 10,000), retry only failed parts, then complete. Clean up unfinished uploads." },
+    { t: "Work after upload in a queue", d: "A storage event goes to a queue. Workers make thumbnails or video qualities, write to fixed names, so a second run is harmless." },
+    { t: "Precomputed top 10 per prefix", d: "A nightly job counts searches and builds <code>prefix to top 10</code>. Servers keep it in memory; a key press is one lookup." },
+    { t: "Debounce", d: "The client waits about 150 ms after the last key press before sending. Three key presses become one request." },
+    { t: "Adaptive bitrate", d: "Video is cut into short segments at several qualities. The player measures each download and picks the next segment's quality." },
+    { t: "Batched counters", d: "50,000 view events become one <code>views = views + 50000</code> every 10 seconds. The count lags a little; the row stays free." }
+  ],
+  decisions: [
+    { q: "Token bucket vs sliding window", a: "Token bucket when", at: "Short bursts are normal and fine (an app opening and loading 10 things at once).", b: "Sliding window when", bt: "The limit must be strict and smooth (5 login tries per 15 minutes).", v: "Both need two numbers in Redis. Token bucket is the usual default for APIs; say which knob sets the burst and which sets the average." },
+    { q: "Fail open vs fail closed", a: "Fail open when", at: "The route is normal API traffic and being down is worse than a little abuse.", b: "Fail closed when", bt: "The limiter protects money or accounts: OTP, login, payments.", v: "Decide per route, and alert loudly either way." },
+    { q: "WebSocket vs long polling or SSE", a: "WebSocket when", at: "Both sides send often: chat, games, live editing.", b: "SSE or long polling when", bt: "Updates only go server to client (order status, notifications) or proxies block WebSockets.", v: "WebSocket makes servers hold state, so give them their own fleet. Use the simplest one that fits the direction of traffic." },
+    { q: "Fan out on write vs on read", a: "On write when", at: "Reads far outnumber posts and follower counts are modest.", b: "On read when", bt: "The app is small, or an account has millions of followers.", v: "At scale, the hybrid. For a small app, one indexed SQL query on read is enough; name the number where you would switch." },
+    { q: "Presigned upload vs upload through the API", a: "Presigned when", at: "Files are big or many. Bytes skip your servers and uploads can resume.", b: "Through the API when", bt: "Files are tiny and you must change or check them before storing.", v: "Default to presigned, then check type, size and viruses in a worker after upload." },
+    { q: "Precompute vs count live (autocomplete)", a: "Precompute when", at: "Popularity changes slowly; answers must take milliseconds.", b: "Count live when", bt: "Freshness in seconds matters more than cost (breaking news).", v: "Precompute daily, plus a small hourly trends layer merged on top." },
+    { q: "Short vs long video segments", a: "Short (2 to 4 s) when", at: "Users are on weak or changing mobile networks; fast start matters.", b: "Long (about 10 s) when", bt: "Networks are stable and you want fewer requests and files.", v: "Shorter segments adapt faster; the CDN handles the extra requests." },
+    { q: "Postgres vs a wide-column store for messages", a: "Postgres when", at: "Small or medium scale. Partition the table by month; joins and constraints stay easy.", b: "Wide-column when", bt: "Hundreds of TB that only grow, read as the latest messages in one chat.", v: "Start with Postgres. Discord moved to Cassandra and then ScyllaDB only at trillions of messages." }
+  ],
+  cases: [
+    { topic: "Rate limiter", b: "Stripe", p: "Several layers: a token bucket request limiter in Redis, a limit on requests running at once, and load shedders that drop low priority traffic when the whole system is overloaded." },
+    { topic: "Chat storage", b: "Discord (2023 post)", p: "Messages partitioned by channel and a time bucket, ids that sort by time. Moved from 177 Cassandra nodes to 72 ScyllaDB nodes, with Rust data services that merge identical requests." },
+    { topic: "News feed", b: "Twitter, Timelines at Scale (QCon 2012)", p: "Fan out on write into home timelines kept in Redis, capped at about 800 entries; huge follower counts made fan out expensive." },
+    { topic: "File sync", b: "Dropbox", p: "Files split into 4 MB blocks named by SHA-256. Known blocks are not uploaded again. Streaming sync lets other devices download while the upload is still running." },
+    { topic: "Video encoding", b: "Netflix (2015)", p: "Per-title encoding: each title gets its own bitrate ladder. A cartoon needs far fewer bits than an action film for the same look." },
+    { topic: "Typeahead", b: "Facebook (2010)", p: "Typeahead has to answer within about 100 ms or it stutters, so speed comes before perfect results." }
+  ],
+  hooks: [
+    { b: "Tickets in a bucket", p: "Each request takes a ticket. Tickets drip back in at a steady speed. A full bucket lets a short rush through." },
+    { b: "One whiteboard, one marker", p: "Two servers reading 99 and both writing 100 is two people erasing each other's number. Let Redis hold the only marker: one atomic step." },
+    { b: "Post office first", p: "Chat: the letter is filed at the post office before anyone tries to deliver it. A failed delivery never loses the letter." },
+    { b: "Photocopy or library", p: "Fan out on write photocopies every post into every mailbox. Fan out on read sends you to the library to collect them. Celebrities get the library." },
+    { b: "Valet key", p: "A presigned URL is a valet key: it opens one door, for one car, for a short time. Your server never drives the car." },
+    { b: "The answer sheet is printed at night", p: "Autocomplete answers come from a sheet printed by the nightly job. During the day you only read from it." },
+    { b: "The driver picks the gear", p: "In video, the player is the driver: it changes quality segment by segment as the road (network) changes. The server only stocks the gears." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

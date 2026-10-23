@@ -1,49 +1,53 @@
-// Lesson 14: Observability. Write createTelemetry below, then run:
+// Lesson 14: Observability. Write percentile and createRecorder below, then run:
 //   node --test learn/system-design/practice/14-observability.test.js
-
-// createTelemetry({ clock }) makes three small tools that leave clues: a log, a counter and a span.
-// clock is a function that returns the time now in milliseconds. The tests give it a fake clock,
-// so the answers are exact. It returns an object with these methods:
 //
-//   log(traceId, msg, fields)  writes ONE structured log line. That is a line of JSON text.
-//                              The JSON has traceId, msg, and every key of fields (fields is optional).
-//                              It saves the line, and it returns the same line.
+// One small object plays the three tools: spans for traces, log lines, and request numbers.
+// All times are in milliseconds. Nothing here uses the real clock, so the tests are exact.
 //
-//   count(name, labels)        adds 1 to a counter. labels is an object, for example
-//                              { route: "/orders", status: "ok" }.
-//                              The counter key is the name, then the labels sorted by label name:
-//                                requests{route=/orders,status=ok}
-//                              With no labels, the key is only the name: requests
-//                              Labels in a different order must give the same key.
-//                              Throw an Error when a label NAME is userId, orderId, traceId or email.
-//                              Those values never repeat, so each one would start a new series
-//                              (picture 2e). The counter must not change when it throws.
+// percentile(values, p)  ->  number or null
+//   The "nearest rank" way, the one this lesson uses:
+//     1. Copy the values and sort the copy from small to big. Do not change the input array.
+//     2. rank = Math.ceil((p * count) / 100). Use (p * count) / 100, not p / 100 * count,
+//        so 99 * 100 / 100 is exactly 99.
+//     3. Return the value at position rank, counting from 1 (so sorted[rank - 1]).
+//   p is bigger than 0 and at most 100. An empty array gives null.
+//   Example: [5, 1, 3, 2, 4] with p = 50 -> sorted [1, 2, 3, 4, 5], rank 3, answer 3.
 //
-//   span(traceId, name, fn)    runs fn(), measures how long it took with clock, and saves
-//                              { traceId, name, ms }. It returns what fn returns.
-//                              If fn throws, save the span first, then throw the same error again.
+// createRecorder() returns an object with:
 //
-//   lines()                    an array of the saved log lines, oldest first.
-//   counters()                 an object of key -> number.
-//   spans()                    an array of the saved spans, in the order they ended.
-//   seriesCount()              how many different counter keys exist.
-function createTelemetry(options) {
+//   span({ traceId, spanId, parentId, service, name, start, ms })
+//     Keeps one timed step. parentId is the spanId of the step that called it,
+//     or null for the first step of the request.
+//
+//   slowestStep(traceId)  ->  the span with the most "own time", plus ownMs, or null
+//     Own time = the span's ms minus the ms of its direct children (spans whose parentId is its spanId).
+//     Return a copy of that span with one extra field: { ...span, ownMs }.
+//     Only look at spans of this traceId. No spans for it -> null.
+//     If two spans have the same own time, return the one that was recorded first.
+//
+//   log(traceId, service, level, msg, fields = {})  ->  the line as a JSON string
+//     Build { level, traceId, service, msg, ...fields } in exactly that key order,
+//     turn it into a string with JSON.stringify, keep it, and return it.
+//     Safety net: a field whose name in lower case is "password", "token",
+//     "authorization" or "cardnumber" gets the value "[hidden]" instead.
+//     Only check the top level of fields.
+//
+//   logsFor(traceId)  ->  [strings]
+//     Every kept line with this traceId, oldest first. None -> [].
+//
+//   request(route, status, ms)
+//     Counts one finished request for a route like "POST /checkout".
+//     A status of 500 or more is an error. 4xx is not an error.
+//
+//   stats(route)  ->  { requests, errors, errorRate, p50, p99 }
+//     errorRate = errors / requests (0 when there are no requests).
+//     p50 and p99 use percentile on this route's ms values (null when there are none).
+function percentile(values, p) {
   // TODO
 }
 
-// handleRequest is finished for you. It uses your tools the way the lesson does.
-// steps is a list of [name, work] pairs. work is a function that does one step of the request.
-// If a step throws, the request fails: the status is "error", and the next steps do not run.
-function handleRequest(t, { traceId, route, steps }) {
-  let status = "ok";
-  try {
-    for (const [name, work] of steps) t.span(traceId, name, work);
-  } catch (err) {
-    status = "error";
-  }
-  t.count("requests", { route, status });
-  t.log(traceId, "request done", { route, status });
-  return status;
+function createRecorder() {
+  // TODO
 }
 
-module.exports = { createTelemetry, handleRequest };
+module.exports = { percentile, createRecorder };

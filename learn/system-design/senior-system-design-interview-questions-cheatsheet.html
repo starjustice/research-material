@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design Drill</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<header>
+  <h1>SYSTEM DESIGN INTERVIEW DRILL</h1>
+  <p class="sub">60 questions, beginner to senior · say it out loud first · then open the card</p>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="drill" type="button">Drill</button>
+  <button data-tab="how" type="button">How to answer</button>
+</nav>
+
+<section id="drill" class="active">
+  <div class="fc-bar">
+    <select id="fcCat" aria-label="Topic"><option value="all">All topics</option></select>
+    <select id="fcMode" aria-label="Which cards">
+      <option value="all">All cards</option>
+      <option value="notyet">Only not yet / not tried</option>
+    </select>
+    <button id="fcShuffle" type="button" aria-pressed="false">In order</button>
+    <button id="fcReset" type="button">Reset marks</button>
+  </div>
+  <div class="fc" id="flash"></div>
+  <p class="fc-stats" id="fcStats"></p>
+</section>
+
+<section id="how">
+  <div class="diagram-card">
+    <h3>The four-part answer, every time</h3>
+    <p class="lead">Every card has the same shape. Learn the shape once and fill it per question.</p>
+    <div class="svgwrap">
+      <svg viewBox="0 0 720 120" role="img" aria-label="Problem, how it works, tradeoff, my example">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect class="box box-pink" x="6" y="24" width="160" height="62" rx="10"/><text class="lbl" x="86" y="50">1 Problem</text><text class="lbl-s" x="86" y="68">what breaks without it</text>
+      <rect class="box box-blue" x="190" y="24" width="160" height="62" rx="10"/><text class="lbl" x="270" y="50">2 How it works</text><text class="lbl-s" x="270" y="68">draw the picture</text>
+      <rect class="box box-yellow" x="374" y="24" width="160" height="62" rx="10"/><text class="lbl" x="454" y="50">3 Tradeoff</text><text class="lbl-s" x="454" y="68">what it costs</text>
+      <rect class="box box-green" x="558" y="24" width="156" height="62" rx="10"/><text class="lbl" x="636" y="50">4 My example</text><text class="lbl-s" x="636" y="68">DBO fact or an idea</text>
+      <path class="arrow" d="M166,55 L188,55" marker-end="url(#arr)"/>
+      <path class="arrow" d="M350,55 L372,55" marker-end="url(#arr)"/>
+      <path class="arrow" d="M534,55 L556,55" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="112">60 to 90 seconds. Then stop and invite the follow-up: &quot;I can go deeper on any part.&quot;</text></svg>
+    </div>
+    <p class="say"><b>Say this:</b> "The problem is ... It works like this ... It costs ... In DBO ..., or as an idea ... I can go deeper on any part."</p>
+  </div>
+
+  <div class="diagram-card">
+    <h3>The seven steps clock</h3>
+    <p class="lead">For "design X" questions. Steps 1 to 5 are short on purpose. The deep dive gets the most time.</p>
+    <div class="svgwrap">
+      <svg viewBox="0 0 770 160" role="img" aria-label="The seven steps of a design round with minutes">
+      <defs><marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect class="box box-yellow" x="8" y="26" width="84" height="84" rx="10"/>
+      <text class="lbl" x="50" y="50">1</text>
+      <text class="lbl-s" x="50" y="70">Requirements</text>
+      <text class="lbl-m" x="50" y="101">5 min</text>
+      <path class="arrow" d="M92,68 L98,68"/>
+      <rect class="box box-yellow" x="98" y="26" width="84" height="84" rx="10"/>
+      <text class="lbl" x="140" y="50">2</text>
+      <text class="lbl-s" x="140" y="70">Estimate</text>
+      <text class="lbl-m" x="140" y="101">5 min</text>
+      <path class="arrow" d="M182,68 L188,68"/>
+      <rect class="box box-blue" x="188" y="26" width="84" height="84" rx="10"/>
+      <text class="lbl" x="230" y="50">3</text>
+      <text class="lbl-s" x="230" y="70">API</text>
+      <text class="lbl-m" x="230" y="101">5 min</text>
+      <path class="arrow" d="M272,68 L278,68"/>
+      <rect class="box box-blue" x="278" y="26" width="84" height="84" rx="10"/>
+      <text class="lbl" x="320" y="50">4</text>
+      <text class="lbl-s" x="320" y="70">Data</text>
+      <text class="lbl-m" x="320" y="101">5 min</text>
+      <path class="arrow" d="M362,68 L368,68"/>
+      <rect class="box box-green" x="368" y="26" width="110" height="84" rx="10"/>
+      <text class="lbl" x="423" y="50">5</text>
+      <text class="lbl-s" x="423" y="70">High level</text>
+      <text class="lbl-m" x="423" y="101">8 min</text>
+      <path class="arrow" d="M478,68 L484,68"/>
+      <rect class="box box-pink" x="484" y="26" width="190" height="84" rx="10"/>
+      <text class="lbl" x="579" y="50">6</text>
+      <text class="lbl-s" x="579" y="70">Deep dive</text>
+      <text class="lbl-m" x="579" y="101">15 min</text>
+      <path class="arrow" d="M674,68 L680,68"/>
+      <rect class="box box-violet" x="680" y="26" width="84" height="84" rx="10"/>
+      <text class="lbl" x="722" y="50">7</text>
+      <text class="lbl-s" x="722" y="70">Failure</text>
+      <text class="lbl-s" x="722" y="83">and ops</text>
+      <text class="lbl-m" x="722" y="101">5 min</text>
+      <path class="arrow-pink" d="M579,140 L579,114" marker-end="url(#arrp)"/>
+      <text class="lbl-s" x="579" y="154">The round is won here</text>
+      <text class="lbl-sl" x="8" y="16">Total about 48 minutes. Extra time in a 60 minute round goes to step 6.</text>
+    </svg>
+    </div>
+    <p class="say"><b>Say this:</b> "First I will agree the scope, then size it, then the API and data, then one picture, then go deep on the hardest part, and end with what can fail."</p>
+  </div>
+
+  <div class="diagram-card">
+    <h3>When you do not know</h3>
+    <p class="lead">Never a bare "I don't know". Four short steps instead.</p>
+    <div class="svgwrap">
+      <svg viewBox="0 0 720 120" role="img" aria-label="Four steps when you do not know">
+      <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect class="box box-yellow" x="6" y="24" width="160" height="62" rx="10"/><text class="lbl" x="86" y="50">1 Say it</text><text class="lbl-s" x="86" y="68">I have not used X</text>
+      <rect class="box box-blue" x="190" y="24" width="160" height="62" rx="10"/><text class="lbl" x="270" y="50">2 What I know</text><text class="lbl-s" x="270" y="68">the closest thing</text>
+      <rect class="box box-green" x="374" y="24" width="160" height="62" rx="10"/><text class="lbl" x="454" y="50">3 Best guess</text><text class="lbl-s" x="454" y="68">and the reason why</text>
+      <rect class="box box-violet" x="558" y="24" width="156" height="62" rx="10"/><text class="lbl" x="636" y="50">4 How I check</text><text class="lbl-s" x="636" y="68">docs or a small test</text>
+      <path class="arrow" d="M166,55 L188,55" marker-end="url(#arr2)"/>
+      <path class="arrow" d="M350,55 L372,55" marker-end="url(#arr2)"/>
+      <path class="arrow" d="M534,55 L556,55" marker-end="url(#arr2)"/>
+      <text class="lbl-s" x="360" y="112">The interviewer scores the guess and the reason. A bare &quot;skip&quot; scores zero.</text></svg>
+    </div>
+    <p class="say"><b>Say this:</b> "I have not used it directly. What I know is ... so my best guess is ... because ... I would check it by ..."</p>
+  </div>
+
+  <div class="hook"><b>Always a number</b><p>86,400 seconds a day, call it 100,000 · peak is 2 to 3 times average · 99.9% is about 43 minutes down a month · 3 retries at 3 layers is 27 calls · Snowflake ids: 4,096 per millisecond per machine · Lambda: 15 minutes, 10,240 MB, 6 MB request.</p></div>
+  <div class="hook"><b>Always a cost</b><p>Cache: speed, but stale data. Replica: more reads, but lag. Shard: more writes, but no joins across shards. Queue: fast request, but repeats and later results. Microservices: separate deploys, but network failures and more work to run.</p></div>
+  <div class="hook"><b>DBO facts you may say as facts</b><p>Four services (API with GraphQL, Prisma and Nexus; Auth with OTP and JWT; Queue with BullMQ on Redis; Cron) · three Postgres databases split by owner (auth, queue, toko) · CapRover on Docker Swarm · TADA, Manager and Jatis by webhooks and HTTP · the double refund from duplicate TADA webhooks, fixed with SELECT ... FOR UPDATE · you led the team.</p></div>
+  <div class="hook"><b>Everything else is an idea</b><p>Outbox, sagas, read replicas, CDN, PgBouncer, unique event ids, OpenTelemetry for DBO: say "an idea I would add", never "we built".</p></div>
+  <div class="hook"><b>One evening only? Drill these 10</b><p>Q1 where to start · Q3 estimate · Q17 cache-aside · Q24 replicas and lag · Q30 why a queue · Q32 at least once and idempotency · Q37 CAP and PACELC · Q39 retries and jitter · Q44 monolith or microservices · Q57 why X over Y.</p></div>
+
+  <div class="case"><span class="topic">Watch and play</span><b>Checked on 2026-10-16 (opened or found in web search)</b>
+    <p><a href="https://blog.bytebytego.com/p/ep46-step-by-step-guide-on-system" target="_blank" rel="noopener">ByteByteGo EP46: step-by-step guide</a>, with a 10 minute video on the four-step method · <a href="https://hellointerview.com/learn/system-design/in-a-hurry/delivery" target="_blank" rel="noopener">Hello Interview delivery framework</a>, a timed plan for 45 minutes · <a href="http://thesecretlivesofdata.com/raft" target="_blank" rel="noopener">Raft visualization</a>, press through a leader election · <a href="https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter" target="_blank" rel="noopener">AWS: timeouts, retries and backoff with jitter</a> · <a href="https://github.com/donnemartin/system-design-primer" target="_blank" rel="noopener">System Design Primer</a>, diagrams and flashcards · <a href="https://excalidraw.com/" target="_blank" rel="noopener">Excalidraw</a>, draw each picture from memory.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · the full answer with a picture for most questions is in the note "System design interview questions, beginner to senior"</footer>
+
+<script>
+window.SHEET = { key: "sd-questions", cards: [
+{
+"cat": "The round",
+"lvl": "Beginner",
+"q": "&quot;Design a URL shortener.&quot; Where do you start?",
+"p": "The prompt is vague on purpose. If you draw boxes in minute two, you design the wrong thing. You also run out of time before the interesting part.",
+"h": "You follow seven steps in a fixed order, like a clock. Requirements, estimate, API, data, high-level picture, deep dive, failure and operations. You say the plan out loud in one sentence first, so the interviewer can follow you.",
+"t": "A fixed order can feel slow. But it stops you from skipping requirements, which is the most common reason people get a lower level.",
+"m": "I would say: &quot;First I will agree the scope, then size it, then the API and data, then one picture, then go deep on the hardest part.&quot;",
+"f": "&quot;You have 45 minutes. Which step would you cut if time is short?&quot;",
+"r": "&quot;I would use microservices and Kafka.&quot; Tools before the problem."
+},
+{
+"cat": "The round",
+"lvl": "Beginner",
+"q": "What questions do you ask before you design anything?",
+"p": "One prompt can mean many systems. 100 requests per second and 100,000 per second are different designs. Asking nothing looks careless. Asking 15 questions wastes time.",
+"h": "Ask two kinds of questions. First, what users must be able to do (2 to 4 lines). Then the four that change the design: how many users, how fast it must answer, how exact the data must be, and how much downtime is allowed. Say defaults for the rest, and cut scope out loud.",
+"t": "Each question costs time. So propose a default with each one: &quot;I will assume 10 million users and reads much more than writes. Is that right?&quot;",
+"m": "For a points system like the one in DBO, &quot;how exact&quot; is the key question. A points balance must be exact. A &quot;popular products&quot; list can be a few minutes old.",
+"f": "&quot;Why does the consistency question change your design?&quot;",
+"r": "Asking no questions, or asking a long list and never using the answers."
+},
+{
+"cat": "The round",
+"lvl": "Mid",
+"q": "Estimate the traffic and storage for this system.",
+"p": "Without numbers you cannot say if you need one server or a hundred. Every later choice would be a guess.",
+"h": "Round hard, and do it out loud. A day has 86,400 seconds; call it 100,000. Then: writes per second = writes per day / 100,000. Reads = writes times the read to write ratio. Peak = average times 2 to 3. Storage per year = writes per day times row size times 365. Then <b>say what the number means</b>.",
+"t": "Rounding makes the numbers wrong by 10 to 20 percent. That is fine. You only need the size, like 10 GB or 10 TB.",
+"m": "10 million new links a day at 500 bytes is 5 GB a day, about 1.8 TB a year. One Postgres server holds that. 30,000 reads per second does not fit one server, so I add a cache.",
+"f": "&quot;Which number decides your design here, and why?&quot;",
+"r": "Calculating for three minutes and never using the result."
+},
+{
+"cat": "The round",
+"lvl": "Beginner",
+"q": "You do not know the technology the interviewer just named. What do you say?",
+"p": "A bare &quot;I don&#x27;t know&quot; ends the topic and scores zero. Faking it is worse: the next follow-up shows it.",
+"h": "Use a four-part script. Say what you have not used. Say what you do know that is close. Reason out loud to a best guess. Say how you would check.",
+"t": "It takes 30 seconds longer than &quot;I don&#x27;t know&quot;. It shows how you work on a new problem, which is what a senior does every week.",
+"m": "&quot;I have not run Cassandra. I know it spreads data by a key over many nodes, like sharding. So I guess a query without that key is slow. I would check the docs on partition keys.&quot;",
+"f": "They usually help you. Listen for the hint and use it.",
+"r": "&quot;Skip.&quot; Or long talk that never reaches a guess."
+},
+{
+"cat": "The round",
+"lvl": "Mid",
+"q": "&quot;We have 10 minutes left and you are still on the API.&quot; What do you do?",
+"p": "Many candidates spend 30 minutes on details and never show a full picture or a deep dive. The interviewer cannot score what you never reached.",
+"h": "Say it out loud, then move. &quot;I will park the rest of the API.&quot; Draw the full picture in 2 minutes. Pick the hardest part and go deep for 6 minutes. Name the top two failure cases in the last 2 minutes. Ask &quot;shall I go deeper here or move on?&quot; at each step so the interviewer can steer you.",
+"t": "You leave some parts thin. A complete, thin design with one deep part scores better than a perfect half.",
+"m": "I keep a small clock on paper: 5, 10, 15, 20, 28, 43 minutes. When the clock passes a mark, I move on.",
+"f": "&quot;What would you do with another 30 minutes?&quot; Have an answer: the second deep dive and how you would test it.",
+"r": "Ignoring the time hint and continuing the API."
+},
+{
+"cat": "Networking",
+"lvl": "Mid",
+"q": "How does DNS caching affect a deploy or a failover?",
+"p": "You move your service to a new IP address. Some users still go to the old one for minutes or hours. During a failure, the &quot;move&quot; is not instant.",
+"h": "DNS turns a name into an IP address. The resolver (the DNS server your phone or office asks) keeps each answer for its TTL. Until the TTL runs out, it keeps giving the old address. Some programs also keep the answer longer than the TTL.",
+"t": "A short TTL (60 to 300 seconds) means faster moves but many more DNS lookups. A long TTL is cheap but slow to change. For fast failover, put a load balancer with a stable address in front, and move servers behind it instead.",
+"m": "Before a planned move, lower the TTL a day early, move, then raise it again. In October 2025 an empty DNS record for an AWS database service caused a long outage across many AWS services.",
+"f": "&quot;Your Node server cached the old IP. Why, and what do you do?&quot;",
+"r": "&quot;DNS changes are instant.&quot;"
+},
+{
+"cat": "Networking",
+"lvl": "Beginner",
+"q": "What is the difference between an L4 and an L7 load balancer?",
+"p": "You have many servers. Something must spread requests across them. How much it reads from each request decides what it can do.",
+"h": "An L4 load balancer reads only the address and port, like a mail sorter who reads the envelope. It is very fast. An L7 load balancer opens the HTTP request and reads the path, headers and cookies. So it can send <code>/graphql</code> to one group and <code>/images</code> to another, limit requests, and check tokens.",
+"t": "L7 is smarter but does more work per request and must decrypt HTTPS. L4 is faster but blind to the content.",
+"m": "For web apps L7 is the default: nginx, Traefik, AWS ALB. CapRover, which DBO runs on, comes with nginx as its built-in L7 front door.",
+"f": "&quot;Is the load balancer itself a single point of failure?&quot;",
+"r": "&quot;L7 is newer so it is better.&quot;"
+},
+{
+"cat": "Networking",
+"lvl": "Beginner",
+"q": "What does a CDN do, and what should you never cache there?",
+"p": "Users far from your server wait for every round trip. Indonesia to a US server can be 200 ms per round trip. Your server also serves the same image a million times.",
+"h": "A CDN keeps copies of your responses on servers in many cities. A user&#x27;s request goes to the nearest one. If it has a fresh copy, it answers at once. If not, it asks your server once and keeps the copy. Your <code>Cache-Control</code> header tells it how long the copy stays fresh.",
+"t": "Copies can be old. You must clear them (purge) or use file names that change with each build. A wrong setting can show one user&#x27;s page to another.",
+"m": "Cache images, JS and CSS for a long time with a hash in the file name. Never cache personal pages, like a points balance or an order list, as shared copies. <b>Idea</b> for DBO: product images in the mobile app through a CDN.",
+"f": "&quot;How does the CDN decide that two requests are for the same thing?&quot;",
+"r": "&quot;The CDN makes everything faster&quot;, with no word about stale or private data."
+},
+{
+"cat": "Networking",
+"lvl": "Mid",
+"q": "WebSockets, server-sent events, or polling: how do you pick for live updates?",
+"p": "The server has news (a new message, an order status). Plain HTTP only answers when the client asks. So how does the news reach the screen quickly?",
+"h": "Polling: the client asks every few seconds. Simple, but wasteful and slow. Server-sent events (SSE): the client opens one HTTP request, and the server keeps sending events down it. One way only, with automatic reconnect. WebSocket: one long two-way connection. Both sides can send at any time.",
+"t": "Long connections are state on one server. When you have many servers, a message for user A may arrive at the wrong server, so you add a shared message channel like Redis pub/sub. WebSockets also need the load balancer to allow long connections.",
+"m": "Chat needs two-way, so WebSocket. A live order status or a streamed AI answer is one-way, so SSE. <b>Idea</b> for DBO: SSE for shipping status updates, fed by the Manager webhooks.",
+"f": "&quot;You have 10 servers and 1 million open connections. How does a message find its user?&quot;",
+"r": "&quot;WebSockets for everything.&quot;"
+},
+{
+"cat": "Networking",
+"lvl": "Mid",
+"q": "What changed from HTTP/1.1 to HTTP/2 to HTTP/3, and why does it matter for design?",
+"p": "A page needs 50 files. With HTTP/1.1 each connection carries one request at a time, so browsers open about 6 connections and the rest wait.",
+"h": "HTTP/2 sends many requests at the same time over one TCP connection (TCP: the usual reliable connection). But TCP delivers bytes in strict order. One lost packet stalls every request on that connection. HTTP/3 runs on QUIC, which is built on UDP (a simpler way to send packets, with no order promise). A lost packet only delays its own request. Setup also needs fewer round trips, and the connection survives a switch from Wi-Fi to mobile data.",
+"t": "HTTP/3 costs more CPU, and some networks block UDP, so browsers keep TCP as a backup. About 4 in 10 websites supported HTTP/3 in September 2026.",
+"m": "HTTP/3 helps most on weak mobile networks. <b>Idea</b> for DBO: store owners use the app on mobile data, so turning on HTTP/3 at the CDN is a cheap win.",
+"f": "&quot;Why did they build HTTP/3 on UDP instead of fixing TCP?&quot;",
+"r": "&quot;HTTP/3 is just faster.&quot;"
+},
+{
+"cat": "Networking",
+"lvl": "Mid",
+"q": "What does an API gateway do, and what should it not do?",
+"p": "You have several services. Without one front door, every service must repeat HTTPS, token checks, limits and logs. And internal services become visible to the internet.",
+"h": "The gateway is the one public door. It ends HTTPS, routes each path to a service, checks that the login token is real, limits requests, sets size limits and timeouts, and adds a request id for logs. Services behind it stay private.",
+"t": "The gateway is one more hop and one more thing that can fail. If you put business logic in it, it becomes a second monolith that every team must change.",
+"m": "In DBO, three clients enter through one gateway to the API and Auth services. My rule: the gateway checks &quot;is this token real&quot;, and the service checks &quot;may this user do this&quot;.",
+"f": "&quot;What is the difference between an API gateway and a load balancer?&quot;",
+"r": "Putting data joins and business rules in the gateway."
+},
+{
+"cat": "Networking",
+"lvl": "Senior",
+"q": "How do you choose timeouts between services? And what is the difference between a 502 and a 504?",
+"p": "A call with no timeout can wait forever. Waiting requests hold memory and connections until the server falls over. Badly set timeouts also mean the caller gives up while the work still runs.",
+"h": "Start from the user&#x27;s total budget, for example 2 seconds. Each hop gets less time than the hop above it. Set each timeout a little above the normal slow time of that service (its p99: the time 99 of 100 requests beat). A 502 means the proxy got a broken answer or a closed connection. A 504 means the proxy waited and gave up.",
+"t": "Too short: you fail good requests on a slow day. Too long: one slow service drags everything down. Retries inside the budget must fit too.",
+"m": "<b>Idea</b> from the DBO case study: 2 to 5 seconds on calls to TADA, Manager and Jatis, so a slow OTP provider cannot hang the login.",
+"f": "&quot;Users see 504s at peak. Where do you look first?&quot;",
+"r": "&quot;30 seconds everywhere.&quot;"
+},
+{
+"cat": "Scaling",
+"lvl": "Beginner",
+"q": "Vertical or horizontal scaling: what is the difference and which first?",
+"p": "One server is full. CPU is at 90% and requests get slow.",
+"h": "Vertical: move to a bigger machine with more CPU and memory. No code change. Horizontal: run several copies behind a load balancer. It has no top limit and survives one machine dying, but the app must be stateless.",
+"t": "Vertical is simple but has a ceiling and one point of failure. Horizontal needs stateless code and a load balancer. Databases are usually scaled up first, app servers out first.",
+"m": "In DBO the services run as Docker containers on CapRover, so app servers can scale out by adding copies. The database usually grows by a bigger machine first.",
+"f": "&quot;Why are databases harder to scale out than app servers?&quot;",
+"r": "&quot;Always horizontal, it is more modern.&quot;"
+},
+{
+"cat": "Scaling",
+"lvl": "Beginner",
+"q": "What does &quot;stateless&quot; mean and why does it matter for scaling?",
+"p": "You add a second server. Users get logged out, or their cart disappears, because their data was in the memory of server 1.",
+"h": "A stateless server keeps nothing about a user between requests. Everything a request needs comes with it (a token) or lives in a shared place (a database or Redis). Then any copy can answer any request, and copies can be added or removed at any time.",
+"t": "Every request now reads the shared store, which adds a little time and makes that store important. It must be fast and must not go down.",
+"m": "In DBO, the Auth service issues JWTs (signed login tokens), and the API validates the token on each request. That lets the API run as several copies, as long as it keeps nothing in its own memory.",
+"f": "&quot;Where else does state hide? Think of uploaded files and timers.&quot;",
+"r": "&quot;Stateless means no database.&quot;"
+},
+{
+"cat": "Scaling",
+"lvl": "Mid",
+"q": "How do you keep users logged in across many servers: sticky sessions, a session store, or JWT?",
+"p": "Login state must be found by whichever server gets the next request.",
+"h": "Three options. Sticky sessions: the load balancer sends a user to the same server every time. A shared session store: a session id in a cookie, and the data in Redis. JWT: a signed token that holds the user id; any server can check the signature without a lookup.",
+"t": "Sticky sessions break when that server dies or you scale down. A session store is one lookup per request, but logout is instant. JWTs need no lookup, but you cannot cancel one before it expires. So keep access tokens short (5 to 15 minutes) with a refresh token that you can cancel.",
+"m": "DBO uses JWT from its own Auth service, so the API stays stateless. A fair follow-up is how a stolen token is cancelled: short life plus refresh tokens stored server side is the usual answer.",
+"f": "&quot;A user changes their password. How do you log out their other devices?&quot;",
+"r": "&quot;JWT is always better than sessions.&quot;"
+},
+{
+"cat": "Scaling",
+"lvl": "Mid",
+"q": "How does autoscaling work, and what goes wrong with it?",
+"p": "Traffic at 9 a.m. is ten times traffic at 3 a.m. Paying for peak all day is waste. Too few servers at peak means slow pages.",
+"h": "A controller watches a signal and adds or removes copies. For web servers, the signal is CPU or requests per copy. For workers, it is how many jobs wait in the queue and how old the oldest one is. New copies need time to start before they help.",
+"t": "Scaling is slow for a sudden spike, because start time can be a minute. Each copy opens its own database pool, so 20 copies times 10 connections is 200 connections. Removing copies too fast causes up-and-down flapping.",
+"m": "<b>Idea</b> for DBO: scale workers on queue age, not CPU. Put PgBouncer (a tool that lets many app connections share a few real database connections) in front of Postgres before adding many API copies.",
+"f": "&quot;A flash sale starts at 12:00. Autoscaling is too slow. What do you do?&quot;",
+"r": "&quot;Autoscaling handles any load.&quot;"
+},
+{
+"cat": "Caching",
+"lvl": "Beginner",
+"q": "Where can you cache, and how does cache-aside work?",
+"p": "The same data is read again and again from the database. The database does the same work every time and becomes slow.",
+"h": "You can cache in the browser, at the CDN, in the app&#x27;s memory, or in Redis. Cache-aside is the usual Redis pattern. The app asks the cache. On a miss, it reads the database, saves the result in the cache with a time limit, and returns it.",
+"t": "The first read is slower, and the copy can be old for up to its time limit. You also have one more system to run.",
+"m": "<b>Idea</b> for DBO: cache the product catalog, which many store owners read and admins rarely change. Never cache the points balance used to approve a redeem.",
+"f": "&quot;What happens to the cached copy when an admin changes the product price?&quot;",
+"r": "&quot;Cache everything for an hour.&quot;"
+},
+{
+"cat": "Caching",
+"lvl": "Mid",
+"q": "Cache-aside, write-through, or write-back: when do you use each?",
+"p": "Writes change data. The cache and the database must not drift apart, and you must not lose writes.",
+"h": "Cache-aside: the app writes the database, then deletes the cache key. Write-through: every write goes to the cache and the database together, so the cache is always warm. Write-back: the write goes to the cache only, and the cache writes to the database later in batches.",
+"t": "Cache-aside is simple and safe, but the first read after a change is a miss. Write-through makes every write slower and fills the cache with data nobody reads. Write-back is the fastest for writes, but if the cache dies before it flushes, the writes are lost.",
+"m": "Cache-aside is my default. Write-back fits counters where losing a few seconds is fine, like view counts. <b>Idea:</b> never use write-back for orders or points.",
+"f": "&quot;Why delete the key instead of updating it with the new value?&quot;",
+"r": "Naming the three patterns without saying when each one loses data."
+},
+{
+"cat": "Caching",
+"lvl": "Mid",
+"q": "How do you keep the cache and the database in sync?",
+"p": "After an update, readers may still see the old value. Worse, a slow reader can put an old value back into the cache after you deleted it.",
+"h": "Write the database first, then delete the key. Always set a time limit, so any mistake heals itself. The race: reader A misses and reads the old row, writer B updates and deletes the key, then A saves the old row into the cache.",
+"t": "Fixes add work. Short time limits cost more misses. Deleting a second time a moment later closes most of the race. Reading database changes (the change log) and deleting keys from it is the strongest fix, but it is one more system.",
+"m": "<b>Idea</b> for DBO: product prices with cache-aside, a 5 minute limit, and delete on update from the CMS. For money decisions, always read the database.",
+"f": "&quot;Why not update the database and the cache in one step?&quot;",
+"r": "&quot;We just set a long TTL.&quot;"
+},
+{
+"cat": "Caching",
+"lvl": "Senior",
+"q": "A popular key expires and the database falls over. What happened and how do you prevent it?",
+"p": "A cache stampede. A hot key (the home page) expires. In the same second, 5,000 requests miss and all go to the database for the same row.",
+"h": "Let only one request rebuild the key. The others wait a moment or get the old copy. Other fixes: refresh a little before the time limit, add a random spread to time limits so keys do not expire together, and serve the old copy while one request refreshes it.",
+"t": "Locks add code and a short wait. Serving old copies means some users see slightly old data for a few seconds.",
+"m": "<b>Idea</b> for DBO: the home banner list read by every store owner when the app opens. One rebuild with a short Redis lock and a random 10% spread on time limits.",
+"f": "&quot;What if the request holding the lock crashes?&quot;",
+"r": "&quot;Make the TTL longer.&quot; The stampede still comes, just later."
+},
+{
+"cat": "Caching",
+"lvl": "Senior",
+"q": "One key gets so much traffic that one Redis node is overloaded. What do you do?",
+"p": "A hot key. In a Redis cluster each key lives on one node. A flash sale product read 200,000 times a second puts all of that on one node, while the others sit idle.",
+"h": "Three fixes. Keep a tiny copy in each app server&#x27;s memory for 1 to 5 seconds, so most reads never reach Redis. Or copy the key under several names (<code>product:42#1</code> to <code>#10</code>) on different nodes and read a random one. Or add read copies of that Redis node.",
+"t": "Memory copies can be a few seconds old, and each app server has its own copy. Several names mean you must update all of them on change.",
+"m": "<b>Idea:</b> a flash sale in DBO for one product. I would first measure which keys are hot. Redis has a command-line option to find hot keys. Then add a 2 second in-memory copy.",
+"f": "&quot;How do you find the hot key before it hurts?&quot;",
+"r": "&quot;Add more Redis nodes.&quot; The key still lives on one node."
+},
+{
+"cat": "Caching",
+"lvl": "Senior",
+"q": "Redis goes down. What happens to your system?",
+"p": "If the cache is a speed layer, the database suddenly gets all reads. But Redis often holds more than cache: sessions, rate limits and job queues.",
+"h": "List what Redis does, then plan each. Cache: fall back to the database, but with short Redis timeouts (about 50 ms) and a limit, so the database is not flooded. Rate limits: usually let requests through, with an alert. Queues: jobs stop until Redis is back, so turn on Redis saving to disk.",
+"t": "Letting requests through keeps the site up but removes protection. On a route that costs money, you may choose to block instead.",
+"m": "In DBO, BullMQ jobs run on Redis, so emails, point sync and webhook processing stop if Redis dies. <b>Idea</b> from the case study: keep the buying flow on the database so it still works, keep Redis saving to disk, and block the OTP route instead of letting it through, because each OTP message costs money.",
+"f": "&quot;How would you even know the cache is down if the site still works?&quot;",
+"r": "&quot;It is only a cache, nothing happens.&quot;"
+},
+{
+"cat": "Data",
+"lvl": "Beginner",
+"q": "SQL or NoSQL for this system?",
+"p": "Picking a store by trend causes pain later. Each store is built for different reads and writes.",
+"h": "Start with how the data is read and written. Relational data, transactions, money, and unknown future queries: Postgres. One simple key lookup at huge scale: a key-value or document store like DynamoDB. Full-text search: a search engine. Big reports: a column store. Cache and queues: Redis.",
+"t": "Each extra store needs backups, monitoring and syncing. Postgres can go far with indexes, replicas and partitions.",
+"m": "DBO uses Postgres for product data and Redis for BullMQ jobs, in three Postgres databases split by owner (auth, queue, toko).",
+"f": "&quot;When would you pick DynamoDB over Postgres?&quot;",
+"r": "&quot;NoSQL scales and SQL does not.&quot;"
+},
+{
+"cat": "Data",
+"lvl": "Mid",
+"q": "How do read replicas work, and what problem do they bring?",
+"p": "One database server can only answer so many reads. Most apps read far more than they write.",
+"h": "The main database (the primary) takes all writes. It streams its change log to copies, which replay it and answer reads. You send heavy or not-urgent reads to the copies.",
+"t": "Copies are behind by some milliseconds or seconds (lag). A user may not see what they just wrote. Writes are still limited to one primary.",
+"m": "<b>Idea</b> from the DBO case study: send CMS reports and order history to a replica. Read from the primary for a few seconds after a user writes. Checkout and redeem always read the primary.",
+"f": "&quot;How do you watch the lag, and what do you do when it is high?&quot;",
+"r": "Not mentioning lag at all."
+},
+{
+"cat": "Data",
+"lvl": "Senior",
+"q": "How would you shard this database, and how do you pick the shard key?",
+"p": "One primary cannot take all the writes, or the data is too big for one machine, even after replicas and partitions.",
+"h": "Split the rows across several databases by a key, like <code>store_id</code>. A small router uses the key to find the right database. A good key has many different values, spreads load evenly, and keeps most queries inside one shard.",
+"t": "You lose joins and transactions across shards, and unique rules across all data. Moving data when you add shards is hard. A key based on time puts all new writes on the last shard.",
+"m": "<b>Idea</b> for DBO: shard by <code>store_id</code> only if one primary cannot take the writes. Almost every query is &quot;orders of this store&quot;, so most queries stay in one shard. Before that: indexes, PgBouncer, replicas, and monthly partitions (one big table split into a table per month, inside one database).",
+"f": "&quot;One store is 100 times bigger than the others. What now?&quot;",
+"r": "&quot;Shard by user id&quot; without saying why, or sharding as the first step."
+},
+{
+"cat": "Data",
+"lvl": "Senior",
+"q": "What is consistent hashing and why is it used?",
+"p": "You spread keys over servers with <code>hash(key) % N</code>. You add one server, N changes, and almost every key moves. The cache is suddenly empty, or a lot of data moves.",
+"h": "Put servers and keys on a circle by their hash. Each key belongs to the next server clockwise. Adding a server only takes the keys between it and the server before it. About 1 of every N keys moves, not almost all. Each server sits on the circle many times (virtual nodes) so the load is even.",
+"t": "It is more complex than modulo, and without virtual nodes the load is uneven. Range queries across keys do not work, because hashing scatters them.",
+"m": "<b>Idea:</b> a cache cluster where cache servers come and go. Real systems use it: DynamoDB-style stores, Cassandra, and some load balancers to keep a user on the same server.",
+"f": "&quot;Why do we need virtual nodes?&quot;",
+"r": "&quot;It is a hash that is consistent.&quot;"
+},
+{
+"cat": "Data",
+"lvl": "Mid",
+"q": "How do you make unique ids when many servers create rows at the same time?",
+"p": "One auto-increment counter lives in one database. With several databases or offline mobile clients, you need ids that never clash, and that do not slow down the index.",
+"h": "Auto-increment: small and ordered, but only one database can hand them out. Random UUID (v4): made anywhere, but random order spreads inserts all over the index. UUIDv7: starts with the time, so new ids go to the end of the index. Postgres 18 has <code>uuidv7()</code>. Snowflake-style 64-bit id: time, machine number, and a counter.",
+"t": "UUIDs are 16 bytes against 8 bytes for a bigint. Time-ordered ids show when a row was made. Snowflake needs a unique machine number for each server.",
+"m": "<b>Idea</b> for DBO: bigint ids inside the database, and a UUIDv7 public id for anything in URLs or shared with TADA or Manager.",
+"f": "&quot;Why exactly are random UUIDs slower to insert?&quot;",
+"r": "&quot;UUIDs are always better because they are unique.&quot;"
+},
+{
+"cat": "Data",
+"lvl": "Mid",
+"q": "You add a search engine next to Postgres. How do you keep it in sync?",
+"p": "The app writes Postgres, then writes the search engine. If the second write fails, search shows old or missing products. Writing two systems in one request (a dual write) always has this gap.",
+"h": "Write only to Postgres. Then copy changes to search from one reliable source: an outbox table (a &quot;send this later&quot; table, see Q34) written in the same transaction, or CDC that reads the Postgres change log. A worker reads the changes and updates the search index. If the worker fails, it continues from where it stopped.",
+"t": "Search is a few seconds behind. You run one more system. Ask first: Postgres full-text search may be enough for a small catalog.",
+"m": "<b>Idea</b> for DBO: start with Postgres full-text search for the product catalog. Move to a search engine fed by an outbox only if relevance or speed is not good enough.",
+"f": "&quot;How do you rebuild the whole index without downtime?&quot;",
+"r": "&quot;Write to both in the API handler.&quot;"
+},
+{
+"cat": "Data",
+"lvl": "Mid",
+"q": "How do users upload large files, like photos or videos?",
+"p": "If a 50 MB upload goes through your API server, it holds memory and a connection for the whole upload. Many uploads at once can stop the API.",
+"h": "The API checks the user, then asks object storage (like S3) for a pre-signed URL: a link that allows one upload, to one path, for a few minutes. The client uploads straight to storage. Storage tells your app when it is done, or the client confirms. A worker then checks the file (type, size, virus scan) and makes thumbnails.",
+"t": "More steps, and you must clean up uploads that were started but never confirmed. The storage bucket must stay private, and you must limit size in the signed policy.",
+"m": "In DBO, store owners upload a KTP photo for verification. <b>Idea:</b> a pre-signed URL to a private bucket, with a strict size limit, and admins see it through a short-lived signed link.",
+"f": "&quot;How do you stop users from uploading a 5 GB file or a script?&quot;",
+"r": "&quot;Send the file as base64 in the GraphQL mutation.&quot;"
+},
+{
+"cat": "Async and events",
+"lvl": "Beginner",
+"q": "Why put a queue between two parts of a system?",
+"p": "The API sends an email inside the request. The email service is slow, so the user waits. If it is down, the order fails, even though the order itself was fine.",
+"h": "The API saves the order and puts a job on a queue. It answers the user at once. A worker takes jobs from the queue and does the slow work. If the worker fails, the job stays and is tried again.",
+"t": "The work happens a little later (eventual). You must handle repeats and failures, and watch the queue size. Debugging spans more parts.",
+"m": "DBO has a Queue service with BullMQ on Redis and separate workers for email, points and webhooks. Background load does not compete with request traffic.",
+"f": "&quot;What should stay synchronous and never go on a queue?&quot;",
+"r": "&quot;Queues make things faster.&quot; They make the request faster, not the work."
+},
+{
+"cat": "Async and events",
+"lvl": "Mid",
+"q": "Queue or stream: what is the difference between something like RabbitMQ or SQS and Kafka?",
+"p": "Both move messages. But they keep them differently, so they solve different problems.",
+"h": "A queue hands each message to one worker. After the worker confirms, the message is deleted. A stream is a log kept for days. Each reader group keeps its own position, so many groups can read the same messages, and you can replay from the start. Order is kept inside one partition (a slice of the log).",
+"t": "Queues are simple and good for jobs with retries per message. Streams are good for many readers, replay and high volume, but they cost more to run and order is only per partition.",
+"m": "DBO uses BullMQ, a job queue, which fits jobs like emails and webhook handling. <b>Idea:</b> a stream only makes sense if many teams need the same order events. In 2026 Kafka also has a queue-style mode (share groups), production-ready since Kafka 4.2.",
+"f": "&quot;Why can a slow message in a Kafka partition block the ones behind it?&quot;",
+"r": "&quot;Kafka is a faster queue.&quot;"
+},
+{
+"cat": "Async and events",
+"lvl": "Mid",
+"q": "Your queue delivers at least once. How do you stop a job from running twice?",
+"p": "Workers crash after doing the work but before confirming. Webhook senders retry on timeouts. So the same message arrives twice. Paying or giving points twice is a real bug.",
+"h": "Make the handler idempotent. Save the message id with a unique rule in the same transaction as the work. If the insert finds the id already there, stop. Or change state with a guarded update: <code>UPDATE ... WHERE status = &#x27;PENDING&#x27;</code>, and only the first one wins.",
+"t": "You need a table of seen ids and must decide how long to keep them. Calls to outside APIs need their own idempotency key.",
+"m": "This is the real DBO incident. TADA sent the same refund event twice at almost the same moment. Both handlers passed the &quot;already refunded?&quot; check, so stores got double points. We fixed balances with a script and added <code>SELECT ... FOR UPDATE</code> so the second handler waits and then sees the first result. The unique event id is the next layer I would add.",
+"f": "&quot;What if the side effect is an email, not a database row?&quot;",
+"r": "&quot;Our queue guarantees exactly once.&quot;"
+},
+{
+"cat": "Async and events",
+"lvl": "Mid",
+"q": "What is a dead letter queue, and what do you do with a message that always fails?",
+"p": "A message with bad data fails every time (a poison message). If it is retried forever, it wastes workers. In an ordered log, it blocks every message behind it.",
+"h": "Retry a few times with growing waits. After the limit (for example 5 tries), move the message to a side shelf: the dead letter queue. Alert when the shelf is not empty. A person looks, fixes the bug or the data, and sends the messages back (a redrive).",
+"t": "A dead letter queue nobody watches is a silent data loss. The redrive must be idempotent too, because the messages run again.",
+"m": "In BullMQ, jobs have a number of tries and a wait setting, and failed jobs stay in a failed list that works like a DLQ. <b>Idea</b> for DBO: alert when the failed list for webhook jobs grows.",
+"f": "&quot;How do you tell a bug from a temporary outage of the other service?&quot;",
+"r": "&quot;Retry forever.&quot;"
+},
+{
+"cat": "Async and events",
+"lvl": "Senior",
+"q": "You save an order and must also publish an &quot;order created&quot; event. How do you make sure both happen?",
+"p": "Two systems, two writes. Save then publish: the app may crash between them, and the event is lost. Publish then save: the save may fail, and the event is a lie.",
+"h": "The transactional outbox. In one database transaction, save the order and insert a row into an <code>outbox</code> table. Both commit or neither does. A separate relay reads new outbox rows, publishes them, and marks them sent.",
+"t": "The event leaves a moment later. If the relay crashes after publishing but before marking it sent, it publishes again. So consumers must be idempotent.",
+"m": "<b>Idea</b> for DBO: when an order is created, call Manager from a BullMQ job fed by an outbox row, not inside the GraphQL mutation&#x27;s transaction.",
+"f": "&quot;Polling the outbox or reading the change log: which and why?&quot;",
+"r": "&quot;Wrap the database write and the publish in a try-catch.&quot;"
+},
+{
+"cat": "Async and events",
+"lvl": "Senior",
+"q": "An order spans payment, stock and shipping in three services. How do you keep them consistent without one big transaction?",
+"p": "You cannot lock rows in three databases at once in a safe way. If payment succeeds and stock fails, the customer paid for nothing.",
+"h": "A saga: a list of local steps, each with an undo step (a compensation). If step 3 fails, run the undo for steps 2 and 1. One coordinator can drive the steps (orchestration), or each service reacts to the last event (choreography). The order has clear states: pending, paid, reserved, confirmed, or cancelled.",
+"t": "Users can see in-between states. Undo steps can fail too, so they must be retried and idempotent. It is much more code than one transaction.",
+"m": "In DBO, a redeem already spans two systems: we lower the points in our database, call TADA, and TADA reports the result by webhook. <b>Idea</b> from the case study: treat it as a small saga, with a &quot;pending&quot; redeem and an undo if TADA fails or never answers.",
+"f": "&quot;Orchestration or choreography for this case, and why?&quot;",
+"r": "&quot;Use a distributed transaction across all services.&quot;"
+},
+{
+"cat": "Async and events",
+"lvl": "Senior",
+"q": "Do messages arrive in order? What if they do not?",
+"p": "&quot;Shipped&quot; arrives after &quot;delivered&quot;. If you apply events in arrival order, the order goes back to &quot;shipped&quot; and the user is confused.",
+"h": "Most queues do not promise order once there are retries or several workers. A stream keeps order only inside one partition, so you send all events for one order with the same key. Inside the handler, protect yourself anyway: give events a version or time, and only move state forward.",
+"t": "Full order means one worker per key, which limits speed. Version checks need a version in every event.",
+"m": "DBO gets order and shipping status from Manager by webhook. <b>Idea</b> from the case study: only allow status to move forward, and never let a late event lower it.",
+"f": "&quot;Two workers take two events for the same order at once. What happens?&quot;",
+"r": "&quot;The queue keeps them in order.&quot;"
+},
+{
+"cat": "Reliability",
+"lvl": "Mid",
+"q": "Explain CAP in plain words. Then what does PACELC add?",
+"p": "Your data is copied to two places. The network between them breaks. A user writes on side A. What does side B answer?",
+"h": "CAP says: during a network break, you choose. Either refuse answers that may be wrong (consistency), or answer with possibly old data (availability). You cannot have both while the break lasts. PACELC adds the normal day: when there is no break, you still choose between fast answers (latency) and up-to-date answers (consistency).",
+"t": "Choosing correct means some users get errors during a break. Choosing available means some users see old data.",
+"m": "A points balance should choose correct: refuse rather than allow a double spend. A product list can choose available. <b>Idea:</b> in DBO, I would say this per feature, not once for the whole system.",
+"f": "&quot;Is Postgres with async replicas CP or AP?&quot;",
+"r": "&quot;Pick two of three.&quot; Breaks are not optional, so the real choice is only during a break."
+},
+{
+"cat": "Reliability",
+"lvl": "Mid",
+"q": "What consistency levels exist, and which does each feature need?",
+"p": "&quot;Consistent&quot; means different things. If you do not name the level, you either pay too much or show users wrong data.",
+"h": "From strongest to weakest. <b>Strong:</b> every read sees the latest write, as if there were one copy. <b>Read your own writes:</b> you always see your own changes; others may lag. <b>Monotonic reads:</b> you never see time go backwards. <b>Eventual:</b> if writes stop, all copies agree after some time.",
+"t": "Stronger levels need more waiting, more round trips, or reading from one primary. Weaker levels are fast and survive failures, but show old data.",
+"m": "<b>Idea</b> for DBO: points balance and redeem need strong (read from the primary). A store&#x27;s own order list needs read-your-own-writes (primary for a few seconds after a change). The &quot;popular products&quot; list can be eventual.",
+"f": "&quot;How do you build read-your-own-writes on top of replicas?&quot;",
+"r": "&quot;We use eventual consistency&quot; for everything, with no feature named."
+},
+{
+"cat": "Reliability",
+"lvl": "Senior",
+"q": "A service is failing. How should clients retry, and how can retries make it worse?",
+"p": "A short failure happens. Every client retries at once, in sync. The service was almost back, and the retry wave knocks it down again. With retries at many layers, the load multiplies.",
+"h": "Retry only safe (idempotent) calls. Wait longer each time (exponential backoff: 100 ms, 200 ms, 400 ms), with a cap. Add jitter, a random part of the wait, so clients spread out. Limit retries to about 3, and retry at one layer only. Use a retry budget: stop retrying when many calls already fail.",
+"t": "Retries hide short failures but add load. Longer waits mean slower recovery for each user.",
+"m": "<b>Idea</b> from the DBO case study: calls to TADA and Manager retry with jittered backoff, only after the call is made idempotent with an idempotency key, so a retry cannot redeem twice.",
+"f": "&quot;Why is jitter needed if you already back off?&quot;",
+"r": "&quot;Retry 5 times immediately.&quot;"
+},
+{
+"cat": "Reliability",
+"lvl": "Mid",
+"q": "What is a circuit breaker and when do you use one?",
+"p": "The payment service is down. Every request still waits for a 5 second timeout. Your threads and connections fill up with waiting calls, and your own service gets slow for everyone.",
+"h": "A switch around the call. Closed: calls go through, and failures are counted. Open: after too many failures, calls fail at once, with no waiting. Half-open: after a cool-down, a few test calls go through. If they work, it closes again.",
+"t": "While open, even a working request fails. You need a fallback: a cached answer, a &quot;try later&quot; message, or a queue that sends later. Bad thresholds open too often or too late.",
+"m": "<b>Idea</b> from the DBO case study: one breaker per provider. If Manager is down, fail fast and keep the orders in a queue for later, instead of stacking timeouts across all API copies.",
+"f": "&quot;Circuit breaker and retries together: in which order?&quot;",
+"r": "&quot;It restarts the failing service.&quot;"
+},
+{
+"cat": "Reliability",
+"lvl": "Senior",
+"q": "How do servers agree on a leader? Explain Raft simply.",
+"p": "Several servers keep the same data. Exactly one must take writes. If two think they are the leader, data splits and is lost.",
+"h": "In Raft, the leader sends heartbeats. If a follower hears nothing for a random short time (around 150 to 300 ms in the paper), it becomes a candidate and asks for votes for a new term. A server needs votes from a majority to lead. A write is final only when a majority has saved it.",
+"t": "You need an odd number of servers. 3 servers survive 1 failure, 5 survive 2. Each write waits for a majority, which adds time, more so across regions.",
+"m": "I would not write Raft. I would use a system built on it: etcd (used by Kubernetes) and Kafka&#x27;s controller (KRaft). <b>Idea:</b> in an interview, say &quot;I use etcd or the database for this, not my own code&quot;.",
+"f": "&quot;Why must the number of servers be odd?&quot;",
+"r": "&quot;The servers just pick one.&quot;"
+},
+{
+"cat": "Reliability",
+"lvl": "Senior",
+"q": "Two workers must not process the same thing at once. Can you use a Redis lock?",
+"p": "A lock in Redis has a time limit (a lease) so it frees itself if the holder dies. But a worker can pause (a long cleanup pause, a slow network) past the time limit. Now two workers think they hold the lock.",
+"h": "Ask what the lock is for. To avoid duplicate work (efficiency), a simple Redis lock is fine: <code>SET key value NX PX 30000</code> means &quot;set only if missing, and free it after 30 seconds&quot;; a rare double run only wastes time. For correctness, the storage itself must refuse old holders: each lock comes with a number that goes up (a fencing token), and the database rejects writes with an older number. Or use the database&#x27;s own locks and unique rules.",
+"t": "Fencing needs the storage to check the token. Database locks are safe but tie up connections.",
+"m": "In DBO, the double refund was fixed with <code>SELECT ... FOR UPDATE</code> on the store row: the database&#x27;s own lock, inside the same transaction as the check and the write.",
+"f": "&quot;What is the Redlock debate about?&quot;",
+"r": "&quot;Redis is single-threaded so the lock is always safe.&quot;"
+},
+{
+"cat": "Reliability",
+"lvl": "Senior",
+"q": "One slow service took down the whole system. How does that happen, and how do you stop it?",
+"p": "A cascading failure. Service C gets slow. B&#x27;s calls to C wait, so B&#x27;s connections fill up. A&#x27;s calls to B now wait too. Retries add more load. Soon everything is down, though only C had a problem.",
+"h": "Break the chain at each link. Timeouts so nobody waits forever. Separate connection pools per dependency (bulkheads, like walls in a ship), so a slow C cannot use up the pool for D. Circuit breakers to fail fast. Load shedding: reject extra requests early with a 503 instead of queuing them. Limited retries with jitter.",
+"t": "Each guard rejects some good requests on purpose, to keep the rest working. It must be tuned and tested, for example with planned failure tests.",
+"m": "In October 2025, an empty DNS record for one AWS database service spread to many other AWS services; full recovery took about 15 hours. <b>Idea</b> for DBO: a hanging Jatis OTP call must not block the whole Auth service, so it gets its own timeout and limit.",
+"f": "&quot;Why can retries make a cascading failure worse?&quot;",
+"r": "&quot;Add more servers.&quot; More servers send more waiting calls to the slow service."
+},
+{
+"cat": "Architecture",
+"lvl": "Mid",
+"q": "Monolith or microservices for a new product?",
+"p": "Splitting too early gives you network calls, many deploys and broken transactions, with no benefit. Not splitting ever can mean one huge app that every team must change at once.",
+"h": "Start with a monolith with clear modules. Split out a service only when there is a real reason: a part needs very different scale, different security, its own release speed, or a separate team.",
+"t": "Services give independent deploys and scaling, but cost network failures, distributed data, and more operations work. A monolith is simple, but needs discipline to keep modules apart.",
+"m": "In DBO the split was by operational need, not domain: Auth for security, Queue and workers so background load does not slow requests, and Cron so scheduled jobs run once. The product domain stayed in one API service. Public case: Amazon Prime Video moved one workload back to a monolith in 2023 and cut its cost by about 90%.",
+"f": "&quot;What signal would make you split the API service?&quot;",
+"r": "&quot;Microservices because Netflix uses them.&quot;"
+},
+{
+"cat": "Architecture",
+"lvl": "Mid",
+"q": "What is a modular monolith, and how do you keep the modules apart?",
+"p": "Monoliths turn into a mess when any code can call any other code and read any table. Then nothing can be changed or split out safely.",
+"h": "One app, one deploy, but split into modules like orders, points and profile. Each module has a small public interface. Other modules may only call that, never its inside code or its tables. A lint rule or build check enforces the borders.",
+"t": "Borders need discipline and tooling. A bad module can still slow the whole app, because they share one process and one deploy.",
+"m": "<b>Idea</b> from the DBO case study: keep the API service whole, but organize it into orders, points, profile and content modules with no imports of each other&#x27;s inside code. Then one can be extracted later if a real reason appears. Shopify is the public example of a large modular monolith.",
+"f": "&quot;How would you extract one module into a service later?&quot;",
+"r": "&quot;It is a monolith with folders.&quot;"
+},
+{
+"cat": "Architecture",
+"lvl": "Mid",
+"q": "What is a BFF, and when would you add one?",
+"p": "A mobile app and an admin website need different data shapes. One general API makes the app download too much on mobile data, or forces many calls per screen.",
+"h": "A backend for frontend is a thin backend made for one client. The mobile BFF calls the core services and returns exactly what each screen needs. The admin BFF does the same for the admin site. The BFF has no business rules of its own.",
+"t": "More services to deploy, and logic can get copied into each BFF. GraphQL often solves the same problem, because each client asks for exactly its fields.",
+"m": "In DBO one GraphQL API serves both the app and the CMS, and GraphQL already lets each client pick its fields. <b>Idea</b> from the case study: run the same API image as two deployments, one for app traffic and one for CMS traffic, so a heavy admin action cannot slow store owners.",
+"f": "&quot;Who owns the BFF: the frontend team or the backend team?&quot;",
+"r": "&quot;A BFF is an API gateway.&quot;"
+},
+{
+"cat": "Architecture",
+"lvl": "Senior",
+"q": "When would you use GraphQL federation?",
+"p": "Many teams each own part of the data. One shared GraphQL server becomes a place where every team waits for every other team.",
+"h": "Each team runs its own GraphQL service (a subgraph). A router joins them into one graph (the supergraph). A type like <code>Order</code> can get fields from several subgraphs. The router plans each query: which subgraph to call, in which order.",
+"t": "One more hop, query plans to debug, extra calls between subgraphs, and rules for changing the shared schema. It pays off for many teams, not for one.",
+"m": "For DBO, my view is that federation is overkill: one team, one API service. Knowing when not to use it is the senior signal. <b>Idea:</b> consider Apollo Federation only when several teams own separate parts of the graph.",
+"f": "&quot;How do you stop one subgraph change from breaking the client?&quot;",
+"r": "&quot;Federation for every GraphQL API with more than one service.&quot;"
+},
+{
+"cat": "Architecture",
+"lvl": "Mid",
+"q": "When is serverless a bad fit?",
+"p": "Functions like AWS Lambda scale to zero and need no servers to manage. But they have hard limits that break some designs.",
+"h": "Know the limits. On AWS Lambda: a function runs at most 15 minutes, gets up to 10,240 MB of memory, and takes at most 6 MB of request and 6 MB of response for normal calls (streamed responses can be larger). The first call after a quiet time is slower (a cold start). Each function copy opens its own database connections.",
+"t": "Good: spiky traffic, small event handlers, little ops work. Bad: long jobs, steady high traffic (it costs more than servers), long-lived connections like WebSockets, and very low latency needs.",
+"m": "<b>Idea:</b> for DBO, a webhook receiver or image thumbnail job could be serverless. The GraphQL API with steady traffic and Prisma connections fits containers better.",
+"f": "&quot;How do you stop Lambda from opening too many database connections?&quot;",
+"r": "&quot;Serverless is always cheaper.&quot;"
+},
+{
+"cat": "Architecture",
+"lvl": "Senior",
+"q": "Your product serves many companies. How do you keep their data apart?",
+"p": "Many customers (tenants) share one product. One missing filter shows company A&#x27;s data to company B. One big customer can slow everyone down (a noisy neighbor).",
+"h": "Three models. Shared tables with a <code>tenant_id</code> on every row, plus Postgres Row Level Security (database rules that hide rows from the wrong tenant) as a safety net. A schema per tenant. A database per tenant. Add per-tenant rate limits so one tenant cannot use all capacity.",
+"t": "Shared tables are cheap and simple, but a bug can leak data. A database per tenant is the safest, but 1,000 tenants means 1,000 migrations. Many products mix: shared for small tenants, separate for the biggest.",
+"m": "<b>Idea:</b> if DBO served several brands, each brand would be a tenant with <code>brand_id</code> and Row Level Security policies, with <code>brand_id</code> first in the indexes.",
+"f": "&quot;How do you test that a tenant can never read another tenant&#x27;s data?&quot;",
+"r": "&quot;A database per tenant by default&quot; for thousands of small customers."
+},
+{
+"cat": "Architecture",
+"lvl": "Senior",
+"q": "Design an AI assistant feature that answers questions from your own documents.",
+"p": "A language model does not know your private data, and it can make answers up. Calls are slow (seconds) and cost money per word.",
+"h": "RAG. First, split documents into small pieces and store them with a vector (a list of numbers that captures the meaning). On a question: find the closest pieces, filtered by what this user may see. Put them in the prompt with the question. Stream the answer back word by word over SSE. Log the question, pieces and answer to check quality later.",
+"t": "Cost and time grow with prompt size. Answers can still be wrong, so you need test sets and checks. Text in documents can try to give the model orders (prompt injection), so the model gets no powers the user does not have.",
+"m": "<b>Idea</b> for DBO: a product helper for store owners that answers from product sheets, using pgvector (the Postgres add-on for vector search) in the existing Postgres, with token limits per store.",
+"f": "&quot;How do you know the answers are good, and how do you control the cost?&quot;",
+"r": "&quot;Send all the documents to the model every time.&quot;"
+},
+{
+"cat": "Production",
+"lvl": "Mid",
+"q": "How do you decide how reliable a service must be?",
+"p": "&quot;It should never go down&quot; is not a plan. 100% is impossible, and each extra 9 costs much more.",
+"h": "Pick what users feel, and measure it (the SLI): for example, the share of requests that succeed in under 500 ms. Set a target (the SLO): 99.9% over 30 days. The rest is the error budget: 0.1% of a month is about 43 minutes. While budget remains, ship features. When it is used up, work on reliability.",
+"t": "99.99% is about 4 minutes a month and needs much more redundancy and cost. An SLA is a promise in a contract, with money back, so it is set looser than the SLO.",
+"m": "<b>Idea</b> for DBO: an SLO on &quot;order placed successfully&quot; and &quot;redeem completed&quot;, alerting when the budget burns fast, not on every error.",
+"f": "&quot;Which would you alert on: CPU at 90% or the error budget burning fast? Why?&quot;",
+"r": "&quot;100% uptime.&quot;"
+},
+{
+"cat": "Production",
+"lvl": "Mid",
+"q": "How do you debug a slow request that crosses five services?",
+"p": "Each service has its own logs. A request is slow, but you cannot tell which hop was slow, or even which log lines belong to it.",
+"h": "Use three signals. Metrics show that something is wrong (error rate, p99 time). Traces show where: each service adds a span (a timed step) with the same trace id, passed along in a <code>traceparent</code> header. Logs show why, with the trace id in every line. OpenTelemetry is the standard way to collect all three without tying you to one vendor.",
+"t": "Tracing every request costs storage and money, so you keep a sample (for example 10%, plus all errors). Teams must add the id to queue messages by hand.",
+"m": "DBO requests cross API, queue, worker and TADA webhooks. <b>Idea</b> from the case study: a request id created at the gateway, passed into every service and into BullMQ job payloads, plus queue size and job age as metrics. OpenTelemetry became a CNCF graduated project in May 2026.",
+"f": "&quot;Metrics, logs and traces: which do you open first during an incident?&quot;",
+"r": "&quot;I search the logs for the error.&quot;"
+},
+{
+"cat": "Production",
+"lvl": "Senior",
+"q": "How do you deploy a change without downtime, including a database change?",
+"p": "During a deploy, old and new code run at the same time. A database change that the old code does not understand breaks it. A bad release can hit all users at once.",
+"h": "For code: rolling deploys (start new copy, wait for its health check, stop an old one), canary (send 5% of users to the new version first and watch errors), and feature flags (ship the code switched off). For the database: expand and contract. Add the new column, write to both, copy old data in batches, switch reads, stop the old writes, then remove the old column.",
+"t": "More deploys and some temporary code. Canary needs good metrics to see a problem in 5% of traffic.",
+"m": "DBO deploys containers on Docker Swarm through CapRover. <b>Idea</b> from the case study: health-check endpoints so deploys are rolling, workers that finish their current jobs before stopping, and multi-step Prisma migrations for live tables.",
+"f": "&quot;How do you roll back a release that already changed the database?&quot;",
+"r": "&quot;We deploy at night.&quot;"
+},
+{
+"cat": "Production",
+"lvl": "Senior",
+"q": "What is your disaster recovery plan? Explain RPO and RTO.",
+"p": "Machines die, a region fails, or someone runs a delete without a WHERE. A copy that follows every change will copy the delete too.",
+"h": "RPO is how much data you may lose, measured in time. RTO is how long until you are back. Backups plus the change log give point-in-time recovery: restore to one minute before the mistake. A standby with automatic failover covers a dead machine. A copy in another region covers a region failure. And you test restores on a schedule.",
+"t": "Lower RPO and RTO cost more: synchronous copies slow down writes, and a hot second region doubles the cost. A replica alone is not a backup.",
+"m": "<b>Idea</b> for DBO&#x27;s toko database: managed point-in-time recovery with a 7 to 30 day window, a restore test into staging each quarter, and a written target like RPO 5 minutes and RTO 1 hour.",
+"f": "&quot;When did you last test a restore, and how long did it take?&quot;",
+"r": "&quot;We have a replica, so we are backed up.&quot;"
+},
+{
+"cat": "Production",
+"lvl": "Mid",
+"q": "What are the most common API security problems, and how do you prevent them?",
+"p": "APIs are attacked directly, not through your screens. The most common bug is simple: changing an id in the request and getting someone else&#x27;s data.",
+"h": "The OWASP API Security Top 10 (2023 edition, still the latest in 2026) lists the main risks. Number 1 is broken object level authorization: you check that the user is logged in, but not that this order belongs to them. Others: weak login, returning too many fields, no limits on resource use, and missing checks on admin functions.",
+"t": "Ownership checks on every object add code to every resolver. Central rules or Row Level Security help, but must be tested.",
+"m": "<b>Idea</b> for DBO: every GraphQL resolver that takes an order id checks it against the store from the token. Plus GraphQL depth and cost limits, and strict limits on OTP requests, because each WhatsApp OTP sent through Jatis costs money.",
+"f": "&quot;How do you test for this bug across 200 endpoints?&quot;",
+"r": "&quot;We use HTTPS and JWT, so it is secure.&quot;"
+},
+{
+"cat": "Production",
+"lvl": "Senior",
+"q": "Authentication and authorization across services: where is each check done?",
+"p": "Who are you (authentication) and what may you do (authorization) are different checks. If every service repeats the login logic, rules drift apart. If only the gateway checks, a service called from inside trusts anyone.",
+"h": "One auth service issues short-lived signed tokens. The gateway checks that the token is real. Each service checks permissions for its own data: roles (RBAC: &quot;admin can edit products&quot;) and ownership (&quot;this store owns this order&quot;). Services can check token signatures locally with a public key, with no network call.",
+"t": "Local checks are fast, but a token cannot be cancelled until it expires. Central policy is consistent, but one more call or service.",
+"m": "In DBO, the Auth service owns login, OTP and JWT issuing, and the API validates JWTs. <b>Idea</b> from the case study: verify the JWT locally with a shared public key instead of calling Auth, and keep fine-grained rules in the API.",
+"f": "&quot;How does service A prove its identity when it calls service B?&quot;",
+"r": "&quot;The gateway handles security.&quot;"
+},
+{
+"cat": "Senior behavior",
+"lvl": "Senior",
+"q": "&quot;Why did you choose X over Y?&quot; How do you answer tradeoff questions?",
+"p": "You answer &quot;because it is better&quot; or &quot;the team already used it&quot;. That sounds like you never compared options, which is the main thing seniors are hired for.",
+"h": "Use four parts. The need (what must be true). The options you compared (two or three). What each costs. Why your choice fit this need, and what would make you change it.",
+"t": "It takes longer than a one-word answer. That is fine: 60 seconds with reasons beats 5 seconds without.",
+"m": "The shape, with DBO: &quot;We used BullMQ on Redis for background jobs: email, points and webhooks. It gives retries and backoff, and it keeps background load away from request traffic.&quot; <b>Idea:</b> add the comparison only if you really made it: &quot;Kafka adds replay and many readers. We did not need those yet. If several teams needed the same order events, I would look at a stream.&quot;",
+"f": "&quot;What did that choice cost you in practice?&quot;",
+"r": "&quot;It is the industry standard.&quot;"
+},
+{
+"cat": "Senior behavior",
+"lvl": "Senior",
+"q": "The interviewer says your design is wrong. What do you do?",
+"p": "Often the interviewer pushes on purpose, to see if you can discuss calmly. Giving in at once looks weak. Arguing looks hard to work with.",
+"h": "First ask what worries them. Repeat it in your words. If they are right, say so and change the design. If you still think your choice fits, explain the tradeoff and say what would change your mind. Then offer both options and let them choose the direction.",
+"t": "Changing your mind costs nothing in an interview; refusing to listen costs a lot. But changing everything at once makes you look unsure.",
+"m": "&quot;You are right that one Redis is a single point of failure. For the queue, I would turn on saving to disk and add a replica. For the cache, I would accept it, because the database can take the load for a short time.&quot;",
+"f": "&quot;Tell me about a real time you disagreed with a technical decision.&quot;",
+"r": "&quot;OK, I will change it&quot; with no question, or defending every detail."
+},
+{
+"cat": "Senior behavior",
+"lvl": "Senior",
+"q": "How does cost change your design?",
+"p": "A design that works but costs ten times more than needed is a bad design. In 2026, interviewers ask about cost directly.",
+"h": "Name the big costs: servers, databases, data transfer, third-party calls (AI tokens, SMS), and people&#x27;s time to run each system. Use rough numbers. Choose the cheapest design that meets the requirements, and say when you would spend more.",
+"t": "Saving money often costs reliability or speed: one region instead of two, fewer copies, smaller machines. Say which risk you accept.",
+"m": "In DBO, each OTP is a paid WhatsApp message through Jatis, so OTP abuse is a direct money risk. <b>Idea:</b> strict limits per phone number and per IP on the OTP route. <b>Idea:</b> for a small team, CapRover on a few servers costs far less to run than Kubernetes, in money and in people&#x27;s time.",
+"f": "&quot;Which part of your design costs the most, and how would you cut it in half?&quot;",
+"r": "Never mentioning cost, or &quot;cloud is cheap&quot;."
+},
+{
+"cat": "Senior behavior",
+"lvl": "Senior",
+"q": "How do you record design decisions and use design reviews to grow your team?",
+"p": "A year later nobody remembers why a choice was made, so it is either feared or undone by mistake. Juniors also never learn how decisions are made if seniors decide alone.",
+"h": "Write a short ADR for each important decision: the context, the options, the decision, and the cost. Keep it in the repo. In design reviews, ask questions instead of giving answers (&quot;what happens if this call fails twice?&quot;), let a junior write the first draft, and spend more time on decisions that are hard to undo.",
+"t": "Reviews and ADRs slow down small changes. So use them for decisions that are hard to undo, not for every pull request.",
+"m": "I led the DBO team. <b>Idea</b> for my story: an ADR for &quot;why three databases split by owner&quot; and &quot;why one API service instead of many&quot;, and asking a junior to draft the next one. Only tell what really happened in your own words.",
+"f": "&quot;Tell me about a decision you would make differently now.&quot;",
+"r": "&quot;I just tell them the right design.&quot;"
+}
+] };
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

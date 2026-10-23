@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database Interview Drill</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<header>
+  <h1>DATABASE INTERVIEW DRILL</h1>
+  <p class="sub">47 senior questions · say it out loud first · then open the card</p>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="drill" type="button">🃏 Drill</button>
+  <button data-tab="how" type="button">🧭 How to answer</button>
+</nav>
+
+<section id="drill" class="active">
+  <div class="fc-bar">
+    <label class="sr" for="fcCat" style="position:absolute;left:-9999px">Topic</label>
+    <select id="fcCat" aria-label="Topic"><option value="all">All topics</option></select>
+    <select id="fcMode" aria-label="Which cards">
+      <option value="all">All cards</option>
+      <option value="notyet">Only not yet / not tried</option>
+    </select>
+    <button id="fcShuffle" type="button" aria-pressed="false">In order</button>
+    <button id="fcReset" type="button">Reset marks</button>
+  </div>
+  <div class="fc" id="flash"></div>
+  <p class="fc-stats" id="fcStats"></p>
+</section>
+
+<section id="how">
+  <div class="diagram-card">
+    <h3>The four-part answer, every time</h3>
+    <svg viewBox="0 0 720 120" role="img" aria-label="Problem, how it works, tradeoff, my example">
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect class="box box-pink" x="6" y="24" width="160" height="62" rx="10"/><text class="lbl" x="86" y="50">1 Problem</text><text class="lbl-s" x="86" y="68">what hurts without it</text>
+      <rect class="box box-blue" x="190" y="24" width="160" height="62" rx="10"/><text class="lbl" x="270" y="50">2 How it works</text><text class="lbl-s" x="270" y="68">draw the picture</text>
+      <rect class="box box-yellow" x="374" y="24" width="160" height="62" rx="10"/><text class="lbl" x="454" y="50">3 Tradeoff</text><text class="lbl-s" x="454" y="68">what it costs</text>
+      <rect class="box box-green" x="558" y="24" width="156" height="62" rx="10"/><text class="lbl" x="636" y="50">4 My example</text><text class="lbl-s" x="636" y="68">DBO + a number</text>
+      <path class="arrow" d="M166,55 L188,55" marker-end="url(#arr)"/><path class="arrow" d="M350,55 L372,55" marker-end="url(#arr)"/><path class="arrow" d="M534,55 L556,55" marker-end="url(#arr)"/>
+      <text class="lbl-s" x="360" y="112">60 to 90 seconds. Then stop and invite the follow-up: "I can go deeper on how the index is stored."</text>
+    </svg>
+  </div>
+  <div class="hook"><b>When you do not know</b><p>"I have not worked with that directly. What I know is ... so my best guess is ... because ... I would confirm it by running EXPLAIN / reading the docs on ..." This scores far more than "skip".</p></div>
+  <div class="hook"><b>Always a number</b><p>3 to 4 page reads · 8 KB pages · 37 ms → 0.09 ms · OFFSET touched 900,020 rows, keyset 20 · 80 app connections → 20 real ones · deadlock check after 1 s.</p></div>
+  <div class="hook"><b>Always a tradeoff</b><p>Index: faster reads, slower writes. Replica: more reads, stale data. Cache: speed, invalidation. Shard: scale, no cross-shard joins. SERIALIZABLE: safety, retries.</p></div>
+  <div class="hook"><b>Always your system</b><p>TADA double refund (race → FOR UPDATE → unique event id + ledger) · Prisma N+1 · BullMQ jobs that must be idempotent · three databases split by ownership.</p></div>
+</section>
+
+<footer>Part of the Study Route database track · the full text of every answer is in the note "Senior database interview questions"</footer>
+
+<script>
+window.SHEET = { key: "db-questions", cards: [
+{
+"cat": "Indexing",
+"lvl": "Core",
+"q": "What is a database index and why does it make reads faster?",
+"p": "Without an index, finding rows means reading every page of the table (a sequential scan). Cost grows with table size.",
+"h": "A B-tree index is a separate sorted structure of pages. The database walks from the root to a leaf in 3 to 4 page reads, finds the value and its TID, then jumps to that row&#x27;s page.",
+"t": "Every insert and every update of an indexed column must also update the index, and it uses disk and memory. Unused indexes are pure cost.",
+"m": "In DBO, order history filters by store and sorts by date, so the index is (store_id, created_at DESC). On a 1M row test that went from 37 ms to 0.09 ms.",
+"f": "How many page reads does a lookup take in a 50 million row table, and why?",
+"r": "&quot;It makes queries faster&quot; with no mechanism and no cost."
+},
+{
+"cat": "Indexing",
+"lvl": "Senior",
+"q": "Why is the B-tree (B+tree) the default index structure and not a hash or a binary tree?",
+"p": "Storage is read in fixed pages (8 KB in Postgres). The structure must find values with as few page reads as possible and also support ranges and sorting.",
+"h": "Each node is one page holding hundreds of keys, so fanout is about 300 to 400. Three levels reach about 64 million rows. Leaves are sorted and linked, so range scans walk sideways.",
+"t": "A hash index is O(1) for equality but cannot do ranges or ORDER BY. A binary tree would be about 27 levels deep for 100 million rows, one page read per level.",
+"m": "Ranges like &#x27;orders from the last 30 days&#x27; and &#x27;latest 20 orders&#x27; are everywhere in DBO, which is exactly what sorted, linked leaves serve.",
+"f": "What happens to the tree when you insert into a full leaf page?",
+"r": "&quot;Because it is balanced&quot; without connecting it to pages and fanout."
+},
+{
+"cat": "Indexing",
+"lvl": "Core",
+"q": "Explain the leftmost prefix rule for composite indexes.",
+"p": "Queries filter and sort on several columns. One index should serve as many of those shapes as possible.",
+"h": "An index on (a, b) is sorted by a, then by b inside each a, like a phone book sorted by last name then first name. It serves a, a + b, and a = ? ORDER BY b. It does not serve b alone well.",
+"t": "Column order matters: equality columns first, then the range or sort column. Each extra composite index costs writes.",
+"m": "(store_id, created_at DESC) serves &#x27;orders of store 42, newest first&#x27; with no sort step. An index on (created_at, store_id) would not.",
+"f": "Can two single-column indexes on a and b serve ORDER BY a, b? Why not?",
+"r": "Listing columns in any order, or saying the planner will combine indexes for sorting."
+},
+{
+"cat": "Indexing",
+"lvl": "Senior",
+"q": "Why would the planner ignore an index you created?",
+"p": "An index that is not used costs writes and gives nothing. You need to know why.",
+"h": "Four usual reasons: too many matching rows (random heap jumps cost more than a seq scan), stale statistics, a function or cast on the column (lower(email), created_at::date, ORM type mismatch), or an operator the index cannot serve (LIKE &#x27;%x&#x27;, non-leading column).",
+"t": "Forcing the index is usually wrong; if many rows match, the seq scan really is cheaper. Fix the cause instead: ANALYZE, expression index, rewrite as a range, trigram index.",
+"m": "A date filter written as created_at::date = &#x27;2026-10-01&#x27; cannot use an index on created_at. Rewriting it as a half-open range can.",
+"f": "How do you prove which reason it is?",
+"r": "&quot;Postgres is buggy&quot; or immediately reaching for a hint or a bigger server."
+},
+{
+"cat": "Indexing",
+"lvl": "Senior",
+"q": "When would you use a partial index, an expression index, and a covering index?",
+"p": "A plain index is not always the cheapest or fastest option for a specific hot query.",
+"h": "Partial: index only the rows a hot query touches (WHERE status = &#x27;PENDING&#x27;). Expression: index the result of a function (lower(email)). Covering: INCLUDE extra columns so the query never visits the table (index-only scan).",
+"t": "Partial indexes only help queries that repeat the same WHERE. Covering indexes are bigger and need a well-vacuumed table to skip the heap.",
+"m": "Where it fits in DBO: a partial index for the CMS &#x27;pending verifications&#x27; queue, which is a tiny slice of all stores.",
+"f": "Why does an index-only scan still sometimes read the table?",
+"r": "Knowing the names but not when each pays off."
+},
+{
+"cat": "Indexing",
+"lvl": "Senior",
+"q": "How do you decide which indexes to drop?",
+"p": "Indexes slow every write, take memory, and slow VACUUM. Teams add them and never remove them (index sprawl).",
+"h": "Check pg_stat_user_indexes for idx_scan = 0 over a long enough window (including month-end jobs), look for duplicates and prefixes of other indexes (an index on (a) when (a, b) exists), and check size.",
+"t": "Stats reset on restart or failover, and replicas have their own usage, so check everywhere before dropping. Drop with DROP INDEX CONCURRENTLY.",
+"m": "Where it fits in DBO: Prisma schemas often accumulate @@index lines from experiments; a quarterly review keeps the toko DB lean.",
+"f": "What is the write cost of an index, concretely?",
+"r": "&quot;More indexes is always safer.&quot;"
+},
+{
+"cat": "Indexing",
+"lvl": "Core",
+"q": "Which index type would you use for JSONB, full-text search, geolocation, and a huge log table?",
+"p": "B-tree only works for scalar, ordered values. Other data needs other structures.",
+"h": "JSONB containment and arrays: GIN (inverted index). Full-text and LIKE &#x27;%abc%&#x27;: GIN with tsvector or pg_trgm. Geolocation and ranges: GiST. Huge append-only table filtered by time: BRIN (min/max per block range, tiny).",
+"t": "GIN is slower to update and larger. BRIN only works well when values follow physical order. GiST is lossy and rechecks rows.",
+"m": "Where it fits in DBO: a GIN index on the TADA webhook payload to search by event type; BRIN on received_at if the webhook table grows to hundreds of millions of rows.",
+"f": "Why is a BRIN index so small?",
+"r": "Using B-tree for everything, or adding GIN on every JSON column."
+},
+{
+"cat": "Indexing",
+"lvl": "Senior",
+"q": "How do you add an index to a large table in production without downtime?",
+"p": "A plain CREATE INDEX blocks writes on the table for the whole build, which can be minutes or hours.",
+"h": "CREATE INDEX CONCURRENTLY builds while writes continue, scanning the table twice. Run it outside a transaction block, with a statement timeout that fits, and check for an INVALID index if it fails.",
+"t": "It takes longer and uses more resources. A failed concurrent build leaves an invalid index you must drop and retry.",
+"m": "In a Prisma migration, generated SQL uses plain CREATE INDEX, so for big tables you edit the migration to use CONCURRENTLY (and mark it to run outside a transaction).",
+"f": "What else can block the app during a migration even if the statement is fast?",
+"r": "Running plain CREATE INDEX at peak time."
+},
+{
+"cat": "Queries and performance",
+"lvl": "Senior",
+"q": "A query is slow in production. Walk me through how you find and fix it.",
+"p": "Guessing wastes time and can make things worse. You need evidence.",
+"h": "Find it: pg_stat_statements sorted by total time, or the APM trace. Reproduce with real parameters. Run EXPLAIN (ANALYZE, BUFFERS). Look at estimated vs actual rows, seq scans with many removed rows, spilled sorts, nested loops on big inputs. Fix one thing (index, ANALYZE, rewrite). Run EXPLAIN again to prove it.",
+"t": "An index fixes the read but costs writes. Rewrites can change results; test them. Caching hides the problem instead of fixing it.",
+"m": "In DBO the real causes were N+1 from GraphQL resolvers, over-joining, and unbounded selects. Prisma query logging shows the SQL; EXPLAIN ANALYZE shows why it is slow.",
+"f": "The estimate says 10 rows, actual is 2 million. What do you do?",
+"r": "Jumping straight to &#x27;add Redis&#x27; or &#x27;add an index&#x27; without measuring."
+},
+{
+"cat": "Queries and performance",
+"lvl": "Core",
+"q": "What is the N+1 query problem and how do you fix it?",
+"p": "Loading a list, then running one more query per item, turns 1 query into 101. Each is fast, together they are slow and flood the connection pool.",
+"h": "Fix by loading related data in one query: a JOIN, WHERE id IN (...), or a batching layer like DataLoader in GraphQL resolvers. Prisma include also batches into IN queries.",
+"t": "Big joins can return duplicated parent data; IN lists can get huge. Choose by shape.",
+"m": "In DBO&#x27;s GraphQL API, resolving store for each order is the classic N+1; DataLoader per request batches them into one query.",
+"f": "How would you detect N+1 in production?",
+"r": "&quot;Use a faster database.&quot;"
+},
+{
+"cat": "Queries and performance",
+"lvl": "Core",
+"q": "Why is OFFSET pagination slow on deep pages, and what do you use instead?",
+"p": "Feeds and APIs page deep. Page 5,000 should not cost 5,000 times page 1.",
+"h": "OFFSET n has no jump-to-row: the database produces n rows and throws them away. Keyset pagination remembers the last row&#x27;s sort values and asks WHERE (created_at, id) &lt; (last values) ORDER BY ... LIMIT 20, which is an index seek every time.",
+"t": "Keyset cannot jump to an arbitrary page number and needs a unique tiebreaker. OFFSET is fine for shallow admin tables.",
+"m": "Measured on 1M rows: OFFSET 900000 took 110 ms touching 900,020 rows; keyset took 0.05 ms touching 20. Store order history and points history should use keyset (Prisma cursor).",
+"f": "Why do you need the id in the keyset condition?",
+"r": "&quot;Add caching&quot; or &quot;select fewer columns&quot; without naming the discard cost."
+},
+{
+"cat": "Queries and performance",
+"lvl": "Core",
+"q": "LEFT JOIN with a WHERE on the right table: what goes wrong?",
+"p": "You want all stores, including those with no paid orders, but some stores vanish.",
+"h": "WHERE right.col = x is false for the NULL rows the LEFT JOIN created, so they are filtered out and the join acts like an INNER JOIN. Put the right-table filter in the ON clause.",
+"t": "None, it is simply a correctness bug; but it is common and silent.",
+"m": "Workbook exercise 1: revenue per store including zero-sale stores. Filter in WHERE drops Toko Diam.",
+"f": "What about NOT IN with a subquery that returns NULL?",
+"r": "Not noticing the missing rows at all."
+},
+{
+"cat": "Queries and performance",
+"lvl": "Core",
+"q": "ROW_NUMBER, RANK and DENSE_RANK: when do you use each?",
+"p": "Top-N per group and ranking questions are the most common &#x27;advanced SQL&#x27; questions.",
+"h": "All number rows inside OVER (PARTITION BY ... ORDER BY ...). Ties: ROW_NUMBER 1,2,3 (always unique), RANK 1,1,3 (gaps), DENSE_RANK 1,1,2 (no gaps). In Postgres DISTINCT ON is a short way to get one row per group.",
+"t": "ROW_NUMBER picks an arbitrary winner among ties unless you add a tiebreaker. RANK can return more than N rows.",
+"m": "Latest order per store: DISTINCT ON (store_id) ... ORDER BY store_id, created_at DESC, id DESC.",
+"f": "How do you filter on a window function result?",
+"r": "Not knowing how ties behave."
+},
+{
+"cat": "Queries and performance",
+"lvl": "Senior",
+"q": "How do you keep a dashboard query fast when it aggregates millions of rows?",
+"p": "Aggregating the whole history on every page view burns CPU and IO on the primary.",
+"h": "Options in order: index-friendly query; pre-aggregate into a summary table updated by a job (upsert per day); materialized view refreshed on a schedule (CONCURRENTLY with a unique index); run on a read replica; move analytics to a columnar store if it grows.",
+"t": "Pre-aggregation is stale between refreshes and adds a job to maintain. Replicas lag.",
+"m": "Where it fits in DBO: a daily_store_stats table filled by a BullMQ repeatable job with ON CONFLICT DO UPDATE, safe to re-run.",
+"f": "How do you make the refresh job safe to run twice?",
+"r": "Running heavy reports directly on the primary at peak time."
+},
+{
+"cat": "Queries and performance",
+"lvl": "Senior",
+"q": "What is the difference between EXPLAIN and EXPLAIN ANALYZE, and what do you look for?",
+"p": "You need to see what the database actually did, not guess.",
+"h": "EXPLAIN shows the planned tree with estimates. EXPLAIN ANALYZE runs the query and adds actual rows and time per node; BUFFERS adds pages from cache (hit) vs disk (read). Look for big estimate vs actual gaps, Seq Scan with many Rows Removed by Filter, Sort spilling to disk, nested loops over large row counts.",
+"t": "ANALYZE really executes the query, so wrap writes in BEGIN ... ROLLBACK.",
+"m": "Before/after on the order history index: 8,242 pages and a Sort node, then 23 pages and no Sort.",
+"f": "What does &#x27;loops=1000&#x27; on a node mean for the time shown?",
+"r": "Reading only the top-level cost number."
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Core",
+"q": "What does ACID mean, in practice?",
+"p": "Business operations change several rows that must stay consistent even with crashes and concurrent users.",
+"h": "Atomicity: all or nothing (rollback). Consistency: constraints hold after every transaction. Isolation: concurrent transactions do not see each other&#x27;s half-done work (to a chosen level). Durability: once COMMIT returns, it survives a crash (WAL fsync).",
+"t": "Stronger isolation costs waiting or retries. Durability costs an fsync per commit.",
+"m": "Redeeming points in DBO: deduct balance, insert ledger row, create redemption, all in one transaction.",
+"f": "Which part of ACID does the WAL provide?",
+"r": "Reciting the four words without an example."
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Senior",
+"q": "Explain the isolation levels in Postgres and when you would raise them.",
+"p": "Concurrent transactions can see each other&#x27;s changes in surprising ways (non-repeatable reads, lost updates, write skew).",
+"h": "READ COMMITTED (default): new snapshot per statement. REPEATABLE READ: one snapshot per transaction; Postgres also prevents phantoms; concurrent updates to the same row raise 40001. SERIALIZABLE: like running one at a time; conflicting transactions get 40001.",
+"t": "Higher levels fail instead of waiting, so you must retry the whole transaction. Default plus targeted locks is often simpler.",
+"m": "For the TADA refund, READ COMMITTED + SELECT FOR UPDATE on the redemption row was enough. A consistent monthly report could use REPEATABLE READ.",
+"f": "What is write skew and which level stops it?",
+"r": "&quot;I always use SERIALIZABLE to be safe&quot; with no retry logic."
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Senior",
+"q": "Two requests try to redeem points at the same moment and the balance goes negative. How do you prevent it?",
+"p": "Read-modify-write in the app lets both requests see enough points.",
+"h": "Make it one atomic statement: UPDATE store SET balance = balance - cost WHERE id = ? AND balance &gt;= cost RETURNING balance. Zero rows means not enough points. Add CHECK (balance &gt;= 0) as a final guard and write the ledger row in the same transaction.",
+"t": "Atomic updates are simple and fast. For multi-step decisions use SELECT FOR UPDATE.",
+"m": "This is the same family of bug as the TADA double refund in DBO.",
+"f": "What if the decision needs data from three tables?",
+"r": "&quot;Check the balance in the app first, then update.&quot;"
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Senior",
+"q": "Optimistic vs pessimistic locking: explain and choose.",
+"p": "Two users or processes change the same row; one must not overwrite the other silently.",
+"h": "Optimistic: a version column, UPDATE ... WHERE id = ? AND version = ?; zero rows means someone saved first. Pessimistic: SELECT ... FOR UPDATE locks the row until commit; others wait.",
+"t": "Optimistic holds no locks, but users may need to retry. Pessimistic is predictable but blocks and can deadlock.",
+"m": "CMS product edits by two admins: optimistic. TADA webhook handling on one redemption: pessimistic, as was done in DBO.",
+"f": "How do you avoid deadlocks with pessimistic locks?",
+"r": "Not knowing that Prisma does neither automatically."
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Senior",
+"q": "What is a deadlock and how do you prevent one?",
+"p": "Two transactions each hold a lock the other needs, so both wait forever.",
+"h": "Postgres checks for cycles after deadlock_timeout (1 s) and aborts one with an error. Prevent by locking rows in a consistent order (sort ids), keeping transactions short, and not doing slow work or API calls while holding locks.",
+"t": "Detection costs a failed transaction; the app must retry.",
+"m": "Where it fits in DBO: transferring points between two stores must lock the lower store id first.",
+"f": "Where do you see deadlocks reported?",
+"r": "&quot;Add a bigger timeout.&quot;"
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Senior",
+"q": "How do you guarantee a webhook or job is processed exactly once?",
+"p": "Webhooks and queues deliver at least once: retries, timeouts and duplicates are normal.",
+"h": "Exactly-once processing = at-least-once delivery + an idempotent consumer. Store the event id with a UNIQUE constraint, insert with ON CONFLICT DO NOTHING RETURNING, and only act if a row came back. Use guarded state transitions (WHERE status = &#x27;REQUESTED&#x27;).",
+"t": "You need a dedupe table and to decide how long to keep keys.",
+"m": "The TADA double refund in DBO: duplicate deliveries passed a check-then-act. Fixed with FOR UPDATE, then layered with a unique event id and an append-only ledger.",
+"f": "What if the side effect is an external API call, not a database write?",
+"r": "&quot;Our queue guarantees exactly once.&quot;"
+},
+{
+"cat": "Transactions and concurrency",
+"lvl": "Senior",
+"q": "Why should you not call an external API inside a database transaction? What do you do instead?",
+"p": "Slow or failing network calls hold locks and connections, and the two systems can disagree after a timeout.",
+"h": "Commit the business change together with an outbox row in one transaction. A relay worker reads the outbox and calls the API with an idempotency key, then marks it sent. Incoming results update state idempotently.",
+"t": "More moving parts and eventual consistency: the call happens a moment after the commit.",
+"m": "In DBO, calling TADA&#x27;s redeem API from a BullMQ job fed by an outbox row instead of inside the GraphQL mutation&#x27;s transaction.",
+"f": "What if the relay crashes after calling the API but before marking the row sent?",
+"r": "Holding a transaction open during an HTTP call."
+},
+{
+"cat": "Internals",
+"lvl": "Senior",
+"q": "How does MVCC let readers and writers avoid blocking each other?",
+"p": "With simple locking, a long report would block all writes, or writes would block reads.",
+"h": "Postgres never updates in place. UPDATE writes a new row version (xmin = its transaction) and stamps the old one&#x27;s xmax. Each transaction reads with a snapshot of what was committed, so it sees the version valid for it. Only two writers on the same row wait.",
+"t": "Old versions become dead tuples that VACUUM must clean. Long open transactions prevent cleanup and cause bloat.",
+"m": "A CMS report and store owners placing orders can run at the same time on the toko DB without blocking each other.",
+"f": "What happens if a transaction stays open for 6 hours?",
+"r": "&quot;We do not lock the API.&quot;"
+},
+{
+"cat": "Internals",
+"lvl": "Senior",
+"q": "What is the WAL, and what makes COMMIT durable after a crash?",
+"p": "Writing every changed table page to disk on each commit would be slow and random.",
+"h": "Every change is appended to the write-ahead log first. COMMIT returns after the WAL record is fsynced. Data pages stay dirty in memory and are written at checkpoints. After a crash Postgres replays WAL from the last checkpoint.",
+"t": "fsync per commit costs latency; synchronous_commit = off trades the last fraction of a second of commits for speed.",
+"m": "The same WAL feeds replicas and point-in-time recovery, which is how you would restore DBO&#x27;s toko DB to just before a bad migration.",
+"f": "What is a checkpoint and what is the tradeoff of its interval?",
+"r": "&quot;It saves the data.&quot;"
+},
+{
+"cat": "Internals",
+"lvl": "Senior",
+"q": "What is VACUUM and what happens if it falls behind?",
+"p": "MVCC leaves dead row versions behind after updates and deletes.",
+"h": "VACUUM marks dead space reusable, updates the visibility map (for index-only scans) and freezes old transaction ids. Autovacuum runs it when about 20% of a table is dead.",
+"t": "If it falls behind: bloat, slower scans, fewer index-only scans, and in the extreme transaction id wraparound, where Postgres stops accepting writes.",
+"m": "Big append-heavy tables like a points ledger or webhook log may need a lower per-table autovacuum scale factor.",
+"f": "Why can a single idle-in-transaction session cause bloat everywhere?",
+"r": "&quot;We disable autovacuum for performance.&quot;"
+},
+{
+"cat": "Internals",
+"lvl": "Senior",
+"q": "How does the planner choose between nested loop, hash join and merge join?",
+"p": "The same join can be thousands of times faster or slower depending on the algorithm.",
+"h": "From row estimates and costs. Nested loop: small outer side and an index on the inner side. Hash join: big equality joins; hash the smaller side, stream the bigger. Merge join: both inputs already sorted on the key.",
+"t": "Bad estimates pick the wrong one; a nested loop over a million rows is the classic disaster. Hash joins need work_mem or spill to disk.",
+"m": "One store and its orders: nested loop with the store_id index. All orders joined to all stores for a report: hash join.",
+"f": "How do you spot a wrong join choice in EXPLAIN ANALYZE?",
+"r": "Not knowing join algorithms exist."
+},
+{
+"cat": "Internals",
+"lvl": "Senior",
+"q": "Why is each Postgres connection expensive, and what do you do about it?",
+"p": "Apps with many replicas and ORM pools open hundreds of connections.",
+"h": "Postgres runs one OS process per connection, each with its own memory. Hundreds of active processes compete for CPU and memory and throughput drops. A pooler like PgBouncer in transaction mode lets many app connections share a few real ones.",
+"t": "Transaction mode breaks session-level features (SET, LISTEN, session advisory locks); prepared statements need newer PgBouncer or driver settings.",
+"m": "In DBO, Prisma pools times API and worker replicas is the first thing that breaks at 10x; PgBouncer is step one.",
+"f": "How would you size the real pool?",
+"r": "&quot;Raise max_connections to 2000.&quot;"
+},
+{
+"cat": "Internals",
+"lvl": "Senior",
+"q": "What is a HOT update and why does it matter for indexing decisions?",
+"p": "Updates normally add a new entry to every index on the table.",
+"h": "If no indexed column changes and the new row version fits on the same page, Postgres makes a heap-only tuple: no index writes at all. Leaving free space with fillfactor helps.",
+"t": "Indexing a frequently updated column (like updated_at or a status that changes often) disables HOT for those updates and multiplies write cost.",
+"m": "Where it fits in DBO: avoid indexing columns like last_seen_at on the store table if they change on every request.",
+"f": "How would you measure HOT updates?",
+"r": "Indexing every column &#x27;just in case&#x27;."
+},
+{
+"cat": "Design",
+"lvl": "Core",
+"q": "Normalize or denormalize? How do you decide?",
+"p": "Duplicated facts drift apart; but very normalized schemas can need many joins for hot reads.",
+"h": "Normalize to 3NF by default so each fact lives once. Denormalize a specific field only when a measured hot read stays slow after indexes, and write down how it stays in sync (same transaction, trigger, or job).",
+"t": "Denormalized data costs extra writes and risks drift. Materialized views or caches can give the read speed while keeping the source clean.",
+"m": "In DBO a cached points balance is fine because the ledger is the truth and can rebuild it.",
+"f": "Is storing unit_price on the order line denormalization?",
+"r": "&quot;Joins are slow, so I denormalize.&quot;"
+},
+{
+"cat": "Design",
+"lvl": "Senior",
+"q": "Design the tables for orders and loyalty points. Talk me through it.",
+"p": "Orders and points move value; mistakes cost money and trust.",
+"h": "Six steps: things (store, product, order, order_item, ledger, redemption, webhook_event), relationships, keys (bigint inside, UUIDv7 outside), rules (NOT NULL, CHECK, FK, UNIQUE event ids), reads (store + created_at indexes), change (partition big logs by month later).",
+"t": "A ledger is more rows and a sum to compute; a cached balance needs a sync rule.",
+"m": "This is the DBO toko DB, and the unique event id plus append-only ledger is what makes the TADA double refund impossible.",
+"f": "Why is the price stored on the order line?",
+"r": "Jumping into columns without saying the process or the reasons."
+},
+{
+"cat": "Design",
+"lvl": "Senior",
+"q": "UUID or auto-increment for primary keys?",
+"p": "Ids must be unique and fast to index; some must be safe to expose or created outside the database.",
+"h": "bigint identity: 8 bytes, ordered, fastest. Random UUIDv4: created anywhere, not guessable, but scatters inserts across the B-tree. UUIDv7: time ordered, so inserts stay at the right edge; Postgres 18 has uuidv7().",
+"t": "UUIDs are twice the size, and v7 leaks creation time.",
+"m": "bigint for internal tables, a UUIDv7 public_id for anything in URLs or shared with TADA or Manager.",
+"f": "Why exactly are random UUIDs slower to insert?",
+"r": "&quot;UUIDs are always better because they are unique.&quot;"
+},
+{
+"cat": "Design",
+"lvl": "Core",
+"q": "How do you store money and timestamps?",
+"p": "Floats cannot represent most decimals exactly; timestamps without zone are ambiguous across servers.",
+"h": "Money: numeric with fixed scale, or integer minor units; store currency if more than one. Time: timestamptz, which stores an exact moment in UTC and converts on display.",
+"t": "numeric is slower than integer math but exact; integer cents need care with division.",
+"m": "Order totals in DBO should be numeric; event times timestamptz, displayed in Asia/Jakarta.",
+"f": "What goes wrong with timestamp without time zone when servers move regions?",
+"r": "Using float for prices."
+},
+{
+"cat": "Design",
+"lvl": "Senior",
+"q": "Why enforce rules with database constraints if the app already validates?",
+"p": "App checks race each other, scripts and other services skip the app, and future developers forget.",
+"h": "NOT NULL, CHECK, FOREIGN KEY, UNIQUE and EXCLUDE run inside the database for every write, atomically, even under concurrency.",
+"t": "Constraint errors need handling in the app, and some constraints cost a lookup on write. Worth it.",
+"m": "A UNIQUE (provider, event_id) on webhook events would have stopped the TADA duplicate at the database.",
+"f": "Does Postgres index foreign key columns automatically?",
+"r": "&quot;Validation belongs in the app only.&quot;"
+},
+{
+"cat": "Design",
+"lvl": "Senior",
+"q": "How do you design multi-tenancy?",
+"p": "Many customers share one product; their data must never leak between them.",
+"h": "Default: shared tables with tenant_id on every row, tenant_id leading in indexes, and Row Level Security as a safety net. Escalate to schema-per-tenant or database-per-tenant for customers needing isolation or scale.",
+"t": "Shared tables risk a missing filter (RLS covers it). Separate databases multiply migrations and cost.",
+"m": "If DBO served several brands, each brand would be a tenant with brand_id and RLS policies.",
+"f": "How does sharding relate to this choice later?",
+"r": "Database per tenant by default for thousands of small tenants."
+},
+{
+"cat": "Design",
+"lvl": "Senior",
+"q": "How do you change a column on a busy table with zero downtime?",
+"p": "During a deploy, old and new app versions run at the same time; one-step breaking changes break one of them.",
+"h": "Expand and contract: add the new column, dual write, backfill in batches, switch reads, stop old writes, drop the old column. Build indexes concurrently, add constraints NOT VALID then VALIDATE, set lock_timeout.",
+"t": "More deploys and temporary code; worth it for anything live.",
+"m": "Renaming a column in a Prisma schema generates a drop and add; for live tables you write the multi-step migration by hand.",
+"f": "What can block the whole app even when the ALTER is instant?",
+"r": "&quot;We run migrations at night and hope.&quot;"
+},
+{
+"cat": "Design",
+"lvl": "Core",
+"q": "SQL or NoSQL for a new feature?",
+"p": "Each store is built for different access patterns; picking by hype causes pain later.",
+"h": "Default to Postgres for relational data, transactions, money and unknown future queries. Choose Redis for cache, queues and counters; a document or wide-column store for one clear key-based access pattern at huge scale; a search engine for full-text; a columnar store for analytics. Keep Postgres as source of truth.",
+"t": "Each extra store is more operations, backups and consistency work.",
+"m": "DBO uses Postgres for truth and Redis for BullMQ: a clear role for each.",
+"f": "When would you pick DynamoDB over Postgres?",
+"r": "&quot;NoSQL scales, SQL does not.&quot;"
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "Traffic grows 10x. What breaks first in the database and what do you do, in order?",
+"p": "Growth exposes the weakest part first; fixing the wrong layer wastes time.",
+"h": "Measure first. Usual order: connections (add PgBouncer), slow queries (indexes, N+1), read load (cache, read replicas), machine size (more RAM), huge tables (partition, archive), and only then sharding.",
+"t": "Each step adds staleness or complexity; sharding removes cross-shard joins and transactions.",
+"m": "For DBO: PgBouncer, then indexes from pg_stat_statements, then a replica for CMS reports and order history, then monthly partitions for orders, ledger and webhook events.",
+"f": "How do you know a step worked?",
+"r": "&quot;Shard it&quot; or &quot;move to microservices&quot; as the first answer."
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "How do read replicas work and what problems do they bring?",
+"p": "One primary can only serve so many reads.",
+"h": "Replicas stream and replay the primary&#x27;s WAL and serve read-only queries. Route heavy or tolerant reads there.",
+"t": "Replication lag means stale reads, including a user not seeing what they just wrote. Writes still go to one primary.",
+"m": "Route CMS reports and order history to a replica; checkout and redeem read the primary; after a user writes, read their data from the primary for a few seconds.",
+"f": "How do you monitor and handle lag?",
+"r": "Not mentioning lag at all."
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "Partitioning vs sharding: what is the difference and when do you use each?",
+"p": "Very large tables and very high write volume need different fixes.",
+"h": "Partitioning splits one table into child tables inside one database (range, list, hash); queries prune to relevant partitions; old partitions drop instantly. Sharding splits data across separate databases by a shard key.",
+"t": "Partitioning keeps joins and transactions but the key must be in every PK. Sharding scales writes but loses cross-shard joins, transactions and global uniqueness.",
+"m": "Partition DBO&#x27;s orders, point_ledger and webhook_event by month when they reach hundreds of millions of rows. Shard only if one primary cannot handle the writes, by store_id.",
+"f": "How would you pick a shard key?",
+"r": "Using the words interchangeably."
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "How do you design caching in front of a database, and what goes wrong?",
+"p": "Repeated reads of the same data load the database for no reason.",
+"h": "Cache-aside: read cache, on miss read the DB and fill the cache with a TTL; on update, write the DB then delete the key. Use materialized views for heavy aggregates.",
+"t": "Stale data, invalidation bugs, cache stampede when a hot key expires. Never cache values used for decisions like balance at redeem time.",
+"m": "Product catalog in Redis for the DBO app; points balance always from Postgres.",
+"f": "How do you prevent a cache stampede?",
+"r": "&quot;Cache everything for an hour.&quot;"
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "What is your backup and disaster recovery strategy for Postgres?",
+"p": "Machines die, regions fail, and people run DELETE without WHERE.",
+"h": "Continuous WAL archiving plus base backups for point-in-time recovery; a standby with automatic failover (Patroni or managed Multi-AZ) for machine failure; copies in another region; scheduled restore drills. State RPO and RTO.",
+"t": "Synchronous standbys add commit latency; more copies cost money. A replica alone is not a backup.",
+"m": "For DBO&#x27;s toko DB: managed PITR with a 7 to 30 day window, and a quarterly restore test into a staging database.",
+"f": "What are RPO and RTO for your system?",
+"r": "&quot;We have a replica, so we are backed up.&quot;"
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "How do you run database migrations safely in CI/CD?",
+"p": "Migrations can lock tables, break running app versions, or fail halfway.",
+"h": "Backward-compatible steps only (expand and contract), lock_timeout and statement_timeout set, indexes built concurrently, large backfills as batched background jobs, migrations reviewed with their lock level in mind, and a tested rollback or forward-fix plan.",
+"t": "Slower releases for schema changes; much safer.",
+"m": "Prisma migrate generates SQL; for big tables the team reviews and edits it before it runs in the deploy pipeline.",
+"f": "Which ALTER TABLE operations rewrite the whole table?",
+"r": "&quot;Prisma handles it.&quot;"
+},
+{
+"cat": "Scaling and operations",
+"lvl": "Senior",
+"q": "What do you monitor on a production Postgres?",
+"p": "Problems should be found by alerts, not by users.",
+"h": "Top queries by total time, p95/p99 latency, connections and pool waits, replication lag, long and idle-in-transaction sessions, dead tuples and autovacuum activity, transaction id age, locks and deadlocks, cache hit ratio, disk and WAL size.",
+"t": "Too many alerts get ignored; alert on symptoms, dashboard the causes.",
+"m": "For DBO: alert on connection saturation, replication lag and disk; dashboard pg_stat_statements weekly.",
+"f": "Which single metric would you look at first during an incident?",
+"r": "Only CPU."
+},
+{
+"cat": "Your stories",
+"lvl": "Story",
+"q": "Tell me about a data bug you fixed in production.",
+"p": "Interviewers want your debugging method and what you changed so it cannot happen again.",
+"h": "Use STAR: situation (duplicate TADA webhooks caused double point refunds), task, action (traced it to a check-then-act race between the two copies, fixed with SELECT FOR UPDATE), result, prevention (unique event id, ON CONFLICT DO NOTHING, ledger), one-line lesson.",
+"t": "Mention the tradeoff you accepted, for example locks on a hot row, and why it was fine.",
+"m": "This is your strongest real story. Practise it in 2 minutes and in 5 minutes with a diagram.",
+"f": "How did you prove the fix worked?",
+"r": "Blaming the third party only."
+},
+{
+"cat": "Your stories",
+"lvl": "Story",
+"q": "Tell me about a time you chose a database or data store. Why that one?",
+"p": "They want reasoning and tradeoffs, not brand names.",
+"h": "Describe the access patterns, the consistency needs, team skills and operations cost, the options you compared, and what you gave up.",
+"t": "Every choice has a cost; say it before they ask.",
+"m": "DBO: Postgres for relational data and transactions, Redis for BullMQ jobs; three databases split by ownership (auth, queue, toko). Say only what is true for your project.",
+"f": "What would make you change that choice today?",
+"r": "&quot;It was already chosen.&quot; Even then, say whether you agree and why."
+},
+{
+"cat": "Your stories",
+"lvl": "Story",
+"q": "Tell me about a slow query or performance problem you solved.",
+"p": "Shows whether you measure before fixing.",
+"h": "Situation, how you found it (logs, Prisma query log, pg_stat_statements), proof (EXPLAIN ANALYZE), the fix (index, N+1 batching, smaller selects), the number before and after.",
+"t": "Did the fix cost writes or complexity?",
+"m": "From DBO: N+1 from GraphQL resolvers and unbounded selects. If you do not have exact numbers, say what you would measure next time.",
+"f": "What would you do if the index did not help?",
+"r": "A story with no numbers and no proof."
+},
+{
+"cat": "Your stories",
+"lvl": "Story",
+"q": "How do you review a pull request that changes the schema?",
+"p": "Schema changes are the riskiest code changes: hard to undo and can lock production.",
+"h": "Check: backward compatible with the running version, lock level of each statement on large tables, concurrent index builds, NOT VALID constraints, batched backfills, nullability and defaults, indexes for new foreign keys and new queries, data types (money, time), and a rollback or forward-fix plan.",
+"t": "Slower reviews; fewer incidents.",
+"m": "Apply it to Prisma migration files in DBO before they reach the deploy pipeline.",
+"f": "What is the most dangerous migration you have seen?",
+"r": "&quot;I check the syntax.&quot;"
+}
+] };
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

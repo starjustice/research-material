@@ -2,7 +2,7 @@
 
 > **Subject:** Backend and API · **Lesson:** 06 · **Made:** 2026-10-23 · **Status:** ready
 > **You will be able to:** say where the "this is user 7" fact lives for a session and for a JWT, name what each one does better, and pick one for a real app.
-> **Before this:** Resolvers and the N+1 problem (lesson 05, not written yet) · **Next:** [Access and refresh tokens](07-access-and-refresh-tokens.md)
+> **Before this:** [Resolvers and the N+1 problem](05-resolvers-and-the-n-1-problem.md) · **Next:** [Access and refresh tokens](07-access-and-refresh-tokens.md)
 
 ## 1. The idea in one sentence
 
@@ -522,4 +522,4 @@ Close this file. Press the **Record my explanation** button under this heading a
 - [Authorization](08-authorization.md): once the server knows who you are, it must decide what you may do.
 - [Password hashing](09-password-hashing.md): how the password is checked safely before the session or token is made.
 - [Hasura: when and when not](14-hasura-when-and-when-not.md): Hasura reads a JWT and takes the role and user id from its claims.
-- Express middleware (lesson 03, not written yet): the place where the cookie or token is checked before your route runs.
+- [Express middleware](03-express-middleware.md): the place where the cookie or token is checked before your route runs.

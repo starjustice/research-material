@@ -33,16 +33,18 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 01 | HTTP basics `01-http-basics.md` | methods, status codes, headers, what a request and response look like | planned |
-| 02 | REST API design `02-rest-api-design.md` | resources, naming, pagination, versioning, idempotency | planned |
-| 03 | Express middleware `03-express-middleware.md` | the request pipeline, next(), error middleware | planned |
+| 01 | [HTTP basics](01-http-basics.md) | methods, status codes, headers, what a request and response look like | ready |
+| 02 | [REST API design](02-rest-api-design.md) | resources, naming, pagination, versioning, idempotency | ready |
+| 03 | [Express middleware](03-express-middleware.md) | the request pipeline, next(), error middleware | ready |
+
+Each ready lesson has a step-through page in [visuals/](visuals/) and a practice file in [practice/](practice/). Run one with `node --test learn/backend-api/practice/01-http-basics.test.js`. The tests fail until you write the code.
 
 ### GraphQL
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 04 | GraphQL basics `04-graphql-basics.md` | schema, query, mutation, how it differs from REST | planned |
-| 05 | Resolvers and the N+1 problem `05-resolvers-and-the-n-1-problem.md` | how resolvers run and why DataLoader exists | planned |
+| 04 | [GraphQL basics](04-graphql-basics.md) | schema, query, mutation, how it differs from REST | ready |
+| 05 | [Resolvers and the N+1 problem](05-resolvers-and-the-n-1-problem.md) | how resolvers run and why DataLoader exists | ready |
 
 ### Auth
 
@@ -79,6 +81,7 @@ Longer guides that cover many concepts at once. Good for revision after the less
 
 Open in the browser. Everything visible on one page.
 
+- [Backend and API lessons cheatsheet](backend-api-cheatsheet.html) - lessons 01 to 03: pictures, status codes, predict the output, interview answers
 - [Express, GraphQL and auth visual cheatsheet](express-graphql-auth-tutorial-cheatsheet.html)
 - [Hasura visual cheatsheet](hasura-guide-cheatsheet.html)
 

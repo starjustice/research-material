@@ -6,6 +6,7 @@
  * Examples:
  *   climbingStairs(2) -> 2   (1+1, 2)
  *   climbingStairs(3) -> 3   (1+1+1, 1+2, 2+1)
+ *  4 (1+1+1+1, 2+2, 2+1+1, 1+2+1, 1+1+2) - >5
  *   climbingStairs(5) -> 8
  *
  * Target: O(n) time, O(1) space
@@ -16,7 +17,18 @@
  *   3. It is the same shape as Fibonacci. Reuse what you learned there.
  */
 function climbingStairs(n) {
-  throw new Error('not implemented');
+  if (n === 0 || n === 1 || n === 2 || n === 3) {
+    return n;
+  }
+
+  let first = 2,
+    second = 3;
+  for (let i = 4; i < n; i++) {
+    let tmp = first;
+    first = second;
+    second = tmp + first;
+  }
+  return first + second;
 }
 
 module.exports = { climbingStairs };

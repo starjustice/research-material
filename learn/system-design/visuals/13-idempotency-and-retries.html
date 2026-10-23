@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Idempotency and retries: a lost answer, a key, and two copies at once</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: 1fr 1.3fr 1fr; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .5; border-style: dashed; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.dup { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .line { font-size: .84rem; }
+  .totals { display: flex; gap: 14px; font-size: .84rem; margin-top: 6px; flex-wrap: wrap; }
+  .totals b { font-size: 1.1rem; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../13-idempotency-and-retries.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Idempotency and retries: a lost answer, a key, and two copies at once</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch Ana's app, the key table and the card. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a timeout means "I do not know if it worked". The app makes one key per action and sends it on every try. The server inserts the key as "in progress" before the work, and saves the answer after it. A repeat gets the saved answer. If two copies insert at once, Postgres lets only one win, and the other answers 409.</p>
+</div>
+
+<script>
+const STORIES = [
+  {
+    name: "1. Retry with no key", useKey: false,
+    why: "The first charge worked. Only the answer was lost. The app cannot tell that from a failure, so it sends again. The second POST looks like a brand new payment, so the server charges again.",
+    predict: { q: "The answer is lost. Ana's app sends the same POST again with no key. How many times is her card charged?",
+               options: ["1", "2"], answer: "2" },
+    ops: [
+      { op: "intro", note: "Ana taps <b>Pay 100,000</b>. Her app sends <code>POST /payments</code>. In this story it sends <b>no key</b>, so the key table is not used." },
+      { op: "send" },
+      { op: "charge" },
+      { op: "lost" },
+      { op: "timeout" },
+      { op: "resend" },
+      { op: "charge" },
+      { op: "answer" },
+      { op: "end", note: "Ana paid <b>twice</b>. Nothing was broken: the network lost one answer, and the app did the normal thing and tried again. The fix is not \"never retry\". The fix is to make the retry harmless." }
+    ]
+  },
+  {
+    name: "2. The same, with a key", useKey: true,
+    why: "The first try saved k-41 with its answer, 201 pay_1. The retry carries the same key, so its insert gets 0 rows. The body matches and the row is done, so the server sends the saved answer. It does no new work.",
+    predict: { q: "Now the app sends key k-41 on both tries. What does the second try get?",
+               options: ["A new charge, pay_2", "The saved answer, 201 pay_1", "An error, 422"], answer: "The saved answer, 201 pay_1" },
+    ops: [
+      { op: "intro", note: "The same story. This time the app makes a key, <code>k-41</code>, <b>once</b>, before the first try. It sends it in the <code>Idempotency-Key</code> header on every try." },
+      { op: "send" },
+      { op: "insert", copy: 1, wins: true },
+      { op: "charge" },
+      { op: "save" },
+      { op: "lost" },
+      { op: "timeout" },
+      { op: "resend" },
+      { op: "insert", copy: 1, wins: false },
+      { op: "replay" },
+      { op: "end", note: "Ana paid <b>once</b>, and her app still got its answer. The repeat only read a row. That is what \"safe to repeat\" means: twice leaves the same result as once." }
+    ]
+  },
+  {
+    name: "3. Two copies at once", useKey: true, race: true,
+    why: "Both servers try to insert user 7 and k-42. The primary key (user_id, key) is the unique rule, so Postgres accepts only one row. Copy 1 gets 1 row and does the work. Copy 2 gets 0 rows, finds the row in progress, and answers 409. No code asked \"is it there?\" first.",
+    predict: { q: "Ana double taps. Two copies of k-42 reach two servers at the same moment. Both insert k-42. What happens?",
+               options: ["Both charge the card", "One insert wins, the other gets 409", "Both get 409"], answer: "One insert wins, the other gets 409" },
+    ops: [
+      { op: "intro", note: "Later, Ana pays <b>50,000</b>. Her thumb taps Pay twice fast. Both taps carry the same key, <code>k-42</code>, because the app made it once for this payment. A load balancer sends the two copies to <b>two server copies</b>." },
+      { op: "double" },
+      { op: "insert", copy: 1, wins: true },
+      { op: "insert", copy: 2, wins: false },
+      { op: "busy" },
+      { op: "charge" },
+      { op: "save" },
+      { op: "askAgain" },
+      { op: "replay" },
+      { op: "end", note: "Ana paid <b>once</b>. The database picked the winner, so the two servers never had to talk to each other. If they had each asked \"is k-42 there?\" first, both could have heard \"no\" and both charged. That is the wrong half of picture 2f." }
+    ]
+  }
+];
+
+function simulate(p) {
+  const steps = [];
+  const key = p.race ? "k-42" : "k-41";
+  const amount = p.race ? 50000 : 100000;
+  const money = n => n.toLocaleString("en-US");
+  const w = {
+    useKey: p.useKey, race: !!p.race, key: p.useKey ? key : null, amount,
+    app: "ready", tries: [],
+    s1: "idle", s2: "idle",
+    table: p.race ? [{ user: 7, key: "k-41", body: "100,000", status: "done", answer: "201 pay_1" }] : [],
+    charges: p.race ? [{ id: "pay_1", amount: 100000, key: "k-41" }] : [],
+    fresh: null
+  };
+  let payNo = w.charges.length;
+  let lastPay = null;
+  const snap = (note, active, hop, phase) => steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+  const row = () => w.table.find(r => r.key === key);
+  for (const op of p.ops) {
+    w.fresh = null;
+    if (op.op === "intro") { snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "send") {
+      w.app = "waiting for an answer";
+      w.tries.push("try 1: POST " + money(amount) + (w.useKey ? " with key " + key : ", no key"));
+      w.s1 = "got POST /payments" + (w.useKey ? " with key " + key : "");
+      snap("Ana's app sends <code>POST /payments</code> for " + money(amount) + (w.useKey ? " with <code>Idempotency-Key: " + key + "</code>" : " with <b>no key</b>") + ". It starts a 10 second timer.", ["app", "s1"], "Try 1 is sent", "run");
+    } else if (op.op === "insert") {
+      const s = op.copy === 2 ? "s2" : "s1";
+      if (op.wins) {
+        w.table.push({ user: 7, key, body: money(amount), status: "in progress", answer: "" });
+        w.fresh = key;
+        w[s] = "INSERT " + key + " ON CONFLICT DO NOTHING: 1 row, so it is new";
+        snap((p.race ? "Server copy " + op.copy : "The server") + " runs <code>INSERT ... ON CONFLICT DO NOTHING</code> for user 7 and <code>" + key + "</code>. Postgres answers <b>1 row</b>. The key is new, so " + (p.race ? "this copy" : "the server") + " does the work. The row says <b>in progress</b>, and it is saved <b>before</b> the charge.", [s, "table"], "Insert first: it is new", "srv");
+      } else {
+        w[s] = "INSERT " + key + " ON CONFLICT DO NOTHING: 0 rows, seen before";
+        snap(p.race
+          ? "Server copy 2 runs the same insert a moment later. The primary key <code>(user_id, key)</code> refuses a second row, so Postgres answers <b>0 rows</b>. Copy 2 now knows another copy owns this key."
+          : "The server runs the same insert. This time Postgres answers <b>0 rows</b>, because user 7 already has a row for <code>" + key + "</code>. So the server reads that row. The body matches, and the row is <b>done</b>.",
+          [s, "table"], "Insert again: seen before", "srv");
+      }
+    } else if (op.op === "charge") {
+      payNo++;
+      lastPay = "pay_" + payNo;
+      const dup = w.charges.some(c => c.key === (w.useKey ? key : "none"));
+      w.charges.push({ id: lastPay, amount, key: w.useKey ? key : "none", dup });
+      w.fresh = lastPay;
+      w.s1 = "charging the card";
+      snap(dup
+        ? "The server sees a POST with no key. To the server it is a brand new payment. It charges the card <b>again</b>: <b>" + lastPay + "</b>."
+        : (p.race ? "Server copy 1" : "The server") + " charges Ana's card " + money(amount) + ". The card provider answers <b>" + lastPay + "</b>.",
+        ["s1", "card"], dup ? "Charged again" : "Charge the card", dup ? "bad" : "run");
+    } else if (op.op === "save") {
+      const r = row(); r.status = "done"; r.answer = "201 " + lastPay;
+      w.fresh = key;
+      w.s1 = "saved 201 " + lastPay + " for " + key;
+      if (p.race) w.app = "tap 1 got 201 " + lastPay + ", tap 2 got 409";
+      snap((p.race ? "Copy 1" : "The server") + " saves the answer, <code>201 " + lastPay + "</code>, in the row for <code>" + key + "</code> and marks it <b>done</b>. Then it sends the answer " + (p.race ? "back for tap 1." : "to the app."), ["s1", "table"], "Save the answer", "srv");
+    } else if (op.op === "lost") {
+      w.s1 = "sent 201 " + lastPay + ", but it never arrives";
+      snap("The answer <b>is lost</b> on the way back. Maybe Ana's phone switched from wifi to mobile data. The charge is real, but the app does not know it.", ["s1", "app"], "The answer is lost", "bad");
+    } else if (op.op === "timeout") {
+      w.app = "timeout after 10 s: did it work? unknown";
+      snap("After 10 seconds the app stops waiting. A timeout does <b>not</b> mean \"it failed\". It means \"<b>I do not know</b>\". The app waits about 1 second and tries again.", ["app"], "Timeout", "bad");
+    } else if (op.op === "resend") {
+      w.app = "waiting for an answer";
+      w.tries.push("try 2: POST " + money(amount) + (w.useKey ? " with key " + key : ", no key"));
+      w.s1 = "got POST /payments" + (w.useKey ? " with key " + key : "");
+      snap("Try 2: the app sends the same request again" + (w.useKey ? ", with the <b>same</b> key <code>" + key + "</code>. It did not make a new key for the new try." : ". There is still no key, so the server cannot tell it is the same payment."), ["app", "s1"], "Try 2 is sent", "run");
+    } else if (op.op === "answer") {
+      w.app = "got 201 " + lastPay;
+      w.s1 = "sent 201 " + lastPay;
+      snap("This time the answer arrives: <code>201 " + lastPay + "</code>. The app shows \"Paid\". Ana thinks she paid once. Her bank shows <b>two</b> charges.", ["s1", "app"], "The app gets an answer", "bad");
+    } else if (op.op === "replay") {
+      const r = row();
+      w.app = "got " + r.answer;
+      const s = p.race ? "s2" : "s1";
+      w[s] = "sent the saved answer " + r.answer;
+      snap("The server sends the <b>saved answer</b>, <code>" + r.answer + "</code>. It does not call the card provider. The app shows \"Paid\".", [s, "table", "app"], "Send the saved answer", "srv");
+    } else if (op.op === "double") {
+      w.app = "waiting for an answer";
+      w.tries.push("tap 1: POST 50,000 with key k-42");
+      w.tries.push("tap 2: POST 50,000 with key k-42");
+      w.s1 = "got POST /payments with key k-42";
+      w.s2 = "got POST /payments with key k-42";
+      snap("Two copies of the same request arrive at the same moment, one on <b>server copy 1</b> and one on <b>server copy 2</b>. Neither server knows about the other.", ["app", "s1", "s2"], "Two copies at once", "run");
+    } else if (op.op === "busy") {
+      w.s2 = "row is in progress: answered 409";
+      w.app = "tap 2 got 409: still working, ask again soon";
+      snap("Copy 2 reads the row. The body matches, but the row is still <b>in progress</b>. So it answers <code>409</code>: \"still working, ask again soon\". It does <b>not</b> charge the card.", ["s2", "table", "app"], "The loser answers 409", "srv");
+    } else if (op.op === "askAgain") {
+      w.tries.push("ask again: POST 50,000 with key k-42");
+      w.app = "waiting for an answer";
+      w.s2 = "INSERT k-42: 0 rows, row is done";
+      snap("Tap 2 got 409, so the app waits a little and asks again with <code>k-42</code>. The insert gets 0 rows again. This time the row is <b>done</b>.", ["app", "s2", "table"], "Ask again later", "run");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something goes wrong", "bad"], srv: ["Done safely", "srv"], done: ["Finished", "done"] };
+
+function renderStage(s) {
+  const w = s.w;
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const tries = w.tries.length
+    ? w.tries.map(t => '<li><span class="mono">' + esc(t) + "</span></li>").join("")
+    : '<li class="empty">nothing sent yet</li>';
+  const server = (id, name) =>
+    '<div class="comp srv' + lit(id) + '"><h3>' + name + '</h3><small>Express and Prisma</small><div class="mono line">' + esc(w[id]) + "</div></div>";
+  const tableRows = w.table.length
+    ? w.table.map(r => '<li class="' + (r.key === w.fresh ? "new" : "") + '"><span class="mono">user ' + r.user + " " + esc(r.key) + "</span><span>" + esc(r.body) + "</span>" +
+        '<span class="tag ' + (r.status === "done" ? "ok" : "") + '">' + esc(r.status) + "</span>" +
+        '<span class="mono">' + (r.answer ? esc(r.answer) : "no answer yet") + "</span></li>").join("")
+    : '<li class="empty">' + (w.useKey ? "empty" : "not used: no key was sent") + "</li>";
+  const mine = w.charges.filter(c => c.key === (w.useKey ? w.key : "none"));
+  const chargeRows = w.charges.length
+    ? w.charges.map(c => '<li class="' + (c.dup ? "dup" : c.id === w.fresh ? "new" : "") + '"><span class="mono">' + c.id + "</span><span>" + c.amount.toLocaleString("en-US") + "</span>" +
+        '<span class="mono">' + (c.key === "none" ? "no key" : esc(c.key)) + "</span></li>").join("")
+    : '<li class="empty">no charges yet</li>';
+  const verdict = mine.length > 1 ? '<div class="verdict bad">Ana paid twice for one tap</div>'
+    : (mine.length === 1 && s.phase === "done") ? '<div class="verdict ok">Ana paid once</div>' : "";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>Ana</h2>' +
+      '<div class="comp user' + lit("app") + '"><h3>Ana app ' + (w.key ? '<span class="tag">key ' + esc(w.key) + "</span>" : '<span class="tag bad">no key</span>') + "</h3>" +
+        '<small>what the app sent, and what it knows</small><ul class="rows">' + tries + "</ul>" +
+        '<div class="line" style="margin-top:6px"><b>Now:</b> ' + esc(w.app) + "</div></div>" +
+    "</div>" +
+    '<div class="panel"><h2>Your server</h2>' +
+      server("s1", w.race ? "Server copy 1" : "Express API") +
+      (w.race ? server("s2", "Server copy 2") : "") +
+      '<div class="comp store' + lit("table") + (w.useKey ? "" : " off") + '"><h3>idempotency_keys <span class="tag">Postgres</span></h3>' +
+        "<small>primary key (user_id, key) is the unique rule</small><ul class=\"rows\">" + tableRows + "</ul></div>" +
+    "</div>" +
+    '<div class="panel"><h2>Card provider</h2>' +
+      '<div class="comp lb' + lit("card") + '"><h3>Charges on Ana\'s card</h3><ul class="rows">' + chargeRows + "</ul>" +
+        '<div class="totals"><span>charges for this tap <b>' + mine.length + "</b></span></div>" + verdict + "</div>" +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderStage(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>

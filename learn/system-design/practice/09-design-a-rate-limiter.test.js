@@ -1,110 +1,173 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { createLimiter } = require("./09-design-a-rate-limiter");
+const {
+  createFixedWindow,
+  createSlidingWindow,
+  createTokenBucket,
+  withFallback,
+} = require("./09-design-a-rate-limiter");
 
-// A helper: a clock that the test moves by hand. It counts milliseconds.
-function clock(start = 0) {
-  const c = { t: start, now: () => c.t, advance: (ms) => { c.t += ms; }, set: (ms) => { c.t = ms; } };
-  return c;
+// A fake clock. Tests move time by changing clock.t, so nothing has to wait.
+function fakeClock(start = 0) {
+  const clock = { t: start };
+  clock.now = () => clock.t;
+  return clock;
 }
 
-test("a new key starts with a full bucket, so a burst up to the capacity is allowed", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  assert.deepStrictEqual(lim.check("ann"), { allowed: true, remaining: 2 });
-  assert.deepStrictEqual(lim.check("ann"), { allowed: true, remaining: 1 });
-  assert.deepStrictEqual(lim.check("ann"), { allowed: true, remaining: 0 });
+// ---- Fixed window ----
+
+test("fixed window: allows up to the limit, then says no", () => {
+  const clock = fakeClock();
+  const rl = createFixedWindow({ limit: 3, windowMs: 60_000, now: clock.now });
+  assert.deepStrictEqual(rl.check("ann"), { allowed: true, remaining: 2, retryAfterSeconds: 0 });
+  assert.deepStrictEqual(rl.check("ann"), { allowed: true, remaining: 1, retryAfterSeconds: 0 });
+  assert.deepStrictEqual(rl.check("ann"), { allowed: true, remaining: 0, retryAfterSeconds: 0 });
+  assert.strictEqual(rl.check("ann").allowed, false);
 });
 
-test("the request after the burst is refused and says when to come back", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  for (let i = 0; i < 3; i++) lim.check("ann");
-  assert.deepStrictEqual(lim.check("ann"), { allowed: false, retryAfterSeconds: 1 });
+test("fixed window: each client key has its own count", () => {
+  const clock = fakeClock();
+  const rl = createFixedWindow({ limit: 1, windowMs: 60_000, now: clock.now });
+  assert.strictEqual(rl.check("ann").allowed, true);
+  assert.strictEqual(rl.check("ann").allowed, false);
+  assert.strictEqual(rl.check("ben").allowed, true);
 });
 
-test("retryAfterSeconds is rounded up to whole seconds", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 1, refillPerSecond: 0.5, now: c.now });   // one new token every 2 seconds
-  lim.check("ann");                                                                // the bucket is now empty
-  assert.strictEqual(lim.check("ann").retryAfterSeconds, 2);
-  c.advance(500);                                                                  // 0.25 tokens, 1.5 s to go
-  assert.strictEqual(lim.check("ann").retryAfterSeconds, 2);
-  c.advance(500);                                                                  // 0.5 tokens, 1 s to go
-  assert.strictEqual(lim.check("ann").retryAfterSeconds, 1);
+test("fixed window: retryAfterSeconds is the time left in this window, rounded up", () => {
+  const clock = fakeClock(50_500);
+  const rl = createFixedWindow({ limit: 1, windowMs: 60_000, now: clock.now });
+  rl.check("ann");
+  assert.deepStrictEqual(rl.check("ann"), { allowed: false, remaining: 0, retryAfterSeconds: 10 });
 });
 
-test("one second later, one token is back", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  for (let i = 0; i < 3; i++) lim.check("ann");
-  c.advance(1000);
-  assert.strictEqual(lim.check("ann").allowed, true);
-  assert.strictEqual(lim.check("ann").allowed, false);
+test("fixed window: the count starts again at the next clock window", () => {
+  const clock = fakeClock(10_000);
+  const rl = createFixedWindow({ limit: 1, windowMs: 60_000, now: clock.now });
+  assert.strictEqual(rl.check("ann").allowed, true);
+  clock.t = 59_999;
+  assert.strictEqual(rl.check("ann").allowed, false);
+  clock.t = 60_000;
+  assert.strictEqual(rl.check("ann").allowed, true);
 });
 
-test("a part of a token is kept, so two half seconds make a whole token", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  for (let i = 0; i < 3; i++) lim.check("ann");
-  c.advance(500);
-  assert.strictEqual(lim.check("ann").allowed, false);   // a refused request must not throw away the half token
-  c.advance(500);
-  assert.strictEqual(lim.check("ann").allowed, true);
-});
-
-test("the bucket never holds more than its capacity, even after a long quiet time", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  lim.check("ann");
-  c.advance(60 * 60 * 1000);                              // one hour
-  const results = [1, 2, 3, 4].map(() => lim.check("ann").allowed);
-  assert.deepStrictEqual(results, [true, true, true, false]);
-});
-
-test("every key has its own bucket", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 2, refillPerSecond: 1, now: c.now });
-  lim.check("ann"); lim.check("ann");
-  assert.strictEqual(lim.check("ann").allowed, false);
-  assert.deepStrictEqual(lim.check("ben"), { allowed: true, remaining: 1 });
-});
-
-test("remaining is the whole tokens left, rounded down", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 5, refillPerSecond: 1, now: c.now });
-  for (let i = 0; i < 5; i++) lim.check("ann");
-  c.advance(2500);                                         // 2.5 tokens
-  assert.deepStrictEqual(lim.check("ann"), { allowed: true, remaining: 1 });   // 1.5 left, shown as 1
-});
-
-test("when the clock does not move, no tokens come back", () => {
-  const c = clock(5000);
-  const lim = createLimiter({ capacity: 2, refillPerSecond: 100, now: c.now });
-  lim.check("ann"); lim.check("ann");
-  assert.strictEqual(lim.check("ann").allowed, false);
-  assert.strictEqual(lim.check("ann").allowed, false);
-});
-
-test("a clock that jumps backwards does not make free tokens", () => {
-  const c = clock(10_000);
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  for (let i = 0; i < 3; i++) lim.check("ann");           // empty at 10 s
-  c.set(5000);                                             // the clock goes back 5 s
-  assert.strictEqual(lim.check("ann").allowed, false);
-  c.set(10_500);                                           // only half a second has really passed
-  assert.strictEqual(lim.check("ann").allowed, false);
-  c.set(11_000);                                           // one second has really passed
-  assert.strictEqual(lim.check("ann").allowed, true);
-});
-
-test("over a long time the rate is the refill rate, plus the first burst", () => {
-  const c = clock();
-  const lim = createLimiter({ capacity: 3, refillPerSecond: 1, now: c.now });
-  let allowed = 0;
-  for (let i = 0; i < 20; i++) {                           // a request every half second for 10 seconds
-    if (lim.check("ann").allowed) allowed++;
-    c.advance(500);
+test("fixed window: the edge problem lets 2 times the limit through in 2 seconds", () => {
+  const clock = fakeClock();
+  const rl = createFixedWindow({ limit: 3, windowMs: 60_000, now: clock.now });
+  const answers = [];
+  for (const sec of [59, 59, 59, 61, 61, 61]) {
+    clock.t = sec * 1000;
+    answers.push(rl.check("ann").allowed);
   }
-  assert.strictEqual(allowed, 12);                         // 3 for the burst, then 1 a second for the other 9.5 s, rounded down
+  assert.deepStrictEqual(answers, [true, true, true, true, true, true]);
+});
+
+// ---- Sliding window counter ----
+
+test("sliding window: allows up to the limit inside one window", () => {
+  const clock = fakeClock(1_000);
+  const rl = createSlidingWindow({ limit: 3, windowMs: 60_000, now: clock.now });
+  assert.deepStrictEqual([1, 2, 3, 4].map(() => rl.check("ann").allowed), [true, true, true, false]);
+});
+
+test("sliding window: no edge burst, it blocks right after the clock minute ends", () => {
+  const clock = fakeClock();
+  const rl = createSlidingWindow({ limit: 3, windowMs: 60_000, now: clock.now });
+  const answers = [];
+  for (const sec of [59, 59, 59, 61, 61, 61]) {
+    clock.t = sec * 1000;
+    answers.push(rl.check("ann").allowed);
+  }
+  assert.deepStrictEqual(answers, [true, true, true, false, false, false]);
+});
+
+test("sliding window: the guess shrinks as last window slides away", () => {
+  const clock = fakeClock(59_000);
+  const rl = createSlidingWindow({ limit: 3, windowMs: 60_000, now: clock.now });
+  rl.check("ann"); rl.check("ann"); rl.check("ann");      // 3 in the first minute
+  clock.t = 79_000;                                         // 19 s into the next minute: 3 x 41/60 = 2.05, plus 1 is over 3
+  assert.strictEqual(rl.check("ann").allowed, false);
+  clock.t = 80_000;                                         // 20 s in: 3 x 40/60 = 2, plus 1 is exactly 3
+  assert.strictEqual(rl.check("ann").allowed, true);
+});
+
+test("sliding window: a window that is two or more windows old counts as zero", () => {
+  const clock = fakeClock(0);
+  const rl = createSlidingWindow({ limit: 2, windowMs: 60_000, now: clock.now });
+  rl.check("ann"); rl.check("ann");
+  clock.t = 125_000;                                        // two windows later
+  assert.deepStrictEqual([1, 2, 3].map(() => rl.check("ann").allowed), [true, true, false]);
+});
+
+test("sliding window: each client key has its own counts", () => {
+  const clock = fakeClock(0);
+  const rl = createSlidingWindow({ limit: 1, windowMs: 60_000, now: clock.now });
+  assert.strictEqual(rl.check("ann").allowed, true);
+  assert.strictEqual(rl.check("ben").allowed, true);
+  assert.strictEqual(rl.check("ann").allowed, false);
+});
+
+// ---- Token bucket ----
+
+test("token bucket: a full bucket allows a burst, then says no", () => {
+  const clock = fakeClock();
+  const rl = createTokenBucket({ capacity: 3, refillPerSecond: 1, now: clock.now });
+  assert.deepStrictEqual([1, 2, 3, 4, 5].map(() => rl.check("ann").allowed), [true, true, true, false, false]);
+});
+
+test("token bucket: remaining is the whole tokens left after this request", () => {
+  const clock = fakeClock();
+  const rl = createTokenBucket({ capacity: 3, refillPerSecond: 1, now: clock.now });
+  assert.deepStrictEqual(rl.check("ann"), { allowed: true, remaining: 2, retryAfterSeconds: 0 });
+});
+
+test("token bucket: tokens grow back with time, the same as the lesson trace", () => {
+  const clock = fakeClock();
+  const rl = createTokenBucket({ capacity: 3, refillPerSecond: 1, now: clock.now });
+  for (let i = 0; i < 5; i++) rl.check("ann");             // 0 tokens left
+  clock.t = 1500;
+  assert.strictEqual(rl.check("ann").allowed, true);        // 1.5 tokens, take 1, 0.5 left
+  clock.t = 1600;
+  assert.strictEqual(rl.check("ann").allowed, false);       // 0.6 tokens
+  clock.t = 10_000;
+  assert.deepStrictEqual(rl.check("ann"), { allowed: true, remaining: 2, retryAfterSeconds: 0 });   // full again, never more than 3
+});
+
+test("token bucket: retryAfterSeconds is how long until 1 token grows back, rounded up", () => {
+  const clock = fakeClock();
+  const rl = createTokenBucket({ capacity: 2, refillPerSecond: 0.25, now: clock.now });   // 1 token every 4 s
+  rl.check("ann"); rl.check("ann");
+  assert.deepStrictEqual(rl.check("ann"), { allowed: false, remaining: 0, retryAfterSeconds: 4 });
+  clock.t = 1_000;
+  assert.strictEqual(rl.check("ann").retryAfterSeconds, 3);
+});
+
+test("token bucket: each client key has its own bucket", () => {
+  const clock = fakeClock();
+  const rl = createTokenBucket({ capacity: 1, refillPerSecond: 1, now: clock.now });
+  assert.strictEqual(rl.check("ann").allowed, true);
+  assert.strictEqual(rl.check("ann").allowed, false);
+  assert.strictEqual(rl.check("ben").allowed, true);
+});
+
+// ---- When the limiter itself breaks ----
+
+function brokenLimiter() {
+  return { check() { throw new Error("redis is down"); } };
+}
+
+test("withFallback passes the answer through when the limiter works", () => {
+  const clock = fakeClock();
+  const rl = withFallback(createFixedWindow({ limit: 1, windowMs: 60_000, now: clock.now }), { failOpen: false });
+  assert.strictEqual(rl.check("ann").allowed, true);
+  assert.strictEqual(rl.check("ann").allowed, false);
+});
+
+test("withFallback fail open: the limiter is broken, so let the request in", () => {
+  const rl = withFallback(brokenLimiter(), { failOpen: true });
+  assert.deepStrictEqual(rl.check("ann"), { allowed: true, limiterDown: true });
+});
+
+test("withFallback fail closed: the limiter is broken, so say no", () => {
+  const rl = withFallback(brokenLimiter(), { failOpen: false });
+  assert.deepStrictEqual(rl.check("ann"), { allowed: false, limiterDown: true });
 });

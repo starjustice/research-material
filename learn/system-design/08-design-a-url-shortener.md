@@ -323,7 +323,7 @@ The counter is the usual choice. 100 creates a second is tiny for one counter. I
 | You turn a link off or change it | Old browsers still go to the old site | It works at once |
 | Load on your servers | Low | High |
 
-The status number is a hint. The header `Cache-Control` decides how long the browser keeps the answer. Real services mix the two. When I ran `curl -sI` on 2026-10-17, bit.ly answered `301` with `cache-control: private, max-age=90`. The link t.co answered `301` with `private,max-age=300`. So a repeat click within 90 seconds skips the server. A later click comes back.
+The status number is a hint. The header `Cache-Control` decides how long the browser keeps the answer. Real services mix the two. bit.ly answers `301` with `cache-control: private, max-age=90` (checked with `curl -sI` on 2026-10-21). So a repeat click within 90 seconds skips the server. A later click comes back.
 
 Your choice depends on the product. If owners see click counts or can turn links off, use 302. Or use 301 with a short `max-age`. If a link never changes and nobody counts clicks, 301 saves the most load.
 
@@ -390,19 +390,19 @@ try {
 
 ## 8. Watch and play
 
-I opened every link below on 2026-10-17. I could read the web pages. For the video I confirmed the title, channel and length from YouTube's data. I did not watch it. Open each one once. If one is broken, tell me and I will replace it.
+Every link below was opened and checked on 2026-10-21. For the videos, the title, channel and length come from YouTube's own data. If one breaks later, say so and it will be replaced.
 
 - **Video:** [How Does a URL Shortener Work?](https://www.youtube.com/watch?v=HHUi8F_qAXM) ByteByteGo, 6 min 44 s - the same design in short. Compare it with picture 2a.
 - **Play with it:** [the stepper in this folder](visuals/08-design-a-url-shortener.html) - guess first, then press Next. Try all three tabs.
 - **Play with it:** in a terminal, run `curl -sI https://bit.ly/3`. Look at the first line, and at the `location` and `cache-control` lines. That is a real 301 and its timer. The server may change what it sends.
-- **Play with it:** [httpstatus.io](https://httpstatus.io/) - the page says you can paste a link and see each redirect step with its status code. Try it on a short link.
+- **Play with it:** [httpstatus.io](https://httpstatus.io/) - paste a short link and see each redirect step with its status code and headers.
 - **Read:** [Hello Interview: Design Bitly](https://www.hellointerview.com/learn/system-design/problem-breakdowns/bitly) - the hash, counter and cache choices, with numbers. Find the part on 301 against 302.
 - **Read:** [MDN: Redirections in HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Redirections) - the table of 301, 302, 307 and 308. Find which ones keep the request method.
 - **Read:** [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html) - go to section 15.4.2. It says a 301 response is "heuristically cacheable". The section on 302 has no such line.
 
 <details><summary>Go deeper (optional)</summary>
 
-**The collision math.** With N possible codes and n codes already stored, one new random code is taken with chance n divided by N. For N = 62 to the power of 7 (3.5 trillion) and n = 1 billion, that is 0.03 percent. For n = 18 billion it is 0.5 percent. If you made all 1 billion codes at random with no check, about n times n divided by 2N pairs would collide, which is about 142,000. This is the birthday problem. It is my own arithmetic, run in Node on 2026-10-17. A page on the [birthday problem](https://en.wikipedia.org/wiki/Birthday_problem) has the proof. I did not open it.
+**The collision math.** With N possible codes and n codes already stored, one new random code is taken with chance n divided by N. For N = 62 to the power of 7 (3.5 trillion) and n = 1 billion, that is 0.03 percent. For n = 18 billion it is 0.5 percent. If you made all 1 billion codes at random with no check, about n times n divided by 2N pairs would collide, which is about 142,000. This is the birthday problem. The numbers were checked in Node on 2026-10-21. The [Wikipedia page on the birthday problem](https://en.wikipedia.org/wiki/Birthday_problem) has the proof and the n times n divided by 2N shortcut.
 
 **Hash details.** Make the link the same before you hash it (for example lowercase the host name). Then hash it, turn the result into base62 and keep the first N letters. The Hello Interview page above says to add a unique rule on the code and retry a few times, about 3 to 5. It also says a salt helps when codes must not be guessable.
 
@@ -418,9 +418,9 @@ I opened every link below on 2026-10-17. I could read the web pages. For the vid
 
 **If the cache stops.** The older [step by step walkthrough, Part 2](system-design-step-by-step-walkthrough.md) has a worked version of this design. It uses a small cache inside each server for the hottest links, and a limited number of table connections, so the service slows down but does not fall over.
 
-**Other videos.** [Hello Interview: Design Bitly](https://www.youtube.com/watch?v=iUU4O1sWtJA) is 59 min 30 s, so it is long. I confirmed the title and channel only.
+**Other videos.** [Hello Interview: Design Bitly](https://www.youtube.com/watch?v=iUU4O1sWtJA) is 59 min 30 s, so it is long. Watch it after the short ByteByteGo video.
 
-**Checked on:** 2026-10-17. The `curl` results (bit.ly 301 with `max-age=90`, t.co 301 with `max-age=300`) are from that day. Websites change.
+**Checked on:** 2026-10-21. The `curl` result (bit.ly 301 with `max-age=90`) is from that day. Websites change.
 
 </details>
 

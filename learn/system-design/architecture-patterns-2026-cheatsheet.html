@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture Patterns Cheatsheet</title>
+<link rel="stylesheet" href="sheet.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-green" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-pink" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-muted" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+</svg>
+
+<header>
+  <h1>ARCHITECTURE PATTERNS 2026 CHEATSHEET</h1>
+  <p class="sub">Layers · Modular monolith · Boundaries · Gateway and BFF · Serverless · Events · Tenancy · AI features · ADRs</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+    <button class="reset-btn" type="button" onclick="resetProgress()">reset progress</button>
+  </div>
+</header>
+
+<nav role="tablist">
+  <button class="active" data-tab="diagrams" type="button">📊 Pictures</button>
+  <button data-tab="concepts" type="button">📌 Concepts</button>
+  <button data-tab="numbers" type="button">🔢 Tables</button>
+  <button data-tab="decisions" type="button">⚖️ Decisions</button>
+  <button data-tab="cases" type="button">🏢 Cases &amp; hooks</button>
+</nav>
+
+<section id="diagrams" class="active">
+  <p class="hint">Split for a reason you can name. Redraw each picture from memory, then say the line under it.</p>
+
+  <div class="diagram-card">
+    <h3>1 · Three shapes: same boxes, different lines</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 220" role="img" aria-label="Monolith with everything mixed, modular monolith with modules and one database, microservices each with its own database">
+      <text class="lbl" x="120" y="22">Monolith</text>
+      <rect class="box box-pink" x="20" y="36" width="200" height="64" rx="10"/>
+      <text class="lbl-s" x="120" y="62">orders, points, catalog</text>
+      <text class="lbl-s" x="120" y="80">all mixed together</text>
+      <rect class="box box-blue" x="40" y="130" width="160" height="40" rx="8"/><text class="lbl" x="120" y="155">one database</text>
+      <path class="arrow" d="M120,100 L120,128" marker-end="url(#arr)"/>
+
+      <text class="lbl" x="360" y="22">Modular monolith</text>
+      <rect class="box box-green" x="260" y="40" width="90" height="50" rx="8"/><text class="lbl" x="305" y="70">orders</text>
+      <rect class="box box-green" x="370" y="40" width="90" height="50" rx="8"/><text class="lbl" x="415" y="70">points</text>
+      <path class="arrow-green" d="M350,65 L368,65" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="360" y="108">function call</text>
+      <rect class="box box-blue" x="270" y="130" width="180" height="40" rx="8"/><text class="lbl-s" x="360" y="155">one DB, tables per module</text>
+      <path class="arrow" d="M305,90 L305,128" marker-end="url(#arr)"/><path class="arrow" d="M415,90 L415,128" marker-end="url(#arr)"/>
+
+      <text class="lbl" x="600" y="22">Microservices</text>
+      <rect class="box box-yellow" x="495" y="40" width="95" height="50" rx="8"/><text class="lbl" x="542" y="70">orders</text>
+      <rect class="box box-yellow" x="615" y="40" width="95" height="50" rx="8"/><text class="lbl" x="662" y="70">points</text>
+      <path class="arrow-pink" d="M590,65 L613,65" marker-end="url(#arrp)"/>
+      <text class="lbl-s t-pink" x="602" y="108">network call</text>
+      <rect class="box box-blue" x="495" y="130" width="95" height="40" rx="8"/><text class="lbl-s" x="542" y="155">orders db</text>
+      <rect class="box box-blue" x="615" y="130" width="95" height="40" rx="8"/><text class="lbl-s" x="662" y="155">points db</text>
+      <path class="arrow" d="M542,90 L542,128" marker-end="url(#arr)"/><path class="arrow" d="M662,90 L662,128" marker-end="url(#arr)"/>
+
+      <text class="lbl-s" x="360" y="204">The difference is the line between boxes: a function call that cannot fail, or a network call that can.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I start with a modular monolith: one deploy, strong module walls, each module owning its tables. I pull a module out only for a named reason: its own team, its own deploy speed, its own scale, or failure isolation."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>2 · Strangler fig: move one route at a time</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Step 1 router sends all to old app, step 2 router sends points to new service, step 3 old app is gone">
+      <text class="lbl" x="45" y="45">Step 1</text>
+      <rect class="box box-blue" x="100" y="22" width="110" height="38" rx="8"/><text class="lbl" x="155" y="46">Router</text>
+      <rect class="box box-pink" x="300" y="22" width="200" height="38" rx="8"/><text class="lbl" x="400" y="46">Old app: all routes</text>
+      <path class="arrow" d="M210,41 L298,41" marker-end="url(#arr)"/>
+
+      <text class="lbl" x="45" y="115">Step 2</text>
+      <rect class="box box-blue" x="100" y="92" width="110" height="38" rx="8"/><text class="lbl" x="155" y="116">Router</text>
+      <rect class="box box-pink" x="300" y="80" width="200" height="34" rx="8"/><text class="lbl-s" x="400" y="101">Old app: everything else</text>
+      <rect class="box box-green" x="530" y="110" width="180" height="34" rx="8"/><text class="lbl-s" x="620" y="131">New points service</text>
+      <path class="arrow" d="M210,104 L298,98" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M210,120 C350,140 450,130 528,127" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-green" x="380" y="146">/points</text>
+
+      <text class="lbl" x="45" y="185">Step 3</text>
+      <rect class="box box-blue" x="100" y="162" width="110" height="38" rx="8"/><text class="lbl" x="155" y="186">Router</text>
+      <rect class="box box-green" x="300" y="162" width="200" height="38" rx="8"/><text class="lbl" x="400" y="186">New services</text>
+      <path class="arrow-green" d="M210,181 L298,181" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-pink" x="620" y="186">old app turned off</text>
+
+      <text class="lbl-s" x="360" y="220">Users always hit the router. Rollback is one rule change: send /points back to the old app.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I never do a big bang rewrite. I put a router in front, move one route or bounded context at a time, watch it in production, and roll back by switching the route."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>3 · Gateway for everyone, a BFF per client</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 200" role="img" aria-label="Web and mobile go through one API gateway, then a web BFF and a mobile BFF, which call orders and catalog services">
+      <rect class="box" x="10" y="40" width="100" height="38" rx="8"/><text class="lbl" x="60" y="64">Web</text>
+      <rect class="box" x="10" y="122" width="100" height="38" rx="8"/><text class="lbl" x="60" y="146">Mobile</text>
+      <rect class="box box-yellow" x="150" y="68" width="140" height="64" rx="10"/><text class="lbl" x="220" y="94">API gateway</text><text class="lbl-s" x="220" y="114">HTTPS, token, limits</text>
+      <rect class="box box-blue" x="335" y="34" width="140" height="50" rx="8"/><text class="lbl" x="405" y="56">Web BFF</text><text class="lbl-s" x="405" y="74">rich pages</text>
+      <rect class="box box-blue" x="335" y="116" width="140" height="50" rx="8"/><text class="lbl" x="405" y="138">Mobile BFF</text><text class="lbl-s" x="405" y="156">small payloads</text>
+      <rect class="box box-green" x="545" y="34" width="165" height="50" rx="8"/><text class="lbl" x="627" y="64">Orders service</text>
+      <rect class="box box-green" x="545" y="116" width="165" height="50" rx="8"/><text class="lbl" x="627" y="146">Catalog service</text>
+      <path class="arrow" d="M110,59 L148,88" marker-end="url(#arr)"/><path class="arrow" d="M110,141 L148,112" marker-end="url(#arr)"/>
+      <path class="arrow" d="M290,90 L333,64" marker-end="url(#arr)"/><path class="arrow" d="M290,110 L333,136" marker-end="url(#arr)"/>
+      <path class="arrow" d="M475,59 L543,59" marker-end="url(#arr)"/><path class="arrow" d="M475,141 L543,141" marker-end="url(#arr)"/>
+      <path class="arrow-dash" d="M475,70 L543,130" marker-end="url(#arrm)"/><path class="arrow-dash" d="M475,130 L543,70" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="192">No business logic in the gateway. In Next.js, the server often is the web BFF. GraphQL can replace several BFFs.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The gateway does the shared checks: routing, HTTPS, token and rate limits. A BFF, or GraphQL, shapes data per client, so mobile gets small payloads and web gets rich pages."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>4 · Three ways to keep customers apart</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Shared tables with tenant id and RLS, schema per tenant, database per tenant, with isolation and cost">
+      <text class="lbl" x="120" y="22">Shared tables (pool)</text>
+      <rect class="box box-blue" x="20" y="36" width="200" height="90" rx="10"/>
+      <text class="lbl-m" x="120" y="60">orders</text>
+      <text class="lbl-s" x="120" y="80">row: tenant A</text>
+      <text class="lbl-s" x="120" y="96">row: tenant B</text>
+      <text class="lbl-s" x="120" y="112">row: tenant A</text>
+      <text class="lbl-s t-green" x="120" y="146">✓ cheapest, one migration</text>
+      <text class="lbl-s t-pink" x="120" y="164">✗ one missing filter leaks</text>
+      <text class="lbl-s" x="120" y="182">fix: RLS as a safety net</text>
+
+      <text class="lbl" x="360" y="22">Schema per tenant</text>
+      <rect class="box box-blue" x="260" y="36" width="200" height="90" rx="10"/>
+      <rect class="box box-green" x="272" y="56" width="84" height="54" rx="6"/><text class="lbl-s" x="314" y="88">schema a</text>
+      <rect class="box box-green" x="364" y="56" width="84" height="54" rx="6"/><text class="lbl-s" x="406" y="88">schema b</text>
+      <text class="lbl-s t-green" x="360" y="146">✓ clearer walls</text>
+      <text class="lbl-s t-pink" x="360" y="164">✗ migrations run N times</text>
+      <text class="lbl-s" x="360" y="182">tens to hundreds of tenants</text>
+
+      <text class="lbl" x="600" y="22">Database per tenant (silo)</text>
+      <rect class="box box-green" x="500" y="40" width="95" height="80" rx="10"/><text class="lbl-s" x="547" y="84">db for A</text>
+      <rect class="box box-green" x="615" y="40" width="95" height="80" rx="10"/><text class="lbl-s" x="662" y="84">db for B</text>
+      <text class="lbl-s t-green" x="605" y="146">✓ strongest isolation</text>
+      <text class="lbl-s t-pink" x="605" y="164">✗ highest cost per tenant</text>
+      <text class="lbl-s" x="605" y="182">big or regulated tenants</text>
+
+      <text class="lbl-s" x="360" y="218">Most B2B systems end hybrid: pool by default, own database for the few who need it.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I start with shared tables, tenant_id on every row and Postgres row level security, because it is cheapest to run and migrate. A huge or regulated tenant moves to its own database."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>5 · The LLM gateway: one door to every model</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="App features call one LLM gateway that does budgets, cache, logs and fallback, then calls provider A or provider B">
+      <rect class="box" x="10" y="24" width="120" height="36" rx="8"/><text class="lbl" x="70" y="47">Chat</text>
+      <rect class="box" x="10" y="80" width="120" height="36" rx="8"/><text class="lbl" x="70" y="103">Summary</text>
+      <rect class="box" x="10" y="136" width="120" height="36" rx="8"/><text class="lbl" x="70" y="159">Search</text>
+      <rect class="box box-yellow" x="190" y="20" width="250" height="156" rx="12"/>
+      <text class="lbl" x="315" y="44">LLM gateway</text>
+      <text class="lbl-sl" x="206" y="72">• only place with provider keys</text>
+      <text class="lbl-sl" x="206" y="94">• rate limit + budget per tenant</text>
+      <text class="lbl-sl" x="206" y="116">• cache repeated prompts</text>
+      <text class="lbl-sl" x="206" y="138">• log tokens, cost, latency</text>
+      <text class="lbl-sl" x="206" y="160">• timeout, then fallback</text>
+      <rect class="box box-green" x="530" y="34" width="180" height="44" rx="8"/><text class="lbl" x="620" y="61">Provider A</text>
+      <rect class="box box-blue" x="530" y="118" width="180" height="44" rx="8"/><text class="lbl" x="620" y="145">Provider B</text>
+      <path class="arrow" d="M130,42 L188,70" marker-end="url(#arr)"/><path class="arrow" d="M130,98 L188,98" marker-end="url(#arr)"/><path class="arrow" d="M130,154 L188,126" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M440,70 L528,58" marker-end="url(#arrg)"/><text class="lbl-s t-green" x="485" y="52">first</text>
+      <path class="arrow-dash" d="M440,128 L528,138" marker-end="url(#arrm)"/><text class="lbl-s" x="485" y="152">fallback</text>
+      <text class="lbl-s" x="360" y="200">Tools: LiteLLM (open source), Vercel AI Gateway (hosted), or a small module in your own Node app.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I treat the model as a slow, costly, sometimes-down third party. It sits behind one gateway with per-tenant budgets, cost logs, timeouts and a fallback provider."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>6 · RAG on the Postgres you already have</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 230" role="img" aria-label="Ingest: documents to chunks to embeddings to Postgres with pgvector. Ask: question, embed, top 5 chunks for this tenant, prompt, LLM, answer with sources">
+      <text class="lbl-sl" x="10" y="16">Ingest, ahead of time</text>
+      <rect class="box box-blue" x="10" y="26" width="100" height="40" rx="8"/><text class="lbl" x="60" y="51">Documents</text>
+      <rect class="box box-blue" x="150" y="26" width="100" height="40" rx="8"/><text class="lbl" x="200" y="51">Chunks</text>
+      <rect class="box box-blue" x="290" y="26" width="110" height="40" rx="8"/><text class="lbl" x="345" y="51">Embeddings</text>
+      <rect class="box box-green" x="440" y="22" width="170" height="48" rx="10"/><text class="lbl" x="525" y="44">Postgres</text><text class="lbl-s" x="525" y="61">pgvector, HNSW index</text>
+      <path class="arrow" d="M110,46 L148,46" marker-end="url(#arr)"/><path class="arrow" d="M250,46 L288,46" marker-end="url(#arr)"/><path class="arrow" d="M400,46 L438,46" marker-end="url(#arr)"/>
+
+      <text class="lbl-sl" x="10" y="120">Ask, per question</text>
+      <rect class="box" x="10" y="130" width="95" height="44" rx="8"/><text class="lbl" x="57" y="157">Question</text>
+      <rect class="box" x="125" y="130" width="95" height="44" rx="8"/><text class="lbl" x="172" y="157">Embed it</text>
+      <rect class="box box-yellow" x="240" y="126" width="125" height="52" rx="8"/><text class="lbl" x="302" y="149">Top 5 chunks</text><text class="lbl-s" x="302" y="166">for this tenant</text>
+      <rect class="box" x="385" y="130" width="95" height="44" rx="8"/><text class="lbl" x="432" y="157">Prompt</text>
+      <rect class="box" x="500" y="130" width="95" height="44" rx="8"/><text class="lbl" x="547" y="157">LLM</text>
+      <rect class="box box-green" x="615" y="126" width="95" height="52" rx="8"/><text class="lbl" x="662" y="149">Answer</text><text class="lbl-s" x="662" y="166">with sources</text>
+      <path class="arrow" d="M105,152 L123,152" marker-end="url(#arr)"/><path class="arrow" d="M220,152 L238,152" marker-end="url(#arr)"/><path class="arrow" d="M365,152 L383,152" marker-end="url(#arr)"/><path class="arrow" d="M480,152 L498,152" marker-end="url(#arr)"/><path class="arrow" d="M595,152 L613,152" marker-end="url(#arr)"/>
+      <path class="arrow-green" d="M525,70 C525,100 310,96 304,124" marker-end="url(#arrg)"/>
+      <text class="lbl-s t-pink" x="360" y="210">Filter by tenant before the model sees anything: what reaches the prompt can reach the answer.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "I keep vectors in the same Postgres with pgvector, so the tenant filter and permissions sit next to the data. Retrieval quality matters more than the model, so I test it with evals."</div>
+  </div>
+
+  <div class="diagram-card">
+    <h3>7 · Ports and adapters: the core imports nothing outside</h3>
+    <div class="svgwrap"><svg viewBox="0 0 720 210" role="img" aria-label="Express, GraphQL and Lambda adapters call the core; the core defines OrderStore and Notifier ports filled by Prisma, a test fake and an email adapter">
+      <rect class="box box-blue" x="10" y="20" width="140" height="38" rx="8"/><text class="lbl" x="80" y="44">Express route</text>
+      <rect class="box box-blue" x="10" y="78" width="140" height="38" rx="8"/><text class="lbl" x="80" y="102">GraphQL</text>
+      <rect class="box box-blue" x="10" y="136" width="140" height="38" rx="8"/><text class="lbl" x="80" y="160">Lambda handler</text>
+      <rect class="box box-green" x="230" y="50" width="180" height="96" rx="14"/><text class="lbl" x="320" y="88">Core rules</text><text class="lbl-s" x="320" y="108">place order, prices</text><text class="lbl-s" x="320" y="124">no Prisma, no Express</text>
+      <rect class="box box-yellow" x="450" y="40" width="100" height="36" rx="8"/><text class="lbl-s" x="500" y="62">OrderStore port</text>
+      <rect class="box box-yellow" x="450" y="122" width="100" height="36" rx="8"/><text class="lbl-s" x="500" y="144">Notifier port</text>
+      <rect class="box" x="590" y="14" width="120" height="30" rx="8"/><text class="lbl-s" x="650" y="33">Prisma adapter</text>
+      <rect class="box" x="590" y="70" width="120" height="30" rx="8"/><text class="lbl-s" x="650" y="89">Test fake</text>
+      <rect class="box" x="590" y="128" width="120" height="30" rx="8"/><text class="lbl-s" x="650" y="147">Email adapter</text>
+      <path class="arrow" d="M150,39 L228,78" marker-end="url(#arr)"/><path class="arrow" d="M150,97 L228,97" marker-end="url(#arr)"/><path class="arrow" d="M150,155 L228,120" marker-end="url(#arr)"/>
+      <path class="arrow" d="M410,80 L448,62" marker-end="url(#arr)"/><path class="arrow" d="M410,118 L448,136" marker-end="url(#arr)"/>
+      <path class="arrow-dash" d="M588,29 L552,52" marker-end="url(#arrm)"/><path class="arrow-dash" d="M588,85 L552,66" marker-end="url(#arrm)"/><path class="arrow-dash" d="M588,143 L552,140" marker-end="url(#arrm)"/>
+      <text class="lbl-s" x="360" y="196">Dashed arrows: an adapter fills a port. Skip all this for a small CRUD app; plain layers are enough.</text>
+    </svg></div>
+    <div class="say"><b>Say this:</b> "The core defines the interfaces it needs, and Prisma, HTTP and email code plug into them. Rules become testable without a database, and vendors stay at the edge. I use it only where there are real rules."</div>
+  </div>
+</section>
+
+<section id="concepts">
+  <p class="hint">Explain each out loud. Tick ✓ only when you can.</p>
+  <div class="grid" id="conceptGrid"></div>
+</section>
+
+<section id="numbers">
+  <h2 class="block">How services talk</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Style</th><th>Good for</th><th>Watch out for</th></tr>
+    <tr><td class="val">REST</td><td>simple and public APIs, HTTP caching</td><td class="why">many endpoints as clients differ</td></tr>
+    <tr><td class="val">GraphQL</td><td>many clients needing different fields</td><td class="why">N+1 queries, harder HTTP caching</td></tr>
+    <tr><td class="val">gRPC</td><td>fast typed calls between your own services</td><td class="why">browsers need a proxy, hard to debug by hand</td></tr>
+    <tr><td class="val">Events</td><td>work that can finish later, many listeners</td><td class="why">duplicates, ordering, tracing across hops</td></tr>
+    <tr><td class="val">4 sync hops at 99.9% each</td><td>about 99.6% for the chain</td><td class="why">every extra hop lowers it</td></tr>
+  </table></div>
+  <h2 class="block">Multi-tenancy models</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th></th><th>Shared tables + RLS</th><th>Schema per tenant</th><th>Database per tenant</th></tr>
+    <tr><td>Isolation</td><td>by rule</td><td>medium</td><td class="val">strongest</td></tr>
+    <tr><td>Cost per tenant</td><td class="val">lowest</td><td>low</td><td>highest</td></tr>
+    <tr><td>Migrations</td><td class="val">once</td><td>N times</td><td>N times on N servers</td></tr>
+    <tr><td>Noisy neighbor</td><td>real risk</td><td>real risk</td><td class="val">none</td></tr>
+    <tr><td>Fits</td><td>thousands of small tenants</td><td>tens to hundreds</td><td>big or regulated</td></tr>
+  </table></div>
+  <h2 class="block">Serverless and edge: where it hurts</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Pain</th><th>Fix</th></tr>
+    <tr><td class="val">Cold start</td><td class="why">small functions, or a container for steady traffic</td></tr>
+    <tr><td class="val">Postgres connections (often ~100)</td><td class="why">pooler: PgBouncer, RDS Proxy, Prisma Accelerate, Hyperdrive; or an HTTP driver</td></tr>
+    <tr><td class="val">Lambda max 15 minutes</td><td class="why">long work goes to a queue worker</td></tr>
+    <tr><td class="val">Edge far from the database</td><td class="why">only light checks at the edge</td></tr>
+    <tr><td class="val">Lock-in</td><td class="why">thin handler, rules in plain functions (ports and adapters)</td></tr>
+  </table></div>
+  <h2 class="block">AI features: the parts</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Part</th><th>Job</th></tr>
+    <tr><td class="val">LLM gateway</td><td class="why">keys, budget per tenant, cache, cost logs, timeout and fallback</td></tr>
+    <tr><td class="val">RAG</td><td class="why">chunk, embed, store in pgvector, find top chunks for this tenant, answer with sources</td></tr>
+    <tr><td class="val">Streaming</td><td class="why">first words fast; stop the model call when the user leaves</td></tr>
+    <tr><td class="val">Evals</td><td class="why">fixed test questions, scored on every prompt or model change</td></tr>
+    <tr><td class="val">Guardrails</td><td class="why">mask personal data, validate JSON, cap length, treat retrieved text as untrusted</td></tr>
+    <tr><td class="val">Tool calling</td><td class="why">the model asks, your code runs it with the user's permissions, max steps</td></tr>
+    <tr><td class="val">MCP server</td><td class="why">thin adapter over your API; spec 2026-07-28 is stateless</td></tr>
+  </table></div>
+  <h2 class="block">Which architecture to propose</h2>
+  <div class="tablewrap"><table class="numbers">
+    <tr><th>Situation</th><th>Propose</th><th>Say</th></tr>
+    <tr><td>1 to 10 engineers, one product</td><td class="val">modular monolith, one Postgres</td><td class="why">one deploy now, clean cut lines later</td></tr>
+    <tr><td>Spiky webhooks or image jobs</td><td class="val">+ workers or functions for that part</td><td class="why">the spiky part cannot slow the API</td></tr>
+    <tr><td>3+ teams blocking each other</td><td class="val">services per bounded context, strangler fig</td><td class="why">split where teams collide, one route at a time</td></tr>
+    <tr><td>Web + mobile, different needs</td><td class="val">BFF or GraphQL</td><td class="why">each client gets its own shape</td></tr>
+    <tr><td>Many small B2B customers</td><td class="val">shared tables + tenant_id + RLS</td><td class="why">cheap, one migration, DB blocks cross-tenant reads</td></tr>
+    <tr><td>A few banks or regulated tenants</td><td class="val">hybrid pool + silo</td><td class="why">isolation only where the contract needs it</td></tr>
+    <tr><td>Huge scale, outage hits millions</td><td class="val">cells</td><td class="why">one failure stays inside one slice</td></tr>
+    <tr><td>Adding AI features</td><td class="val">LLM gateway + pgvector RAG + evals</td><td class="why">cost control, fallback, data and permissions in one place</td></tr>
+  </table></div>
+</section>
+
+<section id="decisions">
+  <p class="hint">Every choice buys something and costs something. Say both.</p>
+  <div id="decisionList"></div>
+</section>
+
+<section id="cases">
+  <h2 class="block">🏢 Real cases to cite</h2>
+  <div id="caseList"></div>
+  <h2 class="block">🧠 Memory hooks</h2>
+  <div id="hookList"></div>
+  <h2 class="block">▶ Watch and play</h2>
+  <p class="hint">Opened on 2026-10-16. No video this time: video pages could not be checked from this workspace.</p>
+  <div class="case"><span class="topic">Diagrams</span><b><a href="https://github.com/ByteByteGoHq/system-design-101">ByteByteGo system-design-101</a></b><p>Visual guides. Open "Typical Microservice Architecture" and "API Gateway 101".</p></div>
+  <div class="case"><span class="topic">Diagrams + TypeScript</span><b><a href="https://github.com/Sairyss/domain-driven-hexagon">Domain-Driven Hexagon</a></b><p>Hexagonal and DDD with one big diagram. Look at the picture, then the folder layout.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/gkamradt/ChunkViz">ChunkViz</a></b><p>Open the demo from the README. Paste text and change chunk size and overlap.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/modelcontextprotocol/inspector">MCP Inspector</a></b><p>Run <code>npx @modelcontextprotocol/inspector</code>, connect to a server, call a tool by hand.</p></div>
+  <div class="case"><span class="topic">Play</span><b><a href="https://github.com/pgvector/pgvector">pgvector</a></b><p>Run the README's first example in a local Postgres. Try a nearest neighbor query.</p></div>
+  <div class="case"><span class="topic">Draw</span><b><a href="https://github.com/excalidraw/excalidraw">Excalidraw</a></b><p>The README links the free drawing app. Draw the three shapes from memory.</p></div>
+  <div class="case"><span class="topic">Write</span><b><a href="https://github.com/joelparkerhenderson/architecture-decision-record">ADR templates</a></b><p>Read the Michael Nygard template, then write ADR 0001 for one of your own choices.</p></div>
+</section>
+
+<footer>Part of the Study Route system design track · read with the note "Architecture Patterns in 2026"</footer>
+
+<script>
+window.SHEET = {
+  key: "sd-architecture",
+  concepts: [
+    { t: "Layers in one app", d: "Route reads the request and replies. Service holds the business rules. Repository is the only code that talks to Prisma. REST, GraphQL and jobs share one copy of each rule." },
+    { t: "Monolith", d: "One codebase, one deploy, one database. Simple to run. Risk: code reaches anything, so it turns into a tangle." },
+    { t: "Modular monolith", d: "Still one deploy, but each module has a small public front and owns its own tables. Others may only use the front. Shopify runs its core this way." },
+    { t: "Microservices", d: "Each module is its own program, deploy and database, talking over the network. Buys team and failure independence. Costs network failures, tracing, more servers." },
+    { t: "Distributed monolith", d: "Services so tied together (shared tables, chains of sync calls) that they must change and deploy together. The worst of both." },
+    { t: "When to split", d: "Name the reason: a separate team, its own deploy speed, very different scale, or failure isolation. 'Microservices are modern' is not a reason." },
+    { t: "Bounded context", d: "A part of the business where each word has one meaning. 'Product' in catalog is photos; in the warehouse it is stock. The best first guess for module lines." },
+    { t: "Aggregate", d: "Data that must stay correct together, saved in one transaction: an Order with its lines. Change it only through the root. Other aggregates follow by event." },
+    { t: "Database per service", d: "Only the owner reads and writes its tables. Others ask its API or listen to its events. Cost: no cross-service joins or transactions." },
+    { t: "Strangler fig", d: "Router in front, move one route at a time to new code, roll back by switching the route. The old app shrinks until it is gone." },
+    { t: "Sync vs async", d: "Sync when the user needs the answer now (login, stock). Events when work can finish later (email, points). Every sync hop multiplies failure." },
+    { t: "API gateway and BFF", d: "Gateway: one front door for routing, HTTPS, token checks and rate limits, no business logic. BFF: a thin server per client type that shapes data." },
+    { t: "GraphQL federation", d: "Each team owns a subgraph; a router joins them into one supergraph. Apollo Federation, Hasura DDN. Worth it only with several teams." },
+    { t: "Serverless and edge", d: "Functions for spiky work and webhooks; edge for light checks near users. Traps: cold starts, Postgres connection limits, time limits, lock-in." },
+    { t: "Events and outbox", d: "An event is a past-tense fact (OrderPlaced). Brokers deliver at least once, so listeners must be safe to run twice. Outbox = write the event in the same transaction." },
+    { t: "CQRS", d: "Separate model for writes and for reads, synced by events. Read side is a moment behind. Try a materialized view or read replica first." },
+    { t: "Ports and adapters", d: "The core defines interfaces (ports). Prisma, HTTP, email and test fakes are adapters. Dependencies point inward. Overkill for simple CRUD." },
+    { t: "Row level security", d: "<code>ENABLE</code> + <code>FORCE ROW LEVEL SECURITY</code>, a policy on tenant_id, and <code>set_config('app.tenant_id', id, true)</code> per transaction. The app role must not be superuser or BYPASSRLS." },
+    { t: "Cells", d: "A thin router sends each customer to one cell, a full small copy with its own database. One failure hurts one slice. Add cells to grow." },
+    { t: "LLM gateway, RAG, MCP", d: "Gateway: keys, budgets, fallback, cost logs. RAG: find chunks for this tenant in pgvector, then let the model answer. MCP: a standard adapter that gives AI apps your tools with the user's permissions." }
+  ],
+  decisions: [
+    { q: "Modular monolith vs microservices", a: "Modular monolith when", at: "One or two teams, one product, data that changes together, a need to move fast.", b: "Microservices when", bt: "Several teams block each other, parts need very different scale, or failure must be isolated.", v: "Start modular. Extract one module at a time when you can name the reason. Write the choice in an ADR." },
+    { q: "Sync call vs event", a: "Sync when", at: "The user needs the answer to continue: login, stock check, price.", b: "Event when", bt: "The work can finish later or many parts care: email, points, search index, reports.", v: "Sync is simpler to follow; events survive slow or down listeners. Use the outbox and idempotent listeners." },
+    { q: "BFF vs one GraphQL API", a: "BFF when", at: "Clients differ a lot and a team owns each client (web team, mobile team).", b: "GraphQL when", bt: "One team, many screens, clients that just need different fields.", v: "GraphQL often replaces several BFFs. In Next.js the server is already a natural web BFF." },
+    { q: "Serverless functions vs containers", a: "Functions when", at: "Spiky or rare traffic: webhooks, cron, image jobs.", b: "Containers when", bt: "Steady load, long jobs, WebSockets, heavy Postgres use.", v: "Mix them: containers for the core API, functions for spiky edges, a pooler in front of Postgres." },
+    { q: "Shared tables vs database per tenant", a: "Shared tables when", at: "Many small tenants, one product, fast onboarding.", b: "Own database when", bt: "A big tenant, data residency, or a contract demands it.", v: "Hybrid: pool by default with RLS, silo the few who need it. A lookup table maps tenant to database." },
+    { q: "Hexagonal core vs plain layers", a: "Hexagonal when", at: "Real rules (pricing, loans, points) and vendors that may change.", b: "Plain layers when", bt: "Mostly CRUD, small team, one database forever.", v: "Use ports only where rules live. Extra interfaces for simple screens add files, not value." },
+    { q: "pgvector vs a separate vector database", a: "pgvector when", at: "You already run Postgres and need tenant filters and joins next to the vectors.", b: "Separate store when", bt: "Very large collections or search load that would hurt your main database.", v: "Start in Postgres: one backup, one permission model. Move only when numbers show the need." }
+  ],
+  cases: [
+    { topic: "Back to one process", b: "Amazon Prime Video (2023)", p: "A video quality tool moved from serverless parts (Step Functions, Lambda, S3 between steps) into one process on ECS: over 90% lower infra cost. One tool, not all of Amazon. <a href=\"https://infoq.com/news/2023/05/prime-ec2-ecs-saves-costs\">InfoQ</a>" },
+    { topic: "Back to one service", b: "Segment (2018)", p: "100+ destination microservices, three engineers just keeping them alive. Merged into one service and one repo, and wrote down what got worse. <a href=\"https://twilio.com/en-us/blog/developers/best-practices/goodbye-microservices\">Segment blog</a>" },
+    { topic: "Modular monolith", b: "Shopify", p: "About 2.8 million lines of Ruby split into components, with Packwerk checking the walls. <a href=\"https://shopify.engineering/deconstructing-monolith-designing-software-maximizes-developer-productivity\">Shopify Engineering</a>" },
+    { topic: "Cells", b: "AWS whitepaper (2023)", p: "Reducing the scope of impact with cell-based architecture: full copies per slice of customers, fixed cell size. <a href=\"https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/reducing-scope-of-impact-with-cell-based-architecture.html\">AWS</a>" },
+    { topic: "Your own system", b: "DBO", p: "Split by operational need: auth, workers and cron apart; the product domain kept together in one GraphQL API service. A modular core with a few services around it." }
+  ],
+  hooks: [
+    { b: "Rooms, not houses", p: "A modular monolith is one house with doors. Microservices are separate houses: every visit is a trip outside that can fail." },
+    { b: "Name the reason", p: "Team, deploy speed, scale, failure. If you cannot name one of the four, do not split." },
+    { b: "One owner per table", p: "A table with two owners is a rope tying two services together." },
+    { b: "The vine grows one branch at a time", p: "Strangler fig: one route moves, the router remembers, rollback is one rule." },
+    { b: "Same word, different room", p: "'Product' means photos in catalog and shelf count in the warehouse. Each room keeps its own meaning." },
+    { b: "The model only asks", p: "In tool calling the model asks, your code decides and checks permissions. Never give a tool more rights than the user." },
+    { b: "Filter before you prompt", p: "Whatever reaches the prompt can reach the answer. Tenant filter in the vector search, every time." }
+  ]
+};
+</script>
+<script src="sheet.js"></script>
+</body>
+</html>

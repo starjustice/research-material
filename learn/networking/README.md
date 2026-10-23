@@ -43,12 +43,14 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 Longer guides that cover many concepts at once. Good for revision after the lessons.
 
 - [What happens when you type a URL, step by step](networking-url-to-page-step-by-step.md)
+- [Networking for system design](networking-for-system-design.md) - the network as a designer uses it: latency numbers, DNS as a tool, proxies and gateways, real time options, cloud network layout, timeouts. Part of the [system design roadmap](../system-design/system-design-roadmap-beginner-to-senior.md).
 
 ## Visual cheatsheets
 
 Open in the browser. Everything visible on one page.
 
 - [Networking visual cheatsheet](networking-url-to-page-step-by-step-cheatsheet.html)
+- [Networking for system design cheatsheet](networking-for-system-design-cheatsheet.html)
 
 ## Watch and play
 

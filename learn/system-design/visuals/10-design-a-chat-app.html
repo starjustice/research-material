@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat app: one message, an offline phone, and a lost ack</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --tick: #8a96a0; --blue: #1d8ce0;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --tick: #9db0bd; --blue: #5ab4ff;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.15fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .5; border-style: dashed; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.dup { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .ticks { font-weight: 800; letter-spacing: -2px; color: var(--tick); white-space: nowrap; }
+  .ticks.read { color: var(--blue); }
+  .ticks.wait { letter-spacing: 0; font-weight: 600; font-size: .72rem; }
+  .bubble { max-width: 90%; }
+  .rows.me li { margin-left: auto; width: fit-content; min-width: 70%; }
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+  .totals { display: flex; gap: 14px; font-size: .84rem; margin-top: 6px; flex-wrap: wrap; }
+  .totals b { font-size: 1.1rem; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .lastid { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../10-design-a-chat-app.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Chat app: one message, an offline phone, and a lost ack</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the store, the Redis map, the phones and the ticks. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> save first, then ack, then deliver. A Redis map says which server each phone is on. An offline phone gets a push, then asks for everything after its last id. A resend with the same <code>clientMsgId</code> is saved only once. Ticks: &#10003; saved, &#10003;&#10003; delivered, blue &#10003;&#10003; read.</p>
+</div>
+
+<script>
+const STORIES = [
+  {
+    name: "1. One message, three ticks", kind: "world",
+    why: "One tick is the server's ack, and the server sends the ack right after it saves the message. At that moment Bob may not have it yet. Two ticks come later, when Bob's phone says delivered. Blue comes when Bob opens the chat and his phone says read.",
+    predict: { q: "Alice's phone shows one grey tick next to \"hi\". What is true at that moment?",
+               options: ["Bob's phone has the message", "The message is saved on the server", "Bob has read it"], answer: "The message is saved on the server" },
+    ops: [
+      { op: "intro", note: "Alice's phone has an open WebSocket to <b>connection server A</b>. Bob's phone has one to <b>connection server B</b>. When each phone connected, its server wrote a key in Redis: <code>conn:alice = A</code> and <code>conn:bob = B</code>. Alice is about to send <b>hi</b>." },
+      { op: "send", text: "hi", c: "c1" },
+      { op: "forward" },
+      { op: "save" },
+      { op: "ack" },
+      { op: "lookup" },
+      { op: "handover" },
+      { op: "deliverLine" },
+      { op: "delivered" },
+      { op: "read" },
+      { op: "end", note: "The ticks came in three separate small messages: the ack after the save, then delivered, then read. Chat service A never needed a line to Bob. It asked Redis where Bob is and handed the message to server B." }
+    ]
+  },
+  {
+    name: "2. Bob goes offline", kind: "world",
+    why: "The push only says \"you have a new message\". When Bob's phone reconnects, it tells the server the last id it has, 101. The server reads the store and sends everything after 101, which is 102 and 103. The store is the truth, not the push.",
+    predict: { q: "Bob was offline while 102 and 103 arrived. How does his phone get them when he comes back?",
+               options: ["From the push notifications", "It asks for messages after its last id 101", "The server sends him the whole chat again"], answer: "It asks for messages after its last id 101" },
+    ops: [
+      { op: "intro", note: "Bob already has message <b>101</b>, \"hi\". His phone remembers one number: the last id it has, <b>101</b>. Now Bob walks into a lift and his line drops." },
+      { op: "drop" },
+      { op: "expire" },
+      { op: "offlineSend", text: "are you there?", c: "c2" },
+      { op: "offlineSend", text: "call me", c: "c3" },
+      { op: "reconnect" },
+      { op: "sync" },
+      { op: "delivered" },
+      { op: "end", note: "Nothing was lost while Bob was away, because every message was saved before anything else. The pushes only woke his phone. His phone caught up with one question: everything after 101." }
+    ]
+  },
+  {
+    name: "3. The lost ack", kind: "dup",
+    why: "Alice's phone never got the ack, so it cannot know if the server saved the message. It must send again. Without an id from the phone, the server sees a brand new message and saves a second copy, so Bob sees it twice. With clientMsgId c2, the server finds c2 already saved as 102 and just sends the ack again.",
+    predict: { q: "The ack for \"see you at 5\" is lost on the network, so Alice's phone sends it again. Without a clientMsgId, how many copies does Bob see?",
+               options: ["1", "2"], answer: "2" },
+    ops: [
+      { op: "intro", note: "Two worlds, same events. <b>Left:</b> the phone sends only the text. <b>Right:</b> the phone also sends <code>clientMsgId c2</code>, an id it made itself, and the store has a unique rule on (sender, clientMsgId). Both stores already hold 101 \"hi\"." },
+      { op: "first" },
+      { op: "lost" },
+      { op: "retry" },
+      { op: "end", note: "<b>Left:</b> two rows and Bob saw the message twice. <b>Right:</b> one row, Bob saw it once, and Alice still got her tick. A resend must be harmless, because on mobile networks acks get lost all the time." }
+    ]
+  }
+];
+
+// ---- Stories 1 and 2: one shared world ----
+function newWorld(story) {
+  const w = {
+    store: [], map: { alice: "A", bob: "B" }, bobOnline: true, bobHas: [], bobLast: 0,
+    alice: [], pushes: [], wire: "", newId: null
+  };
+  if (story === 1) {
+    w.store.push({ id: 101, from: "alice", text: "hi", c: "c1" });
+    w.alice.push({ id: 101, text: "hi", tick: 2 });
+    w.bobHas.push(101); w.bobLast = 101;
+  }
+  return w;
+}
+
+function simulateWorld(p, storyIdx) {
+  const steps = [];
+  const w = newWorld(storyIdx);
+  let pending = null, nextId = storyIdx === 1 ? 102 : 101;
+  const snap = (note, active, hop, phase) => steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+  const msgText = id => (w.store.find(m => m.id === id) || {}).text;
+  for (const op of p.ops) {
+    w.newId = null;
+    if (op.op === "intro") { snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { w.wire = ""; snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "send") {
+      pending = { text: op.text, c: op.c };
+      w.alice.push({ id: null, text: op.text, tick: 0, c: op.c });
+      w.wire = "send " + op.text + " with clientMsgId " + op.c;
+      snap("Alice types <b>" + op.text + "</b> and presses send. Her phone makes its own id, <code>" + op.c + "</code>, and sends both on the open WebSocket to server A. The message shows a small clock: not sent yet.", ["alice", "connA"], "Alice sends", "run");
+    } else if (op.op === "forward") {
+      w.wire = "server A to chat service";
+      snap("Server A only holds open lines. It passes the message to the <b>chat service</b>, which does the real work.", ["connA", "chat"], "Server A forwards", "run");
+    } else if (op.op === "save") {
+      const id = nextId++;
+      w.store.push({ id, from: "alice", text: pending.text, c: pending.c });
+      pending.id = id; w.newId = id;
+      w.wire = "save as " + id;
+      snap("The chat service <b>saves first</b>. The store gives it id <b>" + id + "</b>. Ids grow with time, so sorting by id is sorting by time. From now on, a crash cannot lose this message.", ["chat", "store"], "Save first", "srv");
+    } else if (op.op === "ack") {
+      const m = w.alice.find(x => x.c === pending.c); m.id = pending.id; m.tick = 1;
+      w.wire = "ack " + pending.c + " is " + pending.id;
+      snap("Only now does the chat service send the <b>ack</b> to Alice: <code>" + pending.c + " is " + pending.id + "</code>. Her phone shows <b>one tick</b>. One tick means \"saved on the server\". Bob does not have it yet.", ["chat", "connA", "alice"], "Ack, one tick", "srv");
+    } else if (op.op === "lookup") {
+      w.wire = "GET conn:bob";
+      snap("Where is Bob? The chat service asks Redis for <code>conn:bob</code>. The answer is <b>server " + w.map.bob + "</b>.", ["chat", "redis"], "Look up Bob", "run");
+    } else if (op.op === "handover") {
+      w.wire = "PUBLISH server-B message " + pending.id;
+      snap("The chat service posts message " + pending.id + " on server B's channel in Redis pub sub. Server B listens on that channel, so it gets the message. Server A never needed a line to Bob.", ["chat", "redis", "connB"], "Hand over to server B", "run");
+    } else if (op.op === "deliverLine") {
+      w.bobHas.push(pending.id); w.bobLast = pending.id;
+      w.wire = "message " + pending.id;
+      snap("Server B writes message " + pending.id + " to Bob's open WebSocket. Bob's phone shows <b>" + pending.text + "</b> and updates its last id to <b>" + pending.id + "</b>.", ["connB", "bob"], "Bob's phone gets it", "srv");
+    } else if (op.op === "delivered") {
+      const upTo = w.bobLast;
+      w.alice.forEach(m => { if (m.id && m.id <= upTo && m.tick < 2) m.tick = 2; });
+      w.wire = "delivered up to " + upTo;
+      snap("Bob's phone answers <code>delivered up to " + upTo + "</code>. One number covers every message up to " + upTo + ". The chat service tells Alice, and her phone shows <b>two ticks</b>.", ["bob", "connB", "chat", "alice"], "Delivered, two ticks", "srv");
+    } else if (op.op === "read") {
+      const upTo = w.bobLast;
+      w.alice.forEach(m => { if (m.id && m.id <= upTo) m.tick = 3; });
+      w.wire = "read up to " + upTo;
+      snap("Bob opens the chat. His phone sends <code>read up to " + upTo + "</code>. Alice's ticks turn <b>blue</b>. The server keeps only two numbers for Bob in this chat: last delivered " + upTo + " and last read " + upTo + ".", ["bob", "chat", "alice"], "Read, blue ticks", "srv");
+    } else if (op.op === "drop") {
+      w.bobOnline = false;
+      w.wire = "line closed";
+      snap("Bob's WebSocket drops. His phone could not say goodbye. The Redis key <code>conn:bob</code> is still there for now, because it has an end time of 60 seconds.", ["bob", "connB"], "Bob's line drops", "bad");
+    } else if (op.op === "expire") {
+      delete w.map.bob;
+      w.wire = "conn:bob ends";
+      snap("No \"still here\" message came from Bob for a while, so nobody pushed the end time forward. The key <code>conn:bob</code> <b>ends by itself</b>. Bob is now offline in the map.", ["redis"], "The Redis key ends", "run");
+    } else if (op.op === "offlineSend") {
+      const id = nextId++;
+      w.store.push({ id, from: "alice", text: op.text, c: op.c });
+      w.alice.push({ id, text: op.text, tick: 1, c: op.c });
+      w.pushes.push(id); w.newId = id;
+      w.wire = "save " + id + " then push";
+      snap("Alice sends <b>" + op.text + "</b>. The chat service saves it as <b>" + id + "</b> and acks Alice: one tick. It looks up <code>conn:bob</code> and finds <b>nothing</b>. So it adds a job to the <b>push queue</b>: \"you have a new message\". The push does not carry the message itself.", ["alice", "chat", "store", "redis", "push"], "Save, then push", "run");
+    } else if (op.op === "reconnect") {
+      w.bobOnline = true; w.map.bob = "C";
+      w.wire = "SET conn:bob C";
+      snap("Bob leaves the lift and opens the app. His phone reconnects. The load balancer puts it on <b>server C</b> this time, so the server writes <code>conn:bob = C</code>. Bob's phone still has only 101.", ["bob", "connB", "redis"], "Bob reconnects", "run");
+    } else if (op.op === "sync") {
+      const got = w.store.filter(m => m.id > w.bobLast).map(m => m.id);
+      got.forEach(id => w.bobHas.push(id));
+      const before = w.bobLast;
+      w.bobLast = got.length ? got[got.length - 1] : w.bobLast;
+      w.wire = "messages after " + before;
+      snap("Bob's phone asks: <code>messages after " + before + "</code>. The store answers <b>" + got.join(" and ") + "</b>. His phone shows them in id order and sets its last id to <b>" + w.bobLast + "</b>.", ["bob", "chat", "store"], "Catch up from the last id", "srv");
+    }
+  }
+  return steps;
+}
+
+// ---- Story 3: the lost ack, without and with clientMsgId ----
+function simulateDup(p) {
+  const steps = [];
+  const base = () => ({ store: [{ id: 101, text: "hi" }], bob: ["hi"], alice: "hi sent, waiting", tick: 0, log: [] });
+  const L = base(), R = base();
+  const snap = (note, active, hop, phase) => steps.push({ L: JSON.parse(JSON.stringify(L)), R: JSON.parse(JSON.stringify(R)), active, hop, phase, note });
+  for (const op of p.ops) {
+    if (op.op === "intro") { L.alice = R.alice = "nothing sent yet"; snap(op.note, [], "The setup", "setup"); continue; }
+    if (op.op === "end") { snap(op.note, [], "Finished", "done"); continue; }
+    if (op.op === "first") {
+      L.store.push({ id: 102, text: "see you at 5", fresh: true }); L.bob.push("see you at 5");
+      R.store.push({ id: 102, text: "see you at 5", c: "c2", fresh: true }); R.bob.push("see you at 5");
+      L.alice = R.alice = "see you at 5, waiting for the ack";
+      L.log.unshift({ text: "send \"see you at 5\", saved as 102, sent to Bob" });
+      R.log.unshift({ text: "send \"see you at 5\" with c2, saved as 102, sent to Bob" });
+      snap("Alice sends <b>see you at 5</b>. In both worlds the server saves it as <b>102</b> and delivers it to Bob. Then it sends the ack back to Alice.", ["store", "bob"], "Saved and delivered", "srv");
+    } else if (op.op === "lost") {
+      L.store.forEach(m => m.fresh = false); R.store.forEach(m => m.fresh = false);
+      L.log.unshift({ text: "the ack is lost on the way to Alice", bad: true });
+      R.log.unshift({ text: "the ack is lost on the way to Alice", bad: true });
+      L.alice = R.alice = "no tick after 10 s";
+      snap("Alice's phone goes through a tunnel and the <b>ack is lost</b>. Her phone sees no tick. It cannot know whether the server saved the message, so after a timeout it must <b>send again</b>.", ["alice"], "The ack is lost", "bad");
+    } else if (op.op === "retry") {
+      L.store.push({ id: 103, text: "see you at 5", dup: true }); L.bob.push("see you at 5");
+      L.alice = "one tick, for 103"; L.tick = 1;
+      L.log.unshift({ text: "send again, a new message to the server, saved as 103, sent to Bob", bad: true });
+      R.alice = "one tick, for 102"; R.tick = 1;
+      R.log.unshift({ text: "send again with c2, c2 is already 102, no new row, ack 102" });
+      snap("Alice's phone sends again. <b>Left:</b> the server has no way to know it is the same message. It saves <b>103</b> and Bob sees \"see you at 5\" <b>twice</b>. <b>Right:</b> the server finds <code>c2</code> already saved as 102. It saves nothing and does not deliver again. It just sends the ack for 102 again.", ["store", "bob", "alice"], "The resend", "bad");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function simulate(p, i) { return p.kind === "dup" ? simulateDup(p) : simulateWorld(p, i); }
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something breaks", "bad"], srv: ["Done safely", "srv"], done: ["Finished", "done"] };
+
+function ticksHtml(t) {
+  if (t === 0) return '<span class="ticks wait">sending</span>';
+  if (t === 1) return '<span class="ticks">&#10003;</span>';
+  if (t === 2) return '<span class="ticks">&#10003;&#10003;</span>';
+  return '<span class="ticks read">&#10003;&#10003;</span>';
+}
+
+function renderWorld(s) {
+  const w = s.w;
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage three";
+  const aliceRows = w.alice.length
+    ? w.alice.map(m => '<li class="bubble"><span>' + esc(m.text) + "</span>" + ticksHtml(m.tick) + "</li>").join("")
+    : '<li class="empty">no messages yet</li>';
+  const storeRows = w.store.length
+    ? w.store.map(m => '<li class="' + (m.id === w.newId ? "new" : "") + '"><span class="mono">' + m.id + "</span><span>" + esc(m.text) + '</span><span class="mono">' + m.c + "</span></li>").join("")
+    : '<li class="empty">empty</li>';
+  const mapRows = ["alice", "bob"].map(u => '<li><span class="mono">conn:' + u + "</span><span>" + (w.map[u] ? "server " + w.map[u] : '<span class="empty">no key, offline</span>') + "</span></li>").join("");
+  const bobRows = w.bobHas.length
+    ? w.bobHas.map(id => "<li><span>" + esc((w.store.find(m => m.id === id) || {}).text) + '</span><span class="mono">' + id + "</span></li>").join("")
+    : '<li class="empty">no messages yet</li>';
+  const bobServer = w.map.bob || "B";
+  st.innerHTML =
+    '<div class="panel"><h2>Alice</h2>' +
+      '<div class="comp user' + lit("alice") + '"><h3>Alice phone <span class="tag ok">online</span></h3><small>her messages and their ticks</small><ul class="rows me">' + aliceRows + "</ul></div>" +
+      '<div class="comp lb' + lit("connA") + '"><h3>Connection server A</h3><small>holds Alice\'s open WebSocket</small></div>' +
+    "</div>" +
+    '<div class="panel"><h2>The back end</h2>' +
+      '<div class="comp srv' + lit("chat") + '"><h3>Chat service</h3><small>saves, acks, finds Bob, hands over</small>' +
+        (w.wire ? '<div class="mono" style="font-size:.8rem">' + esc(w.wire) + "</div>" : '<span class="empty">idle</span>') + "</div>" +
+      '<div class="comp store' + lit("store") + '"><h3>Message store <span class="tag">on disk</span></h3><ul class="rows">' + storeRows + "</ul></div>" +
+      '<div class="comp store' + lit("redis") + '"><h3>Redis who-is-where map</h3><ul class="rows">' + mapRows + "</ul></div>" +
+      '<div class="comp lb' + lit("push") + '"><h3>Push queue</h3>' +
+        (w.pushes.length ? '<ul class="rows">' + w.pushes.map(id => "<li><span>to bob: you have a new message</span><span class=\"mono\">" + id + "</span></li>").join("") + "</ul>" : '<span class="empty">empty</span>') + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>Bob</h2>' +
+      '<div class="comp lb' + lit("connB") + '"><h3>Connection server ' + bobServer + "</h3><small>holds Bob's open WebSocket</small></div>" +
+      '<div class="comp user' + lit("bob") + (w.bobOnline ? "" : " off") + '"><h3>Bob phone ' + (w.bobOnline ? '<span class="tag ok">online</span>' : '<span class="tag bad">offline</span>') + "</h3><small>what his screen shows</small>" +
+        '<ul class="rows">' + bobRows + "</ul>" +
+        '<div class="lastid">last id this phone has: <b class="mono">' + (w.bobLast || "none") + "</b></div></div>" +
+    "</div>";
+}
+
+function renderDup(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const st = $("stage");
+  st.className = "stage two";
+  const world = (w, title, rule, withId) =>
+    '<div class="panel"><h2>' + title + '</h2><div class="rulebox">' + rule + "</div>" +
+      '<div class="comp user' + lit("alice") + '"><h3>Alice phone ' + (w.tick ? '<span class="ticks">&#10003;</span>' : "") + '</h3><div style="font-size:.84rem">' + esc(w.alice) + "</div></div>" +
+      '<div class="comp store' + lit("store") + '"><h3>Message store' + (withId ? ' <span class="tag">unique sender plus clientMsgId</span>' : "") + '</h3><ul class="rows">' +
+        w.store.map(m => '<li class="' + (m.dup ? "dup" : m.fresh ? "new" : "") + '"><span class="mono">' + m.id + "</span><span>" + esc(m.text) + "</span>" + (withId ? '<span class="mono">' + (m.c || "c1") + "</span>" : "") + "</li>").join("") +
+      "</ul></div>" +
+      '<div class="comp user' + lit("bob") + '"><h3>Bob phone</h3><ul class="rows">' + w.bob.map(t => "<li><span>" + esc(t) + "</span></li>").join("") + "</ul>" +
+        '<div class="totals"><span>copies of \"see you at 5\" <b>' + w.bob.filter(t => t === "see you at 5").length + "</b></span></div>" +
+        (w.bob.filter(t => t === "see you at 5").length > 1 ? '<div class="verdict bad">Bob sees the same message twice</div>' : "") +
+      "</div>" +
+      '<ul class="rows" style="margin-top:8px">' + (w.log.length ? w.log.map(e => '<li class="' + (e.bad ? "dup" : "") + '"><span>' + esc(e.text) + "</span></li>").join("") : "") + "</ul>" +
+    "</div>";
+  st.innerHTML = world(s.L, "Text only", "The phone sends just the text. A resend looks like a new message.", false) +
+                 world(s.R, "With clientMsgId", "The phone sends its own id. The store will not save the same sender and id twice.", true);
+}
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  if (P.kind === "dup") renderDup(s); else renderWorld(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i], i); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>

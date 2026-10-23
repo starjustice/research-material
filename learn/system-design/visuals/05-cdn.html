@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDN stepper: hits, misses, private pages and new files</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1; --lit-bg: #fff1bf;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --edge: #8b5cf6; --edge-bg: #efe8fd;
+    --org: #2f9e6b; --org-bg: #dff3ea;
+    --warn: #e8890c; --warn-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318; --lit-bg: #4a4220;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --edge: #b79cf8; --edge-bg: #2f2650;
+      --org: #5fd09a; --org-bg: #163a2c;
+      --warn: #f0a64a; --warn-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 12px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .trips { font-size: .8rem; color: var(--muted); margin: 0 0 10px; }
+  .trips b { color: var(--ink); }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 12px; }
+  @media (max-width: 820px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user { border-color: var(--user); background: var(--user-bg); }
+  .comp.edge { border-color: var(--edge); background: var(--edge-bg); }
+  .comp.org  { border-color: var(--org);  background: var(--org-bg); }
+  .comp.user h3 { color: var(--user); } .comp.edge h3 { color: var(--edge); } .comp.org h3 { color: var(--org); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .68rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+
+  .items { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08); overflow-wrap: anywhere;
+  }
+  .chip.pop { animation: pop .35s ease; }
+  .chip.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .chip.old { border-color: var(--warn); background: var(--warn-bg); }
+  .chip.good { border-color: var(--org); }
+  .chip.gone { opacity: .55; text-decoration: line-through; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .screen { margin-top: 6px; border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .86rem; text-align: center; border: 2px solid var(--border); background: var(--card); color: var(--muted); overflow-wrap: anywhere; }
+  .screen.ok { border-color: var(--org); background: var(--org-bg); color: var(--ink); }
+  .screen.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .screen.wait { border-style: dashed; }
+  .waited { font-size: .78rem; color: var(--muted); margin-top: 4px; min-height: 1.2em; }
+  .waited b { color: var(--ink); }
+
+  .served { font-size: .84rem; margin-bottom: 8px; }
+  .served b { font-size: 1.15rem; }
+  .rulehead { font-size: .72rem; color: var(--muted); margin-bottom: 4px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.ask { background: #3b82f6; } .badge.lookup { background: #8b5cf6; } .badge.origin { background: #2f9e6b; }
+  .badge.store { background: #e8890c; } .badge.deploy { background: #e8890c; } .badge.time { background: #6b7a86; } .badge.reply { background: #3b82f6; } .badge.purge { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .verdict { border-radius: 8px; padding: 2px 10px; font-size: .78rem; font-weight: 800; border: 2px solid; }
+  .verdict.hit { color: var(--org); border-color: var(--org); background: var(--org-bg); }
+  .verdict.miss { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
+  .hoptext { color: var(--muted); font-weight: 600; }
+  .clock { margin-left: auto; color: var(--ink); font-weight: 700; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 112px;
+  }
+  .note code, .predict code, .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--org); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="toList">← System design lessons</a>
+    <a href="../05-cdn.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>CDN: hits, misses, private pages and new files</h1>
+  <p class="sub">Step through with the buttons under the picture and watch one request at a time. The edge shelf fills on a miss and answers on a hit.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <p class="trips">Example round trips, not measured: a user to the edge near them <b>10 ms</b>. London edge to the origin in Singapore <b>170 ms</b>. Sydney edge to Singapore <b>90 ms</b>.</p>
+
+  <div class="stage">
+    <div class="panel">
+      <h2>The users</h2>
+      <div id="users"></div>
+    </div>
+    <div class="panel">
+      <h2>CDN edges, near the users</h2>
+      <div id="edges"></div>
+    </div>
+    <div class="panel">
+      <h2>Your own server</h2>
+      <div class="comp org" id="origin">
+        <h3>Origin <span class="tag">Singapore</span></h3>
+        <small>where the real files live</small>
+        <div class="served">Requests it has handled: <b id="served">0</b></div>
+        <div class="rulehead">What it tells the edge about its files:</div>
+        <div class="items" id="rules"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="verdict" id="verdict" hidden></span><span class="hoptext" id="hop"></span><span class="clock" id="clock"></span></div>
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="rev">← Back</button>
+    <button id="fwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the edge shelf is filled by the <b>first</b> request and answers every later request for the same URL. The origin tells the edge what it may keep. Keep only what is the same for every user, and give a file a new name when its content changes.</p>
+</div>
+
+<script>
+// ---- Example numbers. One way trip times in ms. A round trip is double. ----
+const TRIP = { London: { ue: 5, eo: 85 }, Sydney: { ue: 5, eo: 45 } };
+
+// ---- Helpers ----
+function parseCC(h) {
+  const d = {};
+  h.split(",").forEach(x => { const p = x.trim().split("="); d[p[0].toLowerCase()] = p[1]; });
+  if ("private" in d || "no-store" in d) return { store: false, ttl: 0, why: "private" in d ? "private" : "no-store" };
+  const ttl = "s-maxage" in d ? +d["s-maxage"] : ("max-age" in d ? +d["max-age"] : 0);
+  return { store: ttl > 0, ttl, why: "" };
+}
+function fmt(s) {
+  if (s >= 31536000) return (s / 31536000) + " year";
+  if (s >= 86400) return (s / 86400) + " day";
+  if (s >= 3600) return (s / 3600) + " hour";
+  if (s >= 60) return (s / 60) + (s === 60 ? " minute" : " minutes");
+  return s + " seconds";
+}
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+// ---- The three stories. Each one has an origin (what the server answers) and a script. ----
+const PRESETS = [
+  {
+    name: "1. First request misses, second hits",
+    why: "The first user at an edge pays for the trip to the origin and fills the shelf. Later users at that edge get the copy at once, and the origin is not asked. Each edge has its own shelf.",
+    edges: ["London", "Sydney"],
+    users: [{ name: "Lena", city: "London", edge: "London" }, { name: "Tom", city: "London", edge: "London" }, { name: "Ana", city: "Sydney", edge: "Sydney" }],
+    predict: { q: "Lena is the first person in London to ask for logo.png. One second later Tom, also in London, asks for it. How long does Tom wait?",
+               options: ["170 ms", "180 ms", "10 ms"], answer: "10 ms" },
+    origin: (path) => ({ body: "logo.png", cc: "public, max-age=86400" }),
+    rules: () => [{ text: "/logo.png: Cache-Control: public, max-age=86400", kind: "good" }],
+    script: [
+      { t: "intro", note: "The origin is in <b>Singapore</b>. It holds <code>logo.png</code>. Two edges, <b>London</b> and <b>Sydney</b>, start with empty shelves. Without a CDN, Lena in London would travel to Singapore for every file. One round trip takes about 170 ms. Watch what the CDN changes." },
+      { t: "req", user: "Lena", path: "/logo.png" },
+      { t: "req", user: "Tom", path: "/logo.png" },
+      { t: "req", user: "Ana", path: "/logo.png" },
+      { t: "end", note: "Three users waited 180, 10 and 100 ms. The origin handled only <b>2</b> requests, one for each edge. With 1,000 more users in London and Sydney, it would still handle 2. The cost: the first user at each edge waits a little more than with no CDN (180 against 170, and 100 against 90)." }
+    ]
+  },
+  {
+    name: "2. A private page is cached by mistake",
+    why: "A CDN shelf is shared and its key is only the URL. A page that holds one person's data must say private, so that the edge never keeps it.",
+    edges: ["London"],
+    users: [{ name: "Lena", city: "London", edge: "London", cookie: "lena" }, { name: "Omar", city: "London", edge: "London", cookie: "omar" }],
+    predict: { q: "The page /account has the header public by mistake. Lena loads it. Ten seconds later Omar loads it. What does Omar see?",
+               options: ["His own page", "Lena's page", "An error page"], answer: "Lena's page" },
+    origin: (path, u, st) => {
+      const who = u ? u.name : "Lena";
+      const pts = who === "Lena" ? "1,200" : "40";
+      return { body: "Hi " + who + ", " + pts + " points", owner: who, cc: st.fixed ? "private" : "public, s-maxage=300" };
+    },
+    rules: (st) => [st.fixed
+      ? { text: "/account: Cache-Control: private", kind: "good" }
+      : { text: "/account: Cache-Control: public, s-maxage=300 (a mistake)", kind: "bad" }],
+    script: [
+      { t: "intro", note: "The page <code>/account</code> shows the name and the points of the person who is signed in. The origin builds it from the cookie. By mistake, a developer gave it the same header as the public home page: <code>public, s-maxage=300</code>. That tells a CDN: any user may share this copy for 5 minutes. Lena and Omar both use the London edge." },
+      { t: "req", user: "Lena", path: "/account" },
+      { t: "wait", s: 10, label: "+10 seconds" },
+      { t: "req", user: "Omar", path: "/account" },
+      { t: "fix", note: "The developer finds the bug and changes the header to <code>Cache-Control: private</code>. <b>private</b> means: only the user's own browser may keep it, not a CDN. But Lena's copy is still on the shelf and still fresh. The new header only helps for answers the edge gets from now on." },
+      { t: "purge", edge: "London", path: "/account", note: "The developer also <b>purges</b> <code>/account</code>. A purge is a call to the CDN that throws a copy away before its time is up. The shelf is empty again." },
+      { t: "req", user: "Omar", path: "/account" },
+      { t: "end", note: "Omar now sees his own page, and the shelf stays empty. The price: every request for <code>/account</code> travels to the origin. That is the right price for per-user data. Rule: if two users can get different bytes from the same URL, the answer must be <code>private</code>. The cookie is not part of the shelf key." }
+    ]
+  },
+  {
+    name: "3. A new deploy: file names",
+    why: "A new name is a new key on the shelf, so the edge cannot give the old file by mistake. A file that keeps its name needs a purge, and a purge does not reach browsers.",
+    edges: ["London"],
+    users: [{ name: "Lena", city: "London", edge: "London" }],
+    predict: { q: "A developer deploys new code to the origin but keeps the file name /app.js. The London edge saved the old file for 1 day, one hour ago. Lena asks for /app.js. Which file does she get?",
+               options: ["The new file, version 2", "The old file, version 1", "An error"], answer: "The old file, version 1" },
+    start: (st) => {
+      st.phase = "A"; st.js = 1; st.hashed = false;
+      st.edges[0].shelf.push({ key: "/app.js", body: "app.js version 1", ttl: 86400, savedAt: 0, cc: "public, max-age=86400" });
+    },
+    origin: (path, u, st) => {
+      if (!st.hashed) return { body: "app.js version " + st.js, cc: "public, max-age=86400" };
+      if (path === "/") return { body: "page loads " + st.jsName, cc: "public, s-maxage=60" };
+      if (path === "/app.3f9a1c.js") return { body: "code version 1", cc: "public, max-age=31536000, immutable" };
+      return { body: "code version 2", cc: "public, max-age=31536000, immutable" };
+    },
+    rules: (st) => st.hashed
+      ? [{ text: "/ : public, s-maxage=60 (names " + st.jsName + ")", kind: "good" },
+         { text: "/app.3f9a1c.js: public, max-age=31536000, immutable", kind: "good" }].concat(st.js === 2
+         ? [{ text: "/app.8b2d70.js: public, max-age=31536000, immutable", kind: "good" }] : [])
+      : [{ text: "/app.js is version " + st.js + ": public, max-age=86400", kind: st.js === 2 ? "old" : "good" }],
+    script: [
+      { t: "intro", note: "<b>The old way.</b> The file is always called <code>/app.js</code>. This morning the London edge saved version 1 with <code>Cache-Control: public, max-age=86400</code>, which means: keep it for 1 day. The origin also has version 1." },
+      { t: "wait", s: 3600, label: "+1 hour" },
+      { t: "deploy", note: "A developer deploys new code. The origin now has <b>app.js version 2</b>. The file name did not change, so the edge does not know. Its copy of version 1 is still fresh for 23 more hours.", apply: (st) => { st.js = 2; } },
+      { t: "req", user: "Lena", path: "/app.js" },
+      { t: "purge", edge: "London", path: "/app.js", note: "The developer asks the CDN to <b>purge</b> <code>/app.js</code>. A purge reaches every edge in a few seconds. It does not reach browsers that hold their own copy. And somebody must remember to do it on every deploy." },
+      { t: "req", user: "Lena", path: "/app.js" },
+      { t: "phase", note: "<b>The better way.</b> The build tool puts a fingerprint of the file content (a hash) in the name: <code>app.3f9a1c.js</code>. The page <code>/</code> says which file to load. The edge keeps the file for <b>1 year</b> (<code>immutable</code> means: it never changes) and the page for only <b>1 minute</b>.",
+        apply: (st) => { st.phase = "B"; st.hashed = true; st.js = 1; st.jsName = "app.3f9a1c.js"; st.now = 0; st.timeLabel = "start";
+          st.edges[0].shelf = [{ key: "/", body: "page loads app.3f9a1c.js", ttl: 60, savedAt: 0, cc: "public, s-maxage=60" },
+                               { key: "/app.3f9a1c.js", body: "code version 1", ttl: 31536000, savedAt: 0, cc: "public, max-age=31536000, immutable" }];
+          st.users[0].screen = ""; st.users[0].kind = ""; st.users[0].wait = null; st.served = 0; } },
+      { t: "wait", s: 300, label: "+5 minutes" },
+      { t: "deploy", note: "A developer deploys. The build makes a <b>new</b> file, <code>app.8b2d70.js</code>, because the content changed. The old file <code>app.3f9a1c.js</code> is not touched. The page <code>/</code> now names the new file. <b>Nothing is purged.</b>", apply: (st) => { st.js = 2; st.jsName = "app.8b2d70.js"; } },
+      { t: "req", user: "Lena", path: "/" },
+      { t: "req", user: "Lena", path: "/app.8b2d70.js" },
+      { t: "end", note: "No purge was needed for the file. The new name is a new key, so the edge cannot give the old file by mistake. The old copy <code>app.3f9a1c.js</code> still sits on the shelf. Nobody asks for it now, and it keeps old open tabs working. Only the small page <code>/</code> has a short life. Rule: give a long life only to a name that changes when the content changes." }
+    ]
+  }
+];
+
+// ---- A small simulator. It plays the script and saves one snapshot per step. ----
+function simulate(p) {
+  const steps = [];
+  const st = {
+    now: 0, timeLabel: "start", clock: 0, who: null, verdict: null, fixed: false, served: 0,
+    users: p.users.map(u => ({ name: u.name, city: u.city, edge: u.edge, cookie: u.cookie || null, screen: "", kind: "", wait: null })),
+    edges: p.edges.map(n => ({ name: n, shelf: [] }))
+  };
+  if (p.start) p.start(st);
+
+  const snap = (note, active, hop, phase) => steps.push({
+    users: st.users.map(u => ({ ...u })),
+    edges: st.edges.map(e => ({
+      name: e.name,
+      shelf: e.shelf.map(i => {
+        const cur = p.origin(i.key, null, st);
+        const fresh = st.now < i.savedAt + i.ttl;
+        return { key: i.key, body: i.body, ttl: i.ttl, owner: i.owner || null, fresh,
+                 old: !i.owner && cur.body !== i.body };
+      })
+    })),
+    served: st.served, rules: p.rules(st), who: st.who, clock: st.clock, verdict: st.verdict,
+    timeLabel: st.timeLabel, active, hop, phase, note
+  });
+
+  function request(userName, path) {
+    const u = st.users.find(x => x.name === userName);
+    const e = st.edges.find(x => x.name === u.edge);
+    const tr = TRIP[e.name], rt = 2 * tr.eo;
+    const item = e.shelf.find(i => i.key === path);
+    const fresh = item && st.now < item.savedAt + item.ttl;
+    const who = u.name + " in " + u.city;
+    const act = ["user:" + u.name, "edge:" + e.name];
+    const cookieNote = u.cookie ? " with the cookie <code>" + u.cookie + "</code>" : "";
+    st.clock = 0; st.who = u.name; st.verdict = null;
+    u.screen = "waiting"; u.kind = "wait"; u.wait = null;
+
+    st.clock += tr.ue;
+    if (fresh) {
+      st.verdict = "hit";
+      snap(u.name + " asks for <code>" + path + "</code>" + cookieNote + ". The request goes to the <b>" + e.name + " edge</b>, which is close. The edge looks up the key <code>" + path + "</code> and finds a copy that is still fresh. This is a <b>hit</b>." +
+        (item.owner && u.cookie ? " The edge does not look at the cookie." : ""),
+        act, who + " → " + e.name + " edge", "lookup");
+      st.clock += tr.ue;
+      const cur = p.origin(path, u, st);
+      const other = item.owner && item.owner !== u.name;
+      const old = !item.owner && cur.body !== item.body;
+      u.screen = item.body; u.kind = (other || old) ? "bad" : "ok"; u.wait = st.clock;
+      snap("The edge sends the saved copy at once. The origin is not asked. " +
+        (other ? u.name + " sees <b>“" + esc(item.body) + "”</b>. That is another person's data. Nothing crashed, and no error shows in the logs. " : "") +
+        (old ? "But the origin already has a newer version, so " + u.name + " gets the <b>old</b> file. " : "") +
+        u.name + " waited <b>" + u.wait + " ms</b>.",
+        act, e.name + " edge → " + who, "reply");
+      return;
+    }
+    st.verdict = "miss";
+    snap(u.name + " asks for <code>" + path + "</code>" + cookieNote + ". The request goes to the <b>" + e.name + " edge</b>, which is close. The edge looks on its shelf: " +
+      (item ? "there is a copy, but it is older than its time limit, so it counts as expired." : "<b>no copy</b>.") + " This is a <b>miss</b>.",
+      act, who + " → " + e.name + " edge", "lookup");
+
+    st.clock += tr.eo;
+    snap("The edge asks the origin in Singapore for <code>" + path + "</code>" + (u.cookie ? " and passes on " + u.name + "'s cookie" : "") + ". The round trip takes about " + rt + " ms. " + u.name + " waits.",
+      ["edge:" + e.name, "origin"], e.name + " edge → Origin", "origin");
+
+    const r = p.origin(path, u, st);
+    const rule = parseCC(r.cc);
+    st.clock += tr.eo; st.served++;
+    if (item) e.shelf = e.shelf.filter(i => i !== item);
+    let storeNote;
+    if (rule.store) {
+      e.shelf.push({ key: path, body: r.body, ttl: rule.ttl, savedAt: st.now, owner: r.owner || null, cc: r.cc });
+      storeNote = "The edge reads it: a copy may be kept for " + fmt(rule.ttl) + ". The edge <b>saves a copy</b> under the key <code>" + path + "</code>." +
+        (r.owner ? " The key is only the URL. The cookie is <b>not</b> part of the key. This answer holds one person's data, and now it sits on a shared shelf." : "");
+    } else {
+      storeNote = "The edge reads <b>" + rule.why + "</b>: a CDN must not keep this answer. It passes the answer on and <b>saves nothing</b>.";
+    }
+    st.verdict = rule.store ? "miss" : "skip";
+    snap("The origin " + (r.owner ? "reads the cookie and builds <b>“" + esc(r.body) + "”</b>" : "answers with <b>“" + esc(r.body) + "”</b>") +
+      " and adds the note <code>Cache-Control: " + r.cc + "</code>. " + storeNote + " The origin has now handled <b>" + st.served + "</b> request" + (st.served > 1 ? "s" : "") + ".",
+      ["origin", "edge:" + e.name], "Origin → " + e.name + " edge", "store");
+
+    st.clock += tr.ue;
+    u.screen = r.body; u.kind = "ok"; u.wait = st.clock;
+    snap("The edge sends the answer to " + u.name + ". " + u.name + " sees <b>“" + esc(r.body) + "”</b> and waited <b>" + u.wait + " ms</b>." +
+      (rule.store ? " The first user at an edge pays for the long trip." : " Every request for this URL will make the long trip, because nothing is kept."),
+      act, e.name + " edge → " + who, "reply");
+  }
+
+  for (const op of p.script) {
+    if (op.t === "intro" || op.t === "end") {
+      st.who = null; st.verdict = null;
+      snap(op.note, [], op.t === "intro" ? "The setup before any request" : "Finished", op.t === "intro" ? "setup" : "done");
+    } else if (op.t === "req") {
+      request(op.user, op.path);
+    } else if (op.t === "wait") {
+      st.now += op.s; st.timeLabel = op.label; st.who = null; st.verdict = null;
+      snap("Time passes: <b>" + op.label + "</b>. Copies on the shelf get older. A copy is fresh only until its time limit.", ["edge:" + p.edges[0]], "Time passes", "time");
+    } else if (op.t === "deploy" || op.t === "fix" || op.t === "phase") {
+      st.who = null; st.verdict = null;
+      if (op.t === "fix") st.fixed = true;
+      if (op.apply) op.apply(st);
+      snap(op.note, ["origin"], op.t === "fix" ? "The developer fixes the header" : (op.t === "phase" ? "A different way" : "A new deploy"), "deploy");
+    } else if (op.t === "purge") {
+      const e = st.edges.find(x => x.name === op.edge);
+      st.who = null; st.verdict = null;
+      e.shelf = e.shelf.filter(i => i.key !== op.path);
+      snap(op.note, ["edge:" + op.edge], "Purge " + op.path, "purge");
+    }
+  }
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prev = {}, guess = null;
+
+function chipsHtml(items, key, emptyText) {
+  const old = prev[key] || [];
+  const html = items.length ? items.map(c => {
+    const isNew = !old.includes(c.id);
+    return '<div class="chip ' + (c.cls || "") + (isNew ? " pop" : "") + '">' + esc(c.text) + "</div>";
+  }).join("") : '<span class="empty">' + emptyText + "</span>";
+  prev[key] = items.map(c => c.id);
+  return html;
+}
+const BADGE = { setup: ["Setup", ""], lookup: ["Edge looks on its shelf", "lookup"], origin: ["Trip to the origin", "origin"],
+                store: ["Origin answers", "store"], deploy: ["Developer action", "deploy"], time: ["Time passes", "time"], reply: ["Answer goes to the user", "reply"], purge: ["Purge", "purge"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  const lit = id => s.active.includes(id);
+
+  $("users").innerHTML = "";
+  s.users.forEach(u => {
+    const d = document.createElement("div");
+    d.className = "comp user" + (lit("user:" + u.name) ? " lit" : "");
+    const screen = u.screen === "" ? "has not asked yet" : (u.screen === "waiting" ? "waiting for the answer" : u.screen);
+    d.innerHTML = '<h3>' + esc(u.name) + ' <span class="tag">' + esc(u.city) + "</span></h3>" +
+      (u.cookie ? "<small>browser cookie: " + esc(u.cookie) + "</small>" : "<small>a browser</small>") +
+      '<div class="screen ' + (u.kind || "") + '">' + esc(screen) + "</div>" +
+      '<div class="waited">' + (u.wait != null ? "waited <b>" + u.wait + " ms</b>" : "") + "</div>";
+    $("users").appendChild(d);
+  });
+
+  $("edges").innerHTML = "";
+  s.edges.forEach(e => {
+    const d = document.createElement("div");
+    d.className = "comp edge" + (lit("edge:" + e.name) ? " lit" : "");
+    d.innerHTML = '<h3>Edge ' + esc(e.name) + ' <span class="tag">' + (e.shelf.length ? e.shelf.length + (e.shelf.length > 1 ? " copies" : " copy") : "empty shelf") + "</span></h3>" +
+      "<small>keeps copies. Its shelf is its own.</small>" + '<div class="items" id="shelf-' + e.name + '"></div>';
+    $("edges").appendChild(d);
+    const items = e.shelf.map(i => {
+      const label = i.key + " : " + i.body + (i.fresh ? "" : " (expired)");
+      const cls = i.owner ? "bad" : (!i.fresh ? "gone" : (i.old ? "old" : "good"));
+      return { id: i.key + "|" + i.body + "|" + i.fresh, text: label, cls };
+    });
+    $("shelf-" + e.name).innerHTML = chipsHtml(items, "shelf" + e.name, "nothing saved yet");
+  });
+
+  $("origin").classList.toggle("lit", lit("origin"));
+  $("served").textContent = s.served;
+  $("rules").innerHTML = chipsHtml(s.rules.map(r => ({ id: r.text, text: r.text, cls: r.kind })), "rules", "nothing");
+
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  const v = $("verdict");
+  if (s.verdict) {
+    v.hidden = false;
+    v.className = "verdict " + (s.verdict === "hit" ? "hit" : "miss");
+    v.textContent = s.verdict === "hit" ? "HIT" : (s.verdict === "skip" ? "NOT SAVED" : "MISS");
+  } else { v.hidden = true; }
+  $("hop").textContent = s.hop;
+  $("clock").textContent = s.who ? s.who + " has waited so far: " + s.clock + " ms" : "Time: " + s.timeLabel;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("rev").disabled = idx === 0;
+  $("fwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = PRESETS[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(real) + "</b>" + why + "<br>Try this: pick your guess first. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the edge shelf at the moment the user asks.");
+}
+function renderPredict() {
+  const p = PRESETS[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(p.q) + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickPreset(i) {
+  stop(); cur = i; steps = simulate(PRESETS[i]); idx = 0; prev = {}; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prev = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2200);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickPreset(i);
+  $("tabs").appendChild(b);
+});
+$("fwd").onclick = () => { stop(); go(1); };
+$("rev").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prev = {}; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS; window.__simulate = simulate;
+pickPreset(0);
+</script>
+</body>
+</html>

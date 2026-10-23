@@ -15,6 +15,10 @@
   ".NET Basics for a TypeScript Dev",
   "C#↔TS mapping cards, pipeline, EF Core vs Prisma, dotnet CLI table"
  ],
+ "learn/backend-api/backend-api-cheatsheet.html": [
+  "Backend and API Lessons 01 to 03",
+  "Request anatomy, status families, 401 vs 403, REST map, offset vs cursor, the Express middleware line"
+ ],
  "learn/backend-api/express-graphql-auth-tutorial-cheatsheet.html": [
   "Express + GraphQL + Auth",
   "Context, JWT anatomy, access vs refresh tokens, authn vs authz"
@@ -22,6 +26,10 @@
  "learn/backend-api/hasura-guide-cheatsheet.html": [
   "Hasura",
   "Compiler not resolver, permissions, Actions, CLI commands, v2 vs DDN"
+ ],
+ "learn/backend-api/visuals/05-resolvers-and-the-n-1-problem.html": [
+  "Resolvers and N+1 stepper",
+  "Watch the shop resolver run per order, then see DataLoader batch it into one query"
  ],
  "learn/database/postgresql-queries-interview-guide-cheatsheet.html": [
   "PostgreSQL Queries",
@@ -182,5 +190,97 @@
  "learn/javascript/visuals/11-event-loop.html": [
   "Event loop stepper",
   "Press Next and watch the call stack and both queues change. Three programs."
+ ],
+ "learn/database/database-design-and-why-cheatsheet.html": [
+  "Database Design",
+  "Six design steps, normalization, keys, ledger, tenancy, zero downtime changes"
+ ],
+ "learn/database/advanced-sql-workbook-cheatsheet.html": [
+  "SQL Patterns",
+  "16 patterns with before and after tables, window functions, pattern spotter quiz"
+ ],
+ "learn/database/postgres-internals-visual-cheatsheet.html": [
+  "Postgres Internals",
+  "Pages, B+tree, MVCC, WAL, planner, joins, locks, with numbers"
+ ],
+ "learn/database/database-scaling-and-correctness-cheatsheet.html": [
+  "Scaling and Correctness",
+  "Races and locks, outbox, scaling ladder, replicas, partition vs shard, backups"
+ ],
+ "learn/database/senior-database-interview-questions-cheatsheet.html": [
+  "Database Interview Drill",
+  "47 flashcards: say it out loud, open the card, mark got it or not yet"
+ ],
+ "learn/database/database-design-and-why.md": [
+  "Database design: how to model it, and why",
+  "Normalization, keys, constraints, ledger pattern, multi-tenancy, SQL or NoSQL"
+ ],
+ "learn/database/advanced-sql-workbook.md": [
+  "Advanced SQL workbook: 19 queries",
+  "Window functions to SKIP LOCKED, with a practice database and tested answers"
+ ],
+ "learn/database/postgres-internals-visual.md": [
+  "How Postgres works inside",
+  "B+tree, MVCC, WAL, planner, join algorithms, locks"
+ ],
+ "learn/database/database-scaling-and-correctness.md": [
+  "Scaling a database and keeping data correct",
+  "Locking tools, outbox, scaling ladder, backups and failover"
+ ],
+ "learn/database/senior-database-interview-questions.md": [
+  "Senior database interview questions",
+  "47 questions: problem, how it works, tradeoff, my example"
+ ],
+ "learn/database/examples/sql-workbook": [
+  "SQL workbook practice database",
+  "Seed data, answers to 19 exercises and a 1M row EXPLAIN demo"
+ ],
+ "learn/system-design/system-design-roadmap-beginner-to-senior-cheatsheet.html": [
+  "System Design Roadmap",
+  "Six layers, six stages, the seven steps, mid vs senior, the 10 week plan, I can ticks"
+ ],
+ "learn/networking/networking-for-system-design-cheatsheet.html": [
+  "Networking for System Design",
+  "Latency numbers, DNS as a tool, proxies and gateways, real time options, cloud network layout"
+ ],
+ "learn/system-design/caching-and-cdn-in-depth-cheatsheet.html": [
+  "Caching and CDN",
+  "Cache layers, patterns, invalidation races, stampedes and hot keys, CDN and HTTP caching"
+ ],
+ "learn/system-design/queues-streams-and-event-driven-design-cheatsheet.html": [
+  "Queues, Streams and Events",
+  "Delivery guarantees, DLQ, queue vs stream vs pub/sub, sagas, outbox, CQRS"
+ ],
+ "learn/system-design/data-storage-choices-for-system-design-cheatsheet.html": [
+  "Data Storage Choices",
+  "The storage menu, presigned uploads, search sync, replication, sharding, IDs"
+ ],
+ "learn/system-design/distributed-systems-and-reliability-patterns-cheatsheet.html": [
+  "Distributed Systems",
+  "CAP and PACELC, consistency, retries with jitter, circuit breaker, Raft, failure checklist"
+ ],
+ "learn/system-design/architecture-patterns-2026-cheatsheet.html": [
+  "Architecture Patterns 2026",
+  "Monolith to microservices, BFF, serverless, multi-tenancy, RAG and LLM gateway, ADRs"
+ ],
+ "learn/system-design/production-readiness-observability-security-cheatsheet.html": [
+  "Production Readiness",
+  "Logs, metrics, traces, SLOs, safe deploys, disaster recovery, security, cost"
+ ],
+ "learn/system-design/frontend-system-design-cheatsheet.html": [
+  "Frontend System Design",
+  "RADIO, rendering strategies, client data layer, offline mobile, design systems"
+ ],
+ "learn/system-design/design-workbook-part-1-classic-designs-cheatsheet.html": [
+  "Design Workbook 1",
+  "Rate limiter, chat, news feed, file upload, autocomplete, video streaming"
+ ],
+ "learn/system-design/design-workbook-part-2-correctness-designs-cheatsheet.html": [
+  "Design Workbook 2",
+  "Seat booking, ledger, loan workflow, job scheduler, proximity, RAG assistant"
+ ],
+ "learn/system-design/senior-system-design-interview-questions-cheatsheet.html": [
+  "System Design Interview Drill",
+  "Flashcards for every question, four part answers, got it / not yet"
  ]
 }

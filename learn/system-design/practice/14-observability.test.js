@@ -1,131 +1,157 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { createTelemetry, handleRequest } = require("./14-observability");
+const { percentile, createRecorder } = require("./14-observability");
 
-// A fake clock. advance(12) means "12 ms of work happened".
-function setup() {
-  let now = 1000;
-  const advance = (ms) => { now += ms; };
-  const t = createTelemetry({ clock: () => now });
-  return { t, advance };
+// The slow checkout from the lesson: four spans in one trace.
+function slowCheckout(rec, traceId = "4bf92f35") {
+  rec.span({ traceId, spanId: "a1", parentId: null, service: "api", name: "POST /checkout", start: 0, ms: 3000 });
+  rec.span({ traceId, spanId: "a2", parentId: "a1", service: "api", name: "SELECT cart", start: 5, ms: 20 });
+  rec.span({ traceId, spanId: "p1", parentId: "a1", service: "payment", name: "POST /charge", start: 30, ms: 2960 });
+  rec.span({ traceId, spanId: "p2", parentId: "p1", service: "payment", name: "SELECT payments", start: 40, ms: 2900 });
 }
 
-test("log returns one line of JSON with traceId, msg and the fields", () => {
-  const { t } = setup();
-  const line = t.log("abc123", "order created", { orderId: 42, ms: 87 });
-  assert.strictEqual(typeof line, "string");
-  assert.deepStrictEqual(JSON.parse(line), { traceId: "abc123", msg: "order created", orderId: 42, ms: 87 });
+// 100 checkouts from the lesson: 90 at 100 ms, 8 at 400 ms, 2 at 3000 ms.
+function hundredCheckouts() {
+  return [...Array(90).fill(100), ...Array(8).fill(400), ...Array(2).fill(3000)];
+}
+
+// ---- percentile ----
+
+test("percentile uses the nearest rank: p50 of five values is the middle one", () => {
+  assert.strictEqual(percentile([5, 1, 3, 2, 4], 50), 3);
 });
 
-test("log works without fields, and lines() keeps the lines oldest first", () => {
-  const { t } = setup();
-  t.log("t1", "first");
-  t.log("t2", "second");
-  const lines = t.lines();
-  assert.strictEqual(lines.length, 2);
-  assert.deepStrictEqual(JSON.parse(lines[0]), { traceId: "t1", msg: "first" });
-  assert.deepStrictEqual(JSON.parse(lines[1]), { traceId: "t2", msg: "second" });
+test("percentile on the lesson's 100 checkouts: p50 is 100, p95 is 400, p99 is 3000", () => {
+  const times = hundredCheckouts();
+  assert.strictEqual(percentile(times, 50), 100);
+  assert.strictEqual(percentile(times, 95), 400);
+  assert.strictEqual(percentile(times, 99), 3000);
 });
 
-test("count builds the key from the name and the labels sorted by label name", () => {
-  const { t } = setup();
-  t.count("requests", { status: "ok", route: "/orders" });
-  assert.deepStrictEqual(t.counters(), { "requests{route=/orders,status=ok}": 1 });
+test("percentile rounds the rank up: p99 of 10 values is the biggest one", () => {
+  assert.strictEqual(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 99), 10);
+  assert.strictEqual(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 90), 9);
 });
 
-test("labels in a different order give the same key, and the counter adds up", () => {
-  const { t } = setup();
-  t.count("requests", { route: "/orders", status: "ok" });
-  t.count("requests", { status: "ok", route: "/orders" });
-  t.count("requests", { route: "/orders", status: "error" });
-  assert.deepStrictEqual(t.counters(), {
-    "requests{route=/orders,status=ok}": 2,
-    "requests{route=/orders,status=error}": 1,
+test("percentile of one value is that value, and p100 is the biggest", () => {
+  assert.strictEqual(percentile([42], 50), 42);
+  assert.strictEqual(percentile([7, 300, 12], 100), 300);
+});
+
+test("percentile of an empty list is null", () => {
+  assert.strictEqual(percentile([], 99), null);
+});
+
+test("percentile does not change the order of the input array", () => {
+  const times = [300, 100, 200];
+  assert.strictEqual(percentile(times, 50), 200);
+  assert.deepStrictEqual(times, [300, 100, 200]);
+});
+
+// ---- spans and the slowest step ----
+
+test("slowestStep finds the database query, not the first span that only waits", () => {
+  const rec = createRecorder();
+  slowCheckout(rec);
+  const slow = rec.slowestStep("4bf92f35");
+  assert.strictEqual(slow.name, "SELECT payments");
+  assert.strictEqual(slow.service, "payment");
+  assert.strictEqual(slow.ownMs, 2900);
+});
+
+test("slowestStep returns a copy of the span with ownMs added", () => {
+  const rec = createRecorder();
+  slowCheckout(rec);
+  assert.deepStrictEqual(rec.slowestStep("4bf92f35"), {
+    traceId: "4bf92f35", spanId: "p2", parentId: "p1", service: "payment",
+    name: "SELECT payments", start: 40, ms: 2900, ownMs: 2900,
   });
-  assert.strictEqual(t.seriesCount(), 2);
 });
 
-test("count with no labels uses only the name", () => {
-  const { t } = setup();
-  t.count("logins");
-  t.count("logins");
-  assert.deepStrictEqual(t.counters(), { logins: 2 });
+test("own time is the span's time minus its direct children only", () => {
+  const rec = createRecorder();
+  rec.span({ traceId: "t1", spanId: "a", parentId: null, service: "api", name: "root", start: 0, ms: 1000 });
+  rec.span({ traceId: "t1", spanId: "b", parentId: "a", service: "api", name: "child", start: 10, ms: 300 });
+  rec.span({ traceId: "t1", spanId: "c", parentId: "b", service: "db", name: "grandchild", start: 20, ms: 250 });
+  // root own time 1000 - 300 = 700, child 300 - 250 = 50, grandchild 250
+  const slow = rec.slowestStep("t1");
+  assert.strictEqual(slow.name, "root");
+  assert.strictEqual(slow.ownMs, 700);
 });
 
-test("a label named userId, orderId, traceId or email is refused and changes nothing", () => {
-  const { t } = setup();
-  for (const bad of ["userId", "orderId", "traceId", "email"]) {
-    assert.throws(() => t.count("requests", { route: "/orders", [bad]: "x" }), Error);
-  }
-  assert.deepStrictEqual(t.counters(), {});
-  assert.strictEqual(t.seriesCount(), 0);
+test("slowestStep looks only at spans of the given trace id", () => {
+  const rec = createRecorder();
+  slowCheckout(rec, "4bf92f35");
+  rec.span({ traceId: "other", spanId: "x1", parentId: null, service: "api", name: "GET /products", start: 0, ms: 9000 });
+  assert.strictEqual(rec.slowestStep("4bf92f35").name, "SELECT payments");
+  assert.strictEqual(rec.slowestStep("other").name, "GET /products");
 });
 
-test("span returns what fn returns and saves { traceId, name, ms } from the clock", () => {
-  const { t, advance } = setup();
-  const answer = t.span("abc123", "db", () => { advance(12); return "rows"; });
-  assert.strictEqual(answer, "rows");
-  assert.deepStrictEqual(t.spans(), [{ traceId: "abc123", name: "db", ms: 12 }]);
+test("slowestStep of an unknown trace id is null", () => {
+  const rec = createRecorder();
+  slowCheckout(rec);
+  assert.strictEqual(rec.slowestStep("nope"), null);
 });
 
-test("span saves the span even when fn throws, then throws the same error", () => {
-  const { t, advance } = setup();
-  const boom = new Error("timeout");
-  assert.throws(() => t.span("abc123", "email", () => { advance(900); throw boom; }), (err) => err === boom);
-  assert.deepStrictEqual(t.spans(), [{ traceId: "abc123", name: "email", ms: 900 }]);
+// ---- structured logs ----
+
+test("log returns one JSON line with level, traceId, service, msg, then the fields", () => {
+  const rec = createRecorder();
+  const line = rec.log("4bf92f35", "payment", "warn", "slow query", { ms: 2900 });
+  assert.strictEqual(line, '{"level":"warn","traceId":"4bf92f35","service":"payment","msg":"slow query","ms":2900}');
 });
 
-test("spans are saved in the order they ended", () => {
-  const { t, advance } = setup();
-  t.span("t1", "outer", () => {
-    advance(5);
-    t.span("t1", "inner", () => advance(12));
-    advance(3);
+test("log hides secret fields as a safety net", () => {
+  const rec = createRecorder();
+  const line = rec.log("t1", "api", "info", "login", { userId: 7, password: "hunter2", Authorization: "Bearer abc", cardNumber: "4111" });
+  assert.deepStrictEqual(JSON.parse(line), {
+    level: "info", traceId: "t1", service: "api", msg: "login",
+    userId: 7, password: "[hidden]", Authorization: "[hidden]", cardNumber: "[hidden]",
   });
-  assert.deepStrictEqual(t.spans().map((s) => [s.name, s.ms]), [["inner", 12], ["outer", 20]]);
 });
 
-test("handleRequest: the log line and the span have the same trace id, the counter has none", () => {
-  const { t, advance } = setup();
-  const status = handleRequest(t, { traceId: "abc123", route: "/orders", steps: [["db", () => advance(12)]] });
-  assert.strictEqual(status, "ok");
-  assert.deepStrictEqual(t.spans(), [{ traceId: "abc123", name: "db", ms: 12 }]);
-  assert.deepStrictEqual(JSON.parse(t.lines()[0]), { traceId: "abc123", msg: "request done", route: "/orders", status: "ok" });
-  assert.deepStrictEqual(t.counters(), { "requests{route=/orders,status=ok}": 1 });
-  assert.ok(!Object.keys(t.counters()).join("").includes("abc123"));
-});
-
-test("handleRequest: a step that throws gives status error, keeps its span, and skips the next steps", () => {
-  const { t, advance } = setup();
-  const status = handleRequest(t, {
-    traceId: "def456",
-    route: "/orders",
-    steps: [
-      ["db", () => advance(12)],
-      ["email", () => { advance(900); throw new Error("timeout"); }],
-      ["audit", () => advance(1)],
-    ],
-  });
-  assert.strictEqual(status, "error");
-  assert.deepStrictEqual(t.spans(), [
-    { traceId: "def456", name: "db", ms: 12 },
-    { traceId: "def456", name: "email", ms: 900 },
+test("logsFor returns only the lines of one trace, oldest first", () => {
+  const rec = createRecorder();
+  rec.log("4bf92f35", "api", "info", "checkout started");
+  rec.log("9e1c0a77", "api", "info", "products listed");
+  rec.log("4bf92f35", "payment", "warn", "slow query", { ms: 2900 });
+  assert.deepStrictEqual(rec.logsFor("4bf92f35"), [
+    '{"level":"info","traceId":"4bf92f35","service":"api","msg":"checkout started"}',
+    '{"level":"warn","traceId":"4bf92f35","service":"payment","msg":"slow query","ms":2900}',
   ]);
-  assert.deepStrictEqual(t.counters(), { "requests{route=/orders,status=error}": 1 });
-  assert.strictEqual(JSON.parse(t.lines()[0]).status, "error");
+  assert.deepStrictEqual(rec.logsFor("nope"), []);
 });
 
-test("1000 different users still make only 2 series, because the user id stays out of the labels", () => {
-  const { t, advance } = setup();
-  for (let u = 1; u <= 1000; u++) {
-    handleRequest(t, {
-      traceId: "trace-" + u,
-      route: "/orders",
-      steps: [["db", () => { advance(1); if (u % 10 === 0) throw new Error("fail"); }]],
-    });
-  }
-  assert.strictEqual(t.seriesCount(), 2);
-  assert.strictEqual(t.counters()["requests{route=/orders,status=ok}"], 900);
-  assert.strictEqual(t.counters()["requests{route=/orders,status=error}"], 100);
-  assert.strictEqual(t.lines().length, 1000);
+// ---- request numbers: rate, errors, duration ----
+
+test("request counts requests and errors per route: 5xx is an error, 4xx is not", () => {
+  const rec = createRecorder();
+  rec.request("POST /checkout", 201, 100);
+  rec.request("POST /checkout", 400, 50);
+  rec.request("POST /checkout", 503, 3000);
+  rec.request("POST /checkout", 201, 120);
+  const s = rec.stats("POST /checkout");
+  assert.strictEqual(s.requests, 4);
+  assert.strictEqual(s.errors, 1);
+  assert.strictEqual(s.errorRate, 0.25);
+});
+
+test("stats gives p50 and p99 from the route's durations", () => {
+  const rec = createRecorder();
+  for (const ms of hundredCheckouts()) rec.request("POST /checkout", 201, ms);
+  assert.deepStrictEqual(rec.stats("POST /checkout"), { requests: 100, errors: 0, errorRate: 0, p50: 100, p99: 3000 });
+});
+
+test("each route has its own numbers", () => {
+  const rec = createRecorder();
+  rec.request("POST /checkout", 201, 3000);
+  rec.request("GET /products", 200, 40);
+  rec.request("GET /products", 500, 60);
+  assert.deepStrictEqual(rec.stats("POST /checkout"), { requests: 1, errors: 0, errorRate: 0, p50: 3000, p99: 3000 });
+  assert.deepStrictEqual(rec.stats("GET /products"), { requests: 2, errors: 1, errorRate: 0.5, p50: 40, p99: 60 });
+});
+
+test("stats for a route with no requests is all zero and null", () => {
+  const rec = createRecorder();
+  assert.deepStrictEqual(rec.stats("POST /checkout"), { requests: 0, errors: 0, errorRate: 0, p50: null, p99: null });
 });

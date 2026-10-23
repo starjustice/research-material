@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Observability: one trace id, the slow step, labels, and sampling</title>
+<title>Observability: one slow checkout, one trace id</title>
 <style>
   :root {
     --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
@@ -34,18 +34,11 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: 14px 16px 60px;
   }
-  .wrap { max-width: 1040px; margin: 0 auto; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
   .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
   h1 { font-size: 1.35rem; margin: 6px 0 2px; }
   .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
-
-  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .tabs button {
-    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
-    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
-  }
-  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 
   .predict {
     background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
@@ -58,110 +51,75 @@
   }
   .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 
-  .stage { display: grid; gap: 12px; }
-  .stage.pipe { grid-template-columns: 1.25fr 1fr 1.1fr; }
-  .stage.hunt { grid-template-columns: .8fr 1.6fr; }
-  .stage.series { grid-template-columns: 1fr 1fr; }
-  .stage.sample { grid-template-columns: 1fr 1fr; }
-  @media (max-width: 860px) { .stage.pipe, .stage.hunt, .stage.series, .stage.sample { grid-template-columns: 1fr; } }
+  .stage { display: grid; gap: 12px; grid-template-columns: .8fr 1.25fr 1.15fr; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
   .stage > * { min-width: 0; }
+  .col { display: grid; gap: 12px; align-content: start; }
   .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
   .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
-  .panel.wide { grid-column: 1 / -1; }
 
-  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
-  .comp:last-child { margin-bottom: 0; }
-  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
-  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp { border-radius: 12px; padding: 8px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .8rem; margin: 0; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
   .comp.user  { border-color: var(--user);  background: var(--user-bg); }
   .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
   .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
-  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
-  .comp.bad   { border-color: var(--bad);   background: var(--bad-bg); }
-  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.bad h3 { color: var(--bad); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
   .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
-  .comp.closed { opacity: .55; border-style: dashed; }
+  .arrow { text-align: center; color: var(--muted); font-size: .72rem; margin: 3px 0; }
+  .wire { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .68rem; background: var(--code-bg); border-radius: 6px; padding: 3px 6px; margin: 2px 0; word-break: break-all; box-shadow: 0 0 0 2px var(--accent); }
   .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
   .tag.bad { background: var(--bad); color: #fff; }
-  .tag.warn { background: var(--store); color: #fff; }
-  .tag.good { background: var(--srv); color: #fff; }
+  .tag.none { background: transparent; color: var(--muted); border: 1px dashed var(--muted); font-weight: 600; }
 
-  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; overflow-wrap: anywhere; }
-  .big.neg { color: var(--bad); }
-  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
-  .clock { font-size: .9rem; margin-bottom: 8px; }
-  .clock b { font-size: 1.1rem; }
 
-  /* code panel */
-  .code { margin: 0; padding: 0; list-style: none; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .72rem; line-height: 1.55; }
-  .code li { display: flex; gap: 8px; padding: 0 4px; border-radius: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .code li .n { color: var(--muted); min-width: 1.4em; text-align: right; user-select: none; }
-  .code li.cur { background: var(--accent); color: #1e3a4c; font-weight: 700; }
-  .code li.cur .n { color: #1e3a4c; }
+  .axis { position: relative; height: 16px; margin-left: 130px; font-size: .66rem; color: var(--muted); }
+  .axis span { position: absolute; transform: translateX(-50%); }
+  .axis span:first-child { transform: none; }
+  .axis span:last-child { transform: translateX(-100%); }
+  .span { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: .74rem; }
+  .span .lbl { width: 122px; flex: none; line-height: 1.2; }
+  .span .lbl b { display: block; font-size: .74rem; }
+  .span .lbl small { color: var(--muted); font-size: .66rem; }
+  .track { position: relative; flex: 1; height: 22px; background: var(--chip); border: 1px solid var(--border); border-radius: 6px; }
+  .track i { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; min-width: 3px; transition: width .3s; }
+  .track i.api { background: var(--user); } .track i.payment { background: var(--srv); }
+  .track i.run { opacity: .55; background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,.45) 5px 10px); }
+  .track i.slow { background: var(--bad); }
+  .track em { position: absolute; right: 4px; top: 2px; font-style: normal; font-size: .66rem; font-weight: 700; color: var(--ink); }
+  .own { font-size: .66rem; color: var(--muted); }
+  .own.slow { color: var(--bad); font-weight: 700; }
+  .span.slowrow .lbl b { color: var(--bad); }
+  .nowline { font-size: .74rem; color: var(--muted); margin-top: 4px; }
 
-  /* console and logs */
-  .term { background: var(--code-bg); border-radius: 10px; padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .7rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 60px; }
-  .term .logline { color: var(--srv); font-weight: 700; }
-  .kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .7rem; }
-  .kv span { overflow-wrap: anywhere; }
-  .kv .v { font-weight: 800; text-align: right; }
+  .logs { margin: 0; padding: 0; list-style: none; }
+  .logs li { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .66rem; padding: 3px 6px; border-radius: 6px; background: var(--chip); border: 1px solid var(--border); margin-bottom: 4px; word-break: break-all; }
+  .logs li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .logs li.warn { background: var(--bad-bg); }
+  .logs li.dim { opacity: .3; }
+  .logs li.match { border-color: var(--srv); border-width: 2px; }
+  .search { font-size: .76rem; margin-bottom: 6px; }
 
-  /* waterfall */
-  .wf { margin-top: 4px; }
-  .wfrow { display: grid; grid-template-columns: 7.2em 1fr; gap: 6px; align-items: center; font-size: .7rem; margin-bottom: 4px; }
-  .wfrow .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .wfrow .lane { position: relative; height: 16px; background: var(--code-bg); border-radius: 4px; }
-  .wfrow .wbar { position: absolute; top: 0; height: 100%; border-radius: 4px; min-width: 3px; background: var(--user); display: flex; align-items: center; padding-left: 4px; color: #fff; font-size: .62rem; font-weight: 700; white-space: nowrap; overflow: visible; }
-  .wfrow .wbar.t2 { background: var(--store); }
-  .wfrow .wbar.slow { background: var(--bad); }
-  .wfrow .wbar.queue { background: var(--lb); }
-  .wfrow .wbar.work { background: var(--srv); }
-  .wfrow .wbar span { position: absolute; left: calc(100% + 4px); color: var(--ink); font-weight: 700; }
-  .wfrow .wbar.inside span { position: static; color: #fff; }
-  .wfrow .wbar.leftlab span { left: auto; right: calc(100% + 4px); }
-
-  /* tables */
-  table.tb { border-collapse: collapse; width: 100%; font-size: .74rem; }
-  table.tb th { text-align: left; color: var(--muted); font-weight: 650; padding: 2px 6px 4px 0; border-bottom: 1px solid var(--border); }
-  table.tb td { padding: 3px 6px 3px 0; border-bottom: 1px dashed var(--border); }
-  table.tb tr.hot td { color: var(--bad); font-weight: 800; }
-  table.tb tr.pick td { background: var(--accent); color: #1e3a4c; font-weight: 800; }
-  .logs { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .68rem; }
-  .logs div { padding: 3px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
-  .logs div.warn { color: var(--store); font-weight: 700; }
-  .case { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
-  .case li { padding: 5px 0; border-bottom: 1px dashed var(--border); }
-  .case li .q { color: var(--muted); }
-  .case li b { color: var(--ink); }
-
-  /* series */
-  .meter { height: 14px; background: var(--code-bg); border-radius: 7px; overflow: hidden; margin: 6px 0 4px; }
-  .meter i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .25s; }
-  .meter i.bad { background: var(--bad); }
-  .rules { font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
-
-  /* sample */
-  .grid20 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  .tr { border: 2px solid var(--border); border-radius: 10px; padding: 4px 4px; text-align: center; font-size: .66rem; background: var(--card); line-height: 1.25; }
-  .tr b { display: block; font-size: .8rem; }
-  .tr.err { border-color: var(--bad); background: var(--bad-bg); }
-  .tr.slow { border-color: var(--store); background: var(--store-bg); }
-  .tr.kept { box-shadow: 0 0 0 3px var(--srv); }
-  .tr.gone { opacity: .35; }
-  .tr.lit { outline: 4px solid var(--accent); outline-offset: 1px; opacity: 1; }
-  .keys { font-size: .74rem; color: var(--muted); margin-top: 8px; }
-  .keys span { margin-right: 10px; }
+  .metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .metric { background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; text-align: center; }
+  .metric small { display: block; color: var(--muted); font-size: .64rem; text-transform: uppercase; letter-spacing: .05em; }
+  .metric b { font-size: .95rem; }
+  .metric.changed { box-shadow: 0 0 0 2px var(--accent); }
+  .metric.badv b { color: var(--bad); }
+  .alert { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .8rem; border: 2px solid var(--bad); background: var(--bad-bg); color: var(--bad); }
 
   .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
-  .badge.run { background: #3b82f6; } .badge.lb { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
-  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
   .hoptext { color: var(--muted); font-weight: 600; }
 
   .note {
     margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
-    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
   }
   .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
   .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
@@ -177,6 +135,7 @@
   .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
   .result.show { display: block; }
   .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
   .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
   .legend b { color: var(--ink); }
 </style>
@@ -184,16 +143,13 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <a href="../README.md" id="lessons">← System design lessons</a>
-    <a href="../14-observability.md" id="lessonLink">Open the lesson ↗</a>
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../14-observability.md" id="lessonLink">Open the lesson &#8599;</a>
   </div>
-  <h1>Observability: one trace id, the slow step, labels, and sampling</h1>
-  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. All times are example numbers. In story 1 the clock is fake, so the numbers match the code in the lesson.</p>
-
-  <div class="tabs" id="tabs"></div>
+  <h1>Observability: one slow checkout, one trace id</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the trace id travel, the bars grow, the log lines appear and the numbers change. Guess first, then check.</p>
 
   <div class="predict" id="predict"></div>
-
   <div class="stage" id="stage"></div>
 
   <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
@@ -203,306 +159,232 @@
   <div class="controls">
     <button id="stepBwd">Back</button>
     <button id="stepFwd" class="primary">Next</button>
-    <button id="play">▶ Auto</button>
+    <button id="play">&#9654; Auto</button>
     <button id="zero">Reset</button>
     <span class="count" id="count"></span>
   </div>
 
   <div class="result" id="result"></div>
 
-  <p class="legend"><b>The rule to remember:</b> metrics say that something is wrong. Traces say where. Logs say why. One trace id ties the trace and the logs together. Never put an id that keeps changing, like a user id, into a metric label.</p>
+  <p class="legend"><b>The rule to remember:</b> metrics say <b>that</b> something is wrong. The trace says <b>where</b>. Logs say <b>what</b>. One trace id, made by the first server and passed on in the <code>traceparent</code> header, ties all three together. The slow step is the span with the biggest own time: its time minus the spans directly under it. All numbers are examples.</p>
 </div>
 
 <script>
-// ---- The four stories. ----
-// Story 1 runs the same logic as the code in the lesson (section 4). Story 2 walks through one incident. Story 3 counts series. Story 4 compares two ways to keep traces.
-const CODE = [
-  'let clock = 0; const spans = [], counters = {};',
-  'const span = (traceId, name, ms) => { spans.push({ traceId, name, start: clock, ms }); clock += ms; };',
-  'function handle(traceId, route, fail) {',
-  '  const t0 = clock;',
-  '  span(traceId, "db", 12);',
-  '  if (fail) span(traceId, "email", 900);',
-  '  const status = fail ? "error" : "ok", key = `requests{route=${route},status=${status}}`;',
-  '  counters[key] = (counters[key] || 0) + 1;',
-  '  console.log(JSON.stringify({ traceId, route, status, ms: clock - t0 }));',
-  '}',
-  'handle("abc123", "/orders", false);',
-  'handle("def456", "/orders", true);',
-  'console.log(counters);',
-  'console.log(spans.filter((s) => s.traceId === "def456"));'
-];
-
-const HUNT = {
-  routes: [
-    { route: "/login", rps: 40, err: "0.1%", p99: "90 ms" },
-    { route: "/orders", rps: 120, err: "0.2%", p99: "140 ms" },
-    { route: "/checkout", rps: 25, err: "0.4%", p99: "3,100 ms", hot: true },
-    { route: "/search", rps: 150, err: "0.0%", p99: "60 ms" }
-  ],
-  traces: [
-    { id: "7f3a9c", ms: 3120, pick: true },
-    { id: "91be02", ms: 3050 },
-    { id: "c0d417", ms: 2980 },
-    { id: "e4410a", ms: 790 }
-  ],
-  total: 3420,
-  spans: [
-    { lab: "web: checkout", start: 0, ms: 3100, cls: "" },
-    { lab: "api: POST /orders", start: 20, ms: 3060, cls: "t2" },
-    { lab: "db: insert order", start: 30, ms: 12, cls: "" },
-    { lab: "api: points partner", start: 45, ms: 3000, cls: "slow" },
-    { lab: "queue: add job", start: 3050, ms: 3, cls: "queue" },
-    { lab: "worker: send email", start: 3120, ms: 300, cls: "work" }
-  ],
-  logs: [
-    { level: "warn", text: '{"traceId":"7f3a9c","service":"api","level":"warn","msg":"points partner answered 503, retry 1 after 2000 ms"}' },
-    { level: "info", text: '{"traceId":"7f3a9c","service":"api","level":"info","msg":"points partner call ok","ms":3000}' },
-    { level: "info", text: '{"traceId":"7f3a9c","service":"api","level":"info","msg":"order created","orderId":42}' },
-    { level: "info", text: '{"traceId":"7f3a9c","service":"worker","level":"info","msg":"receipt email sent","ms":300}' }
-  ]
-};
-
-const SAMPLE = [
-  [1, 120, "ok"], [2, 95, "ok"], [3, 130, "ok"], [4, 110, "ok"], [5, 105, "ok"],
-  [6, 98, "ok"], [7, 1800, "ok"], [8, 115, "ok"], [9, 102, "ok"], [10, 99, "ok"],
-  [11, 125, "ok"], [12, 118, "ok"], [13, 2900, "error"], [14, 101, "ok"], [15, 97, "ok"],
-  [16, 122, "ok"], [17, 108, "ok"], [18, 111, "ok"], [19, 96, "ok"], [20, 104, "ok"]
-].map(([n, ms, status]) => ({ n, ms, status }));
+const TRACE = "4bf92f35";
+const FULL_HEADER = "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+const SCALE = 3000;   // the timeline is 3,000 ms wide
 
 const STORIES = [
   {
-    name: "1. One request, one trace id", kind: "pipe",
-    why: "The counters only count: they said one ok and one error. The log line said def456 took 912 ms in total. Only the spans cut that time into steps, and they showed that the email step took 900 ms. The trace id def456 is what let you pick the right log line and the right spans.",
-    predict: { q: "After both requests, the counters say ok 1 and error 1. The log line for def456 says 912 ms. Which clue shows you that the email step took 900 ms?",
-               options: ["The counters", "The log line", "The spans"], answer: "The spans" }
-  },
-  {
-    name: "2. Find the slow step", kind: "hunt",
-    why: "Metrics are cheap and cover every request, so they tell you which route hurts. A trace shows the steps of one slow request, so it tells you where the time went. The log lines with the same trace id tell you why. Opening logs first would mean reading millions of lines without a place to start.",
-    predict: { q: "A store owner says checkout is slow. You have three drawers: metrics, traces and logs. Which drawer do you open first?",
-               options: ["Logs, and search for the word slow", "Metrics, to see which route is slow", "Traces, and open any trace"], answer: "Metrics, to see which route is slow" }
-  },
-  {
-    name: "3. Labels make series", kind: "series",
-    routes: 5, statuses: 3,
-    why: "A metric keeps one series for every different mix of label values. Route and status can only make 5 times 3 = 15 mixes. A user id can have as many values as you have users, so the mixes multiply: up to 15 million. Every series costs memory, disk and query time. A user id belongs in a log line or in a trace, not in a label.",
-    predict: { q: "A request counter has two labels: route (5 values) and status (3 values). You add a third label, userId. A million different users visit. About how many series can the counter have now?",
-               options: ["Still 15", "About 15 thousand", "Up to 15 million"], answer: "Up to 15 million" }
-  },
-  {
-    name: "4. Keep the interesting traces", kind: "sample",
-    why: "A rule that decides at the start of a request cannot know if the request will fail. It keeps about 1 in 10 at random, so a failed trace is usually dropped. A rule that decides at the end can say: keep every error and every slow trace. The price is that something must hold all the spans of every trace until the trace ends.",
-    predict: { q: "A rule keeps 1 trace in 10, and it decides when the request starts. One request fails. Does its trace get kept?",
-               options: ["Always, errors are special", "Only about 1 time in 10", "Never"], answer: "Only about 1 time in 10" }
+    name: "One slow checkout",
+    why: "The SELECT payments span took 2,900 ms and has no spans under it, so all 2,900 ms are its own time. POST /checkout took 3,000 ms but only 20 ms were its own. The rest was waiting. POST /charge took 2,960 ms but only 60 ms were its own. The browser is not in the trace at all here: the API made the id.",
+    predict: { q: "This checkout took 3,000 ms. Which step made it slow?",
+               options: ["The API code", "The payment service code", "The payment database query", "The browser"],
+               answer: "The payment database query" },
+    ops: [
+      { op: "alert" },
+      { op: "browser" },
+      { op: "apiStart" },
+      { op: "cart" },
+      { op: "call" },
+      { op: "payStart" },
+      { op: "query" },
+      { op: "queryDone" },
+      { op: "payDone" },
+      { op: "apiDone" },
+      { op: "find" }
+    ]
   }
 ];
 
-const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-// ---- Story 1: the same logic as the code. It saves one snapshot after each line that matters. ----
-function inspectCounters(c) {
-  const keys = Object.keys(c);
-  return "{\n" + keys.map((k, i) => "  '" + k + "': " + c[k] + (i < keys.length - 1 ? "," : "")).join("\n") + "\n}";
+// Nearest rank, the same as the lesson: rank = ceil(p * count / 100).
+function percentile(values, p) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.ceil((p * sorted.length) / 100);
+  return sorted[Math.max(rank, 1) - 1];
 }
-function inspectSpans(list) {
-  return "[\n" + list.map((s, i) => "  { traceId: '" + s.traceId + "', name: '" + s.name + "', start: " + s.start + ", ms: " + s.ms + " }" + (i < list.length - 1 ? "," : "")).join("\n") + "\n]";
+function metricsOf(times, errors) {
+  const sum = times.reduce((a, b) => a + b, 0);
+  return {
+    requests: times.length, errors,
+    average: Math.round((sum / times.length) * 10) / 10,
+    p50: percentile(times, 50), p99: percentile(times, 99)
+  };
 }
-function simulatePipe() {
-  const steps = [];
-  const st = { clock: 0, spans: [], counters: {}, out: [], t0: null, who: null };
-  const snap = (note, line, hop, phase) => steps.push({
-    clock: st.clock, spans: st.spans.map(s => Object.assign({}, s)), counters: Object.assign({}, st.counters),
-    out: st.out.slice(), line, hop, phase, note, who: st.who
+function ownTimes(spans) {
+  return spans.map(s => {
+    const kids = spans.filter(c => c.parent === s.id);
+    return s.ms - kids.reduce((a, c) => a + c.ms, 0);
   });
-  const span = (traceId, name, ms) => { st.spans.push({ traceId, name, start: st.clock, ms }); st.clock += ms; };   // same as the lesson
-  function handle(traceId, route, fail) {
-    st.who = traceId;
-    st.t0 = st.clock;
-    snap("JavaScript calls <code>handle(\"" + traceId + "\", \"/orders\", " + fail + ")</code>. The first line saves the start time: <code>t0 = " + st.t0 + "</code>. Nothing is saved yet. The trace id <b>" + traceId + "</b> will be copied onto every clue this request leaves behind.", 4, "The request " + traceId + " starts", "run");
-    const before = st.clock;
-    span(traceId, "db", 12);
-    snap("<code>span</code> runs the database step. It saves one span: trace id " + traceId + ", name db, start " + before + ", <b>12 ms</b>. Then the clock moves from " + before + " to <b>" + st.clock + " ms</b>.", 5, "A span is saved for the database step", "srv");
-    if (fail) {
-      const b2 = st.clock;
-      span(traceId, "email", 900);
-      snap("<code>fail</code> is true, so the email step runs. It is slow. The span saved: " + traceId + ", email, start " + b2 + ", <b>900 ms</b>. The clock jumps from " + b2 + " to <b>" + st.clock + " ms</b>.", 6, "A span is saved for the email step", "bad");
-    } else {
-      snap("<code>fail</code> is false, so the email step is skipped. This request has only one span.", 6, "The email step is skipped", "run");
+}
+
+function simulate(p) {
+  const steps = [];
+  // 100 earlier checkouts: 90 took 100 ms, 8 took 400 ms, 2 took 3000 ms.
+  const times = [];
+  for (let i = 0; i < 90; i++) times.push(100);
+  for (let i = 0; i < 8; i++) times.push(400);
+  for (let i = 0; i < 2; i++) times.push(3000);
+  const w = {
+    now: 0, has: { browser: false, api: false, payment: false, db: false }, wire: "",
+    spans: [],
+    logs: [
+      { traceId: "9a1c77e0", text: '{"level":"info","traceId":"9a1c77e0","service":"api","msg":"checkout done","ms":100}' },
+      { traceId: "c03e5b12", text: '{"level":"info","traceId":"c03e5b12","service":"payment","msg":"charge done","ms":80}' },
+      { traceId: "7d2f0a91", text: '{"level":"info","traceId":"7d2f0a91","service":"api","msg":"checkout done","ms":400}' }
+    ],
+    metrics: metricsOf(times, 0), changed: [], alert: false, search: false, slowId: null, own: null
+  };
+  const snap = (note, active, hop, phase) => {
+    steps.push({ w: JSON.parse(JSON.stringify(w)), active, hop, phase, note });
+    w.logs.forEach(l => { l.fresh = false; });
+    w.changed = [];
+  };
+  const log = (level, service, msg, field, value) => {
+    const o = { level, traceId: TRACE, service, msg };
+    o[field] = value;
+    w.logs.push({ traceId: TRACE, text: JSON.stringify(o), fresh: true, warn: level === "warn" });
+  };
+  const span = id => w.spans.find(s => s.id === id);
+
+  for (const op of p.ops) {
+    if (op.op === "alert") {
+      w.alert = true;
+      snap("It is 3 am. An alert wakes you: <b>checkout p99 over 1 s for 5 minutes</b>. Look at the numbers. The average is " + w.metrics.average + " ms and looks fine. The p99 is " + w.metrics.p99 + " ms. Metrics tell you <b>that</b> checkout is slow. They do not say which box.", ["metrics"], "Step 0. The alert fires", "bad");
+    } else if (op.op === "browser") {
+      w.wire = "POST /checkout, no trace id";
+      snap("A user presses Pay. The browser sends <code>POST /checkout</code> to the API. It sends <b>no trace id</b>. Nobody has an id yet.", ["browser", "api"], "Step 1. The browser sends the request", "run");
+    } else if (op.op === "apiStart") {
+      w.has.api = true; w.wire = "";
+      w.spans.push({ id: "a1", parent: null, depth: 0, service: "api", name: "POST /checkout", start: 0, ms: null });
+      log("info", "api", "checkout started", "orderId", 881);
+      snap("No id came in, so the API <b>makes trace id <code>" + TRACE + "</code></b>. It starts its first span, <b>POST /checkout</b>. The bar is striped because the span is still running. Its first log line carries the same id.", ["api", "trace", "logs"], "Step 2. The API makes the trace id", "run");
+    } else if (op.op === "cart") {
+      w.now = 25;
+      w.spans.push({ id: "a2", parent: "a1", depth: 1, service: "api", name: "SELECT cart", start: 5, ms: 20 });
+      snap("The API reads the cart from its own Postgres through Prisma. That makes a child span, <b>SELECT cart</b>, which takes <b>20 ms</b>. It sits under POST /checkout because the API made it while the checkout was running.", ["api", "trace"], "Step 3. The API reads the cart", "srv");
+    } else if (op.op === "call") {
+      w.now = 30; w.wire = FULL_HEADER;
+      snap("The API calls the payment service: <code>POST /charge</code>. OpenTelemetry adds the <b>traceparent header</b> to the call. The long middle part is the trace id. This page shows only its first 8 characters, <code>" + TRACE + "</code>.", ["api", "wire", "payment"], "Step 4. The id goes into a header", "run");
+    } else if (op.op === "payStart") {
+      w.has.payment = true; w.wire = "";
+      w.spans.push({ id: "p1", parent: "a1", depth: 1, service: "payment", name: "POST /charge", start: 30, ms: null });
+      log("info", "payment", "charge started", "orderId", 881);
+      snap("The payment service <b>reads the header and keeps the same id</b>. It does not make a new one. Its span, <b>POST /charge</b>, joins the same trace, and its log line has <code>" + TRACE + "</code> too.", ["payment", "trace", "logs"], "Step 5. The payment service keeps the id", "run");
+    } else if (op.op === "query") {
+      w.now = 1040;
+      w.spans.push({ id: "p2", parent: "p1", depth: 2, service: "payment", name: "SELECT payments", start: 40, ms: null });
+      snap("The payment service asks its database for the old payments of order 881. That is the span <b>SELECT payments</b>. This picture is <b>1 second later</b>. Three bars are still growing. Nobody has answered yet.", ["payment", "db", "trace"], "Step 6. The payment service asks its database", "run");
+    } else if (op.op === "queryDone") {
+      w.now = 2940;
+      span("p2").ms = 2900;
+      log("warn", "payment", "slow query", "ms", 2900);
+      snap("The query returns after <b>2,900 ms</b>. The payment service writes a <b>warn</b> log line: slow query. The database itself does not know the trace id. The payment service timed the query.", ["db", "payment", "trace", "logs"], "Step 7. The query returns after 2,900 ms", "bad");
+    } else if (op.op === "payDone") {
+      w.now = 2990;
+      span("p1").ms = 2960;
+      snap("The payment service answers <code>200</code>. Its span POST /charge closes at <b>2,960 ms</b>. Most of that was waiting for the query under it.", ["payment", "api", "trace"], "Step 8. The payment service answers", "srv");
+    } else if (op.op === "apiDone") {
+      w.now = 3000;
+      span("a1").ms = 3000;
+      log("info", "api", "checkout done", "ms", 3000);
+      times.push(3000);
+      w.metrics = metricsOf(times, 0);
+      w.changed = ["requests", "average"];
+      snap("The API answers <code>201</code> to the browser and closes its span at <b>3,000 ms</b>. The metrics count one more request: <b>" + w.metrics.requests + "</b>. Errors stay at <b>0</b>. Slow is not an error, so a search for errors would find nothing.", ["api", "browser", "trace", "logs", "metrics"], "Step 9. The API answers", "srv");
+    } else if (op.op === "find") {
+      const own = ownTimes(w.spans);
+      let best = 0;
+      own.forEach((o, i) => { if (o > own[best]) best = i; });
+      w.own = own; w.slowId = w.spans[best].id; w.search = true;
+      snap("You open trace <code>" + TRACE + "</code> and sort by <b>own time</b>: a span's time minus the spans directly under it. POST /checkout: 3,000 minus 20 minus 2,960 is <b>20 ms</b>. POST /charge: 2,960 minus 2,900 is <b>60 ms</b>. <b>SELECT payments: 2,900 ms</b>. That is the slow step. You search the logs for the same id and find its 4 lines, from 2 services. The warn line says what happened.", ["trace", "logs", "db"], "Step 10. Find the slow step", "done");
     }
-    const status = fail ? "error" : "ok", key = "requests{route=" + route + ",status=" + status + "}";
-    st.counters[key] = (st.counters[key] || 0) + 1;
-    snap("The status is <b>" + status + "</b>. The counter key is <code>" + key + "</code>, and its value is now <b>" + st.counters[key] + "</b>. The key holds the route and the status. It does not hold the trace id." + (fail ? " The first counter stays at 1." : ""), 8, "The counter goes up by one", "chk");
-    const line = JSON.stringify({ traceId, route, status, ms: st.clock - st.t0 });
-    st.out.push({ kind: "log", text: line });
-    snap("The log line is printed as JSON: the trace id, the route, the status and the time. The time is clock minus t0: " + st.clock + " − " + st.t0 + " = <b>" + (st.clock - st.t0) + " ms</b>.", 9, "One structured log line is printed", "chk");
   }
-  snap("Two requests will run through one small program. It leaves three kinds of clues: a <b>log line</b>, a <b>counter</b> and <b>spans</b>. The clock is fake, so every run gives the same numbers. It starts at <b>0 ms</b>.", 1, "The setup before any request", "setup");
-  handle("abc123", "/orders", false);
-  steps[steps.length - 1].note += " The first request is done. It was fast and it worked.";
-  handle("def456", "/orders", true);
-  st.out.push({ kind: "plain", text: inspectCounters(st.counters) });
-  snap("<code>console.log(counters)</code> prints both counters. They say: one ok and one error. They cannot say which request failed, or why.", 13, "The counters are printed", "chk");
-  const mine = st.spans.filter(s => s.traceId === "def456");
-  st.out.push({ kind: "plain", text: inspectSpans(mine) });
-  snap("The filter keeps only the spans with trace id <b>def456</b>, and prints them. Now you can see where the 912 ms went: the <b>email step took 900 ms</b>. The database took 12 ms.", 14, "Only the spans of def456 are printed", "bad");
-  snap("Read the clues in this order. The counters said one request failed. The log line said def456 took 912 ms. The spans said 900 of those ms were the email step. The trace id tied the log line and the spans together. The counter never needed it.", 0, "Finished", "done");
-  return steps;
-}
-
-// ---- Story 2: one incident, three drawers. ----
-function simulateHunt() {
-  const steps = [];
-  const open = { metrics: false, traces: false, logs: false };
-  const know = [];
-  const snap = (note, hop, phase, focus, wf) => steps.push({ open: Object.assign({}, open), know: know.slice(), focus, wf: !!wf, hop, phase, note });
-  snap("A store owner says: <b>checkout is slow</b>. Every box has written clues into three drawers: <b>metrics</b>, <b>traces</b> and <b>logs</b>. You do not yet know which route, which box or which step. Which drawer do you open first?", "The complaint arrives", "setup", "");
-  open.metrics = true; know.push(["Which route is slow?", "/checkout"]);
-  snap("You open <b>metrics</b> first. They are cheap numbers that cover every request. Look at the three RED numbers for each route: rate, errors and duration. Rate and errors look normal everywhere. Duration is not: the slowest 1 in 100 requests (p99) on <b>/checkout</b> takes 3,100 ms.", "Metrics: the route is /checkout", "chk", "metrics");
-  open.traces = true;
-  snap("Metrics cannot say which step is slow. So you open <b>traces</b> and list the slow /checkout traces. The slowest is <b>7f3a9c</b>, at 3,120 ms. One trace is the map of one request, so you open it.", "Traces: pick one slow trace", "chk", "traces");
-  know.push(["Which step is slow?", "api: points partner, 3,000 ms"]);
-  snap("The waterfall shows the steps in time order. The database took 12 ms. The queue took 3 ms. The call to the <b>points partner</b> took <b>3,000 ms</b>, which is 98% of the API time. The worker sent the email later, after the customer had an answer. It has the same trace id, because the id rode inside the job.", "Traces: the slow span", "bad", "traces", true);
-  open.logs = true; know.push(["Why was it slow?", "the partner answered 503, the API waited 2 s and tried again"]);
-  snap("Now you open <b>logs</b>, and search for the trace id <code>7f3a9c</code>. Only four lines come back, from two services. The first one tells you why: the partner answered <b>503</b>, and the API waited 2,000 ms before it tried again.", "Logs: the same trace id", "srv", "logs", true);
-  snap("Done in minutes, with no guessing. <b>Metrics</b> told you the route. The <b>trace</b> told you the step. The <b>log</b> told you the reason. Next you could set a shorter timeout for the partner, or move that call out of the request, and you would page on this symptom: the slowest checkouts are over 2 seconds for 5 minutes. Not on CPU.", "Finished", "done", "", true);
-  return steps;
-}
-
-// ---- Story 3: count the series. The numbers are computed, not typed. ----
-function simulateSeries(p) {
-  const steps = [];
-  const good = p.routes * p.statuses;
-  const snap = (users, note, hop, phase, showId) => steps.push({ users, good, bad: good * Math.max(users, 1), showId, hop, phase, note });
-  snap(0, "A counter named <code>requests</code> counts every request. Left: it has two <b>labels</b>, route and status. There are <b>" + p.routes + " routes</b> and <b>" + p.statuses + " statuses</b>, so there are at most " + p.routes + " × " + p.statuses + " = <b>" + good + " series</b>. A series is one line on a chart. Right: the same counter with a third label, <code>userId</code>.", "The setup: no users yet", "setup", false);
-  [10, 1000, 100000, 1000000].forEach(u => {
-    const bad = good * u;
-    const extra = u === 1000000 ? " Every one of these series needs memory, disk space and query time." : "";
-    snap(u, "<b>" + fmt(u) + " users</b> visit. Left: still <b>" + good + "</b> series. Right: up to " + good + " × " + fmt(u) + " = <b>" + fmt(bad) + "</b> series, because a new user id makes a new mix of labels." + extra, fmt(u) + " users", u >= 100000 ? "bad" : "run", false);
-  });
-  snap(1000000, "Where does the user id go instead? Into the <b>log line</b>: <code>{\"traceId\":\"abc123\",\"userId\":7,...}</code>, and into the <b>trace</b> as an attribute. A log line costs the same whether the id is new or old. A label with a new value costs a whole new series. When you must ask \"what did user 7 see?\", search the logs.", "Put the id in a log or a trace", "srv", true);
-  snap(1000000, "Rule of thumb: a label should have a small, fixed set of values, like route or status. The Prometheus guide says to keep most metrics under about 10 mixes, and to look for another way when one passes 100. Ids, emails, full URLs and error messages do not belong in labels.", "Finished", "done", true);
-  return steps;
-}
-
-// ---- Story 4: head sampling against tail sampling. The kept sets come from the rules. ----
-const SLOW_MS = 1000;
-const headKeeps = t => t.n % 10 === 5;                                           // decided at the start: about 1 in 10, by a fixed pattern in this demo
-const tailKeeps = t => t.status === "error" || t.ms > SLOW_MS || headKeeps(t);     // decided at the end: errors, slow ones, and 1 in 10 of the rest
-function simulateSample() {
-  const steps = [];
-  const snap = (note, hop, phase, o) => steps.push(Object.assign({ head: null, tail: null, lit: [], note, hop, phase }, o || {}));
-  const interesting = SAMPLE.filter(t => t.status === "error" || t.ms > SLOW_MS);
-  snap("Twenty requests arrive, and each one makes a trace. Most are fast and fine, around 100 ms. <b>One failed</b> (trace 13, an error after 2,900 ms). <b>One was slow</b> (trace 7, 1,800 ms). Those two are the traces you will want. Storing all twenty costs money, so we keep only some.", "Twenty traces, before any sampling", "setup");
-  const head = SAMPLE.filter(headKeeps).map(t => t.n);
-  snap("<b>Head sampling</b>: decide when the request <i>starts</i>, for example \"keep 1 trace in 10\". It is cheap and simple. Here it keeps traces <b>" + head.join(" and ") + "</b>. The other eighteen are thrown away at once.", "Head sampling: decide at the start", "run", { head, lit: head });
-  const lost = interesting.filter(t => !head.includes(t.n)).map(t => t.n);
-  snap("What did the rule lose? Traces <b>" + lost.join(" and ") + "</b>: the error and the slow one. At the start of a request nobody knows that it will fail, so the rule could not protect them. Head sampling keeps a fair sample, but it can miss the one trace you needed.", "Head sampling lost the interesting traces", "bad", { head, lit: lost });
-  const errs = SAMPLE.filter(t => t.status === "error").map(t => t.n);
-  snap("<b>Tail sampling</b>: wait until the trace has ended, then decide. Rule 1: <b>keep every error</b>. Trace " + errs.join(", ") + " is kept.", "Tail sampling rule 1: keep errors", "chk", { head, tail: errs, lit: errs });
-  const slows = SAMPLE.filter(t => t.status !== "error" && t.ms > SLOW_MS).map(t => t.n);
-  snap("Rule 2: <b>keep every slow trace</b>, for example over " + fmt(SLOW_MS) + " ms. Trace " + slows.join(", ") + " is kept.", "Tail sampling rule 2: keep slow traces", "chk", { head, tail: errs.concat(slows), lit: slows });
-  const rest = SAMPLE.filter(t => headKeeps(t) && t.status !== "error" && t.ms <= SLOW_MS).map(t => t.n);
-  const tail = SAMPLE.filter(tailKeeps).map(t => t.n);
-  snap("Rule 3: keep <b>1 in 10 of the rest</b>, so you still see what a normal request looks like. Traces <b>" + rest.join(" and ") + "</b> are kept.", "Tail sampling rule 3: a few normal ones", "chk", { head, tail, lit: rest });
-  snap("Head sampling kept " + head.length + " traces and neither was interesting. Tail sampling kept " + tail.length + ": the error, the slow one, and two normal ones. The price: something must hold every span of every trace until the trace ends, and all the spans of one trace must reach the same place. That is more memory and more to run. Many teams do both: a light head sample first, then tail rules.", "Compare the two", "done", { head, tail });
   return steps;
 }
 
 // ---- The page ----
 const $ = id => document.getElementById(id);
 let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], bad: ["Something is slow", "bad"], srv: ["Step done", "srv"], done: ["Finished", "done"] };
+const fmt = n => n === null ? "none" : Number(n).toLocaleString("en-US");
 
-const BADGE = { setup: ["Setup", ""], run: ["A request runs", "run"], bad: ["Something goes wrong", "bad"], chk: ["Look at a clue", "chk"], srv: ["A clue is saved", "srv"], done: ["Finished", "done"] };
-
-function waterfall(list, total, mine) {
-  return '<div class="wf">' + list.map(s => {
-    const left = (100 * s.start / total).toFixed(2), width = Math.max(100 * s.ms / total, 0.8).toFixed(2);
-    const inside = s.ms / total > 0.22, leftlab = !inside && (s.start + s.ms) / total > 0.85;
-    return '<div class="wfrow"><div class="lab" title="' + esc(s.lab) + '">' + esc(s.lab) + '</div><div class="lane"><div class="wbar ' + (s.cls || "") + (inside ? " inside" : "") + (leftlab ? " leftlab" : "") + '" style="left:' + left + '%;width:' + width + '%"><span>' + fmt(s.ms) + ' ms</span></div></div></div>';
-  }).join("") + '</div>';
+function idTag(on) {
+  return on ? '<span class="tag">' + TRACE + "</span>" : '<span class="tag none">no id</span>';
 }
 
-function renderPipe(s) {
-  const stage = $("stage");
-  stage.className = "stage pipe";
-  const code = CODE.map((t, i) => '<li class="' + (s.line === i + 1 ? "cur" : "") + '"><span class="n">' + (i + 1) + "</span><span>" + esc(t) + "</span></li>").join("");
-  const counters = Object.keys(s.counters);
-  const out = s.out.length ? s.out.map(o => '<div class="' + (o.kind === "log" ? "logline" : "") + '">' + esc(o.text) + "</div>").join("") : '<span class="empty">nothing printed yet</span>';
-  const rows = s.spans.map(sp => ({ lab: sp.traceId + " " + sp.name, start: sp.start, ms: sp.ms, cls: sp.name === "email" ? "slow" : (sp.traceId === "def456" ? "t2" : "") }));
-  stage.innerHTML =
-    '<div class="panel"><h2>The code (lesson, section 4)</h2><ul class="code">' + code + "</ul></div>" +
-    '<div class="panel"><h2>What it leaves behind</h2>' +
-      '<div class="clock">Fake clock: <b>' + s.clock + ' ms</b>' + (s.who ? ' · request <b>' + s.who + "</b>" : "") + "</div>" +
-      '<div class="comp fol"><h3>Counters<span class="tag">metrics</span></h3><small>one number per mix of labels. No trace id inside.</small>' +
-        (counters.length ? '<div class="kv">' + counters.map(k => "<span>" + esc(k) + '</span><span class="v">' + s.counters[k] + "</span>").join("") + "</div>" : '<span class="empty">no counter yet</span>') + "</div>" +
-      '<div class="comp srv"><h3>Printed output<span class="tag">logs</span></h3><small>the green lines are structured log lines</small><div class="term">' + out + "</div></div>" +
-    "</div>" +
-    '<div class="panel"><h2>Spans (the trace)</h2><small class="empty">Each bar is one timed step. The time runs from left (0 ms) to right (924 ms).</small>' +
-      (rows.length ? waterfall(rows, 924) : '<p class="empty">no span yet</p>') +
+function renderPath(s) {
+  const w = s.w, lit = id => s.active.includes(id) ? " lit" : "";
+  return '<div class="panel"><h2>The request path</h2>' +
+    '<div class="comp user' + lit("browser") + '"><h3>Browser ' + idTag(w.has.browser) + '</h3><small>the user presses Pay</small></div>' +
+    '<div class="arrow">&darr; POST /checkout</div>' +
+    '<div class="comp lb' + lit("api") + '"><h3>API ' + idTag(w.has.api) + '</h3><small>makes the trace id if none came in</small></div>' +
+    '<div class="arrow">&darr; POST /charge</div>' +
+    (w.wire ? '<div class="wire">' + esc(w.wire) + "</div>" : "") +
+    '<div class="comp srv' + lit("payment") + '"><h3>Payment service ' + idTag(w.has.payment) + '</h3><small>reads the header and keeps the id</small></div>' +
+    '<div class="arrow">&darr; SELECT payments</div>' +
+    '<div class="comp store' + lit("db") + '"><h3>Payment database ' + '<span class="tag none">does not know the id</span>' + '</h3><small>the payment service times the query</small></div>' +
     "</div>";
 }
 
-function renderHunt(s) {
-  const stage = $("stage");
-  stage.className = "stage hunt";
-  const H = HUNT;
-  const know = s.know.length ? s.know.map(k => '<li><span class="q">' + esc(k[0]) + "</span><br><b>" + esc(k[1]) + "</b></li>").join("") : '<li class="empty">nothing known yet</li>';
-  const metrics = '<table class="tb"><tr><th>Route</th><th>Rate per s</th><th>Errors</th><th>Slowest 1 in 100</th></tr>' +
-    H.routes.map(r => '<tr class="' + (r.hot ? "hot" : "") + '"><td>' + r.route + "</td><td>" + r.rps + "</td><td>" + r.err + "</td><td>" + r.p99 + "</td></tr>").join("") + "</table>";
-  const traces = '<table class="tb"><tr><th>Trace id</th><th>Time</th></tr>' +
-    H.traces.map(t => '<tr class="' + (t.pick && s.open.traces ? "pick" : "") + '"><td>' + t.id + "</td><td>" + fmt(t.ms) + " ms</td></tr>").join("") + "</table>";
-  const wf = s.wf ? waterfall(H.spans, H.total) : "";
-  const logs = '<div class="logs">' + H.logs.map(l => '<div class="' + l.level + '">' + esc(l.text) + "</div>").join("") + "</div>";
-  const drawer = (key, cls, title, tag, body) =>
-    '<div class="comp ' + cls + (s.focus === key ? " lit" : "") + (s.open[key] ? "" : " closed") + '"><h3>' + title + '<span class="tag">' + tag + "</span></h3>" +
-    (s.open[key] ? body : '<span class="empty">closed. You have not opened this drawer yet.</span>') + "</div>";
-  stage.innerHTML =
-    '<div class="panel"><h2>What you know so far</h2><ul class="case">' + know + "</ul></div>" +
-    '<div class="panel"><h2>The three drawers</h2>' +
-      drawer("metrics", "fol", "Metrics: last 15 minutes", "how much and how fast", metrics) +
-      drawer("traces", "user", "Traces: slow /checkout requests", "where the time went", traces + wf) +
-      drawer("logs", "srv", "Logs: search traceId = 7f3a9c", "what happened and why", logs) +
-    "</div>";
+function renderTrace(s) {
+  const w = s.w, lit = s.active.includes("trace") ? " lit" : "";
+  let rows;
+  if (!w.spans.length) {
+    rows = '<div class="empty">no spans yet</div>';
+  } else {
+    rows = w.spans.map((sp, i) => {
+      const running = sp.ms === null;
+      const ms = running ? w.now - sp.start : sp.ms;
+      const left = (100 * sp.start) / SCALE, width = Math.max(0.5, (100 * ms) / SCALE);
+      const slow = w.slowId === sp.id;
+      const cls = sp.service + (running ? " run" : "") + (slow ? " slow" : "");
+      const own = w.own ? '<span class="own' + (slow ? " slow" : "") + '">own time ' + fmt(w.own[i]) + " ms</span>" : "";
+      return '<div class="span' + (slow ? " slowrow" : "") + '"><div class="lbl" style="padding-left:' + (sp.depth * 10) + 'px"><b>' + esc(sp.name) + "</b><small>" + sp.service + "</small></div>" +
+        '<div class="track"><i class="' + cls + '" style="left:' + left + "%;width:" + width + '%"></i><em>' + (running ? "running" : fmt(ms) + " ms") + "</em></div></div>" +
+        (own ? '<div style="margin:-4px 0 6px ' + (130 + sp.depth * 10) + 'px">' + own + "</div>" : "");
+    }).join("");
+  }
+  return '<div class="panel"><h2>Trace ' + TRACE + ", spans on a timeline</h2>" +
+    '<div class="comp lb' + lit + '" style="background:var(--card)">' +
+    '<div class="axis"><span style="left:0">0</span><span style="left:33.3%">1,000</span><span style="left:66.6%">2,000</span><span style="left:100%">3,000 ms</span></div>' +
+    rows +
+    '<div class="nowline">time since the request started: <b>' + fmt(w.now) + " ms</b></div></div></div>";
 }
 
-function renderSeries(s) {
-  const stage = $("stage");
-  stage.className = "stage series";
-  const max = Math.log10(15000000 + 1);
-  const w = n => Math.max(2, Math.round(100 * Math.log10(n + 1) / max));
-  stage.innerHTML =
-    '<div class="panel"><h2>Labels: route, status</h2><div class="rules">Values: route has 5, status has 3.</div>' +
-      '<div class="comp srv"><h3>Series<span class="tag good">small and fixed</span></h3><div class="big">' + fmt(s.good) + '</div><div class="biglabel">series at most, however many users visit</div>' +
-      '<div class="meter"><i style="width:' + w(s.good) + '%"></i></div></div>' +
-      '<div class="clock">Users so far: <b>' + fmt(s.users) + "</b></div></div>" +
-    '<div class="panel"><h2>Labels: route, status, userId</h2><div class="rules">Values: route 5, status 3, userId as many as there are users.</div>' +
-      '<div class="comp bad"><h3>Series<span class="tag bad">grows with users</span></h3><div class="big' + (s.bad > 1000000 ? " neg" : "") + '">' + (s.users ? "up to " : "") + fmt(s.bad) + '</div><div class="biglabel">series at most (the bar uses a log scale)</div>' +
-      '<div class="meter"><i class="bad" style="width:' + w(s.bad) + '%"></i></div></div>' +
-      (s.showId ? '<div class="comp lb"><h3>Where the user id goes instead<span class="tag">logs and traces</span></h3><div class="term">{"traceId":"abc123","route":"/orders","status":"ok","userId":7}</div></div>' : "") +
+function renderSide(s) {
+  const w = s.w, lit = id => s.active.includes(id) ? " lit" : "";
+  const logs = w.logs.map(l => {
+    const mine = l.traceId === TRACE;
+    const cls = [l.fresh ? "new" : "", l.warn ? "warn" : "", w.search ? (mine ? "match" : "dim") : ""].join(" ").trim();
+    return '<li class="' + cls + '">' + esc(l.text) + "</li>";
+  }).join("");
+  const found = w.logs.filter(l => l.traceId === TRACE).length;
+  const m = w.metrics;
+  const cell = (key, label, val, bad) => '<div class="metric' + (w.changed.includes(key) ? " changed" : "") + (bad ? " badv" : "") + '"><small>' + label + "</small><b>" + val + "</b></div>";
+  return '<div class="col">' +
+    '<div class="panel"><h2>Metrics for checkout</h2><div class="comp srv' + lit("metrics") + '" style="background:var(--card)">' +
+      '<div class="metrics">' +
+        cell("requests", "requests", fmt(m.requests)) +
+        cell("errors", "errors", fmt(m.errors)) +
+        cell("average", "average", fmt(m.average) + " ms") +
+        cell("p50", "p50", fmt(m.p50) + " ms") +
+        cell("p99", "p99", fmt(m.p99) + " ms", true) +
+      "</div>" +
+      (w.alert ? '<div class="alert">ALERT: checkout p99 over 1 s for 5 minutes</div>' : "") +
+    "</div></div>" +
+    '<div class="panel"><h2>Log lines, all services</h2><div class="comp store' + lit("logs") + '" style="background:var(--card)">' +
+      (w.search ? '<div class="search">search: <b class="mono">traceId = ' + TRACE + "</b>, found <b>" + found + " lines</b> from 2 services</div>" : "") +
+      '<ul class="logs">' + logs + "</ul>" +
+    "</div></div>" +
     "</div>";
-}
-
-function renderSample(s) {
-  const stage = $("stage");
-  stage.className = "stage sample";
-  const chip = (t, kept) => '<div class="tr ' + (t.status === "error" ? "err" : (t.ms > SLOW_MS ? "slow" : "")) + (kept === true ? " kept" : "") + (kept === false ? " gone" : "") + (s.lit.includes(t.n) ? " lit" : "") + '"><b>#' + t.n + "</b>" + fmt(t.ms) + " ms" + (t.status === "error" ? "<br>error" : "") + "</div>";
-  const pane = (title, tag, keptList) =>
-    '<div class="panel"><h2>' + title + '</h2><div class="grid20">' + SAMPLE.map(t => chip(t, keptList === null ? null : keptList.includes(t.n))).join("") + "</div>" +
-    '<div class="keys">' + (keptList === null ? "No rule yet." : "<span>Kept: <b>" + keptList.length + " of 20</b></span><span>" + tag + "</span>") + "</div></div>";
-  stage.innerHTML =
-    pane("Head sampling: decide at the start", s.head === null ? "" : "No rule can know that a request will fail.", s.head) +
-    pane("Tail sampling: decide at the end", s.tail === null ? "" : "Rules look at the whole trace.", s.tail) +
-    '<div class="panel wide"><div class="keys"><span><b>Green ring</b> = kept</span><span><b>Faded</b> = thrown away</span><span><b>Orange</b> = slow</span><span><b>Red</b> = error</span><span><b>Yellow outline</b> = the trace this step is about</span></div></div>';
 }
 
 function render() {
-  const s = steps[idx], P = STORIES[cur];
-  if (P.kind === "pipe") renderPipe(s);
-  else if (P.kind === "hunt") renderHunt(s);
-  else if (P.kind === "series") renderSeries(s);
-  else renderSample(s);
+  const s = steps[idx];
+  $("stage").innerHTML = renderPath(s) + renderTrace(s) + renderSide(s);
   const b = BADGE[s.phase] || BADGE.setup;
   $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
   $("hop").textContent = s.hop;
@@ -536,31 +418,20 @@ function renderPredict() {
     $("opts").appendChild(b);
   });
 }
-function build(i) {
-  const P = STORIES[i];
-  return P.kind === "pipe" ? simulatePipe() : P.kind === "hunt" ? simulateHunt() : P.kind === "series" ? simulateSeries(P) : simulateSample();
-}
-function pickStory(i) {
-  stop(); cur = i; steps = build(i); idx = 0; guess = null;
-  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+function start() {
+  stop(); cur = 0; steps = simulate(STORIES[0]); idx = 0; guess = null;
   renderPredict();
   render();
 }
 function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
-function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
 function play() {
   if (timer) return stop();
   if (idx === steps.length - 1) { idx = 0; render(); }
-  $("play").textContent = "⏸ Pause";
-  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
 }
 
-STORIES.forEach((p, i) => {
-  const b = document.createElement("button");
-  b.textContent = p.name;
-  b.onclick = () => pickStory(i);
-  $("tabs").appendChild(b);
-});
 $("stepFwd").onclick = () => { stop(); move(1); };
 $("stepBwd").onclick = () => { stop(); move(-1); };
 $("zero").onclick = () => { stop(); idx = 0; render(); };
@@ -568,8 +439,8 @@ $("play").onclick = play;
 document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
 });
-window.__stories = STORIES; window.__build = build; window.__code = CODE;
-pickStory(0);
+window.__stories = STORIES; window.__simulate = simulate;
+start();
 </script>
 </body>
 </html>

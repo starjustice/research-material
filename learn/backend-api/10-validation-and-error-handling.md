@@ -521,6 +521,6 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 - [Password hashing](09-password-hashing.md): the login route should say the same thing for a wrong email and a wrong password. That is an error-handling rule too.
 - [Authorization](08-authorization.md): 401, 403 and 404 are part of the same status code map in section 2f.
-- Express middleware (lesson 03, not written yet): how `next()` and the error handler fit in the pipeline.
+- [Express middleware](03-express-middleware.md): how `next()` and the error handler fit in the pipeline.
 - [Rate limiting](11-rate-limiting.md): the next lesson. A `429` is also an error in the same shape.
 - [Webhooks and idempotency](13-webhooks-and-idempotency.md): a webhook that fails validation should get a `4xx`, and one that crashed should get a `5xx` so the sender tries again.

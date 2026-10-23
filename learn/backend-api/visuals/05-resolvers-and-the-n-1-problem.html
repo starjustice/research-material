@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resolvers and the N+1 problem: step by step</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; grid-template-columns: 1fr 1.25fr 1.15fr; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s, opacity .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.off { opacity: .5; border-style: dashed; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.dim { background: var(--border); color: var(--muted); }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .rows { margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+  .rows li { padding: 3px 6px; border-radius: 6px; background: var(--chip); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .rows li.new { box-shadow: 0 0 0 2px var(--accent); }
+  .rows li.dup { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .line { font-size: .84rem; }
+  .arrow { text-align: center; color: var(--muted); font-size: .7rem; margin: -2px 0 4px; }
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .query { margin: 0; padding: 6px 8px; background: var(--chip); border-radius: 8px; font-size: .8rem; white-space: pre; overflow-x: auto; }
+  .query span { display: block; padding: 0 4px; border-radius: 4px; }
+  .query span.cur { background: var(--accent); color: #1e3a4c; }
+  .calls { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+  .chip { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .72rem;
+    padding: 1px 7px; border-radius: 999px; background: var(--chip); border: 1px solid var(--border); margin: 2px 2px 0 0; }
+  .chip.asked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .chip.ok { background: var(--srv); color: #fff; border-color: var(--srv); }
+  .chip.bad { background: var(--bad); color: #fff; border-color: var(--bad); }
+  pre.json { margin: 0; padding: 6px 8px; background: var(--chip); border-radius: 8px; font-size: .74rem; white-space: pre-wrap; word-break: break-word; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; Backend and API lessons</a>
+    <a href="../05-resolvers-and-the-n-1-problem.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Resolvers and the N+1 problem: step by step</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the query, the resolver calls, and the database calls they create. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note" role="status" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> every field has a resolver. A nested list can make that resolver run once per parent item. Batch those calls with a per-request loader so one database query answers them all.</p>
+</div>
+
+<script>
+const START = {
+  orders: [
+    { id: "41", status: "PAID", shopId: "3" },
+    { id: "42", status: "NEW", shopId: "7" },
+    { id: "43", status: "PAID", shopId: "3" },
+  ],
+  shops: { 3: { id: "3", name: "Toko Maju" }, 7: { id: "7", name: "Warung Sehat" } }
+};
+const Q1 = ["{", "  orders {", "    id", "    status", "    shop { name }", "  }", "}"];
+const R1 = '{"data":{"orders":[\n  {"id":"41","status":"PAID","shop":{"name":"Toko Maju"}},\n  {"id":"42","status":"NEW","shop":{"name":"Warung Sehat"}},\n  {"id":"43","status":"PAID","shop":{"name":"Toko Maju"}}\n]}}';
+
+const STORIES = [
+  {
+    name: "1. Naive resolvers (N+1)",
+    query: Q1,
+    why: "The shop resolver runs once for every order. With 3 orders that means 3 database calls, even though only 2 unique shops are needed. This is the N+1 problem.",
+    predict: { q: "The query asks for 3 orders and each order's shop. The shop resolver runs one database query per order. How many database calls?",
+               options: ["1", "3", "4"], answer: "4" },
+    steps: [
+      ["setup", "The setup", "The app needs 3 orders with their shop names. The schema gives each field its own resolver. The <code>shop</code> resolver reads <code>parent.shopId</code> and fetches the shop.", [], w => {}],
+      ["run", "The query arrives", "The app sends the query on the left. The server reads it and checks it against the schema, just like lesson 04.", ["client"], w => { w.calls = 0; w.now = "query received"; w.dbLog = []; }],
+      ["run", "orders resolver runs", "The executor calls the <code>orders</code> resolver once. It hits the database for the orders list.", ["server", "orders"], w => { w.calls++; w.dbLog.push("SELECT * FROM orders"); w.box.orders = ["ran", "ok"]; w.lit = ["41", "42", "43"]; }],
+      ["run", "shop resolver for order 41", "For order 41 the executor resolves <code>shop</code>. The naive resolver fetches shop 3 from the database.", ["server", "shop"], w => { w.calls++; w.dbLog.push("SELECT * FROM shops WHERE id = 3"); w.box.shop = ["runs per order", "bad"]; w.lit = ["41"]; w.resp = '{"data":{"orders":[\n  {"id":"41","status":"PAID","shop":{"name":"Toko Maju"}},\n  ...'; }],
+      ["run", "shop resolver for order 42", "For order 42 it fetches shop 7. A different shop, so another database call.", ["server", "shop"], w => { w.calls++; w.dbLog.push("SELECT * FROM shops WHERE id = 7"); w.lit = ["42"]; }],
+      ["run", "shop resolver for order 43", "For order 43 it fetches shop 3 again. Same shop as order 41, but the naive resolver does not know that.", ["server", "shop"], w => { w.calls++; w.dbLog.push("SELECT * FROM shops WHERE id = 3"); w.lit = ["43"]; w.resp = R1; }],
+      ["srv", "The answer is sent", "The client gets the JSON on the right. The result is correct, but the server made 4 database calls for 3 orders.", ["client", "resp"], w => { w.now = "answer sent"; w.got = w.calls + " DB calls total"; }],
+      ["done", "Finished", "This is the N+1 problem: 1 query for the list + N queries for the nested field. With 20 orders it would be 21 calls.", [], w => { w.verdict = ["bad", w.calls + " database calls for 3 orders"]; }]
+    ]
+  },
+  {
+    name: "2. Batched resolvers (DataLoader)",
+    query: Q1,
+    why: "The shop resolver now calls shopLoader.load(shopId). The loader queues all three calls, deduplicates the ids to [3, 7], and sends one batched query. Total database calls: 2.",
+    predict: { q: "Same 3 orders, but the shop resolver uses a DataLoader. How many database calls now?",
+               options: ["1", "2", "3"], answer: "2" },
+    steps: [
+      ["setup", "The setup", "Same query, same data. This time each request gets its own <code>shopLoader</code>. The resolver returns <code>shopLoader.load(parent.shopId)</code> instead of querying the database directly.", [], w => {}],
+      ["run", "The query arrives", "The app sends the query. The server creates a fresh loader for this request.", ["client", "loader"], w => { w.calls = 0; w.now = "loader ready"; w.dbLog = []; w.box.loader = ["empty", "dim"]; }],
+      ["run", "orders resolver runs", "The executor calls <code>orders</code> once. One database query returns the 3 orders.", ["server", "orders"], w => { w.calls++; w.dbLog.push("SELECT * FROM orders"); w.box.orders = ["ran", "ok"]; w.lit = ["41", "42", "43"]; }],
+      ["run", "Three load() calls queue", "The executor calls the <code>shop</code> resolver for each order. Each one calls <code>shopLoader.load(shopId)</code>. The loader does not query yet; it records the keys <code>3, 7, 3</code>.", ["server", "shop", "loader"], w => { w.box.shop = ["queues load()", "ok"]; w.box.loader = ["keys: 3,7,3", "ok"]; w.lit = ["41", "42", "43"]; }],
+      ["run", "End of tick: batch", "At the end of the JavaScript tick, the loader deduplicates the keys to <code>[3, 7]</code> and sends one batched query.", ["server", "loader"], w => { w.calls++; w.dbLog.push("SELECT * FROM shops WHERE id IN (3, 7)"); w.box.loader = ["batched [3,7]", "ok"]; w.resp = R1; }],
+      ["srv", "The answer is sent", "The loader resolves each <code>load()</code> promise with the right shop. The client gets the same JSON, but the server made only 2 database calls.", ["client", "resp"], w => { w.now = "answer sent"; w.got = w.calls + " DB calls total"; }],
+      ["done", "Finished", "Batching turns N+1 into 2. The resolver is still small and the database load stays flat. Remember: create a new loader per request so caching stays safe.", [], w => { w.verdict = ["ok", w.calls + " database calls for 3 orders"]; }]
+    ]
+  },
+  {
+    name: "3. Resolver arguments",
+    query: ["Order.shop", "  parent  →  order object", "  args    →  {}", "  context →  { shopLoader }", "  info    →  field name, type"],
+    why: "A resolver always receives four arguments. The parent lets you reach the field's owner, the context holds shared tools like the loader, and info tells you which field and type are being resolved.",
+    predict: { q: "When resolving the shop field on order 42, what is parent.shopId?",
+               options: ["42", "7", "shop"], answer: "7" },
+    steps: [
+      ["setup", "The setup", "For the field <code>Order.shop</code>, the resolver needs to know which order it is working on. That comes in the first argument, called <code>parent</code> or <code>source</code>.", [], w => {}],
+      ["run", "Parent is the order", "The resolver for <code>shop</code> on order 42 receives <code>parent = { id: \"42\", status: \"NEW\", shopId: \"7\" }</code>.", ["server"], w => { w.now = "resolving Order.shop"; w.parent = "{ id: \"42\", status: \"NEW\", shopId: \"7\" }"; }],
+      ["run", "Context holds the loader", "The third argument is <code>context</code>, shared across the whole request. It contains <code>shopLoader</code>, so the resolver can call <code>context.shopLoader.load(parent.shopId)</code>.", ["server", "loader"], w => { w.context = "{ shopLoader }"; w.box.loader = ["ready", "ok"]; }],
+      ["run", "Args and info", "<code>args</code> is empty because <code>shop</code> takes no arguments. <code>info</code> says the field is <code>shop</code> on type <code>Order</code>.", ["server"], w => { w.args = "{}"; w.info = "field: shop, parentType: Order"; }],
+      ["srv", "Return the loaded shop", "The resolver returns the loader promise. When it resolves, the executor continues into <code>shop.name</code>.", ["server"], w => { w.now = "loader.load(7) returned"; }],
+      ["done", "Finished", "Resolvers are just functions with four arguments. The first gives you the parent, the third gives you the tools, and the other two handle arguments and metadata.", [], w => { w.verdict = ["ok", "parent, args, context, info"]; }]
+    ]
+  }
+];
+
+function simulate(p) {
+  const w = {
+    calls: 0, now: "ready", got: null, qline: -1, verdict: null,
+    box: { orders: ["waiting", "dim"], shop: ["waiting", "dim"], loader: ["waiting", "dim"] },
+    off: [], dbLog: [], lit: [], resp: null,
+    parent: null, args: null, context: null, info: null,
+    orders: JSON.parse(JSON.stringify(START.orders))
+  };
+  return p.steps.map(([phase, hop, note, active, fn]) => {
+    fn(w);
+    return { w: JSON.parse(JSON.stringify(w)), phase, hop, note, active };
+  });
+}
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const BADGE = { setup: ["Setup", ""], run: ["Resolver runs", "run"], bad: ["Problem", "bad"], srv: ["Answer sent", "srv"], done: ["Finished", "done"] };
+
+function renderStage(s) {
+  const w = s.w, p = STORIES[cur];
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const q = p.query.map((t, i) => '<span class="' + (i === w.qline ? "cur" : "") + '">' + esc(t) + "</span>").join("");
+
+  const appPanel =
+    '<div class="comp user' + lit("client") + '"><h3>The query</h3><small>what the app sends</small><div class="query mono">' + q + '</div>' +
+    (p.name.startsWith("3.") ? '' : '<div class="line" style="margin-top:8px"><b>DB calls so far:</b> <span class="calls">' + w.calls + "</span></div>") +
+    '<div class="line"><b>Now:</b> ' + esc(w.now) + "</div>" +
+    (w.got ? '<div class="line"><b>Got:</b> ' + esc(w.got) + "</div>" : "") +
+    (w.verdict ? '<div class="verdict ' + w.verdict[0] + '">' + esc(w.verdict[1]) + "</div>" : "") + "</div>";
+
+  const boxes =
+    '<div class="comp mw srv' + lit("orders") + '"><h3><span>orders resolver</span><span class="tag ' + w.box.orders[1] + '">' + esc(w.box.orders[0]) + '</span></h3></div>' +
+    '<div class="arrow">&#8595;</div>' +
+    '<div class="comp mw srv' + lit("shop") + '"><h3><span>shop resolver</span><span class="tag ' + w.box.shop[1] + '">' + esc(w.box.shop[0]) + '</span></h3></div>' +
+    '<div class="arrow">&#8595;</div>' +
+    '<div class="comp mw srv' + lit("loader") + '"><h3><span>shopLoader</span><span class="tag ' + w.box.loader[1] + '">' + esc(w.box.loader[0]) + '</span></h3></div>';
+
+  const argTable = p.name.startsWith("3.") ?
+    '<div class="comp srv' + lit("server") + '" style="margin-top:10px"><h3>Resolver arguments for order 42</h3>' +
+    '<table style="width:100%;font-size:.8rem;border-collapse:collapse"><tr><td style="padding:4px;border-bottom:1px solid var(--border)">parent</td><td class="mono" style="padding:4px;border-bottom:1px solid var(--border)">' + esc(w.parent || "—") + '</td></tr>' +
+    '<tr><td style="padding:4px;border-bottom:1px solid var(--border)">args</td><td class="mono" style="padding:4px;border-bottom:1px solid var(--border)">' + esc(w.args || "—") + '</td></tr>' +
+    '<tr><td style="padding:4px;border-bottom:1px solid var(--border)">context</td><td class="mono" style="padding:4px;border-bottom:1px solid var(--border)">' + esc(w.context || "—") + '</td></tr>' +
+    '<tr><td style="padding:4px">info</td><td class="mono" style="padding:4px">' + esc(w.info || "—") + '</td></tr></table></div>' : '';
+
+  const dbLog = w.dbLog.length ? w.dbLog.map(l => '<li class="mono' + (l.startsWith("SELECT * FROM shops WHERE id IN") ? " new" : "") + '">' + esc(l) + '</li>').join("") : '<li class="empty">no database query yet</li>';
+  const dataTable =
+    '<table style="width:100%;border-collapse:collapse;font-size:.78rem"><tr><th>id</th><th>status</th><th>shopId</th></tr>' +
+    w.orders.map(o => '<tr style="' + (w.lit.includes(o.id) ? "box-shadow:inset 3px 0 0 var(--accent)" : "") + '">' +
+      ["id", "status", "shopId"].map(k => '<td class="mono">' + esc(o[k]) + '</td>').join("") + '</tr>').join("") +
+    '</table>';
+
+  $("stage").innerHTML =
+    '<div class="panel"><h2>The app</h2>' + appPanel + '</div>' +
+    '<div class="panel"><h2>The server</h2>' + boxes + argTable + '</div>' +
+    '<div class="panel"><h2>Database and answer</h2>' +
+      '<div class="comp store' + lit("server") + '"><h3>Database log</h3><ul class="rows">' + dbLog + '</ul></div>' +
+      '<div class="comp store"><h3>Orders in memory</h3>' + dataTable + '</div>' +
+      '<div class="comp srv' + lit("resp") + '"><h3>The answer body</h3><pre class="json mono">' + (w.resp ? esc(w.resp) : '<span class="empty">nothing yet</span>') + '</pre></div>' +
+    '</div>';
+}
+
+function render() {
+  const s = steps[idx];
+  renderStage(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(real) + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + esc(guess) + "</code>. The answer is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(p.q) + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = simulate(STORIES[i]); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = simulate;
+pickStory(0);
+</script>
+</body>
+</html>
