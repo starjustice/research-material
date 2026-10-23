@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Replication and quorums: sync or async, and how many copies must answer</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+    --sA: #3b82f6; --sB: #e8890c; --sC: #8b5cf6; --sD: #2f9e6b; --sE: #d6336c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+      --sA: #6aa5f7; --sB: #f0a64a; --sC: #b79cf8; --sD: #5fd09a; --sE: #f783ac;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: .9fr 2.1fr; }
+  .stage.split { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.three, .stage.split { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.behind { border-style: dashed; }
+  .comp.dead { border-color: var(--bad); background: var(--bad-bg); opacity: .8; }
+  .comp.dead h3 { color: var(--bad); }
+  .comp.asked { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+  .tag.good { background: var(--srv); color: #fff; }
+  .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  .servers { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  .chip.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .chip.good { border-color: var(--srv); background: var(--ok-bg); }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+  .lane { margin-top: 10px; border: 2px dashed var(--border); border-radius: 12px; padding: 8px 10px; }
+  .lane .lanehead { font-size: .72rem; color: var(--muted); margin-bottom: 6px; letter-spacing: .03em; font-weight: 650; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .88rem; text-align: center; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .req.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .req.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .counters { margin-top: 8px; font-size: .84rem; display: grid; gap: 2px; }
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.empty { border-bottom: 0; }
+  .lbline { margin-top: 8px; font-size: .84rem; }
+  .sub2 { font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../19-replication-and-quorums.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Replication and quorums: sync or async, and how many copies must answer</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the copies, the saves and the answers. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> waiting for more copies is safer and slower. An asynchronous leader answers first and can lose its newest writes in a crash. A synchronous leader waits and loses none, but each write is slower. With N copies, W saves and R answers, a read always meets a copy that has the newest write when <b>R + W is more than N</b>.</p>
+</div>
+
+<script>
+// ===== Part 1: the stories and the simulation. No page code in this part, so it can be tested alone. =====
+const LETTERS = "ABCDE";
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+// ---------- Story 1: asynchronous copy against synchronous copy, then a crash ----------
+// Same logic as the first code sample in the lesson: the leader saves in 1 ms, a copy needs 40 ms.
+const SAVE_MS = 1, COPY_MS = 40;
+function columnStates(waitForFollower) {
+  const st = { leader: [], follower: [], way: [], told: null, toldMs: null, dead: false, newLeader: false, check: null, clock: 0, lost: [] };
+  const snap = () => JSON.parse(JSON.stringify(st));
+  const out = [snap()];                                                                   // 0 setup
+  st.leader.push("order 7"); st.clock = SAVE_MS;
+  st.way.push({ v: "order 7", lands: SAVE_MS + COPY_MS }); out.push(snap());              // 1 order arrives
+  if (waitForFollower) { st.follower.push("order 7"); st.way = []; st.clock = SAVE_MS + COPY_MS; }
+  st.told = "saved"; st.toldMs = st.clock; out.push(snap());                              // 2 customer hears saved
+  st.clock += 1; st.dead = true; st.lost = st.way.slice(); st.way = []; out.push(snap());                           // 3 the leader crashes
+  st.newLeader = true; out.push(snap());                                                  // 4 failover
+  st.check = st.follower.length ? "found" : "not found"; out.push(snap());                // 5 customer opens order 7
+  return out;
+}
+function buildCopyStory() {
+  const a = columnStates(false), s = columnStates(true);
+  const notes = [
+    ["The setup before anything happens", "setup", "A <b>leader</b> and a <b>follower</b>. The customer is about to place order 7. <b>Left:</b> the leader says <b>saved</b> first and sends the copy later. This is an <b>asynchronous</b> copy. <b>Right:</b> the leader waits until the follower has the copy. This is a <b>synchronous</b> copy. A copy needs <b>40 ms</b> to arrive (an example number)."],
+    ["Order 7 arrives at the leader", "run", "<b>1 ms.</b> Order 7 reaches the leader. The leader saves it in <b>1 ms</b> and starts a copy to the follower. The copy will land at <b>41 ms</b>. Both sides do exactly the same so far."],
+    ["The customer hears the answer", "srv", "<b>Left:</b> the leader tells the customer <b>saved</b> at once, after <b>1 ms</b>. The copy is still on its way. <b>Right:</b> the leader waits. The copy lands at 41 ms, the follower holds order 7, and only then does the leader say <b>saved</b>, after <b>41 ms</b>. That is the price of waiting."],
+    ["The leader crashes", "bad", "A power cut. The leader crashes right after the customer heard <b>saved</b>. <b>Left:</b> the copy was still on its way, so it is lost with the leader. <b>Right:</b> the follower already holds order 7."],
+    ["A follower takes over (failover)", "run", "The follower becomes the new leader. This is called <b>failover</b>. The new leader can only serve what it holds."],
+    ["The customer opens order 7", "done", "<b>Left:</b> <b>not found</b>. The customer was told <b>saved</b>, so the system broke its promise. <b>Right:</b> <b>found</b>, because the leader waited. <b>The trade:</b> async is fast (1 ms) but the newest writes can be lost in a crash. Sync is safe (no promised write is lost) but every write waits 40 ms more, and if the follower is down the writes cannot finish at all."],
+  ];
+  return notes.map((n, i) => ({ hop: n[0], phase: n[1], note: n[2], a: a[i], s: s[i] }));
+}
+function copyCol(title, rule, c) {
+  const leaderTag = c.dead ? '<span class="tag bad">crashed</span>' : '<span class="tag">takes writes</span>';
+  const folTag = c.newLeader ? '<span class="tag good">new leader</span>' : '<span class="tag warn">follower</span>';
+  const chips = (list, cls) => list.length ? list.map(v => '<div class="chip ' + (cls || "") + '">' + esc(v) + "</div>").join("") : '<span class="empty">empty</span>';
+  let cust, cls = "";
+  if (c.check) { cust = 'The customer opens order 7: <b>' + c.check + "</b>"; cls = c.check === "found" ? "ok" : "bad"; }
+  else if (c.told) { cust = 'Told <b>"saved"</b> after <b>' + c.toldMs + " ms</b>"; cls = "ok"; }
+  else cust = "no answer yet";
+  return '<div class="panel"><h2>' + title + '</h2><div class="rulebox">' + rule + "</div>" +
+    '<div class="clock">Time in this column: <b>' + c.clock + " ms</b></div>" +
+    '<div class="servers">' +
+      '<div class="comp srv' + (c.dead ? " dead" : "") + '"><h3>Old leader<span class="tags">' + leaderTag + "</span></h3><div class=\"items\">" + chips(c.leader, c.dead ? "bad" : "") + "</div></div>" +
+      '<div class="comp fol' + (c.newLeader ? " lit" : "") + '"><h3>' + (c.newLeader ? "Follower, now leader" : "Follower") + '<span class="tags">' + folTag + "</span></h3><div class=\"items\">" + chips(c.follower, "good") + "</div></div>" +
+    "</div>" +
+    '<div class="lane"><div class="lanehead">The copy on its way to the follower</div><div class="items">' +
+      (c.way.length ? c.way.map(w => '<div class="chip">' + esc(w.v) + " &middot; lands at " + w.lands + " ms</div>").join("") : (c.lost.length ? c.lost.map(w => '<div class="chip bad">' + esc(w.v) + " copy lost with the leader</div>").join("") : '<span class="empty">no copy on the way</span>')) + "</div></div>" +
+    '<div class="sub2">What the customer got</div><div class="req ' + cls + '">' + cust + "</div></div>";
+}
+
+// ---------- Stories 2 and 3: a small store with N copies (same logic as createCluster in the practice file) ----------
+function simulateCluster(cfg, ops) {
+  const st = { n: cfg.n, w: cfg.w, r: cfg.r, copies: Array.from({ length: cfg.n }, () => ({ ver: 1, val: "v1", up: true })), latest: 1,
+               cnt: { wOk: 0, wNo: 0, rOk: 0, rNo: 0, stale: 0 }, log: [], current: null, lit: [], asked: [] };
+  const steps = [];
+  const names = list => list.map(i => LETTERS[i]).join(" and ");
+  const snap = (note, hop, phase) => steps.push({
+    n: st.n, w: st.w, r: st.r, copies: st.copies.map(c => ({ ...c })), latest: st.latest, cnt: { ...st.cnt },
+    log: st.log.slice(0, 6), current: st.current && { ...st.current }, lit: st.lit.slice(), asked: st.asked.slice(), note, hop, phase });
+  const upOnly = list => [...new Set(list)].filter(i => st.copies[i] && st.copies[i].up);
+  for (const op of ops) {
+    st.lit = []; st.asked = [];
+    if (op.op === "intro") { st.current = null; snap(op.note, "The setup before anything happens", "setup"); continue; }
+    if (op.op === "end") { st.current = null; snap(op.note, "Finished", "done"); continue; }
+    if (op.op === "config") { Object.assign(st, op.set); st.current = null; snap(op.note, "The rule changes", "run"); continue; }
+    if (op.op === "down") { st.copies[op.i].up = false; st.current = { cls: "bad", text: "Copy " + LETTERS[op.i] + " stops" };
+      st.log.unshift({ text: "Copy " + LETTERS[op.i] + " is down", bad: true }); snap(op.note, "Copy " + LETTERS[op.i] + " is down", "bad"); continue; }
+    if (op.op === "up") { st.copies[op.i].up = true; st.current = { cls: "ok", text: "Copy " + LETTERS[op.i] + " starts again" };
+      st.log.unshift({ text: "Copy " + LETTERS[op.i] + " is back, still holding " + st.copies[op.i].val, bad: false }); snap(op.note, "Copy " + LETTERS[op.i] + " is back", "run"); continue; }
+    if (op.op === "catchUp") {
+      const newest = st.copies.filter(c => c.up).reduce((a, b) => (b.ver > a.ver ? b : a));
+      st.copies[op.i].ver = newest.ver; st.copies[op.i].val = newest.val; st.lit = [op.i];
+      st.current = { cls: "ok", text: "Copy " + LETTERS[op.i] + " catches up to " + newest.val };
+      st.log.unshift({ text: "Copy " + LETTERS[op.i] + " catches up to " + newest.val, bad: false }); snap(op.note, "Copy " + LETTERS[op.i] + " catches up", "srv"); continue; }
+    if (op.op === "write") {
+      const saved = upOnly(op.reached);
+      if (saved.length < st.w) {
+        st.cnt.wNo++; st.current = { cls: "bad", text: "Write " + op.value + ": refused (" + saved.length + " of " + st.w + " saves)" };
+        st.log.unshift({ text: "Write " + op.value + " refused: only " + saved.length + " save, W is " + st.w, bad: true });
+        snap(op.note, "A write is refused", "bad"); continue;
+      }
+      st.latest += 1;
+      for (const i of saved) st.copies[i] = { ver: st.latest, val: op.value, up: true };
+      st.cnt.wOk++; st.lit = saved;
+      st.current = { cls: "ok", text: "Write " + op.value + ": OK after " + saved.length + " saves" };
+      st.log.unshift({ text: "Write " + op.value + " OK, saved on " + names(saved), bad: false });
+      snap(op.note, "A write reaches " + names(saved), "srv"); continue;
+    }
+    if (op.op === "read") {
+      const got = upOnly(op.answered); st.asked = got;
+      if (got.length < st.r) {
+        st.cnt.rNo++; st.current = { cls: "bad", text: "Read: refused (" + got.length + " of " + st.r + " answers)" };
+        st.log.unshift({ text: "Read refused: only " + got.length + " answer, R is " + st.r, bad: true });
+        snap(op.note, "A read is refused", "bad"); continue;
+      }
+      const best = got.map(i => st.copies[i]).reduce((a, b) => (b.ver > a.ver ? b : a));
+      const stale = best.ver < st.latest;
+      st.cnt.rOk++; if (stale) st.cnt.stale++;
+      const answers = got.map(i => LETTERS[i] + " says " + st.copies[i].val).join(", ");
+      st.current = { cls: stale ? "bad" : "ok", text: "Read asks " + names(got) + ": gets " + best.val + (stale ? " (old)" : "") };
+      st.log.unshift({ text: "Read " + names(got) + ": " + answers + " &rarr; " + best.val + (stale ? " (old)" : ""), bad: stale });
+      snap(op.note, "A read asks " + names(got), stale ? "bad" : "run"); continue;
+    }
+  }
+  return steps;
+}
+function clusterRule(s) {
+  const sum = s.r + s.w, ok = sum > s.n;
+  return "N = " + s.n + " copies. W = " + s.w + " must save. R = " + s.r + " must answer.<br><b>R + W = " + sum + "</b>, N = " + s.n + ": " +
+    (ok ? "<b>" + sum + " is more than " + s.n + "</b>, so a read always meets a copy that has the newest write." : "<b>" + sum + " is not more than " + s.n + "</b>, so a read can miss the newest write.");
+}
+function renderCluster(s) {
+  const box = (c, i) => {
+    const behind = c.up && c.ver < s.latest;
+    const tags = (c.up ? "" : '<span class="tag bad">down</span>') + (behind ? '<span class="tag warn">behind</span>' : "") + (c.up && !behind ? '<span class="tag good">newest</span>' : "") +
+      (s.asked.includes(i) ? '<span class="tag">asked</span>' : "");
+    return '<div class="comp srv' + (c.up ? "" : " dead") + (behind ? " behind" : "") + (s.lit.includes(i) || s.asked.includes(i) ? " lit" : "") + '"><h3>Copy ' + LETTERS[i] + '<span class="tags">' + tags + "</span></h3>" +
+      '<div class="big">' + c.val + '</div><div class="biglabel">version ' + c.ver + "</div></div>";
+  };
+  const left = '<div class="panel"><h2>Requests</h2><div class="comp user"><h3>Latest request</h3>' +
+      (s.current ? '<div class="req ' + s.current.cls + '">' + s.current.text + "</div>" : '<div class="req">no request on this step</div>') + "</div>" +
+    '<div class="counters"><span>Writes OK: <b>' + s.cnt.wOk + "</b> &middot; refused: <b>" + s.cnt.wNo + "</b></span><span>Reads OK: <b>" + s.cnt.rOk + "</b> &middot; refused: <b>" + s.cnt.rNo + "</b></span><span>Old answers: <b>" + s.cnt.stale + "</b></span></div>" +
+    '<ul class="log">' + (s.log.length ? s.log.map(e => '<li class="' + (e.bad ? "bad" : "") + '">' + e.text + "</li>").join("") : '<li class="empty">no requests yet</li>') + "</ul></div>";
+  const right = '<div class="panel"><h2>The copies</h2><div class="rulebox">' + clusterRule(s) + "</div>" +
+    '<div class="servers">' + s.copies.map(box).join("") + "</div></div>";
+  return { cls: "three", html: left + right };
+}
+
+const STORIES = [
+  {
+    name: "1. Say saved first, or wait?", kind: "split",
+    why: "An asynchronous leader says saved before the follower has the copy, so a crash in that gap loses a write the customer was promised. A synchronous leader waits for the follower, so no promised write is lost, but each write is slower and stops completely if the follower is down.",
+    predict: { q: "The leader uses an asynchronous copy. It tells the customer saved after 1 ms, then it crashes before the copy lands. A follower takes over. Is order 7 on the new leader?",
+               options: ["Yes", "No"], answer: "No" },
+    build: buildCopyStory,
+  },
+  {
+    name: "2. Three copies: W = 2, R = 2", kind: "cluster",
+    why: "The write was saved on 2 of 3 copies and the read asks 2 of 3. Two groups of 2 out of 3 must share at least one copy, because there are only 3 copies to choose from. That shared copy holds the newest value, and the read keeps the highest version. With R = 1 the read can land on the late copy, and then it is old.",
+    predict: { q: "N = 3, W = 2, R = 2. A write of v2 reached copies A and B. Copy C is late and still holds v1. A read asks copies B and C. What does the read return?",
+               options: ["v1", "v2", "An error"], answer: "v2" },
+    build: () => simulateCluster({ n: 3, w: 2, r: 2 }, [
+      { op: "intro", note: "Three copies of one value: <b>A</b>, <b>B</b> and <b>C</b>. All hold <code>v1</code>. We choose <b>W = 2</b>: a write counts when 2 copies have saved it. We choose <b>R = 2</b>: a read asks 2 copies and keeps the answer with the highest version. Look at the rule line: <b>R + W = 4</b>, and 4 is more than N = 3." },
+      { op: "write", value: "v2", reached: [0, 1], note: "A write of <code>v2</code> goes to all three copies. <b>A</b> and <b>B</b> save it quickly. <b>C</b> is slow, maybe it is in another city. After <b>2 saves</b> the leader answers OK, because W = 2. Copy <b>C</b> still holds <code>v1</code>, and its copy of the write is still on its way." },
+      { op: "read", answered: [0, 1], note: "Read 1 asks <b>A</b> and <b>B</b>. Both say <code>v2</code>. The read returns <code>v2</code>. Fresh." },
+      { op: "read", answered: [0, 2], note: "Read 2 asks <b>A</b> and <b>C</b>. A says <code>v2</code>, C says <code>v1</code>. The read keeps the <b>highest version</b>, so it returns <code>v2</code>. The late copy C did not fool it, because A was in the group." },
+      { op: "read", answered: [1, 2], note: "Read 3 asks <b>B</b> and <b>C</b>. Again one says <code>v2</code> and one says <code>v1</code>. The read returns <code>v2</code>. <b>Every pair</b> of copies includes A or B, because only C is late. That is what R + W &gt; N means." },
+      { op: "config", set: { r: 1 }, note: "Now we change one number: <b>R = 1</b>. W stays 2. Look at the rule line: <b>R + W = 3</b>, and 3 is <b>not</b> more than N = 3. A read asks only one copy, and that copy can be the late one." },
+      { op: "read", answered: [2], note: "The read asks only <b>C</b>. C still holds <code>v1</code>, so the read returns <b>v1</b>. That is a <b>stale read</b>. Nothing crashed. The write was OK, and the reader still saw old data. This is the cost of a fast read that asks one copy." },
+      { op: "catchUp", i: 2, note: "A moment later the copy reaches <b>C</b> (or a repair copies the newest value to it). Now A, B and C all hold <code>v2</code>. Old reads were only possible while C was behind." },
+      { op: "end", note: "<b>The rule.</b> If <b>R + W is more than N</b>, a read always meets at least one copy that saved the write. If not, a read can be old. W = 2 and R = 2 out of 3 is the common choice: it survives one copy down, and reads stay fresh. Waiting for more copies is safer and slower." },
+    ]),
+  },
+  {
+    name: "3. A copy is down", kind: "cluster",
+    why: "With one copy down, 2 copies are left, and W = 2 and R = 2 can still be reached. With two copies down, only 1 is left, so a write cannot get 2 saves and a read cannot get 2 answers. The store refuses instead of giving a risky answer. It stays correct and stops being available.",
+    predict: { q: "N = 3, W = 2, R = 2. Two copies are down, so only one copy is up. Can a write succeed?",
+               options: ["Yes", "No"], answer: "No" },
+    build: () => simulateCluster({ n: 3, w: 2, r: 2 }, [
+      { op: "intro", note: "The same three copies, <b>N = 3, W = 2, R = 2</b>. All are up and all hold <code>v1</code>. This story breaks copies on purpose." },
+      { op: "down", i: 2, note: "<b>Copy C stops.</b> A machine crashed. Two copies are still up, and the rule needs 2 for a write and 2 for a read. So the store keeps working." },
+      { op: "write", value: "v2", reached: [0, 1, 2], note: "A write of <code>v2</code> goes to all copies. C is down and cannot save it. <b>A</b> and <b>B</b> save it. That is <b>2 saves</b>, which equals W. The write is OK. The customer notices nothing." },
+      { op: "up", i: 2, note: "<b>Copy C starts again.</b> It comes back with the data it had before it stopped: <code>v1</code>. It missed the write, so it is <b>behind</b>." },
+      { op: "read", answered: [1, 2], note: "A read asks <b>B</b> and <b>C</b>. B says <code>v2</code>, C says <code>v1</code>. The read keeps the highest version and returns <code>v2</code>. The copy that was away did not hurt the reader, because R + W &gt; N." },
+      { op: "catchUp", i: 2, note: "Copy <b>C</b> fixes itself. It takes the newest value from another copy. Now all three agree again." },
+      { op: "down", i: 1, note: "<b>Copy B stops.</b> Now only A and C are up. Still 2 copies, so W = 2 and R = 2 still work." },
+      { op: "down", i: 2, note: "<b>Copy C stops too.</b> Only <b>A</b> is up. The rule needs 2 copies, and only 1 is left." },
+      { op: "write", value: "v3", reached: [0, 1, 2], note: "A write of <code>v3</code> goes out. Only A can save it: <b>1 save</b>, but W is 2. The store <b>refuses</b> the write and shows an error. It would rather say no than keep a promise on one machine only." },
+      { op: "read", answered: [0], note: "A read asks A. Only 1 answer, but R is 2. The store <b>refuses</b> the read too. A alone cannot know if B or C saw a newer write." },
+      { op: "end", note: "<b>The cost.</b> With N = 3, W = 2, R = 2 you can lose <b>one</b> copy and keep going. Lose two and the store stops, but it never gives a risky answer. You can lower W or R to stay up, but then R + W may no longer be more than N, and reads can be old. Safe or always up: you choose." },
+    ]),
+  },
+];
+
+function renderStage(s, story) {
+  if (story.kind === "split") {
+    return { cls: "split", html: copyCol("Asynchronous copy", "Rule: the leader says saved first, then sends the copy.", s.a) + copyCol("Synchronous copy", "Rule: the leader waits until the follower has the copy.", s.s) };
+  }
+  return renderCluster(s);
+}
+
+// ===== Part 2: the page. Buttons, tabs and drawing. =====
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+
+const BADGE = { setup: ["Setup", ""], run: ["Something happens", "run"], bad: ["Something goes wrong", "bad"],
+                srv: ["The data changes", "srv"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  const out = renderStage(s, P);
+  $("stage").className = "stage " + out.cls;
+  $("stage").innerHTML = out.html;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the part that changes on each step.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].build();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+pickStory(0);
+</script>
+</body>
+</html>

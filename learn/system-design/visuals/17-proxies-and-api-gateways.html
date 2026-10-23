@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxies and API gateways: one door, one copy or two, and a BFF</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --gw: #8b5cf6; --gw-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --gw: #b79cf8; --gw-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.gate { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.gate, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.gw    { border-color: var(--gw);    background: var(--gw-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.gw h3 { color: var(--gw); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .84rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); word-break: break-word; }
+  .req.now { border-color: var(--user); background: var(--user-bg); color: var(--ink); }
+  .check { border-radius: 10px; border: 2px solid var(--border); background: var(--card); padding: 6px 10px; margin-bottom: 8px; font-size: .82rem; }
+  .check b { display: block; font-size: .78rem; }
+  .check span { color: var(--muted); font-size: .74rem; }
+  .check.run  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .check.pass { border-color: var(--srv); background: var(--srv-bg); }
+  .check.fail { border-color: var(--bad); background: var(--bad-bg); }
+  .check.skip { opacity: .45; border-style: dashed; }
+  .routes { font-size: .76rem; margin-top: 4px; }
+  .routes div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .routes div:last-child { border-bottom: 0; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .counters { display: grid; gap: 2px; font-size: .84rem; margin-top: 8px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.gw { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">← System design lessons</a>
+    <a href="../17-proxies-and-api-gateways.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Proxies and API gateways: one door, one copy or two, and a BFF</h1>
+  <p class="sub">Press Next and watch one request at a time. Guess first, then check. All numbers in stories 2 and 3 are example numbers, not measured.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the gateway is the one public door. It checks the ticket, checks the limit, picks the service, and does nothing else. It is also the one door, so run two copies of it. A BFF is a small server for one kind of app. It shapes data, and it holds no business rules.</p>
+</div>
+
+<script>
+// ---- Story 1 uses the same rules as the code in the lesson (section 4). Stories 2 and 3 are scripted with example numbers. ----
+const LIMIT = 3;
+const ROUTES = { "/orders": "orders-service", "/auth": "auth-service" };
+const TOKENS = ["good-token"];
+
+// the gateway rules, written as a pure function so the stepper and the lesson code can be compared
+function evaluate(req, usedBefore) {
+  if (!TOKENS.includes(req.token)) return { ticket: false, answer: "401 bad token" };
+  const used = usedBefore + 1;
+  if (used > LIMIT) return { ticket: true, used, limitOk: false, answer: "429 too many requests" };
+  const service = ROUTES["/" + req.path.split("/")[1]];
+  return { ticket: true, used, limitOk: true, service, answer: service ? "200 sent to " + service : "404 no route" };
+}
+
+const CALLS = [
+  { token: "good-token", path: "/orders/42", how: "full" },
+  { token: "bad-token",  path: "/orders/42", how: "one" },
+  { token: "good-token", path: "/auth/login", how: "one" },
+  { token: "good-token", path: "/shop", how: "one" },
+  { token: "good-token", path: "/orders/1", how: "one" }
+];
+
+const STORIES = [
+  {
+    name: "1. One door, five requests", kind: "gate",
+    why: "Every request with a real ticket counts for the limit, even the one that ended in 404. The caller had used 3 calls after the /shop request. The fifth request was call number 4, and the limit is 3. So the limit check stops it, and the route is never looked at.",
+    predict: { q: "The limit is 3 calls for this ticket. Call 4 (/shop) found no route. Call 5 is a good request to /orders/1. What does the caller get for call 5?",
+               options: ["200 sent to orders-service", "404 no route", "429 too many requests"], answer: "429 too many requests" }
+  },
+  {
+    name: "2. The gateway is one door", kind: "door",
+    why: "The services were fine, but they have no public address. The gateway is the only way in. With one copy, its crash is everybody's crash. With two copies behind a load balancer, one request fails in the gap before the health checks notice, then the other copy takes all the traffic.",
+    predict: { q: "The only gateway copy crashes. The services behind it are still running. What can the phone app reach?",
+               options: ["Everything, because the services are alive", "Nothing, because the services have no public door", "Only the services in the same data centre"], answer: "Nothing, because the services have no public door" }
+  },
+  {
+    name: "3. A phone screen with a BFF", kind: "bff",
+    why: "Without a BFF, the phone makes one call per service over the slow phone network and downloads data it throws away. With a mobile BFF, the phone makes one call and gets only what the screen needs. The three calls move inside the data centre, where they are fast.",
+    predict: { q: "The phone home screen needs only a few small facts. Without a BFF, how many calls does the phone make over the phone network?",
+               options: ["1 call", "3 calls", "69 calls"], answer: "3 calls" }
+  }
+];
+
+// ---- Story 1: build the steps ----
+function simulateGate() {
+  const steps = [];
+  const ST = { req: null, ck: { ticket: "idle", limit: "idle", route: "idle" }, used: 0, recv: { "orders-service": 0, "auth-service": 0 }, answers: [] };
+  const snap = (note, hop, phase, active) => steps.push({
+    req: ST.req ? Object.assign({}, ST.req) : null, ck: Object.assign({}, ST.ck), used: ST.used,
+    recv: Object.assign({}, ST.recv), answers: ST.answers.slice(), note, hop, phase, active: active || []
+  });
+  snap("A phone app talks to an <b>API gateway</b>. The gateway is the only public door. Behind it sit two services. The services have <b>no public address</b>. The gateway makes three checks for every request, in this order: <b>1 the ticket</b> (is the token real?), <b>2 the limit</b> (too many calls?), <b>3 the route</b> (which service?). The limit here is <b>" + LIMIT + " calls</b> per ticket. Five requests will arrive.",
+    "The setup before any request", "setup");
+  CALLS.forEach((c, i) => {
+    const n = i + 1, ev = evaluate(c, ST.used);
+    ST.req = { token: c.token, path: c.path, n };
+    ST.ck = { ticket: "idle", limit: "idle", route: "idle" };
+    const label = "<b>Request " + n + "</b>: ticket <code>" + c.token + "</code>, path <code>" + c.path + "</code>. ";
+    if (c.how === "full") {
+      ST.ck.ticket = "pass";
+      snap(label + "The gateway makes <b>check 1</b>. It looks for the ticket in its list. <code>good-token</code> is on the list, so check 1 <b>passes</b>.",
+        "Phone → gateway: check 1 of 3", "gw", ["gw"]);
+      ST.used = ev.used; ST.ck.limit = "pass";
+      snap("<b>Check 2</b>, the limit. The gateway adds 1 to the count of this ticket. It is now <b>" + ev.used + " of " + LIMIT + "</b>. That is not above the limit, so check 2 <b>passes</b>.",
+        "Gateway: check 2 of 3", "gw", ["gw"]);
+      ST.ck.route = "pass"; ST.recv[ev.service]++;
+      ST.answers.push({ text: "Request " + n + ": " + ev.answer, cls: "ok" });
+      snap("<b>Check 3</b>, the route. The gateway reads the first part of the path: <code>/orders</code>. The route list says <code>/orders</code> goes to <b>orders-service</b>. The gateway sends the request there. The service answers, and the phone gets <b>" + ev.answer + "</b>. The gateway did the door work. The service did the order work.",
+        "Gateway → orders-service → phone", "srv", ["gw", "srv:" + ev.service]);
+    } else if (!ev.ticket) {
+      ST.ck.ticket = "fail"; ST.ck.limit = "skip"; ST.ck.route = "skip";
+      ST.answers.push({ text: "Request " + n + ": " + ev.answer, cls: "bad" });
+      snap(label + "Check 1: <code>bad-token</code> is not on the list. The gateway answers <b>401</b> at once. It does <b>not</b> add to any count, and nothing reaches the services. A fake ticket costs the services nothing.",
+        "Gateway refuses at check 1", "bad", ["gw"]);
+    } else if (!ev.limitOk) {
+      ST.used = ev.used;
+      ST.ck.ticket = "pass"; ST.ck.limit = "fail"; ST.ck.route = "skip";
+      ST.answers.push({ text: "Request " + n + ": " + ev.answer, cls: "bad" });
+      snap(label + "Check 1 passes. Check 2: the count of this ticket goes to <b>" + ev.used + "</b>. The limit is " + LIMIT + ". The count is above it, so the gateway answers <b>429</b> (Too many requests). It never looks at the route. The services see nothing. A real gateway also sends a <code>Retry-After</code> note that says how long to wait.",
+        "Gateway refuses at check 2", "bad", ["gw"]);
+    } else if (!ev.service) {
+      ST.used = ev.used;
+      ST.ck.ticket = "pass"; ST.ck.limit = "pass"; ST.ck.route = "fail";
+      ST.answers.push({ text: "Request " + n + ": " + ev.answer, cls: "bad" });
+      snap(label + "Check 1 passes. Check 2: the count goes to <b>" + ev.used + " of " + LIMIT + "</b>, which is allowed. Check 3: the path starts with <code>/shop</code>, and no route has that start. The gateway answers <b>404</b>. <b>Notice:</b> this request still used up one call of the limit, because the ticket was real.",
+        "Gateway refuses at check 3", "bad", ["gw"]);
+    } else {
+      ST.used = ev.used;
+      ST.ck.ticket = "pass"; ST.ck.limit = "pass"; ST.ck.route = "pass"; ST.recv[ev.service]++;
+      ST.answers.push({ text: "Request " + n + ": " + ev.answer, cls: "ok" });
+      snap(label + "Check 1 passes. Check 2: the count goes to <b>" + ev.used + " of " + LIMIT + "</b>, which is allowed. Check 3: <code>/auth</code> goes to <b>auth-service</b>. The phone gets <b>" + ev.answer + "</b>.",
+        "Gateway → auth-service → phone", "srv", ["gw", "srv:" + ev.service]);
+    }
+  });
+  ST.req = null; ST.ck = { ticket: "idle", limit: "idle", route: "idle" };
+  snap("Five requests, five different answers: <b>200, 401, 200, 404, 429</b>. Only two requests reached a service. The gateway stopped the other three at the door. Look at the 404 and the 429. Call 4 (<code>/shop</code>) was refused by the route check, but it still counted. So call 5 hit the limit. This is the same order and the same rules as the code in section 4 of the lesson.",
+    "Finished", "done");
+  return steps;
+}
+
+// ---- Story 2: one copy against two copies ----
+function simulateDoor() {
+  const steps = [];
+  const L = { copy: "up", ok: 0, err: 0, log: [] };
+  const R = { a: "up", b: "up", pool: ["A", "B"], ok: 0, err: 0, log: [] };
+  const snap = (note, hop, phase, active) => steps.push({
+    L: Object.assign({}, L, { log: L.log.slice() }), R: Object.assign({}, R, { pool: R.pool.slice(), log: R.log.slice() }), note, hop, phase, active: active || []
+  });
+  snap("Two ways to run the front door. <b>Left:</b> one gateway copy. <b>Right:</b> two gateway copies behind a load balancer (lesson 03). The load balancer takes turns: copy A, then copy B. It asks each copy every few seconds if it is alive. After <b>2 failed checks</b> it takes a copy out of the pool. The services behind the gateway have no public address. Six requests will arrive.",
+    "The setup before any request", "setup");
+  L.ok += 2; R.ok += 2;
+  L.log.unshift({ t: "Requests 1 and 2: 200 from the gateway", c: "ok" });
+  R.log.unshift({ t: "Request 2: 200 from copy B", c: "ok" }); R.log.unshift({ t: "Request 1: 200 from copy A", c: "ok" });
+  snap("<b>Requests 1 and 2</b> arrive. Left: the one copy answers both. Right: the load balancer gives request 1 to copy A and request 2 to copy B. Both sides work. Nothing is wrong yet.",
+    "Phone → gateway → services", "run", ["Lcopy", "Rcopy"]);
+  L.copy = "down"; R.a = "down";
+  snap("<b>A gateway copy crashes</b>. Left: it was the only copy. Right: it was copy A. The services behind are <b>still running</b>, but they have no public address, so the only way in is through a gateway copy.",
+    "A gateway copy stops", "bad", ["Lcopy", "Rcopy"]);
+  L.err += 1; R.err += 1;
+  L.log.unshift({ t: "Request 3: error, nobody answers", c: "bad" });
+  R.log.unshift({ t: "Request 3: error, sent to copy A (dead)", c: "bad" });
+  snap("<b>Request 3</b> arrives. Left: nobody answers, so the phone gets an error. Right: the load balancer has not noticed yet. It takes its turn, gives the request to copy A, and the phone gets an error too. <b>One request fails in the gap</b> on the right. That is the cost of the time between the crash and the health checks.",
+    "Request 3 fails on both sides", "bad", ["Lcopy", "Rcopy"]);
+  R.pool = ["B"];
+  snap("The load balancer makes two health checks of copy A. Both fail, so <b>copy A leaves the pool</b>. From now on all requests on the right go to copy B. On the left there is no pool and no second copy. A person must notice and restart the gateway.",
+    "Load balancer removes copy A", "gw", ["LB"]);
+  L.err += 3; R.ok += 3;
+  L.log.unshift({ t: "Requests 4, 5 and 6: error", c: "bad" });
+  R.log.unshift({ t: "Requests 4, 5 and 6: 200 from copy B", c: "ok" });
+  snap("<b>Requests 4, 5 and 6</b> arrive. Left: three errors. Right: copy B answers all three. Copy B now carries the traffic of two copies, so each copy needs room for that (lesson 02).",
+    "Phone → load balancer → copy B", "run", ["Lcopy", "Rcopy", "LB"]);
+  snap("Totals out of six requests. <b>One copy:</b> " + L.ok + " answered, " + L.err + " errors. <b>Two copies:</b> " + R.ok + " answered, " + R.err + " error. Two copies are not magic. A bad config that you roll out to both copies still takes both down. So keep the gateway config in code, roll it out one copy at a time, and keep the gateway small, because a small gateway has fewer ways to break.",
+    "Finished", "done");
+  return steps;
+}
+
+// ---- Story 3: a phone screen with and without a BFF ----
+function simulateBff() {
+  const steps = [];
+  const NO = { calls: 0, kb: 0, got: [], inside: 0 };
+  const YES = { calls: 0, kb: 0, got: [], inside: 0 };
+  const snap = (note, hop, phase, active) => steps.push({
+    NO: Object.assign({}, NO, { got: NO.got.slice() }), YES: Object.assign({}, YES, { got: YES.got.slice() }), note, hop, phase, active: active || []
+  });
+  snap("The phone home screen shows three things: <b>how many open orders</b> you have, <b>the top 3 products</b>, and <b>your points</b>. Three services hold this data. The numbers are examples. The Orders service sends 8 KB. The Catalog service sends 60 KB. The Points service sends 1 KB. <b>Left:</b> the phone calls each service itself. <b>Right:</b> the phone calls one mobile BFF (a small server made for the phone app), and the BFF calls the services.",
+    "The setup before any call", "setup");
+  NO.calls = 1; NO.kb = 8; NO.got.push("Orders: 8 KB");
+  YES.calls = 1;
+  snap("<b>Left:</b> call 1 over the phone network goes to the Orders service. 8 KB comes back, and the screen needs one number from it. <b>Right:</b> the phone makes its only call, to the mobile BFF. Then it waits.",
+    "Phone → services, or phone → BFF", "run", ["no", "yes"]);
+  NO.calls = 2; NO.kb = 68; NO.got.push("Catalog: 60 KB");
+  YES.inside = 3;
+  snap("<b>Left:</b> call 2 goes to the Catalog service. 60 KB comes back, and the screen needs 3 product names. <b>Right:</b> the BFF calls the Orders, Catalog and Points services <b>inside the data centre</b>. These 3 calls are fast, and they use no phone data.",
+    "BFF → three services", "gw", ["no", "yes"]);
+  NO.calls = 3; NO.kb = 69; NO.got.push("Points: 1 KB");
+  YES.kb = 2; YES.got.push("BFF answer: 2 KB");
+  snap("<b>Left:</b> call 3 goes to the Points service. 1 KB comes back. The phone has now spent 3 calls and 69 KB. <b>Right:</b> the BFF cuts the three answers down to what the screen needs (an order count, 3 names, a points number) and sends <b>one answer of 2 KB</b>.",
+    "Services → phone, or BFF → phone", "srv", ["no", "yes"]);
+  snap("Both phones now draw the same screen. <b>Left:</b> 3 calls and 69 KB over the phone network, and most of those bytes are thrown away. <b>Right:</b> 1 call and 2 KB. The price of the right side is <b>one more server to run</b>, and one more hop. The BFF must stay thin. It shapes data for the phone. It does not hold price rules or order rules, because those belong in the services. And if the web app needs the same shape as the phone, you do not need a second BFF.",
+    "Finished", "done");
+  return steps;
+}
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prev = {}, guess = null;
+
+function chips(box, items, key, emptyText) {
+  const old = prev[key] || [];
+  box.innerHTML = items.length ? "" : '<span class="empty">' + emptyText + "</span>";
+  items.forEach(t => {
+    const c = document.createElement("div");
+    c.className = "chip" + (old.includes(t.key) ? "" : " pop");
+    c.textContent = t.text;
+    box.appendChild(c);
+  });
+  prev[key] = items.map(t => t.key);
+}
+const BADGE = { setup: ["Setup", ""], run: ["A request runs", "run"], gw: ["The gateway works", "gw"], srv: ["A service answers", "srv"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+const CKTEXT = { idle: "waiting", run: "now", pass: "passed", fail: "failed: request stops here", skip: "not reached" };
+
+function renderGate(s) {
+  const lit = id => s.active.includes(id);
+  const stage = $("stage");
+  stage.className = "stage gate";
+  const ck = (k, title, hint) => '<div class="check ' + s.ck[k] + '"><b>' + title + "</b><span>" + hint + " · " + CKTEXT[s.ck[k]] + "</span></div>";
+  stage.innerHTML =
+    '<div class="panel"><h2>The phone app</h2>' +
+      '<div class="comp user"><h3>Request now</h3><small>a ticket (token) and a path</small>' +
+        (s.req ? '<div class="req now">#' + s.req.n + "<br>ticket: " + s.req.token + "<br>path: " + s.req.path + "</div>" : '<div class="req">no request on this step</div>') +
+      "</div>" +
+      '<div class="sect">Answers the phone got</div>' +
+      '<ul class="log">' + (s.answers.length ? s.answers.map(a => '<li class="' + a.cls + '">' + a.text + "</li>").join("") : '<li class="empty">none yet</li>') + "</ul>" +
+    "</div>" +
+    '<div class="panel"><h2>The API gateway: the one public door</h2>' +
+      '<div class="comp gw' + (lit("gw") ? " lit" : "") + '"><h3>Gateway <span class="tag">limit ' + LIMIT + ' calls</span></h3>' +
+        ck("ticket", "1 The ticket", "is the token real?") +
+        ck("limit", "2 The limit", "too many calls?") +
+        ck("route", "3 The route", "which service?") +
+        '<div class="big">' + s.used + " of " + LIMIT + '</div><div class="biglabel">calls counted for good-token</div>' +
+        '<div class="routes"><div><span>/orders</span><b>orders-service</b></div><div><span>/auth</span><b>auth-service</b></div></div>' +
+      "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>Services: no public address</h2>' +
+      '<div class="comp srv' + (lit("srv:orders-service") ? " lit" : "") + '"><h3>orders-service <span class="tag">' + s.recv["orders-service"] + ' received</span></h3><small>sees only requests that passed all 3 checks</small></div>' +
+      '<div class="comp srv' + (lit("srv:auth-service") ? " lit" : "") + '"><h3>auth-service <span class="tag">' + s.recv["auth-service"] + ' received</span></h3><small>sees only requests that passed all 3 checks</small></div>' +
+      '<div class="line">Requests stopped at the door: <b>' + s.answers.filter(a => a.cls === "bad").length + "</b></div>" +
+    "</div>";
+}
+
+function renderDoor(s) {
+  const lit = id => s.active.includes(id);
+  const stage = $("stage");
+  stage.className = "stage two";
+  const log = L => '<ul class="log">' + (L.log.length ? L.log.map(e => '<li class="' + e.c + '">' + e.t + "</li>").join("") : '<li class="empty">no requests yet</li>') + "</ul>";
+  const copy = (name, up, id) => '<div class="comp gw' + (up ? "" : " down") + (lit(id) ? " lit" : "") + '"><h3>' + name + '<span class="tag' + (up ? " ok" : " bad") + '">' + (up ? "running" : "crashed") + "</span></h3></div>";
+  stage.innerHTML =
+    '<div class="panel"><h2>One gateway copy</h2>' +
+      copy("Gateway", s.L.copy === "up", "Lcopy") +
+      '<div class="counters"><span>Answered: <b>' + s.L.ok + "</b></span><span>Errors: <b>" + s.L.err + "</b></span></div>" +
+      log(s.L) +
+      '<div class="line">Services behind the gateway: running, but unreachable when the gateway is down.</div>' +
+    "</div>" +
+    '<div class="panel"><h2>Two copies behind a load balancer</h2>' +
+      '<div class="comp store' + (lit("LB") ? " lit" : "") + '"><h3>Load balancer <span class="tag">pool: ' + s.R.pool.join(" and ") + "</span></h3><small>takes turns, checks health, removes a dead copy after 2 failed checks</small></div>" +
+      copy("Gateway copy A", s.R.a === "up", "Rcopy") +
+      copy("Gateway copy B", s.R.b === "up", "Rcopy2") +
+      '<div class="counters"><span>Answered: <b>' + s.R.ok + "</b></span><span>Errors: <b>" + s.R.err + "</b></span></div>" +
+      log(s.R) +
+    "</div>";
+}
+
+function renderBff(s) {
+  const lit = id => s.active.includes(id);
+  const stage = $("stage");
+  stage.className = "stage two";
+  const col = (title, D, id, bff) =>
+    '<div class="panel"><h2>' + title + "</h2>" +
+      '<div class="comp user' + (lit(id) ? " lit" : "") + '"><h3>Phone app</h3><small>screen: open orders, top 3 products, points</small>' +
+        '<div class="counters"><span>Calls over the phone network: <b>' + D.calls + "</b></span><span>Downloaded over the phone network: <b>" + D.kb + " KB</b></span></div>" +
+        '<div class="items" id="' + id + 'got"></div>' +
+      "</div>" +
+      (bff ? '<div class="comp gw' + (lit(id) ? " lit" : "") + '"><h3>Mobile BFF <span class="tag">' + D.inside + " calls inside</span></h3><small>shapes the answer for the phone. No business rules.</small></div>" : "") +
+      '<div class="comp srv"><h3>Services <span class="tag">Orders 8 KB · Catalog 60 KB · Points 1 KB</span></h3><small>' + (bff ? "called by the BFF, inside the data centre" : "called by the phone, over the phone network") + "</small></div>" +
+    "</div>";
+  stage.innerHTML = col("Without a BFF", s.NO, "no", false) + col("With a mobile BFF", s.YES, "yes", true);
+  chips($("nogot"), s.NO.got.map(g => ({ key: g, text: g })), "nogot", "nothing downloaded yet");
+  chips($("yesgot"), s.YES.got.map(g => ({ key: g, text: g })), "yesgot", "nothing downloaded yet");
+}
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  if (P.kind === "gate") renderGate(s); else if (P.kind === "door") renderDoor(s); else renderBff(s);
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the counters and the checks.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].kind === "gate" ? simulateGate() : STORIES[i].kind === "door" ? simulateDoor() : simulateBff();
+  idx = 0; prev = {}; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prev = {}; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2400);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; prev = {}; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__simulate = { gate: simulateGate, door: simulateDoor, bff: simulateBff }; window.__evaluate = evaluate;
+pickStory(0);
+</script>
+</body>
+</html>

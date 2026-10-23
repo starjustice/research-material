@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notification system: one message, two lanes, and provider trouble</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --prod: #3b82f6; --prod-bg: #e3eefe;
+    --queue: #8b5cf6; --queue-bg: #efe8fd;
+    --work: #2f9e6b; --work-bg: #dff3ea;
+    --inbox: #e8890c; --inbox-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --prod: #6aa5f7; --prod-bg: #1e3350;
+      --queue: #b79cf8; --queue-bg: #2f2650;
+      --work: #5fd09a; --work-bg: #163a2c;
+      --inbox: #f0a64a; --inbox-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.cols3 { grid-template-columns: 1.1fr 1.2fr 1.1fr; }
+  .stage.cols2 { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.cols3, .stage.cols2 { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .rulebox { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.api   { border-color: var(--prod);  background: var(--prod-bg); }
+  .comp.queue { border-color: var(--queue); background: var(--queue-bg); }
+  .comp.work  { border-color: var(--work);  background: var(--work-bg); }
+  .comp.prov  { border-color: var(--inbox); background: var(--inbox-bg); }
+  .comp.dead  { border-color: var(--bad);   background: var(--bad-bg); border-style: dashed; }
+  .comp.tbl   { border-color: var(--border); background: var(--card); }
+  .comp.api h3 { color: var(--prod); } .comp.queue h3 { color: var(--queue); } .comp.work h3 { color: var(--work); }
+  .comp.prov h3 { color: var(--inbox); } .comp.dead h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.good { background: var(--work); color: #fff; }
+
+  .big { font-size: 2.2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.front { border-color: var(--queue); box-shadow: 0 0 0 2px var(--queue-bg), 0 1px 3px rgba(0,0,0,.08); }
+  .chip.hid { border-style: dashed; }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .chip.good { border-color: var(--work); color: var(--work); }
+  .chip.urgent { border-color: var(--prod); color: var(--prod); }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .line.bad { color: var(--bad); font-weight: 700; }
+  .line.good { color: var(--work); font-weight: 700; }
+  .row { display: flex; justify-content: space-between; gap: 8px; font-size: .8rem; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .row:last-child { border-bottom: 0; }
+  .row.todo { color: var(--muted); }
+  .row.ok { color: var(--work); font-weight: 650; }
+  .row.bad { color: var(--bad); font-weight: 750; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.queue { background: #8b5cf6; } .badge.work { background: #2f9e6b; }
+  .badge.mail { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--work); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">← System design lessons</a>
+    <a href="../11-design-a-notification-system.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Notification system: one message, two lanes, and provider trouble</h1>
+  <p class="sub">Press Next and watch one message at a time. The big number is the queue length. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> check first (key, preferences, limit), then queue, then send. Give urgent messages their own lane. Retry only errors that can pass, with growing waits. "Sent" only means the provider took the message. A later webhook says "delivered".</p>
+</div>
+
+<script>
+// ---- Shared helpers ----
+const clone = o => JSON.parse(JSON.stringify(o));
+const BASE_MS = 100, MAX_TRIES = 3;
+
+// ---- Story 1 and story 3 use the "flow" view: API, queue, worker, provider, status table, inbox. ----
+function freshFlow(queueName) {
+  return {
+    msg: "", apiLine: "No event yet.", checks: [], queueName, queue: [], held: null,
+    workerLine: "Waiting for a job.", provider: { line: "ready", calls: 0, state: "up" },
+    rows: [], inbox: [], dead: [], keys: []
+  };
+}
+function checkList(key) {
+  return [
+    { t: "1. Seen this key before? (" + key + ")", s: "todo" },
+    { t: "2. Does the user want this? Quiet hours?", s: "todo" },
+    { t: "3. Under the limit for this user?", s: "todo" },
+    { t: "4. Fill the template for this channel", s: "todo" }
+  ];
+}
+const RANK = { queued: 1, sent: 2, delivered: 3 };
+
+function story1() {
+  const steps = [], st = freshFlow("push queue");
+  const key = "ana:shipped-981:push";
+  const snap = (note, active, hop, phase) => steps.push({ st: clone(st), note, active, hop, phase, facts: { rows: clone(st.rows), inbox: clone(st.inbox), calls: st.provider.calls } });
+
+  snap("The orders service has news: <b>order 981 has shipped</b>, for Ana. It sends this event to the notification API. Ana's phone is <b>quiet</b> now. Nothing is queued. The status table is empty. The queue length is <b>0</b>.", [], "Before anything happens", "setup");
+
+  st.msg = "order 981 shipped";
+  st.checks = checkList(key);
+  st.apiLine = "Event accepted. The API answers <b>202 Accepted</b> to the orders service at once, before any message is sent.";
+  snap("The event arrives. The API answers the orders service <b>at once</b>. It does the checks next. It does not call the provider. The dedupe key is <code>" + key + "</code>: user, event and channel.", ["api"], "Orders service → notification API", "run");
+
+  st.checks[0].s = "ok"; st.keys.push(key);
+  snap("<b>Check 1, dedupe.</b> The API has never seen <code>" + key + "</code>. It writes the key down now, so a second copy of this event is dropped.", ["api"], "API checks the key", "run");
+
+  st.checks[1].s = "ok";
+  snap("<b>Check 2, preferences.</b> Ana allows push messages about shipping. Her quiet hours are 22:00 to 07:00. It is 14:00, so she can be told now.", ["api"], "API reads Ana's preferences", "run");
+
+  st.checks[2].s = "ok";
+  snap("<b>Check 3, limit.</b> Ana has had 1 push this hour. The limit is 5 per hour. So this one may go.", ["api"], "API checks the per-user limit", "run");
+
+  st.checks[3].s = "ok"; st.rows.push({ msg: "981 push", status: "queued" }); st.queue.push("981 push");
+  snap("<b>Check 4, template.</b> The API fills the text: <i>Your order 981 has shipped.</i> It saves a row with status <b>queued</b> and adds a job to the <b>push queue</b>. The queue length is <b>1</b>.", ["api", "queue", "table"], "API → push queue", "queue");
+
+  st.held = st.queue.shift();
+  st.workerLine = "Holding <b>981 push</b>. Calling the push provider with a 3 second timeout.";
+  snap("A push worker takes the job. The job is now hidden from other workers, as in lesson 06. The worker calls the <b>push provider</b>. The queue length is <b>0</b>.", ["queue", "worker"], "Push queue → worker", "work");
+
+  st.provider.calls = 1; st.provider.line = "accepted 981 push";
+  st.rows[0].status = "sent"; st.held = null; st.workerLine = "Job done. Sent the ack. Waiting for a job.";
+  snap("The provider answers <b>OK, accepted</b>. The worker sets the status to <b>sent</b> and acks the job. <b>Sent only means the provider took the message.</b> Ana's phone has not shown anything yet.", ["worker", "prov", "table"], "Worker ↔ provider", "work");
+
+  st.rows[0].status = "delivered"; st.inbox.push({ label: "981 push", n: 1 });
+  snap("A moment later the provider calls our server: a <b>webhook</b> that says <b>delivered</b>. The API sets the status to <b>delivered</b>. Now Ana's phone shows the message. Only this webhook tells us the message arrived.", ["table", "inbox", "prov"], "Provider → webhook → status table", "mail");
+
+  snap("A second webhook arrives late. It says <b>sent</b>. Webhooks can arrive in the wrong order. The API compares ranks: queued 1, sent 2, delivered 3. The new rank (2) is lower than the current rank (3), so the API <b>ignores</b> it. A status only moves forward.", ["table"], "A late webhook is ignored", "bad");
+
+  snap("Done. The user got <b>1 push</b>. The orders service never waited for the provider. The key is saved, so a repeat of this event is dropped. The status table says <b>delivered</b>, and it has not moved backward.", [], "Finished", "done");
+  return steps;
+}
+
+// ---- Story 3: the dispatcher from the lesson, with retries, a permanent error, a duplicate and a replay. ----
+// Each message has a script for the provider: what it answers on each call.
+const SCRIPT = {
+  "ana:otp:sms": ["503", "ok"],
+  "budi:shipped:push": ["permanent"],
+  "citra:promo:email": ["503", "503", "503"]
+};
+function story3() {
+  const steps = [], st = freshFlow("outgoing queue");
+  const sent = new Set(), deadLetters = [], calls = { n: 0 }, results = {};
+  const snap = (note, active, hop, phase) => steps.push({
+    st: clone(st), note, active, hop, phase,
+    facts: { calls: calls.n, sent: [...sent], dead: deadLetters.map(d => d.key), results: clone(results), inbox: clone(st.inbox) }
+  });
+  const setProv = (line, state) => { st.provider.line = line; st.provider.state = state; };
+  const row = (key, status) => { const r = st.rows.find(x => x.msg === key); if (r) r.status = status; else st.rows.push({ msg: key, status }); };
+
+  // The dispatcher: same rules as the practice file. It returns the sequence of events as steps.
+  function run(key, label, script, replay) {
+    const parts = key.split(":");
+    st.msg = label;
+    st.checks = checkList(key);
+    if (sent.has(key)) {
+      st.checks[0].s = "bad"; st.apiLine = "Duplicate. The key <b>" + key + "</b> is already sent. The API drops this event.";
+      results[label] = { status: "duplicate", tries: 0, waits: [] };
+      snap("<b>" + label + ".</b> The orders service sends the same event again, perhaps because it retried. The API checks the key <code>" + key + "</code>. It was already sent. The API <b>drops</b> the copy. The provider is not called. Calls so far: <b>" + calls.n + "</b>.", ["api"], "Duplicate dropped at the door", "bad");
+      return;
+    }
+    st.checks[0].s = "ok"; st.checks[1].s = "ok"; st.checks[2].s = "ok"; st.checks[3].s = "ok";
+    st.apiLine = "Checks passed. Job added to the queue.";
+    st.keys.push(key); st.queue.push(label); row(label, "queued");
+    snap("<b>" + label + (replay ? " (replay)" : "") + ".</b> " + (replay ? "A person replays the dead message. The key was not marked as sent, so it can pass the checks again. " : "A new event. The API claims the key <code>" + key + "</code>, checks the user and the limit, and queues the job. ") + "Queue length: <b>" + st.queue.length + "</b>.", ["api", "queue", "table"], "API → queue", "queue");
+
+    st.held = st.queue.shift(); st.workerLine = "Holding <b>" + label + "</b>.";
+    snap("The worker takes <b>" + label + "</b> and will call the provider. Queue length: <b>" + st.queue.length + "</b>.", ["queue", "worker"], "Queue → worker", "work");
+
+    const waits = [];
+    for (let tries = 1; tries <= MAX_TRIES; tries++) {
+      const answer = (script[tries - 1]) || "ok";
+      calls.n++; st.provider.calls = calls.n;
+      if (answer === "ok") {
+        sent.add(key); setProv("accepted " + label, "up"); row(label, "sent"); st.held = null; st.workerLine = "Job done. Sent the ack.";
+        results[label] = { status: "sent", tries, waits: waits.slice() };
+        snap("<b>Try " + tries + ".</b> The provider answers <b>OK</b>. The worker sets the status to <b>sent</b> and acks. " + (tries > 1 ? "It took " + tries + " tries. The waits were " + waits.join(" ms, ") + " ms. " : "") + "Calls to the provider so far: <b>" + calls.n + "</b>.", ["worker", "prov", "table"], "Worker ↔ provider", "work");
+        return;
+      }
+      if (answer === "permanent") {
+        setProv("error: token is not registered", "down");
+        deadLetters.push({ key, label, why: "token is not registered" }); st.keys = st.keys.filter(k => k !== key); st.dead.push({ label, why: "token is not registered, 1 try" });
+        row(label, "failed"); st.held = null; st.workerLine = "Gave up on this job.";
+        results[label] = { status: "dead", tries, waits: waits.slice() };
+        snap("<b>Try " + tries + ".</b> The provider says <b>token is not registered</b>. This error can never pass, because the app was removed from the phone. The worker does <b>not</b> retry. It moves the message to the dead letters. The worker also deletes the dead token. Calls so far: <b>" + calls.n + "</b>.", ["worker", "prov", "dead"], "Permanent error: straight to the dead letters", "bad");
+        return;
+      }
+      // temporary error
+      setProv("error: 503 busy", "down");
+      if (tries === MAX_TRIES) {
+        deadLetters.push({ key, label, why: "503 busy" }); st.keys = st.keys.filter(k => k !== key); st.dead.push({ label, why: "503 busy, " + tries + " tries" });
+        row(label, "failed"); st.held = null; st.workerLine = "Gave up on this job.";
+        results[label] = { status: "dead", tries, waits: waits.slice() };
+        snap("<b>Try " + tries + ".</b> The provider says <b>503 busy</b> again. That was the last try, so there is <b>no more wait</b>. The message goes to the dead letters with its error. A person is alerted. Calls so far: <b>" + calls.n + "</b>.", ["worker", "prov", "dead"], "Out of tries: dead letters", "bad");
+        return;
+      }
+      const ms = BASE_MS * 2 ** (tries - 1);
+      waits.push(ms);
+      st.workerLine = "Waiting " + ms + " ms before try " + (tries + 1) + ".";
+      snap("<b>Try " + tries + ".</b> The provider says <b>503 busy</b>. This error can pass later, so the worker waits <b>" + ms + " ms</b>, then tries again. The waits double: 100, then 200. Calls so far: <b>" + calls.n + "</b>.", ["worker", "prov"], "Temporary error: wait and retry", "bad");
+    }
+  }
+
+  snap("Four events will arrive. The provider is a push, email or SMS company. The worker follows three rules. <b>One:</b> a repeat of a message that was already sent is dropped. <b>Two:</b> a temporary error (503) is retried up to <b>3 tries</b>, with waits of 100 ms and then 200 ms. <b>Three:</b> a permanent error is not retried at all.", [], "The setup", "setup");
+  run("ana:otp:sms", "ana otp sms", SCRIPT["ana:otp:sms"]);
+  run("ana:otp:sms", "ana otp sms again", []);
+  run("budi:shipped:push", "budi shipped push", SCRIPT["budi:shipped:push"]);
+  run("citra:promo:email", "citra promo email", SCRIPT["citra:promo:email"]);
+
+  // The provider is back. A person replays the dead promo.
+  deadLetters.pop(); st.dead.pop(); setProv("ready", "up");
+  snap("Later the email provider is healthy again. A person fixes the cause and <b>replays</b> Citra's promo from the dead letters.", ["dead", "prov"], "A person replays a dead message", "queue");
+  run("citra:promo:email", "citra promo email", [], true);
+
+  snap("Done. Look at the numbers. The provider was called <b>" + calls.n + "</b> times for 4 events plus 1 replay. The repeat was dropped without a call. The permanent error cost 1 call, not 3. The 503 errors cost extra calls, but the waits kept the pressure low. One dead letter is left: Budi's push, which no retry can fix.", [], "Finished", "done");
+  return steps;
+}
+
+// ---- Story 2: one shared queue against two lanes, side by side. ----
+function story2() {
+  const steps = [];
+  const mk = lanes => ({
+    lanes, tick: 0,
+    queues: lanes ? [{ name: "urgent lane", jobs: [] }, { name: "bulk lane", jobs: [] }] : [{ name: "shared queue", jobs: [] }],
+    done: [], otpAt: null
+  });
+  const M = { one: mk(false), two: mk(true) };
+  const snap = (note, active, hop, phase) => steps.push({ M: clone(M), note, active, hop, phase, facts: { oneOtpAt: M.one.otpAt, twoOtpAt: M.two.otpAt, oneDone: M.one.done.slice(), twoDone: M.two.done.slice() } });
+  const tickAll = () => {
+    for (const k of ["one", "two"]) {
+      const c = M[k]; c.tick++;
+      // one worker per queue. Each worker finishes one job per second.
+      c.queues.forEach(q => { if (q.jobs.length) { const j = q.jobs.shift(); c.done.push(j + " at " + c.tick + " s"); if (j === "login code") c.otpAt = c.tick; } });
+    }
+  };
+
+  snap("A shop sends a promo to many people. Right now <b>5 promo emails</b> wait to be sent. A worker sends <b>1 email per second</b>. Two designs are side by side. <b>Left:</b> one shared queue with one worker. <b>Right:</b> two lanes, an urgent lane and a bulk lane, each with its own worker. Both start with the same 5 promos.", [], "Same start, two designs", "setup");
+
+  for (const k of ["one", "two"]) for (let i = 1; i <= 5; i++) (k === "one" ? M.one.queues[0] : M.two.queues[1]).jobs.push("promo " + i);
+  snap("The 5 promos are in line. On the left, they sit in the shared queue. On the right, they sit in the <b>bulk lane</b>. The urgent lane is empty.", ["one-q", "two-q"], "Promos queued", "queue");
+
+  M.one.queues[0].jobs.push("login code"); M.two.queues[0].jobs.push("login code");
+  snap("<b>Ana asks for a login code now.</b> On the left, the code goes to the back of the shared queue, behind 5 promos. On the right, it goes to the <b>urgent lane</b>, which is empty.", ["one-q", "two-q"], "A login code arrives", "run");
+
+  for (let s = 1; s <= 6; s++) {
+    tickAll();
+    const left = M.one.otpAt ? "The login code left the shared queue at <b>second " + M.one.otpAt + "</b>." : "The left side is still sending promos. The login code still waits.";
+    const right = M.two.otpAt === s ? "On the right, the urgent worker sent the login code at <b>second " + s + "</b>. Ana is logged in." : (M.two.otpAt ? "The right side finished the code already." : "");
+    snap("<b>After " + s + " second" + (s > 1 ? "s" : "") + ".</b> " + right + " " + left + (s === 5 ? " The bulk lane on the right sent its last promo." : ""), ["one-q", "two-q"], "One second passes", s === 6 || s === 1 ? "mail" : "work");
+  }
+
+  snap("Done. <b>Same workers, same promos.</b> Ana waited <b>" + M.one.otpAt + " seconds</b> with one shared queue and <b>" + M.two.otpAt + " second</b> with two lanes. Now picture 1,000,000 promos at 100 per second. The shared queue makes the code wait 10,000 seconds, about <b>2 hours 47 minutes</b>. The login code would arrive after Ana gave up. The urgent lane is still 1 second. Each lane also needs its own workers and its own sender account, so a promo backlog cannot use up the provider's limit.", [], "Finished", "done");
+  return steps;
+}
+
+const STORIES = [
+  {
+    name: "1. One message, start to finish", kind: "flow", build: story1,
+    why: "Sent means the provider accepted the message. The phone may be off, the app may be gone, or the carrier may be slow. Only the provider's later webhook says delivered. The status table moves forward only, so a late webhook cannot undo it.",
+    predict: { q: "The provider answers OK and the worker marks the message as sent. Has Ana's phone shown the message yet?",
+               options: ["Yes, sent means it arrived", "Not known yet. A later delivered webhook will say"], answer: "Not known yet. A later delivered webhook will say" }
+  },
+  {
+    name: "2. A login code behind a promo blast", kind: "compare", build: story2,
+    why: "With one shared queue, a login code waits behind every promo in front of it. With two lanes and their own workers, the urgent lane has nothing in front of the code. The code leaves at once, whatever the promo backlog looks like.",
+    predict: { q: "5 promo emails wait in one shared queue. One worker sends 1 email per second. Ana asks for a login code now. When does her code leave?",
+               options: ["After 1 second", "After 5 seconds", "After 6 seconds"], answer: "After 6 seconds" }
+  },
+  {
+    name: "3. Provider trouble, a repeat, and a replay", kind: "flow", build: story3,
+    why: "A temporary error can pass, so the worker waits and tries again, up to a limit. A permanent error can never pass, so retrying only wastes calls. The key stops a repeated event. A dead message is not marked as sent, so a person can replay it after the cause is fixed.",
+    predict: { q: "Budi's push fails with: token is not registered (the app was removed). What should the worker do?",
+               options: ["Retry 3 times with growing waits", "Do not retry. Move it to the dead letters and delete the token", "Ignore the error and mark it sent"], answer: "Do not retry. Move it to the dead letters and delete the token" }
+  }
+];
+
+// ---- Drawing ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timerId = null, prev = new Set(), guess = null;
+
+function chipsHtml(prefix, items, empty) {
+  if (!items.length) return '<div class="items"><span class="empty">' + empty + "</span></div>";
+  return '<div class="items">' + items.map((c, i) => {
+    const key = prefix + "|" + c.text;
+    const pop = prev.has(key) ? "" : " pop";
+    cur_keys.add(key);
+    return '<div class="chip ' + (c.cls || "") + pop + '">' + c.text + "</div>";
+  }).join("") + "</div>";
+}
+let cur_keys = new Set();
+
+function flowHtml(s) {
+  const st = s.st, lit = id => s.active.includes(id) ? " lit" : "";
+  const statusClass = r => r.status === "failed" ? "bad" : (r.status === "delivered" ? "ok" : "todo");
+  const api = '<div class="comp api' + lit("api") + '"><h3>Notification API<span class="tag">checks first</span></h3><small>' + (st.msg ? "Now: " + st.msg : "No message yet") + "</small>" +
+    (st.checks.length ? st.checks.map(c => '<div class="row ' + c.s + '"><span>' + c.t + "</span><span>" + (c.s === "ok" ? "pass" : c.s === "bad" ? "stop" : "") + "</span></div>").join("") : '<div class="empty">no checks yet</div>') +
+    '<div class="line">' + st.apiLine + "</div>" +
+    '<div class="line">Keys remembered: <b>' + (st.keys.length ? st.keys.join(", ") : "none") + "</b></div></div>";
+  const tbl = '<div class="comp tbl' + lit("table") + '"><h3>Status table<span class="tag">one row per message</span></h3>' +
+    (st.rows.length ? st.rows.map(r => '<div class="row ' + statusClass(r) + '"><span>' + r.msg + "</span><span>" + r.status + "</span></div>").join("") : '<div class="empty">no rows yet</div>') + "</div>";
+  const queue = '<div class="comp queue' + lit("queue") + '"><h3>' + st.queueName + '<span class="tag">waiting line</span></h3><div class="big">' + st.queue.length + '</div><div class="biglabel">jobs waiting (queue length)</div>' +
+    chipsHtml("q", st.queue.map((t, i) => ({ text: t, cls: i === 0 ? "front" : "" })), "the line is empty") +
+    '<div class="line">Hidden with the worker:</div>' + chipsHtml("h", st.held ? [{ text: st.held, cls: "hid" }] : [], "nothing is hidden") + "</div>";
+  const dead = '<div class="comp dead' + lit("dead") + '"><h3>Dead letters<span class="tag bad">' + st.dead.length + "</span></h3><small>failed for good, kept with the error</small>" +
+    chipsHtml("d", st.dead.map(d => ({ text: d.label + " · " + d.why, cls: "bad" })), "empty") + "</div>";
+  const worker = '<div class="comp work' + lit("worker") + '"><h3>Worker<span class="tag">one job at a time</span></h3><div class="line">' + st.workerLine + "</div></div>";
+  const prov = '<div class="comp prov' + (st.provider.state === "down" ? " down" : "") + lit("prov") + '"><h3>Outside provider<span class="tag' + (st.provider.state === "down" ? " bad" : "") + '">' + st.provider.line + '</span></h3><small>push, email or SMS company</small><div class="line">Calls so far: <b>' + st.provider.calls + "</b></div></div>";
+  const inbox = '<div class="comp tbl' + lit("inbox") + '"><h3>Ana\'s phone<span class="tag good">what she really sees</span></h3>' +
+    (st.inbox.length ? st.inbox.map(m => '<div class="row ok"><span>' + m.label + "</span><span>" + m.n + (m.n === 1 ? " message" : " messages") + "</span></div>").join("") : '<div class="empty">nothing shown yet</div>') + "</div>";
+  return [
+    '<div class="panel"><h2>Your system</h2>' + api + tbl + "</div>",
+    '<div class="panel"><h2>The queue</h2>' + queue + dead + "</div>",
+    '<div class="panel"><h2>Worker and outside world</h2>' + worker + prov + inbox + "</div>"
+  ].join("");
+}
+
+function compareHtml(s) {
+  const lit = id => s.active.includes(id) ? " lit" : "";
+  const col = (k, title, rule, idPrefix) => {
+    const c = s.M[k];
+    const queues = c.queues.map((q, i) =>
+      '<div class="comp queue' + lit(idPrefix + "-q") + '"><h3>' + q.name + '<span class="tag">' + q.jobs.length + " waiting</span></h3>" +
+      chipsHtml(k + i, q.jobs.map((j, n) => ({ text: j, cls: j === "login code" ? "urgent" : (n === 0 ? "front" : "") })), "the line is empty") + "</div>").join("");
+    const workers = '<div class="comp work"><h3>' + (c.lanes ? "2 workers, one per lane" : "1 worker") + '<span class="tag">1 email per second</span></h3><div class="line">Time: <b>' + c.tick + " s</b></div></div>";
+    const sentBox = '<div class="comp prov"><h3>Sent so far<span class="tag good">' + c.done.length + "</span></h3>" + chipsHtml(k + "d", c.done.map(d => ({ text: d, cls: d.startsWith("login") ? "urgent" : "" })), "nothing sent yet") +
+      '<div class="line ' + (c.otpAt ? (c.otpAt <= 1 ? "good" : "bad") : "") + '">' + (c.otpAt ? "Ana's login code left at second <b>" + c.otpAt + "</b>." : "Ana's login code has not left yet.") + "</div></div>";
+    return '<div class="panel"><h2>' + title + '</h2><div class="rulebox">' + rule + "</div>" + queues + workers + sentBox + "</div>";
+  };
+  return col("one", "One shared queue", "Every message waits in the same line.", "one") + col("two", "Two lanes", "Urgent messages have their own line and their own worker.", "two");
+}
+
+const BADGE = { setup: ["Setup", ""], run: ["A step runs", "run"], queue: ["Queue", "queue"], work: ["Worker and provider", "work"],
+                mail: ["The user sees it", "mail"], bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  cur_keys = new Set();
+  const stage = $("stage");
+  stage.className = "stage " + (P.kind === "flow" ? "cols3" : "cols2");
+  stage.innerHTML = P.kind === "flow" ? flowHtml(s) : compareHtml(s);
+  prev = cur_keys;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the queues, the provider and the status table.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = STORIES[i].build(); idx = 0; prev = new Set(); guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timerId) { clearInterval(timerId); timerId = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timerId) return stop();
+  if (idx === steps.length - 1) { idx = 0; prev = new Set(); render(); }
+  $("play").textContent = "⏸ Pause";
+  timerId = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2400);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; prev = new Set(); render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES;
+pickStory(0);
+</script>
+</body>
+</html>

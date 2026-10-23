@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLOs and error budgets: 99.9% in minutes, a bad deploy, and ship or freeze</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">&larr; System design lessons</a>
+    <a href="../26-slos-and-error-budgets.md" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>SLOs and error budgets: 99.9% in minutes, a bad deploy, and ship or freeze</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. All times and traffic numbers are example numbers.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the SLO says how much failure is fine. The error budget is that failure, counted in bad requests or minutes. The burn rate says how fast you are spending it. Page when the budget goes fast and is still going fast, and use what is left to decide whether to ship or to fix.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The numbers. Everything below is the same logic as the code in the lesson.
+//   SLO 99.9 percent over 30 days. 1000 requests a minute. A bad deploy makes 5 percent of
+//   requests fail from minute 1 to minute 22. Page when the burn rate is above 14.4 in the last
+//   60 minutes AND in the last 5 minutes.
+// ---------------------------------------------------------------------------------------------
+const SLO = 0.999, BUDGET = 1 - SLO, PER_MIN = 1000, THRESH = 14.4, MONTH_MIN = 43200, MONTH_BAD = MONTH_MIN * PER_MIN * BUDGET;
+
+const num = (x, d) => Number(x.toFixed(d));
+const withCommas = x => Math.round(x).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+function human(min) {
+  if (min >= 120) return num(min / 60, 2) + " hours";
+  if (min >= 1) return num(min, 2) + " minutes";
+  return num(min * 60, 1) + " seconds";
+}
+
+// ---- Story 1: what 99, 99.9, 99.99 and 99.999 percent mean ----
+function ninesTable() {
+  return [0.99, 0.999, 0.9999, 0.99999].map(slo => {
+    const allowed = 1 - slo;
+    return { slo, label: num(slo * 100, 3) + "%", allowedPct: num(allowed * 100, 3) + "%", allowed,
+             month: allowed * 43200, year: allowed * 525600, per10M: Math.round(allowed * 1e7) };
+  });
+}
+const NINE_NOTES = {
+  0.99: "<b>99 percent.</b> One percent of the month may be bad. That is <b>7.2 hours</b> a month, almost a full working day. Users would notice. Many internal tools are fine with this.",
+  0.999: "<b>99.9 percent.</b> The budget is <b>43.2 minutes</b> a month. That is one short outage, or several small ones. A common goal for a customer facing service. The rest of this page uses this one.",
+  0.9999: "<b>99.99 percent.</b> The budget is <b>4.32 minutes</b> a month. A paged person needs several minutes just to look at the problem. So recovery must be automatic, and that costs much more.",
+  0.99999: "<b>99.999 percent.</b> The budget is about <b>26 seconds</b> a month. One slow deploy can spend it. Only a few systems need this, and they pay a lot for it."
+};
+function simulateNines(story) {
+  const steps = [], rows = ninesTable();
+  steps.push({ kind: "nines", shown: 0, cur: -1, active: [], hop: "A month, in minutes", phase: "setup",
+    note: "A <b>30 day month</b> has 30 &times; 24 &times; 60 = <b>43,200 minutes</b>. The SLO says what share of them may be bad. We turn four SLOs into minutes. Before the buttons, guess how long 99.9 percent allows." });
+  rows.forEach((r, i) => steps.push({ kind: "nines", shown: i + 1, cur: i, active: ["table"], hop: "Allowed failure for " + r.label, phase: "run", badge: i === 1 ? ["The one we use", "srv"] : ["One SLO", "run"], note: NINE_NOTES[r.slo] }));
+  steps.push({ kind: "nines", shown: rows.length, cur: -1, active: [], hop: "The catch with 100 percent", phase: "done", badge: ["The catch", "bad"],
+    note: "What about <b>100 percent</b>? The budget is zero. Every deploy, every config change and every bad network day breaks the promise. So nobody can change anything. That is why a good SLO is below 100 percent, and the gap is the <b>error budget</b>. Each extra nine cuts the budget by ten, and the cost goes up much faster than that." });
+  return steps;
+}
+
+// ---- Story 2: a bad deploy and the page ----
+const rate = t => (t >= 1 && t <= 22 ? 0.05 : 0);
+const avg = (t, n) => { let s = 0; for (let i = t - n + 1; i <= t; i++) s += rate(i); return s / n; };
+function deployStates() {
+  const out = []; let spent = 0, paging = false;
+  for (let t = 0; t <= 30; t++) {
+    spent += rate(t) * PER_MIN;
+    const e5 = avg(t, 5), e60 = avg(t, 60), b5 = e5 / BUDGET, b60 = e60 / BUDGET;
+    const page = b60 > THRESH && b5 > THRESH;
+    const change = page !== paging ? (page ? "page" : "clear") : null;
+    paging = page;
+    out.push({ t, rate: rate(t), bad: rate(t) * PER_MIN, e5, e60, b5, b60, spent, page, change });
+  }
+  return out;
+}
+function simulateDeploy(story) {
+  const S = deployStates(), steps = [];
+  const pageMinute = S.find(s => s.change === "page").t, clearMinute = S.find(s => s.change === "clear").t;
+  let everPaged = false;
+  const snap = (t, note, hop, phase, active) => {
+    const s = S[t];
+    if (s.page) everPaged = true;
+    steps.push({ kind: "deploy", s, pager: s.page ? "on" : (everPaged && t >= clearMinute ? "cleared" : "quiet"), active, hop, phase, note });
+  };
+  const w = (x, d) => num(x, d === undefined ? 1 : d);
+  snap(0, "<b>Before the deploy.</b> Your SLO is <b>99.9 percent over 30 days</b>. The budget is <b>" + withCommas(MONTH_BAD) + " bad requests</b> (the service handles " + withCommas(PER_MIN) + " requests a minute). The pager rule: page only when the burn rate is above <b>" + THRESH + "</b> in the last <b>60 minutes</b> <i>and</i> in the last <b>5 minutes</b>. In the next minute a bad deploy goes out, and 5 percent of requests start to fail.", "Everything is calm", "setup", []);
+  snap(1, "<b>Minute 1.</b> The bad version is live. " + S[1].bad + " of " + PER_MIN + " requests fail this minute. The 5 minute window holds 4 good minutes and 1 bad one, so its error rate is <b>" + w(S[1].e5 * 100) + "%</b> and its burn rate is <b>" + w(S[1].b5) + "</b>. The 60 minute window barely moves: burn rate <b>" + w(S[1].b60) + "</b>. No page.", "First bad minute", "bad", ["users"]);
+  snap(5, "<b>Minute 5.</b> The last 5 minutes are all bad, so the short window shows <b>" + w(S[5].e5 * 100) + "%</b> errors and a burn rate of <b>" + w(S[5].b5) + "</b>. That is far above " + THRESH + ". But the 60 minute window shows burn rate only <b>" + w(S[5].b60) + "</b>. The rule needs both, so there is <b>no page</b>. One window says &quot;urgent&quot;. The other says &quot;prove it&quot;.", "The short window alone is not enough", "chk", ["short"]);
+  snap(10, "<b>Minute 10.</b> Same error rate, more time. The 60 minute burn rate climbs by about 0.83 every minute and is now <b>" + w(S[10].b60) + "</b>. Budget spent so far: <b>" + withCommas(S[10].spent) + "</b> bad requests (" + w(S[10].spent / MONTH_BAD * 100) + "% of the month).", "Waiting for proof", "run", ["long"]);
+  snap(17, "<b>Minute 17.</b> The 60 minute burn rate is <b>" + w(S[17].b60, 2) + "</b>. That is just under " + THRESH + ". Still no page. Budget spent: " + withCommas(S[17].spent) + ".", "One minute from the page", "chk", ["long"]);
+  snap(pageMinute, "<b>Minute " + pageMinute + ": PAGE.</b> The 60 minute burn rate is <b>" + w(S[pageMinute].b60) + "</b> and the 5 minute burn rate is <b>" + w(S[pageMinute].b5) + "</b>. Both are above " + THRESH + ". The pager rings. Budget spent so far: <b>" + withCommas(S[pageMinute].spent) + "</b> bad requests, or <b>" + w(S[pageMinute].spent / MONTH_BAD * 100) + "%</b> of the month. This is the &quot;2 percent of the budget in one hour&quot; rule from the Google SRE Workbook.", "Both windows are above the line", "bad", ["short", "long", "pager"]);
+  snap(22, "<b>Minute 22.</b> The engineer rolls back to the old version. This is the last bad minute. Budget spent: <b>" + withCommas(S[22].spent) + "</b> bad requests (<b>" + w(S[22].spent / MONTH_BAD * 100, 2) + "%</b>). The page is still on, because the windows still remember the bad minutes.", "Rolled back", "run", ["users", "pager"]);
+  snap(23, "<b>Minute 23.</b> The errors have stopped. But the 5 minute window still holds 4 bad minutes: <b>" + w(S[23].e5 * 100) + "%</b> errors, burn rate <b>" + w(S[23].b5) + "</b>. The page stays on for now.", "Fixed, but the window remembers", "chk", ["short", "pager"]);
+  snap(25, "<b>Minute 25.</b> The 5 minute window holds 2 bad minutes: burn rate <b>" + w(S[25].b5) + "</b>. Still above " + THRESH + ".", "The bad minutes are leaving the window", "chk", ["short", "pager"]);
+  snap(clearMinute, "<b>Minute " + clearMinute + ": the page clears.</b> The 5 minute burn rate is <b>" + w(S[clearMinute].b5) + "</b>, below " + THRESH + ". The 60 minute window still shows <b>" + w(S[clearMinute].b60) + "</b>, because it remembers the whole hour. That is fine. The short window answers one question: &quot;is it still happening?&quot; The answer is no, so the page stops soon after the fix.", "Short window below the line", "srv", ["short", "pager"]);
+  const only5 = S.find(s => s.b5 > THRESH).t;
+  snap(30, "<b>The end.</b> The bad deploy hurt users for 22 minutes. It paged at minute " + pageMinute + " and the page cleared at minute " + clearMinute + ". It spent <b>" + withCommas(S[30].spent) + "</b> bad requests, or <b>" + w(S[30].spent / MONTH_BAD * 100, 2) + "%</b> of the month, so about <b>" + w(100 - S[30].spent / MONTH_BAD * 100, 1) + "%</b> of the budget is left. Compare: a rule with only the short window would have paged at minute " + only5 + ", and again for every one minute blip. The long window is what makes the page worth waking up for.", "Finished", "done", []);
+  return steps;
+}
+
+// ---- Story 3: the budget decides, ship or freeze ----
+const EVENTS = [
+  { day: 8,  name: "A bad deploy, rolled back after 22 minutes (5% errors)", bad: 22 * 0.05 * PER_MIN },
+  { day: 14, name: "A database outage, 25 minutes with every request failing", bad: 25 * PER_MIN },
+  { day: 19, name: "A slow leak, 0.2% errors for 2 days", bad: 2 * 24 * 60 * PER_MIN * 0.002 },
+  { day: 25, name: "A bad release, 12 minutes with every request failing", bad: 12 * PER_MIN }
+];
+function policyFor(left) {
+  if (left <= 0) return { cls: "low", text: "FREEZE risky releases. Fix reliability first." };
+  if (left <= 0.5) return { cls: "mid", text: "Ship small changes only, behind a canary." };
+  return { cls: "ok", text: "Ship as normal. Take normal risks." };
+}
+function simulateMonth(story) {
+  const steps = []; let spent = 0; const done = [];
+  const snap = (day, note, hop, phase, active, badge) => {
+    const left = 1 - spent / MONTH_BAD;
+    steps.push({ kind: "month", day, spent, left, policy: policyFor(left), events: done.map(e => Object.assign({}, e)), active, hop, phase, badge, note });
+  };
+  snap(0, "<b>Day 0.</b> A new month starts. The SLO is 99.9 percent, so the budget is <b>" + withCommas(MONTH_BAD) + " bad requests</b>. The team has a simple example policy, shown on the right. A team writes its own policy. The point is that it is agreed <i>before</i> the bad day.", "A full budget", "setup", []);
+  EVENTS.forEach(ev => {
+    spent += ev.bad;
+    const left = 1 - spent / MONTH_BAD;
+    done.push({ day: ev.day, name: ev.name, bad: ev.bad, left });
+    const pol = policyFor(left);
+    const share = num(ev.bad / MONTH_BAD * 100, 1);
+    let note = "<b>Day " + ev.day + ".</b> " + ev.name + ". It costs <b>" + withCommas(ev.bad) + "</b> bad requests, or <b>" + share + "%</b> of the budget. Spent so far: " + withCommas(spent) + ". ";
+    note += left > 0 ? "Budget left: <b>" + num(left * 100, 1) + "%</b>. " : "The budget is <b>over by " + withCommas(spent - MONTH_BAD) + "</b> bad requests (" + num(-left * 100, 1) + "%). ";
+    note += "<b>Policy now:</b> " + pol.text;
+    snap(ev.day, note, "Day " + ev.day + ": " + (left > 0 ? num(left * 100, 1) + "% left" : "overspent"), pol.cls === "low" ? "bad" : (pol.cls === "mid" ? "chk" : "srv"), ["budget"], pol.cls === "low" ? ["Freeze", "bad"] : (pol.cls === "mid" ? ["Small changes only", "chk"] : ["Ship as normal", "srv"]));
+  });
+  snap(30, "<b>Day 30.</b> The month ends with the budget overspent. The team did not argue about opinions. The number said it: reliability work comes first, and risky releases wait. At the start of the next month the budget is full again. If the same thing happens every month, the SLO or the system must change.", "Finished", "done", []);
+  return steps;
+}
+
+// ---- The stories ----
+const STORIES = [
+  { name: "1. 99.9% in minutes", sim: simulateNines,
+    why: "A month has 43,200 minutes. 99.9 percent means 0.1 percent may be bad: 43,200 &times; 0.001 = 43.2 minutes. Each extra nine divides the budget by ten: 99 percent is 432 minutes, 99.99 percent is 4.32 minutes.",
+    predict: { q: "Your SLO is 99.9% over a 30 day month. How many minutes of full outage does it allow?",
+               options: ["4.3 minutes", "43.2 minutes", "7.2 hours"], answer: "43.2 minutes" } },
+  { name: "2. A bad deploy and the page", sim: simulateDeploy,
+    why: "The pager rule needs both windows to burn faster than 14.4. At minute 5 the short window burns at 50, but the long window burns at only about 4. The long window must reach 14.4 first, and with 5 percent errors that takes until minute 18.",
+    predict: { q: "At minute 5 of the bad deploy, the last 5 minutes are all bad (5% errors, burn rate 50). The last 60 minutes have a burn rate of about 4. Does the pager ring?",
+               options: ["Yes, 50 is above 14.4", "No, both windows must be above 14.4"], answer: "No, both windows must be above 14.4" } },
+  { name: "3. The budget decides", sim: simulateMonth,
+    why: "The error budget turns a vague argument (&quot;are we too careful or too careless?&quot;) into one number. While budget is left, ship. When it is gone, spend the time on reliability.",
+    predict: { q: "On day 25 the month's budget is gone, with 5 days to go. What does the team's policy say?",
+               options: ["Ship the planned features anyway", "Freeze risky releases and fix reliability", "Change the SLO to 99%"], answer: "Freeze risky releases and fix reliability" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Time passes", "run"], chk: ["Check the rule", "chk"], bad: ["Users are hurt", "bad"],
+                srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function meter(label, errorRate, burn, active, caption) {
+  const hot = burn > THRESH;
+  const widthPct = Math.min(burn / 60, 1) * 100;
+  return '<div class="comp ' + (hot ? "alarm" : "lb") + (active ? " lit" : "") + '"><h3>' + label + '<span class="tag ' + (hot ? "bad" : "ok") + '">' + (hot ? "above the line" : "below the line") + "</span></h3>" +
+    '<small>' + caption + "</small>" +
+    '<div class="meterlabel"><span>error rate <b>' + num(errorRate * 100, 2) + '%</b></span><span>burn rate <b>' + num(burn, 1) + "</b></span></div>" +
+    '<div class="meter"><i class="' + (hot ? "hot" : "") + '" style="width:' + widthPct + '%"></i><u style="left:' + (THRESH / 60 * 100) + '%"></u></div>' +
+    '<div class="legend2">dashed line = ' + THRESH + '</div></div>';
+}
+
+function renderNines(s) {
+  const rows = ninesTable();
+  const row = s.cur >= 0 ? rows[s.cur] : null;
+  const share = row ? Math.max(row.allowed * 100, 0) : 0;
+  $("stage").className = "stage two";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>One 30 day month = 43,200 minutes</h2>' +
+      '<div class="monthbar"><div class="good"></div>' + (row ? '<div class="slice" style="flex:0 0 ' + Math.max(share, 0.4) + '%"></div>' : "") + "</div>" +
+      '<div class="cap">' + (row ? "The red slice is the budget for " + row.label + ". It is drawn at least a little wide so you can see it." : "Green is time when the service works. The red slice will show the part that may fail.") + "</div>" +
+      '<div class="big' + "" + '" style="margin-top:14px">' + (row ? human(row.month) : "?") + "</div>" +
+      '<div class="biglabel">' + (row ? "allowed to be bad in 30 days at " + row.label : "allowed to be bad in 30 days") + "</div>" +
+    "</div>" +
+    '<div class="panel"><h2>From a percentage to a time</h2>' +
+      '<table class="rows"><tr><th>SLO</th><th>Allowed bad</th><th>Per 30 days</th><th>Per year</th><th>Bad per 10M requests</th></tr>' +
+      rows.map((r, i) => '<tr class="' + (i === s.cur ? "cur" : (i >= s.shown ? "hide" : "")) + '"><td>' + r.label + "</td><td>" + r.allowedPct + "</td><td>" + (i < s.shown ? human(r.month) : "?") + "</td><td>" + (i < s.shown ? human(r.year) : "?") + "</td><td>" + (i < s.shown ? withCommas(r.per10M) : "?") + "</td></tr>").join("") +
+      "</table>" +
+      '<div class="cap">A year is 365 days = 525,600 minutes.</div>' +
+    "</div>";
+}
+
+function renderDeploy(s) {
+  const d = s.s, lit = id => s.active.includes(id);
+  const leftPct = num(100 - d.spent / MONTH_BAD * 100, 2);
+  $("stage").className = "stage three";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>The service</h2>' +
+      '<div class="clock">Minute <b>' + d.t + "</b> of the incident</div>" +
+      '<div class="comp user' + (lit("users") ? " lit" : "") + '"><h3>This minute<span class="tag ' + (d.rate > 0 ? "bad" : "ok") + '">' + (d.rate > 0 ? "bad version live" : (d.t === 0 ? "healthy" : "old version back")) + "</span></h3>" +
+        '<small>' + withCommas(PER_MIN) + ' requests a minute</small>' +
+        '<div class="big' + (d.bad > 0 ? " neg" : "") + '">' + withCommas(d.bad) + '</div><div class="biglabel">failed requests this minute (' + num(d.rate * 100, 1) + '%)</div></div>' +
+    "</div>" +
+    '<div class="panel"><h2>Two windows, one rule</h2>' +
+      meter("Last 5 minutes", d.e5, d.b5, lit("short"), "short window: is it still happening?") +
+      meter("Last 60 minutes", d.e60, d.b60, lit("long"), "long window: is it real?") +
+      '<div class="cap">Rule: page when <b>both</b> are above ' + THRESH + '.</div>' +
+    "</div>" +
+    '<div class="panel"><h2>Budget and pager</h2>' +
+      '<div class="comp srv"><h3>Error budget<span class="tag">' + withCommas(MONTH_BAD) + " bad requests</span></h3>" +
+        '<div class="big">' + withCommas(d.spent) + '</div><div class="biglabel">spent so far (' + num(d.spent / MONTH_BAD * 100, 2) + '%). Left: ' + leftPct + '%</div></div>' +
+      '<div class="pager ' + (s.pager === "on" ? "on" : (s.pager === "cleared" ? "cleared" : "")) + '">' + (s.pager === "on" ? "PAGE: wake someone up" : (s.pager === "cleared" ? "page cleared" : "quiet")) + "</div>" +
+    "</div>";
+}
+
+function renderMonth(s) {
+  const lit = id => s.active.includes(id);
+  const leftPct = s.left * 100;
+  const barPct = Math.max(0, Math.min(100, leftPct));
+  const cls = s.policy.cls === "low" ? "low" : (s.policy.cls === "mid" ? "mid" : "");
+  let days = "";
+  for (let d = 1; d <= 30; d++) {
+    const ev = s.events.find(e => e.day === d);
+    days += '<div class="day' + (ev ? " ev" : "") + (d === s.day ? " now" : "") + (d > s.day ? " future" : "") + '">' + (ev ? "!" : d) + "</div>";
+  }
+  $("stage").className = "stage two";
+  $("stage").innerHTML =
+    '<div class="panel"><h2>The month, day by day</h2><div class="days">' + days + "</div>" +
+      '<ul class="log">' + (s.events.length ? s.events.slice().reverse().map(e => '<li class="' + (e.left <= 0 ? "bad" : "") + '">Day ' + e.day + ": " + e.name + " &rarr; " + (e.left > 0 ? num(e.left * 100, 1) + "% left" : "overspent") + "</li>").join("") : '<li class="empty">no incidents yet</li>') + "</ul>" +
+    "</div>" +
+    '<div class="panel"><h2>Error budget and policy</h2>' +
+      '<div class="comp srv' + (lit("budget") ? " lit" : "") + '"><h3>Budget left<span class="tag">' + withCommas(MONTH_BAD) + " bad requests in total</span></h3>" +
+        '<div class="big' + (leftPct < 0 ? " neg" : "") + '">' + num(leftPct, 1) + '%</div>' +
+        '<div class="bud"><i class="' + cls + '" style="width:' + barPct + '%"></i></div>' +
+        '<div class="biglabel">spent ' + withCommas(s.spent) + " of " + withCommas(MONTH_BAD) + "</div></div>" +
+      '<div class="policy ' + cls + '">Policy now: ' + s.policy.text + "</div>" +
+      '<div class="cap">Example policy. Over 50% left: ship as normal. Up to 50%: small changes only. Gone: freeze.</div>' +
+    "</div>";
+}
+
+function render() {
+  const s = steps[idx];
+  if (s.kind === "nines") renderNines(s); else if (s.kind === "deploy") renderDeploy(s); else renderMonth(s);
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim(STORIES[i]);
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+window.__sim = { deployStates, ninesTable, EVENTS, MONTH_BAD, simulateNines, simulateDeploy, simulateMonth, policyFor, STORIES };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name;
+    b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+  });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

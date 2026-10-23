@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security in a design: a changed id, five doors, and an intruder inside</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --who: #3b82f6; --who-bg: #e3eefe;
+    --door: #8b5cf6; --door-bg: #efe8fd;
+    --good: #2f9e6b; --good-bg: #dff3ea;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --data: #e8890c; --data-bg: #fdecd2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --who: #6aa5f7; --who-bg: #1e3350;
+      --door: #b79cf8; --door-bg: #2f2650;
+      --good: #5fd09a; --good-bg: #163a2c;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --data: #f0a64a; --data-bg: #4a3414;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; grid-template-columns: .9fr 1.5fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; margin-bottom: 10px; transition: box-shadow .2s, background .2s; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .8rem; margin: 0 0 4px; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 4px; }
+  .comp.who  { border-color: var(--who);  background: var(--who-bg); }
+  .comp.who h3 { color: var(--who); }
+  .comp.data { border-color: var(--data); background: var(--data-bg); }
+  .comp.data h3 { color: var(--data); }
+
+  .door { border-radius: 12px; padding: 8px 12px 10px; border: 2px solid var(--door); background: var(--door-bg); margin-bottom: 10px; position: relative; }
+  .door:last-child { margin-bottom: 0; }
+  .door h3 { font-size: .82rem; margin: 0; color: var(--door); display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .door small { display: block; color: var(--muted); font-size: .72rem; margin-bottom: 4px; }
+  .door .out { font-size: .82rem; font-weight: 650; min-height: 1.3em; }
+  .door.idle { opacity: .85; }
+  .door.skip { opacity: .45; border-style: dotted; }
+  .door.pass { border-color: var(--good); background: var(--good-bg); }
+  .door.pass h3 { color: var(--good); }
+  .door.stop { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .door.stop h3 { color: var(--bad); }
+  .door.leak { border-color: var(--bad); background: var(--bad-bg); box-shadow: 0 0 0 3px var(--bad); }
+  .door.leak h3 { color: var(--bad); }
+  .door.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.pass { background: var(--good); color: #fff; }
+  .tag.stop, .tag.leak { background: var(--bad); color: #fff; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; }
+  .line { margin-top: 4px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .req { background: var(--chip); border: 1px solid rgba(128,128,128,.35); border-radius: 8px; padding: 4px 8px; margin-top: 6px; }
+  .row { font-size: .8rem; padding: 3px 6px; border-radius: 6px; border: 1px solid transparent; }
+  .row.hl { border-color: var(--accent); background: var(--predict-bg); font-weight: 700; }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .logitem { font-size: .78rem; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .logitem:last-child { border-bottom: 0; }
+  .logitem.bad { color: var(--bad); font-weight: 700; }
+  .logitem.good { color: var(--good); }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.call { background: #3b82f6; } .badge.ok { background: #2f9e6b; } .badge.stop { background: #8b5cf6; }
+  .badge.leak { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="lessons">← System design lessons</a>
+    <a href="../29-security-in-a-design.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Security in a design: a changed id, five doors, and an intruder inside</h1>
+  <p class="sub">Press the buttons below and follow one request at a time. Green means the door let it pass. Red means the door stopped it, or the data leaked.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage">
+    <div class="panel">
+      <h2>The caller</h2>
+      <div class="comp who" id="caller">
+        <h3 id="callerName">Ann</h3>
+        <small id="callerToken"></small>
+        <div class="req mono" id="callerReq"></div>
+      </div>
+      <div class="comp data" id="sidebox">
+        <h3 id="sideTitle">Data</h3>
+        <div id="side"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2 id="doorsTitle">The doors</h2>
+      <div id="doors"></div>
+    </div>
+    <div class="panel">
+      <h2>Answers so far</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a real token only says who you are. Every door after the gateway asks a new question: may you call this function, may you touch this object. The identity comes from the signed token, and the owner goes into the data query.</p>
+</div>
+
+<script>
+// ---- The data and the servers. These small functions are the same logic as the lesson code. ----
+const ORDERS = { 42: "ann", 43: "ben", 44: "ann" };          // order id -> owner
+
+// Section 4 of the lesson: wrong checks only that a token exists. right also checks the owner.
+function wrongServer(user, id) { return ORDERS[id] ? { code: 200, id, owner: ORDERS[id] } : { code: 404 }; }
+function rightServer(user, id) { return ORDERS[id] && ORDERS[id] === user ? { code: 200, id, owner: ORDERS[id] } : { code: 404 }; }
+const show = r => r.code === 200 ? "200 order " + r.id + ", owner " + r.owner : "404 not found";
+
+// Story 2: five doors in a row. route() returns what each door said.
+const DOORS = [
+  { id: "edge", title: "1. Edge", sub: "rate limit: 30 calls a minute" },
+  { id: "gate", title: "2. Gateway", sub: "is the token real?" },
+  { id: "func", title: "3. Service: function check", sub: "may this role call this function?" },
+  { id: "obj",  title: "4. Service: object check", sub: "is this object theirs?" },
+  { id: "db",   title: "5. Database", sub: "the query includes the owner" }
+];
+function route(r) {
+  const res = DOORS.map(d => ({ title: d.title, sub: d.sub, state: "skip", text: "not reached" }));
+  const pass = (i, text) => { res[i].state = "pass"; res[i].text = text; };
+  const stop = (i, code, text) => { res[i].state = "stop"; res[i].text = code + " " + text; return code; };
+  if (r.calls > 30) return { res, code: stop(0, 429, "too many calls"), at: 0 };
+  pass(0, "under the limit");
+  if (!r.user) return { res, code: stop(1, 401, "login required"), at: 1 };
+  pass(1, "token is real: user is " + r.user.id);
+  if (r.fn === "deleteBrand" && r.user.role !== "admin") return { res, code: stop(2, 403, "only admins may do this"), at: 2 };
+  pass(2, "role " + r.user.role + " may call " + r.fn);
+  if (r.order) {
+    if (!ORDERS[r.order] || ORDERS[r.order] !== r.user.id) return { res, code: stop(3, 404, "not found"), at: 3 };
+    pass(3, "order " + r.order + " belongs to " + r.user.id);
+  } else pass(3, "no object in this request");
+  pass(4, "query ran with owner " + r.user.id);
+  return { res, code: 200, at: 4 };
+}
+
+// Story 3: two payments services.
+const CALLERS = {
+  intruder: { name: "Intruder", sub: "a hacked container inside the network", cert: null },
+  orders:   { name: "Orders service", sub: "a real service", cert: "orders" },
+  email:    { name: "Email worker", sub: "a real service", cert: "email-worker" }
+};
+const MAY_REFUND = { orders: true };
+function paymentsTrust() { return { code: 200, text: "200 refund paid" }; }
+function paymentsCard(c) {
+  if (!c.cert) return { code: 0, text: "refused: no certificate" };
+  return MAY_REFUND[c.cert] ? { code: 200, text: "200 refund paid" } : { code: 403, text: "403 not allowed" };
+}
+
+// ---- The three stories. Each builder returns a list of steps (one snapshot per step). ----
+function buildBola() {
+  const steps = [], log = [], leaks = { A: 0, B: 0 };
+  const rows = hl => Object.keys(ORDERS).map(id => ({ t: "order " + id + ", owner " + ORDERS[id], hl: hl.includes(+id) }));
+  const ann = req => ({ name: "Ann", token: "Token says: the user is ann", req });
+  const doors = (a, b) => [
+    { title: "Server A", sub: "checks only that the token is real", state: a.state, text: a.text },
+    { title: "Server B", sub: "checks the token and the owner", state: b.state, text: b.text }
+  ];
+  const idle = { state: "idle", text: "waiting" };
+  const snap = (o) => steps.push(Object.assign({ log: log.slice(), sideTitle: "Orders table", side: rows([]) }, o));
+
+  snap({ badge: "setup", hop: "The setup", caller: ann("(no request yet)"), doors: doors(idle, idle),
+    note: "Ann is logged in. Her token says <b>the user is ann</b>. Two servers get the same requests. <b>Server A</b> checks only that the token is real. <b>Server B</b> also checks who owns the order. The table shows who owns what. Order <b>43</b> belongs to <b>Ben</b>." });
+
+  let a = wrongServer("ann", 42), b = rightServer("ann", 42);
+  log.push({ t: "GET /orders/42 | A: " + show(a) + " | B: " + show(b), c: "good" });
+  snap({ badge: "ok", hop: "Ann → Server A and Server B", caller: ann("GET /orders/42"), side: rows([42]),
+    doors: doors({ state: "pass", text: show(a) }, { state: "pass", text: show(b) }),
+    note: "Ann asks for her own order, <b>42</b>. Both servers answer <b>200</b>. A test with only your own data passes on both servers. This is why the bug hides." });
+
+  snap({ badge: "call", hop: "Ann changes the URL", caller: ann("GET /orders/43   (not sent yet)"), side: rows([43]), doors: doors(idle, idle),
+    note: "Ann edits the URL and changes <b>42</b> to <b>43</b>. Nothing else changes. The token is still the token of Ann. Order 43 belongs to Ben." });
+
+  a = wrongServer("ann", 43); leaks.A++;
+  log.push({ t: "GET /orders/43 | A: " + show(a), c: "bad" });
+  snap({ badge: "leak", hop: "Server A → Ann", caller: ann("GET /orders/43"), side: rows([43]),
+    doors: doors({ state: "leak", text: show(a) + "  ← LEAK" }, idle),
+    note: "<b>Server A</b> sees a real token and finds order 43. It never asks who owns it. It sends <b>the order of Ben</b> to Ann. This is <b>BOLA</b>: the server checked who Ann is, but not if this order is hers." });
+
+  b = rightServer("ann", 43);
+  log.push({ t: "GET /orders/43 | B: " + show(b), c: "good" });
+  snap({ badge: "stop", hop: "Server B → Ann", caller: ann("GET /orders/43"), side: rows([43]),
+    doors: doors({ state: "leak", text: show(a) + "  ← LEAK" }, { state: "stop", text: show(b) }),
+    note: "<b>Server B</b> finds order 43 and compares the owner, <code>ben</code>, with the user from the token, <code>ann</code>. They differ, so it answers <b>404</b>. Ann gets no data." });
+
+  a = wrongServer("ann", 999); b = rightServer("ann", 999);
+  log.push({ t: "GET /orders/999 | A: " + show(a) + " | B: " + show(b), c: "good" });
+  snap({ badge: "stop", hop: "Ann → Server A and Server B", caller: ann("GET /orders/999"), side: rows([]),
+    doors: doors({ state: "pass", text: show(a) }, { state: "pass", text: show(b) }),
+    note: "Ann asks for order <b>999</b>, which does not exist. Both servers answer <b>404</b>. Server B gives the <b>same answer</b> for \"not yours\" and \"does not exist\". So a stranger cannot learn which ids are real." });
+
+  const ids = [42, 43, 44];
+  const gotA = ids.map(i => wrongServer("ann", i)).filter(r => r.code === 200);
+  const gotB = ids.map(i => rightServer("ann", i)).filter(r => r.code === 200);
+  const strangersA = gotA.filter(r => r.owner !== "ann").length, strangersB = gotB.filter(r => r.owner !== "ann").length;
+  leaks.A = strangersA; leaks.B = strangersB;
+  log.push({ t: "Script asks 42, 43, 44 | A gave " + gotA.length + " orders, " + strangersA + " from other people | B gave " + gotB.length + " orders, " + strangersB + " from other people", c: strangersA ? "bad" : "good" });
+  snap({ badge: "leak", hop: "A script asks every id", caller: { name: "Ann's script", token: "Token says: the user is ann", req: "GET /orders/42, 43, 44 ..." }, side: rows([42, 43, 44]),
+    doors: doors({ state: "leak", text: gotA.length + " orders. " + strangersA + " belongs to someone else" }, { state: "pass", text: gotB.length + " orders. " + strangersB + " belongs to someone else" }),
+    note: "Ann writes a small script that asks for every id. <b>Server A</b> hands over " + gotA.length + " orders, and " + strangersA + " is not hers. With a million orders, it hands over all of them. <b>Server B</b> hands over only her " + gotB.length + " orders." });
+
+  snap({ badge: "done", hop: "Finished", caller: ann("(done)"), side: rows([]), doors: doors({ state: "leak", text: "leaked " + leaks.A + " order" }, { state: "pass", text: "leaked " + leaks.B + " orders" }),
+    note: "Same token, same code path for the login. The only difference is one question: <b>is this order theirs?</b> The fix is small: take the user from the token and put the owner in the data query. Then test with <b>two users</b>, because a test with one user cannot see this bug." });
+  return steps;
+}
+
+function buildDoors() {
+  const steps = [], log = [];
+  const ORD = (hl) => Object.keys(ORDERS).map(id => ({ t: "order " + id + ", owner " + ORDERS[id], hl: hl === +id }));
+  const user = (id, role) => ({ id, role });
+  const reqs = [
+    { who: "Nobody", token: "No token", req: "GET /orders/42", user: null, fn: "readOrder", order: 42, calls: 1,
+      note: "A request comes in with <b>no token</b>. The edge counts it (1 call, fine). The gateway looks for a real token and finds none. It stops the request with <b>401</b>. The service never sees it." },
+    { who: "Ann", token: "Token says: user ann, role customer", req: "GET /orders/43", user: user("ann", "customer"), fn: "readOrder", order: 43, calls: 2,
+      note: "Ann asks for order 43. The token is real. A customer may call <code>readOrder</code>, so the function check passes. At the <b>object check</b> the service sees that order 43 belongs to ben. It stops the request with <b>404</b>. The gateway could not do this, because it does not know who owns order 43." },
+    { who: "Ann", token: "Token says: user ann, role customer", req: "DELETE /brands/9", user: user("ann", "customer"), fn: "deleteBrand", calls: 3,
+      note: "Ann sends an <b>admin</b> request by hand. The app never shows her a button for it, but a hidden button is not a check. The token is real, so the gateway passes it. At the <b>function check</b> the role is <code>customer</code>, and only admins may delete brands. It stops the request with <b>403</b>." },
+    { who: "Ann", token: "Token says: user ann, role customer", req: "GET /orders/42", user: user("ann", "customer"), fn: "readOrder", order: 42, calls: 4,
+      note: "Ann asks for her own order. Every door lets it pass. The database query includes the owner: <code>where id = 42 and owner = ann</code>. Order 42 comes back. Five checks, and an honest request still works." },
+    { who: "A bot", token: "No token", req: "POST /login   (call number 31 this minute)", user: null, fn: "login", calls: 31,
+      note: "A bot guesses passwords. Calls 1 to 30 got an answer. Call number 31 meets the <b>edge</b> first, before any token check. The edge stops it with <b>429</b>. This door protects the login and the OTP routes from guessing and from cost." }
+  ];
+  steps.push({ badge: "setup", hop: "The setup", caller: { name: "Nobody yet", token: "", req: "(no request yet)" }, sideTitle: "Orders table", side: ORD(0), log: [],
+    doors: DOORS.map(d => ({ title: d.title, sub: d.sub, state: "idle", text: "waiting" })),
+    note: "A request must pass <b>five doors</b> in order. Each door asks one question and can stop the request. Watch where each request stops, and which code comes back." });
+  reqs.forEach(r => {
+    const out = route(r);
+    const stoppedAt = out.code === 200 ? "" : " at " + DOORS[out.at].title.replace(/^\d\. /, "");
+    log.push({ t: r.req + " by " + r.who + " → " + out.code + stoppedAt, c: out.code === 200 ? "good" : "bad" });
+    steps.push({ badge: out.code === 200 ? "ok" : "stop", hop: r.who + " → " + (out.code === 200 ? "all five doors" : "stopped at door " + (out.at + 1)),
+      caller: { name: r.who, token: r.token, req: r.req }, sideTitle: "Orders table", side: ORD(r.order || 0), log: log.slice(),
+      doors: out.res, lit: out.at, note: r.note });
+  });
+  steps.push({ badge: "done", hop: "Finished", caller: { name: "Done", token: "", req: "" }, sideTitle: "Orders table", side: ORD(0), log: log.slice(),
+    doors: DOORS.map(d => ({ title: d.title, sub: d.sub, state: "idle", text: "" })),
+    note: "Four bad requests stopped at four different doors: <b>401</b> at the gateway, <b>404</b> at the object check, <b>403</b> at the function check, <b>429</b> at the edge. Only the honest request reached the database. Each door has its own job, so you cannot drop one and expect another to cover for it." });
+  return steps;
+}
+
+function buildService() {
+  const steps = [], log = [];
+  const paid = { A: 0, B: 0 };
+  const side = () => [{ t: "Refunds paid to the intruder: A " + paid.A + ", B " + paid.B, hl: paid.A > 0 }];
+  const doors = (a, b) => [
+    { title: "Payments A", sub: "trusts anything inside the network", state: a.state, text: a.text },
+    { title: "Payments B", sub: "checks the card, then the permission", state: b.state, text: b.text }
+  ];
+  const idle = { state: "idle", text: "waiting" };
+  const caller = c => ({ name: CALLERS[c].name, token: CALLERS[c].sub + (CALLERS[c].cert ? ". Shows a certificate: " + CALLERS[c].cert : ". Shows no certificate"), req: "POST /internal/refund" });
+  steps.push({ badge: "setup", hop: "The setup", caller: { name: "Three callers", token: "all inside the network", req: "(no request yet)" }, sideTitle: "Money", side: side(), log: [], doors: doors(idle, idle),
+    note: "Three callers sit <b>inside</b> the network: the <b>Orders service</b>, the <b>Email worker</b>, and an <b>intruder</b> in a hacked container. Two payments services get the same calls. <b>A</b> thinks \"internal means safe\". <b>B</b> wants a certificate (mTLS) and then checks the permission. The permission list says only <b>orders</b> may refund." });
+
+  [["intruder", "call"], ["orders", "ok"], ["email", "stop"]].forEach(([c, badge]) => {
+    const a = paymentsTrust(), b = paymentsCard(CALLERS[c]);
+    if (c === "intruder" && a.code === 200) paid.A++;
+    if (c === "intruder" && b.code === 200) paid.B++;
+    log.push({ t: CALLERS[c].name + " → A: " + a.text + " | B: " + b.text, c: c === "intruder" ? "bad" : (b.code === 200 ? "good" : "bad") });
+    const aState = c === "intruder" ? "leak" : (c === "orders" ? "pass" : "leak");
+    const bState = b.code === 200 ? "pass" : "stop";
+    const notes = {
+      intruder: "The <b>intruder</b> calls the refund route. <b>A</b> only sees a call from inside, so it pays out. Money is gone. <b>B</b> asks for a certificate. The intruder has none, so B refuses. Being inside the network proved nothing.",
+      orders: "The <b>Orders service</b> calls the refund route. <b>A</b> pays, as before. <b>B</b> sees a real certificate, <code>orders</code>, and checks the list: orders may refund. B pays. The real caller still works.",
+      email: "The <b>Email worker</b> calls the refund route by mistake, or after someone hacked it. <b>A</b> pays out again. <b>B</b> sees a real certificate, <code>email-worker</code>, but the list does not allow it. B answers <b>403</b>. Proving who you are is not the same as being allowed."
+    };
+    steps.push({ badge, hop: CALLERS[c].name + " → Payments A and B", caller: caller(c), sideTitle: "Money", side: side(), log: log.slice(),
+      doors: doors({ state: aState, text: a.text + (aState === "leak" ? "  ← should not" : "") }, { state: bState, text: b.text }), note: notes[c] });
+  });
+  steps.push({ badge: "done", hop: "Finished", caller: { name: "Done", token: "", req: "" }, sideTitle: "Money", side: side(), log: log.slice(),
+    doors: doors({ state: "leak", text: "paid " + paid.A + " refund to the intruder" }, { state: "pass", text: "paid " + paid.B + " refunds to the intruder" }),
+    note: "Two checks make an internal route safe: <b>who is calling</b> (mTLS or a short lived service token) and <b>may they do this</b> (a permission list). Keep the cards short lived, so a stolen card stops working soon." });
+  return steps;
+}
+
+const PRESETS = [
+  {
+    name: "1. Ann changes the id",
+    rule: "Owner in the query",
+    why: "A real token only proves who Ann is. Server A never asked if order 43 was hers, so it handed over the order of Ben. Server B put the owner in the check and answered 404.",
+    predict: { q: "Ann changes the order id from 42 to 43. Order 43 belongs to Ben. Server A checks only that the token is real. What does Server A answer?",
+               options: ["404 not found", "200 with the order of Ben", "403 not allowed"], answer: "200 with the order of Ben" },
+    build: buildBola
+  },
+  {
+    name: "2. Five doors",
+    rule: "A check at every door",
+    why: "Each door asks its own question. The gateway cannot know who owns order 43, so the owner check must sit in the service next to the data. A hidden button is not a function check, so the service checks the role too.",
+    predict: { q: "Ann is a customer. She sends DELETE /brands/9 by hand, an admin function. Her token is real. Which door stops her?",
+               options: ["The edge", "The gateway", "The function check in the service", "The database"], answer: "The function check in the service" },
+    build: buildDoors
+  },
+  {
+    name: "3. Inside the network",
+    rule: "Internal is not trusted",
+    why: "A hacked container inside the network can call any internal route. Payments A believed the network and paid out. Payments B asked for a certificate and a permission, so the intruder got nothing.",
+    predict: { q: "An intruder in a hacked container calls POST /internal/refund on a payments service that trusts everything inside the network. What happens?",
+               options: ["It is refused, because the route is internal", "The refund is paid out", "It asks for a password"], answer: "The refund is paid out" },
+    build: buildService
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timerId = null, guess = null;
+
+function render() {
+  const s = steps[idx];
+  $("callerName").textContent = s.caller.name;
+  $("callerToken").textContent = s.caller.token;
+  $("callerReq").textContent = s.caller.req;
+  $("sideTitle").textContent = s.sideTitle;
+  $("side").innerHTML = s.side.map(r => '<div class="row' + (r.hl ? " hl" : "") + '">' + r.t + "</div>").join("");
+  $("doors").innerHTML = s.doors.map((d, i) =>
+    '<div class="door ' + d.state + (s.lit === i ? " lit" : "") + '"><h3>' + d.title +
+    (d.state === "pass" ? '<span class="tag pass">passed</span>' : d.state === "stop" ? '<span class="tag stop">STOPPED</span>' : d.state === "leak" ? '<span class="tag leak">LEAK</span>' : "") +
+    "</h3><small>" + d.sub + '</small><div class="out">' + d.text + "</div></div>").join("");
+  $("log").innerHTML = s.log.length
+    ? s.log.map(l => '<div class="logitem ' + l.c + '">' + l.t + "</div>").join("")
+    : '<span class="empty">no answer yet</span>';
+  $("badge").textContent = { setup: "Setup", call: "A request", ok: "Allowed", stop: "Stopped", leak: "Leak", done: "Finished" }[s.badge] || "Step";
+  $("badge").className = "badge " + s.badge;
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = PRESETS[cur], real = p.predict.answer, why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Go to the start and step through again. Watch which door says STOPPED or LEAK.");
+}
+function renderPredict() {
+  const p = PRESETS[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickPreset(i) {
+  stop(); cur = i; steps = PRESETS[i].build(); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  $("doorsTitle").textContent = i === 0 ? "Two servers, same requests" : i === 1 ? "The five doors" : "Two payments services";
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timerId) { clearInterval(timerId); timerId = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timerId) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timerId = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name; b.onclick = () => pickPreset(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__presets = PRESETS;
+pickPreset(0);
+</script>
+</body>
+</html>
