@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Normalization Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --good: #1f7a4d; --good-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --dup: #b7791f; --dup-bg: #fdf0d2;
+    --t1: #3b82f6; --t1-bg: #e3eefe;
+    --t2: #8b5cf6; --t2-bg: #efe8fd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 260px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: .95fr 1.05fr; gap: 14px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .out { margin-top: 10px; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 8px 8px; background: #f4f1ea; }
+  .out h3 { font-size: .78rem; margin: 0 0 4px; }
+  .out .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; white-space: pre-wrap; }
+  .out .msg.err { color: var(--bad); font-weight: 700; }
+  .out .msg.ok { color: var(--good); font-weight: 700; }
+  .tbox { border: 2px solid var(--t1); background: var(--t1-bg); border-radius: 12px; padding: 6px 8px 8px; margin-bottom: 10px; }
+  .tbox.b { border-color: var(--t2); background: var(--t2-bg); }
+  .tbox h3 { font-size: .78rem; margin: 0 0 4px; color: var(--t1); }
+  .tbox.b h3 { color: var(--t2); }
+  table { width: 100%; border-collapse: separate; border-spacing: 0 3px; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; }
+  th { text-align: left; font-weight: 700; color: var(--muted); font-size: .7rem; padding: 0 6px; }
+  td { background: #fff; padding: 4px 6px; border-top: 1.5px solid transparent; border-bottom: 1.5px solid transparent; }
+  td:first-child { border-left: 1.5px solid transparent; border-radius: 7px 0 0 7px; }
+  td:last-child { border-right: 1.5px solid transparent; border-radius: 0 7px 7px 0; }
+  td.dup { background: var(--dup-bg); color: var(--dup); font-weight: 700; }
+  td.chg { background: #fff1bf; font-weight: 700; outline: 2px solid var(--accent); }
+  td.wrong { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  td.right { background: var(--good-bg); color: var(--good); font-weight: 700; }
+  tr.new td { background: var(--good-bg); border-color: var(--good); animation: pop .35s ease; }
+  tr.gone td { background: var(--bad-bg); color: var(--bad); text-decoration: line-through; opacity: .75; }
+  tr.cur td { border-color: var(--accent); }
+  @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; padding: 4px 6px; }
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.setup { background: var(--t2); } .badge.change { background: #b7791f; } .badge.read { background: var(--t1); }
+  .badge.bad { background: var(--bad); } .badge.good { background: var(--good); }
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend p { margin: 6px 0; }
+  .chip { display: inline-block; border-radius: 6px; padding: 0 7px; font-weight: 700; font-size: .78rem; border: 1.5px solid; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../07-normalization.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Normalization stepper</h1>
+  <p class="sub">Spot the duplicate. Press Next and watch what each statement does to the rows. Orange cells are the same fact saved again.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="your answer" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>The SQL</h2>
+      <pre class="code" id="code"></pre>
+      <div class="out"><h3>What Postgres says</h3><div id="out"></div></div>
+    </div>
+    <div class="panel">
+      <h2>The rows on disk right now</h2>
+      <div id="tables"></div>
+    </div>
+  </div>
+
+  <div class="loop-line">Postgres: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> save each fact in <b>one place</b>. A store's city belongs on the store row, not on every order. Copy a fact only on purpose, and then decide <b>who keeps the copy right</b>.</p>
+    <p><b>How to read the colors:</b>
+      <span class="chip" style="color:#b7791f;border-color:#b7791f;background:#fdf0d2">orange</span> the same fact saved again (a duplicate).
+      <span class="chip" style="color:#8a6d00;border-color:#f5c542;background:#fff1bf">yellow</span> the cell the statement just changed.
+      <span class="chip" style="color:#c0392b;border-color:#c0392b;background:#fdecea">red</span> a wrong answer, an error, or a row that is gone.
+      <span class="chip" style="color:#1f7a4d;border-color:#1f7a4d;background:#e3f5ea">green</span> a new row, or a right answer.</p>
+    <p><b>Words on this page:</b> <b>duplicate</b>: the same fact saved in more than one row (interview word: redundancy). <b>problem when you change, add or delete</b>: what a duplicate breaks (interview words: update, insert and delete anomaly). <b>split</b>: move a repeated fact to its own table and point at it with an id (interview word: normalize). <b>copy on purpose</b>: save a fact twice to freeze it or to read it fast (interview word: denormalize).</p>
+    <p>Every result on this page comes from a real run on PostgreSQL 18.3 (PGlite) on 2026-10-16. The tables live in a schema called <code>l07</code>, so they never touch the practice tables.</p>
+  </div>
+</div>
+
+<script>
+// ---- Helpers to describe tables. A table: { name, cols, rows: [[...]], cls: {"r,c": "dup"}, rowCls: {r: "new"} } ----
+const FLAT_COLS = ["order_id", "store_name", "store_city", "total_cents"];
+const FLAT = () => [
+  [1, "Toko Maju", "Jakarta", 50000],
+  [2, "Toko Maju", "Jakarta", 20000],
+  [3, "Toko Maju", "Jakarta", 30000],
+  [4, "Toko Sari", "Bandung", 15000]
+];
+const dupMaju = rows => { const c = {}; rows.forEach((r, i) => { if (r[1] === "Toko Maju") { c[i + ",1"] = "dup"; c[i + ",2"] = "dup"; } }); return c; };
+const T = (name, cols, rows, cls, rowCls, b) => ({ name, cols, rows, cls: cls || {}, rowCls: rowCls || {}, b: !!b });
+const S = (line, phase, note, tables, out) => ({ line, phase, note, tables, out: out || null });
+const rowsOut = (cols, rows, cls) => ({ kind: "rows", cols, rows, cls: cls || {} });
+const msg = (text, kind) => ({ kind: kind || "ok", text });
+
+// ---- Program 1: the update problem ----
+function p1() {
+  const code = [
+    "-- orders_flat holds the 4 rows on the right",
+    "UPDATE orders_flat SET store_city = 'Surabaya'",
+    "WHERE order_id = 1;",
+    "SELECT DISTINCT store_name, store_city",
+    "FROM orders_flat ORDER BY store_name, store_city;"
+  ];
+  const r0 = FLAT();
+  const r1 = FLAT(); r1[0][2] = "Surabaya";
+  const c1 = dupMaju(r1); c1["0,2"] = "chg";
+  return { name: "1. Change in one place", code,
+    question: "Toko Maju moves to Surabaya. The admin screen edits order 1 only. Where does the database say Toko Maju is now?",
+    answer: "Two places at once. The query prints Toko Maju | Jakarta and Toko Maju | Surabaya. Orders 2 and 3 still say Jakarta.",
+    steps: [
+      S(0, "setup", "<b>Start.</b> One big table. Every order repeats the store name and the city. Look at the orange cells: the fact <b>Toko Maju is in Jakarta</b> is saved <b>three times</b>.", [T("orders_flat", FLAT_COLS, r0, dupMaju(r0))]),
+      S(1, "change", "Toko Maju moves to Surabaya. The admin screen shows one order, so the app runs an UPDATE for <code>order_id = 1</code>. Postgres changes <b>exactly one row</b>, as it was told.", [T("orders_flat", FLAT_COLS, r1, c1)], msg("UPDATE 1")),
+      S(3, "read", "A report asks: which city is each store in? Postgres reads every row and keeps one copy of each different pair.", [T("orders_flat", FLAT_COLS, r1, c1)]),
+      S(4, "bad", "<b>Toko Maju is in two cities.</b> Postgres did nothing wrong. The table had three copies of one fact, and only one copy changed. This is the <b>update problem</b> (interview word: update anomaly).", [T("orders_flat", FLAT_COLS, r1, c1)],
+        rowsOut(["store_name", "store_city"], [["Toko Maju", "Jakarta"], ["Toko Maju", "Surabaya"], ["Toko Sari", "Bandung"]], { "0,1": "wrong", "1,1": "wrong" }))
+    ] };
+}
+
+// ---- Program 2: the insert problem ----
+function p2() {
+  const code = [
+    "-- a new store joins today, no orders yet",
+    "INSERT INTO orders_flat (store_name, store_city)",
+    "VALUES ('Toko Baru', 'Medan');"
+  ];
+  const r0 = FLAT();
+  return { name: "2. Add a store", code,
+    question: "Toko Baru joins today and has no orders yet. Can orders_flat save it?",
+    answer: "No. Postgres says: ERROR: null value in column \"order_id\" of relation \"orders_flat\" violates not-null constraint. Every row must be an order.",
+    steps: [
+      S(0, "setup", "<b>Start.</b> The same four rows. A store only exists here <b>inside an order row</b>. There is no place for a store on its own.", [T("orders_flat", FLAT_COLS, r0, dupMaju(r0))]),
+      S(1, "change", "Toko Baru signs up. The app wants to save its name and city. It has no order, so there is no <code>order_id</code> and no <code>total_cents</code>.", [T("orders_flat", FLAT_COLS, r0, dupMaju(r0))]),
+      S(2, "bad", "<b>Postgres refuses.</b> Every row in this table must be an order, and <code>order_id</code> cannot be empty. You cannot save a store until it buys something. This is the <b>insert problem</b> (interview word: insert anomaly). The only way round it is a fake order, and then every sales report counts a fake order.", [T("orders_flat", FLAT_COLS, r0, dupMaju(r0))],
+        msg('ERROR:  null value in column "order_id" of relation "orders_flat"\n        violates not-null constraint\nDETAIL:  Failing row contains (null, Toko Baru, Medan, null).', "err"))
+    ] };
+}
+
+// ---- Program 3: the delete problem ----
+function p3() {
+  const code = [
+    "-- order 4 was a test order, remove it",
+    "DELETE FROM orders_flat WHERE order_id = 4;",
+    "SELECT * FROM orders_flat",
+    "WHERE store_name = 'Toko Sari';"
+  ];
+  const r0 = FLAT();
+  return { name: "3. Delete an order", code,
+    question: "Order 4 is Toko Sari's only order. You delete it. Can you still find Toko Sari and its city?",
+    answer: "No. The SELECT prints (0 rows). Deleting one order deleted the only copy of the store.",
+    steps: [
+      S(0, "setup", "<b>Start.</b> Look at row 4. It is the <b>only</b> row that knows Toko Sari is in Bandung.", [T("orders_flat", FLAT_COLS, r0, Object.assign(dupMaju(r0), { "3,1": "chg", "3,2": "chg" }))]),
+      S(1, "change", "Postgres deletes order 4. It removes the <b>whole row</b>: the order, and also the store name and the city.", [T("orders_flat", FLAT_COLS, r0, dupMaju(r0), { 3: "gone" })], msg("DELETE 1")),
+      S(3, "bad", "<b>Toko Sari is gone.</b> You wanted to delete an order, and you lost a store. This is the <b>delete problem</b> (interview word: delete anomaly).", [T("orders_flat", FLAT_COLS, r0.slice(0, 3), dupMaju(r0.slice(0, 3)))],
+        rowsOut(FLAT_COLS, []))
+    ] };
+}
+
+// ---- Program 4: the fix ----
+function p4() {
+  const code = [
+    "-- stores: one row per store. orders: point at a store",
+    "UPDATE stores SET city = 'Surabaya' WHERE id = 1;",
+    "SELECT o.id, s.name, s.city FROM orders o",
+    "JOIN stores s ON s.id = o.store_id ORDER BY o.id;",
+    "INSERT INTO stores VALUES (3, 'Toko Baru', 'Medan');",
+    "DELETE FROM orders WHERE id = 4;",
+    "SELECT * FROM stores ORDER BY id;"
+  ];
+  const SC = ["id", "name", "city"], OC = ["id", "store_id", "total_cents"];
+  const st0 = [[1, "Toko Maju", "Jakarta"], [2, "Toko Sari", "Bandung"]];
+  const st1 = [[1, "Toko Maju", "Surabaya"], [2, "Toko Sari", "Bandung"]];
+  const st2 = st1.concat([[3, "Toko Baru", "Medan"]]);
+  const or0 = [[1, 1, 50000], [2, 1, 20000], [3, 1, 30000], [4, 2, 15000]];
+  return { name: "4. The fix: split", code,
+    question: "Now the city lives once, in stores. You run all three changes again. How many rows does the city UPDATE change, and is Toko Sari still there at the end?",
+    answer: "The UPDATE changes 1 row, and all three Toko Maju orders show Surabaya. Toko Baru is saved with no orders. After deleting order 4, Toko Sari is still in stores.",
+    steps: [
+      S(0, "setup", "<b>Start.</b> Two tables. <code>stores</code> saves each store <b>once</b>. <code>orders</code> saves only <code>store_id</code>, a number that points at a store row. No orange cells: nothing is saved twice.", [T("stores", SC, st0), T("orders", OC, or0, {}, {}, true)]),
+      S(1, "change", "Toko Maju moves. Postgres changes <b>one cell in one row</b>.", [T("stores", SC, st1, { "0,2": "chg" }), T("orders", OC, or0, {}, {}, true)], msg("UPDATE 1")),
+      S(3, "read", "The report joins each order to its store. Postgres follows <code>store_id</code> and reads the city from the one store row. <b>All three orders say Surabaya</b>, because there is only one place to read from.", [T("stores", SC, st1), T("orders", OC, or0, {}, {}, true)],
+        rowsOut(["id", "name", "city"], [[1, "Toko Maju", "Surabaya"], [2, "Toko Maju", "Surabaya"], [3, "Toko Maju", "Surabaya"], [4, "Toko Sari", "Bandung"]], { "0,2": "right", "1,2": "right", "2,2": "right" })),
+      S(4, "good", "A new store with no orders. <code>stores</code> does not need an order, so Postgres saves it. The insert problem is gone.", [T("stores", SC, st2, {}, { 2: "new" }), T("orders", OC, or0, {}, {}, true)], msg("INSERT 0 1")),
+      S(5, "change", "Delete order 4. Postgres removes one row from <code>orders</code>. It does not touch <code>stores</code>.", [T("stores", SC, st2), T("orders", OC, or0, {}, { 3: "gone" }, true)], msg("DELETE 1")),
+      S(6, "good", "<b>Toko Sari is still here.</b> The delete problem is gone too. Each fact lives in one place, so changing, adding or deleting one fact never breaks another. This is <b>normalizing</b>.", [T("stores", SC, st2, { "1,1": "right", "1,2": "right" }), T("orders", OC, or0.slice(0, 3), {}, {}, true)],
+        rowsOut(SC, st2, { "1,1": "right" }))
+    ] };
+}
+
+// ---- Program 5: a copy on purpose that is right ----
+function p5() {
+  const code = [
+    "-- the line saves the price the store paid that day",
+    "INSERT INTO order_lines VALUES (1, 1, 2, 10000);",
+    "UPDATE products SET price_cents = 12000 WHERE id = 1;",
+    "SELECT l.qty * l.unit_price_cents AS paid_then,",
+    "       l.qty * p.price_cents      AS price_today",
+    "FROM order_lines l JOIN products p ON p.id = l.product_id;"
+  ];
+  const PC = ["id", "name", "price_cents"], LC = ["order_id", "product_id", "qty", "unit_price_cents"];
+  return { name: "5. Copy on purpose: price", code,
+    question: "A store bought 2 Kopi at 10000 each. Later Kopi costs 12000. What did that old order cost?",
+    answer: "20000. paid_then is 20000 (the saved price). price_today is 24000, which is not what the store paid.",
+    steps: [
+      S(0, "setup", "<b>Start.</b> Kopi costs 10000. No orders yet.", [T("products", PC, [[1, "Kopi", 10000]]), T("order_lines", LC, [], {}, {}, true)]),
+      S(1, "change", "A store buys 2 Kopi. The app saves the price <b>on the order line</b> too: 10000. It looks like a duplicate of the product price.", [T("products", PC, [[1, "Kopi", 10000]], { "0,2": "dup" }), T("order_lines", LC, [[1, 1, 2, 10000]], { "0,3": "dup" }, { 0: "new" }, true)], msg("INSERT 0 1")),
+      S(2, "change", "The price goes up to 12000. Postgres changes the product row only. The order line keeps 10000.", [T("products", PC, [[1, "Kopi", 12000]], { "0,2": "chg" }), T("order_lines", LC, [[1, 1, 2, 10000]], {}, {}, true)], msg("UPDATE 1")),
+      S(3, "good", "<b>Two different facts.</b> <code>paid_then</code> is what the store really paid: 20000. <code>price_today</code> uses today's price: 24000, which would rewrite history. So the line price is not a bad duplicate. It is a <b>different fact</b>: the price on that day. Saving it is a copy on purpose (interview word: denormalize).", [T("products", PC, [[1, "Kopi", 12000]]), T("order_lines", LC, [[1, 1, 2, 10000]], { "0,3": "right" }, {}, true)],
+        rowsOut(["paid_then", "price_today"], [[20000, 24000]], { "0,0": "right", "0,1": "wrong" }))
+    ] };
+}
+
+// ---- Program 6: a copy on purpose that drifts ----
+function p6() {
+  const code = [
+    "-- stores.points_balance is a saved copy of the sum",
+    "INSERT INTO point_transactions (store_id, amount) VALUES (1, 100);",
+    "UPDATE stores SET points_balance = points_balance + 100 WHERE id = 1;",
+    "INSERT INTO point_transactions (store_id, amount) VALUES (1, -30);",
+    "-- compare the saved copy with the real sum",
+    "SELECT s.points_balance AS saved_copy, sum(t.amount) AS real_sum ...;",
+    "-- fix: a trigger updates the copy on every insert",
+    "INSERT INTO point_transactions (store_id, amount) VALUES (1, 50);",
+    "SELECT points_balance FROM stores WHERE id = 1;"
+  ];
+  const SC = ["id", "name", "points_balance"], PT = ["id", "store_id", "amount"];
+  const st = b => [[1, "Toko Maju", b]];
+  return { name: "6. Copy on purpose: balance", code,
+    question: "The app saves the points balance on the store row. One code path adds points history but forgets the balance. What does the check show?",
+    answer: "saved_copy 100, real_sum 70. The copy is wrong by 30. After a trigger keeps it in sync, the next insert gives 120 and 120.",
+    steps: [
+      S(0, "setup", "<b>Start.</b> The store list shows each store's points all day. Adding up the history every time is slow for big stores, so the team saves the total on the store row. The <b>history</b> is the truth. The <b>balance</b> is a copy.", [T("stores", SC, st(0)), T("point_transactions", PT, [], {}, {}, true)]),
+      S(1, "change", "The store earns 100 points. The app adds a history row.", [T("stores", SC, st(0)), T("point_transactions", PT, [[1, 1, 100]], {}, { 0: "new" }, true)], msg("INSERT 0 1")),
+      S(2, "change", "In the same piece of code, the app adds 100 to the balance. Copy and truth agree: 100.", [T("stores", SC, st(100), { "0,2": "chg" }), T("point_transactions", PT, [[1, 1, 100]], {}, {}, true)], msg("UPDATE 1")),
+      S(3, "bad", "A redeem of 30 points runs through <b>another</b> code path. That code adds the history row and <b>forgets the balance</b>.", [T("stores", SC, st(100), { "0,2": "wrong" }), T("point_transactions", PT, [[1, 1, 100], [2, 1, -30]], {}, { 1: "new" }, true)], msg("INSERT 0 1")),
+      S(5, "bad", "<b>The copy drifted.</b> The store row says 100. The history adds up to 70. Nobody gets an error. The store simply sees the wrong number. This is the cost of every copy: someone must keep it right.", [T("stores", SC, st(100), { "0,2": "wrong" }), T("point_transactions", PT, [[1, 1, 100], [2, 1, -30]], {}, {}, true)],
+        rowsOut(["saved_copy", "real_sum"], [[100, 70]], { "0,0": "wrong", "0,1": "right" })),
+      S(6, "setup", "The fix: a <b>trigger</b>, a small function that Postgres runs by itself after every insert into <code>point_transactions</code>. The team also sets the balance once from the real sum: 70.", [T("stores", SC, st(70), { "0,2": "chg" }), T("point_transactions", PT, [[1, 1, 100], [2, 1, -30]], {}, {}, true)], msg("CREATE TRIGGER\nUPDATE 1")),
+      S(7, "change", "The store earns 50 points. The app only adds the history row. <b>Postgres</b> runs the trigger, which adds 50 to the balance in the same step.", [T("stores", SC, st(120), { "0,2": "chg" }), T("point_transactions", PT, [[1, 1, 100], [2, 1, -30], [3, 1, 50]], {}, { 2: "new" }, true)], msg("INSERT 0 1")),
+      S(8, "good", "<b>Copy and truth agree again: 120.</b> No code path can forget, because the database does it. The cost: every insert now does a second write.", [T("stores", SC, st(120), { "0,2": "right" }), T("point_transactions", PT, [[1, 1, 100], [2, 1, -30], [3, 1, 50]], {}, {}, true)],
+        rowsOut(["points_balance"], [[120]], { "0,0": "right" }))
+    ] };
+}
+
+const PRESETS = [p1(), p2(), p3(), p4(), p5(), p6()];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function tableHtml(cols, rows, cls, rowCls) {
+  if (!rows.length) return '<table><tr>' + cols.map(c => "<th>" + esc(c) + "</th>").join("") + '</tr></table><div class="empty">(0 rows)</div>';
+  let h = "<table><tr>" + cols.map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>";
+  rows.forEach((r, i) => {
+    h += '<tr class="' + ((rowCls || {})[i] || "") + '">' + r.map((v, j) => '<td class="' + ((cls || {})[i + "," + j] || "") + '">' + esc(v) + "</td>").join("") + "</tr>";
+  });
+  return h + "</table>";
+}
+function render() {
+  const p = PRESETS[cur], s = steps[idx];
+  $("code").innerHTML = p.code.map((t, i) => '<span class="ln' + (i === s.line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+  $("tables").innerHTML = s.tables.map(t => '<div class="tbox' + (t.b ? " b" : "") + '"><h3>' + esc(t.name) + "</h3>" + tableHtml(t.cols, t.rows, t.cls, t.rowCls) + "</div>").join("");
+  const o = s.out;
+  if (!o) $("out").innerHTML = '<div class="empty">nothing yet</div>';
+  else if (o.kind === "rows") $("out").innerHTML = tableHtml(o.cols, o.rows, o.cls) + '<div class="empty">(' + o.rows.length + " row" + (o.rows.length === 1 ? "" : "s") + ")</div>";
+  else $("out").innerHTML = '<div class="msg ' + o.kind + '">' + esc(o.text) + "</div>";
+  const B = { setup: "Getting ready", change: "Changing rows", read: "Reading rows", bad: "Something broke", good: "It works" };
+  $("badge").textContent = B[s.phase]; $("badge").className = "badge " + s.phase;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  const r = $("result");
+  if (idx === steps.length - 1) {
+    const g = $("guess").value.trim();
+    r.className = "result show";
+    r.innerHTML = (g ? "You wrote: <code>" + esc(g) + "</code><br>" : "Next time, type your guess first. Predicting is what makes it stick.<br>") + "<b>The real answer:</b> " + esc(p.answer);
+  } else r.className = "result";
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0;
+  $("guess").value = ""; $("question").textContent = PRESETS[i].question;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2600);
+}
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", () => { if (idx === steps.length - 1) render(); });
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>

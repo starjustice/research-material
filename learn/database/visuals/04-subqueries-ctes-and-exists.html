@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subqueries and EXISTS Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --blue: #3b82f6; --blue-bg: #e3eefe;
+    --green: #2f9e6b; --green-bg: #dff3ea;
+    --red: #c0392b; --red-bg: #fdecea;
+    --amber: #b7791f; --amber-bg: #fdf0d2;
+    --purple: #8b5cf6; --purple-bg: #efe8fd;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 320px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .tables { grid-template-columns: 1fr; } }
+  .tbl { border: 2px solid; border-radius: 12px; padding: 8px 10px 10px; }
+  .tbl h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .tbl.outer { border-color: var(--blue); background: var(--blue-bg); } .tbl.outer h3 { color: var(--blue); }
+  .tbl.inner { border-color: var(--purple); background: var(--purple-bg); } .tbl.inner h3 { color: var(--purple); }
+  .row {
+    display: flex; justify-content: space-between; gap: 6px; align-items: center;
+    background: #fff; border: 1.5px solid rgba(0,0,0,.12); border-radius: 8px;
+    padding: 4px 8px; margin-bottom: 5px; font-family: ui-monospace, Menlo, monospace; font-size: .8rem;
+  }
+  .row .tag { font-family: -apple-system, sans-serif; font-size: .7rem; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+  .row.now { border-color: var(--accent); background: #fff1bf; font-weight: 700; box-shadow: 0 0 0 2px var(--accent); }
+  .row.match { border-color: var(--green); } .row.match .tag { background: var(--green-bg); color: var(--green); }
+  .row.keep { border-color: var(--green); background: var(--green-bg); } .row.keep .tag { background: var(--green); color: #fff; }
+  .row.nomatch .tag { background: #eef1f3; color: var(--muted); }
+  .row.drop { opacity: .55; text-decoration: line-through; } .row.drop .tag { background: var(--red-bg); color: var(--red); text-decoration: none; }
+  .row.unknown { border-color: var(--amber); } .row.unknown .tag { background: var(--amber-bg); color: var(--amber); }
+  .row.skip { opacity: .35; border-style: dashed; } .row.skip .tag { background: #eef1f3; color: var(--muted); }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .check {
+    margin-top: 10px; border: 2px solid var(--amber); background: var(--amber-bg); border-radius: 12px;
+    padding: 8px 10px; font-size: .86rem; min-height: 44px;
+  }
+  .check h3 { font-size: .74rem; margin: 0 0 4px; letter-spacing: .04em; text-transform: uppercase; color: var(--amber); }
+  .check code { background: #fff; border-radius: 4px; padding: 1px 5px; }
+
+  .counters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .counter { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; font-size: .82rem; }
+  .counter b { font-size: 1.1rem; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; margin-top: 10px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 5px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .9rem; font-weight: 650; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.inner { background: var(--purple); } .badge.outer { background: var(--blue); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--green); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 18px; }
+  .key { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .key .row { margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../04-subqueries-ctes-and-exists.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Subqueries and EXISTS stepper</h1>
+  <p class="sub">Press Next. Watch which store row Postgres is on, which rows the inner query reads, and when it stops. The tables are the four stores and five orders from the lesson.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> What will the query return, in order? Type the values with spaces (for example <code>Ana Citra</code>). If you think it returns nothing, type <code>0 rows</code>. Then step to the end.<br>
+    <input id="guess" placeholder="the result, in order, with spaces" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Your query</h2>
+      <pre class="code" id="code"></pre>
+      <div class="check"><h3>The check right now</h3><div id="check"></div></div>
+      <div class="counters">
+        <div class="counter">Inner query ran: <b id="runs">0</b> times</div>
+        <div class="counter">Inner rows read: <b id="read">0</b></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Tables</h2>
+      <div class="tables">
+        <div class="tbl outer"><h3 id="outerTitle">Outer rows</h3><div id="outer"></div></div>
+        <div class="tbl inner"><h3 id="innerTitle">Inner query</h3><div id="inner"></div></div>
+      </div>
+      <div class="outbox"><h3>Result</h3><div class="items" id="out"></div></div>
+      <div class="key">
+        <span class="row now">looking now</span>
+        <span class="row match"><span class="tag">match</span></span>
+        <span class="row nomatch"><span class="tag">no match</span></span>
+        <span class="row unknown"><span class="tag">unknown</span></span>
+        <span class="row skip"><span class="tag">never read</span></span>
+        <span class="row keep"><span class="tag">kept</span></span>
+        <span class="row drop"><span class="tag">dropped</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Postgres: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a plain subquery runs <b>once</b>. A correlated subquery uses the outer row, so think of it as running <b>once per outer row</b>. <b>EXISTS</b> stops at the first match. A store with no match is the expensive one: Postgres must read everything to be sure. <b>NOT IN</b> breaks when the list holds a <b>NULL</b>, because every check against NULL is <b>unknown</b>. <b>NOT EXISTS</b> only asks "is there a matching row?", so it is always yes or no.</p>
+
+  <div class="legend"><b>Words on this page:</b>
+    <ul>
+      <li><b>Outer query:</b> the big query. Its rows are on the blue side.</li>
+      <li><b>Inner query (subquery):</b> the query in brackets. Its rows are on the purple side.</li>
+      <li><b>Correlated:</b> the inner query uses a value from the outer row, like <code>s.id</code>.</li>
+      <li><b>Unknown:</b> the answer to any comparison with NULL. WHERE keeps a row only when the answer is true.</li>
+    </ul>
+  </div>
+  <p class="legend">This page shows the simple model. On big tables Postgres often does the same work a faster way. The lesson's Go deeper box shows those plans. Every final result here was checked against real PostgreSQL 18.3 on 2026-10-16.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// The data. The same rows as the lesson (section 4).
+// ---------------------------------------------------------------------------
+const STORES = [
+  { id: 1, name: "Ana",   ref: null },
+  { id: 2, name: "Budi",  ref: 1 },
+  { id: 3, name: "Citra", ref: 1 },
+  { id: 4, name: "Dewi",  ref: 2 }
+];
+const ORDERS = [
+  { id: 101, store: 1, status: "PAID",      total: 50 },
+  { id: 102, store: 1, status: "PENDING",   total: 20 },
+  { id: 103, store: 2, status: "CANCELLED", total: 70 },
+  { id: 104, store: 3, status: "PAID",      total: 90 },
+  { id: 105, store: 3, status: "PAID",      total: 10 }
+];
+const show = v => v === null ? "NULL" : String(v);
+const storeLabel = s => s.id + " " + s.name;
+const storeRefLabel = s => s.name + " referred_by " + show(s.ref);
+const orderLabel = o => o.id + " store " + o.store + " " + o.status;
+
+// A step is one snapshot. Rows are { label, st, tag }.
+function snap(o) {
+  return Object.assign({ line: null, phase: "outer", outer: [], inner: [], innerTitle: "Inner query",
+    outerTitle: "Outer rows", check: "", runs: 0, read: 0, out: [], note: "" }, o);
+}
+const rows = (list, labelFn, states, tags) => list.map((x, i) => ({ label: labelFn(x), st: states[i] || "", tag: tags ? (tags[i] || "") : "" }));
+
+// ---------------------------------------------------------------------------
+// Program 1. A plain subquery: the inner query runs once.
+// ---------------------------------------------------------------------------
+function program1() {
+  const steps = [];
+  const code = [
+    "SELECT id, total FROM mini_orders",
+    "WHERE total > (",
+    "  SELECT avg(total) FROM mini_orders",
+    ")",
+    "ORDER BY id;"
+  ];
+  const ordLbl = o => o.id + " total " + o.total;
+  const blank = ORDERS.map(() => "");
+  steps.push(snap({ line: null, phase: "outer", outer: rows(ORDERS, ordLbl, blank), innerTitle: "Inner query answer",
+    outerTitle: "mini_orders (outer)", note: "The inner query in brackets does not use any outer value. So Postgres can work it out <b>once</b>, before it looks at any outer row." }));
+  const sum = ORDERS.reduce((a, o) => a + o.total, 0);
+  const avg = sum / ORDERS.length;
+  steps.push(snap({ line: 2, phase: "inner", outer: rows(ORDERS, ordLbl, blank), innerTitle: "Inner query answer",
+    inner: [{ label: "avg = " + sum + " / " + ORDERS.length + " = " + avg, st: "match", tag: "one value" }],
+    outerTitle: "mini_orders (outer)", runs: 1, read: ORDERS.length,
+    check: "<code>avg(50, 20, 70, 90, 10)</code> = <b>" + avg + "</b>",
+    note: "The inner query reads all 5 totals and returns <b>one value: " + avg + "</b>. The inner query ran 1 time. It will not run again." }));
+  const out = [];
+  const st = ORDERS.map(() => "");
+  const tags = ORDERS.map(() => "");
+  ORDERS.forEach((o, i) => {
+    const keep = o.total > avg;
+    st[i] = "now";
+    steps.push(snap({ line: 1, phase: "outer", outer: rows(ORDERS, ordLbl, st.slice(), tags.slice()), innerTitle: "Inner query answer",
+      inner: [{ label: "avg = " + avg, st: "match", tag: "one value" }], outerTitle: "mini_orders (outer)", runs: 1, read: ORDERS.length,
+      check: "<code>" + o.total + " &gt; " + avg + "</code> is <b>" + keep + "</b>", out: out.slice(),
+      note: "Order " + o.id + ": Postgres compares its total with the saved answer. " + (keep ? "True, so it keeps the row." : "False, so it drops the row.") + " No new inner run." }));
+    if (keep) out.push(String(o.id));
+    st[i] = keep ? "keep" : "drop"; tags[i] = keep ? "kept" : "dropped";
+  });
+  steps.push(snap({ line: 4, phase: "done", outer: rows(ORDERS, ordLbl, st, tags), innerTitle: "Inner query answer",
+    inner: [{ label: "avg = " + avg, st: "match", tag: "one value" }], outerTitle: "mini_orders (outer)", runs: 1, read: ORDERS.length, out: out.slice(),
+    note: "Finished. The result is <b>" + out.join(", ") + "</b>. The inner query ran only <b>once</b> for 5 outer rows." }));
+  return { name: "Plain subquery", code, steps, real: out.join(" "),
+    why: "The subquery does not use the outer row, so Postgres works out the average once (48) and compares every total with it." };
+}
+
+// ---------------------------------------------------------------------------
+// Program 2. A correlated subquery: once per store.
+// ---------------------------------------------------------------------------
+function program2() {
+  const steps = [];
+  const code = [
+    "SELECT s.name,",
+    "  (SELECT count(*) FROM mini_orders o",
+    "   WHERE o.store_id = s.id) AS order_count",
+    "FROM mini_stores s",
+    "ORDER BY s.id;"
+  ];
+  const sst = STORES.map(() => ""), stag = STORES.map(() => "");
+  const out = [];
+  let runs = 0, read = 0;
+  steps.push(snap({ line: 3, phase: "outer", outer: rows(STORES, storeLabel, sst), inner: rows(ORDERS, orderLabel, []),
+    outerTitle: "mini_stores s (outer)", innerTitle: "mini_orders o (inner)",
+    note: "The inner query says <code>s.id</code>. That is a value from the <b>outer</b> row. So the inner answer is different for every store. Think of it as running once per store row." }));
+  STORES.forEach((s, i) => {
+    sst[i] = "now";
+    steps.push(snap({ line: 3, phase: "outer", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(ORDERS, orderLabel, []),
+      outerTitle: "mini_stores s (outer)", innerTitle: "mini_orders o (inner)", runs, read, out: out.slice(),
+      check: "<code>s.id</code> = <b>" + s.id + "</b>",
+      note: "Postgres takes the next store: <b>" + s.name + "</b>. Now <code>s.id</code> is " + s.id + "." }));
+    runs++; read += ORDERS.length;
+    const st = ORDERS.map(o => o.store === s.id ? "match" : "nomatch");
+    const tg = ORDERS.map(o => o.store === s.id ? "match" : "no match");
+    const n = ORDERS.filter(o => o.store === s.id).length;
+    steps.push(snap({ line: 2, phase: "inner", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(ORDERS, orderLabel, st, tg),
+      outerTitle: "mini_stores s (outer)", innerTitle: "mini_orders o (inner)", runs, read, out: out.slice(),
+      check: "<code>o.store_id = " + s.id + "</code> matches <b>" + n + "</b> rows, so <code>count(*)</code> = <b>" + n + "</b>",
+      note: "The inner query runs again, this time with <code>s.id</code> = <b>" + s.id + "</b>. A count must look at every order, so it reads all 5. Run number <b>" + runs + "</b>." }));
+    out.push(s.name + " " + n);
+    sst[i] = "keep"; stag[i] = "count " + n;
+  });
+  steps.push(snap({ line: 4, phase: "done", outer: rows(STORES, storeLabel, sst, stag), inner: rows(ORDERS, orderLabel, []),
+    outerTitle: "mini_stores s (outer)", innerTitle: "mini_orders o (inner)", runs, read, out: out.slice(),
+    note: "Finished. 4 store rows, so the inner query ran <b>4 times</b> and read <b>20</b> order rows. With 200 stores and 100,000 orders that becomes 20 million rows. That is why a correlated subquery needs an index on <code>orders(store_id)</code>." }));
+  return { name: "Correlated subquery", code, steps, real: out.join(" "),
+    why: "The subquery uses s.id from the outer row, so it gives a different count for every store. Dewi has no orders, so count(*) gives 0 (not NULL)." };
+}
+
+// ---------------------------------------------------------------------------
+// Program 3. EXISTS stops at the first match.
+// ---------------------------------------------------------------------------
+function program3() {
+  const steps = [];
+  const code = [
+    "SELECT s.name FROM mini_stores s",
+    "WHERE EXISTS (",
+    "  SELECT 1 FROM mini_orders o",
+    "  WHERE o.store_id = s.id AND o.status = 'PAID'",
+    ")",
+    "ORDER BY s.id;"
+  ];
+  const sst = STORES.map(() => ""), stag = STORES.map(() => "");
+  const out = [];
+  let runs = 0, read = 0;
+  const T = { outerTitle: "mini_stores s (outer)", innerTitle: "mini_orders o (inner)" };
+  steps.push(snap(Object.assign({ line: 0, phase: "outer", outer: rows(STORES, storeLabel, sst), inner: rows(ORDERS, orderLabel, []),
+    note: "Question: which stores have <b>at least one</b> PAID order? EXISTS only asks \"is there a row?\". So Postgres can stop at the first match." }, T)));
+  STORES.forEach((s, i) => {
+    sst[i] = "now";
+    runs++;
+    const ost = ORDERS.map(() => ""), otg = ORDERS.map(() => "");
+    let found = false;
+    steps.push(snap(Object.assign({ line: 1, phase: "outer", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(ORDERS, orderLabel, ost.slice()),
+      runs, read, out: out.slice(), check: "<code>s.id</code> = <b>" + s.id + "</b>",
+      note: "Next store: <b>" + s.name + "</b>. Postgres starts the EXISTS check with <code>s.id = " + s.id + "</code>." }, T)));
+    for (let j = 0; j < ORDERS.length; j++) {
+      const o = ORDERS[j];
+      read++;
+      const sameStore = o.store === s.id, paid = o.status === "PAID";
+      const m = sameStore && paid;
+      ost[j] = "now";
+      let why;
+      if (m) why = "store " + o.store + " and PAID. <b>A match.</b>";
+      else if (sameStore) why = "store " + o.store + ", but " + o.status + ". Not a match.";
+      else why = "store " + o.store + ", not store " + s.id + ". Not a match.";
+      const view = ost.slice();
+      if (m) { for (let k = j + 1; k < ORDERS.length; k++) view[k] = "skip"; }
+      const viewTags = otg.slice();
+      if (m) { for (let k = j + 1; k < ORDERS.length; k++) viewTags[k] = "never read"; }
+      steps.push(snap(Object.assign({ line: 3, phase: "inner", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(ORDERS, orderLabel, view, viewTags),
+        runs, read, out: out.slice(),
+        check: "<code>" + o.store + " = " + s.id + "</code> is " + sameStore + ", <code>'" + o.status + "' = 'PAID'</code> is " + paid,
+        note: "Order " + o.id + ": " + why + (m ? " EXISTS is now <b>true</b>. Postgres <b>stops</b> reading. " + (j < ORDERS.length - 1 ? "The orders after it are never read." : "") : "") }, T)));
+      ost[j] = m ? "match" : "nomatch"; otg[j] = m ? "match" : "no match";
+      if (m) { found = true; for (let k = j + 1; k < ORDERS.length; k++) { ost[k] = "skip"; otg[k] = "never read"; } break; }
+    }
+    if (found) out.push(s.name);
+    sst[i] = found ? "keep" : "drop"; stag[i] = found ? "kept" : "dropped";
+    steps.push(snap(Object.assign({ line: 1, phase: "outer", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(ORDERS, orderLabel, ost.slice(), otg.slice()),
+      runs, read, out: out.slice(),
+      check: "EXISTS is <b>" + found + "</b>",
+      note: found ? "<b>" + s.name + "</b> is kept. Postgres needed only " + (ost.filter(x => x !== "skip").length) + " order row(s) to be sure."
+                  : "No match in any of the 5 orders, so EXISTS is <b>false</b> and <b>" + s.name + "</b> is dropped. A store with <b>no</b> match is the expensive one: Postgres had to read every row to be sure." }, T)));
+  });
+  steps.push(snap(Object.assign({ line: 5, phase: "done", outer: rows(STORES, storeLabel, sst, stag), inner: rows(ORDERS, orderLabel, []),
+    runs, read, out: out.slice(),
+    note: "Finished. The result is <b>" + out.join(", ") + "</b>. Postgres read <b>" + read + "</b> order rows, not 20, because it stopped early for Ana and Citra." }, T)));
+  return { name: "EXISTS stops early", code, steps, real: out.join(" "),
+    why: "Ana has order 101 PAID. Budi only has a CANCELLED order. Citra has 104 PAID. Dewi has no orders. EXISTS keeps each store once, even though Citra has two PAID orders." };
+}
+
+// ---------------------------------------------------------------------------
+// Program 4. NOT IN with a NULL in the list.
+// ---------------------------------------------------------------------------
+function program4() {
+  const steps = [];
+  const code = [
+    "SELECT name FROM mini_stores",
+    "WHERE id NOT IN (",
+    "  SELECT referred_by FROM mini_stores",
+    ")",
+    "ORDER BY id;"
+  ];
+  const T = { outerTitle: "mini_stores (outer)", innerTitle: "The list from the inner query" };
+  const list = STORES.map(s => s.ref);
+  const sst = STORES.map(() => ""), stag = STORES.map(() => "");
+  const listRows = (st, tg) => list.map((v, i) => ({ label: show(v), st: st ? st[i] : "", tag: tg ? tg[i] : "" }));
+  steps.push(snap(Object.assign({ line: null, phase: "outer", outer: rows(STORES, storeLabel, sst), inner: [],
+    note: "Question: which stores never brought in another store? The true answer is Citra and Dewi. Watch what NOT IN does." }, T)));
+  steps.push(snap(Object.assign({ line: 2, phase: "inner", outer: rows(STORES, storeLabel, sst), inner: listRows(),
+    runs: 1, read: STORES.length,
+    check: "the list is <code>" + list.map(show).join(", ") + "</code>",
+    note: "The inner query does not use the outer row, so it runs <b>once</b>. It returns the <code>referred_by</code> of every store. Ana has no referrer, so the list holds a <b>NULL</b>." }, T)));
+  const out = [];
+  STORES.forEach((s, i) => {
+    sst[i] = "now";
+    const res = list.map(v => v === null ? "unknown" : (s.id !== v ? "true" : "false"));
+    const st = res.map(r => r === "unknown" ? "unknown" : r === "true" ? "nomatch" : "match");
+    const tags = list.map((v, k) => s.id + " differs? " + res[k]);
+    let final;
+    if (res.includes("false")) final = "false"; else if (res.includes("unknown")) final = "unknown"; else final = "true";
+    steps.push(snap(Object.assign({ line: 1, phase: "outer", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: listRows(st, tags),
+      runs: 1, read: STORES.length, out: out.slice(),
+      check: list.map((v, k) => "<code>" + s.id + " &lt;&gt; " + show(v) + "</code> " + res[k]).join(", ") + ". All must be true. Answer: <b>" + final + "</b>",
+      note: "<b>" + s.name + "</b>, id " + s.id + ". NOT IN means \"different from <b>every</b> value\". " +
+        (final === "false" ? s.id + " is in the list, so the answer is <b>false</b>. Dropped. That part is correct."
+                           : "The check against NULL is <b>unknown</b>. One unknown and no false gives <b>unknown</b>. WHERE keeps only true, so " + s.name + " is <b>dropped</b>. This is the trap.") }, T)));
+    sst[i] = final === "true" ? "keep" : "drop"; stag[i] = final === "true" ? "kept" : "dropped (" + final + ")";
+    if (final === "true") out.push(s.name);
+  });
+  steps.push(snap(Object.assign({ line: 4, phase: "done", outer: rows(STORES, storeLabel, sst, stag), inner: listRows(list.map(v => v === null ? "unknown" : ""), list.map(v => v === null ? "the trap" : "")),
+    runs: 1, read: STORES.length, out: out.slice(),
+    note: "Finished. <b>0 rows</b>, and no error. One NULL in the list was enough. Next program: the same question with NOT EXISTS." }, T)));
+  return { name: "NOT IN with a NULL", code, steps, real: out.length ? out.join(" ") : "0 rows",
+    why: "The list is NULL, 1, 1, 2. Any id compared with NULL is unknown, so NOT IN can never be true. Every store is dropped." };
+}
+
+// ---------------------------------------------------------------------------
+// Program 5. NOT EXISTS: the safe way.
+// ---------------------------------------------------------------------------
+function program5() {
+  const steps = [];
+  const code = [
+    "SELECT s.name FROM mini_stores s",
+    "WHERE NOT EXISTS (",
+    "  SELECT 1 FROM mini_stores k",
+    "  WHERE k.referred_by = s.id",
+    ")",
+    "ORDER BY s.id;"
+  ];
+  const T = { outerTitle: "mini_stores s (outer)", innerTitle: "mini_stores k (inner)" };
+  const sst = STORES.map(() => ""), stag = STORES.map(() => "");
+  const out = [];
+  let runs = 0, read = 0;
+  steps.push(snap(Object.assign({ line: 0, phase: "outer", outer: rows(STORES, storeLabel, sst), inner: rows(STORES, storeRefLabel, []),
+    note: "Same question as program 4. Now Postgres asks, for each store: \"is there a store <b>k</b> whose <code>referred_by</code> is my id?\". The same table is used twice, with two names: <b>s</b> and <b>k</b>." }, T)));
+  STORES.forEach((s, i) => {
+    sst[i] = "now"; runs++;
+    const kst = STORES.map(() => ""), ktg = STORES.map(() => "");
+    let found = false;
+    steps.push(snap(Object.assign({ line: 1, phase: "outer", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(STORES, storeRefLabel, kst.slice()),
+      runs, read, out: out.slice(), check: "<code>s.id</code> = <b>" + s.id + "</b>",
+      note: "Next store: <b>" + s.name + "</b>. Postgres looks for any row k with <code>k.referred_by = " + s.id + "</code>." }, T)));
+    for (let j = 0; j < STORES.length; j++) {
+      const k = STORES[j];
+      read++;
+      const res = k.ref === null ? "unknown" : (k.ref === s.id ? "true" : "false");
+      const m = res === "true";
+      const view = kst.slice(), vt = ktg.slice();
+      view[j] = "now";
+      if (m) for (let x = j + 1; x < STORES.length; x++) { view[x] = "skip"; vt[x] = "never read"; }
+      steps.push(snap(Object.assign({ line: 3, phase: "inner", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(STORES, storeRefLabel, view, vt),
+        runs, read, out: out.slice(),
+        check: "<code>" + show(k.ref) + " = " + s.id + "</code> is <b>" + res + "</b>",
+        note: k.name + " has <code>referred_by " + show(k.ref) + "</code>. " +
+          (res === "unknown" ? "Compared with NULL the answer is unknown. Here that simply means <b>not a match</b>. It cannot spoil the result."
+           : m ? "<b>A match.</b> So a row exists, NOT EXISTS is <b>false</b>, and Postgres stops reading."
+               : "Not a match.") }, T)));
+      kst[j] = res === "unknown" ? "unknown" : (m ? "match" : "nomatch");
+      ktg[j] = res === "unknown" ? "unknown = no match" : (m ? "match" : "no match");
+      if (m) { found = true; for (let x = j + 1; x < STORES.length; x++) { kst[x] = "skip"; ktg[x] = "never read"; } break; }
+    }
+    if (!found) out.push(s.name);
+    sst[i] = found ? "drop" : "keep"; stag[i] = found ? "dropped" : "kept";
+    steps.push(snap(Object.assign({ line: 1, phase: "outer", outer: rows(STORES, storeLabel, sst.slice(), stag.slice()), inner: rows(STORES, storeRefLabel, kst.slice(), ktg.slice()),
+      runs, read, out: out.slice(),
+      check: "NOT EXISTS is <b>" + !found + "</b>",
+      note: found ? "<b>" + s.name + "</b> brought someone in, so " + s.name + " is dropped. Correct."
+                  : "Nobody has <code>referred_by " + s.id + "</code>. No row exists, so NOT EXISTS is <b>true</b> and <b>" + s.name + "</b> is kept. Correct." }, T)));
+  });
+  steps.push(snap(Object.assign({ line: 5, phase: "done", outer: rows(STORES, storeLabel, sst, stag), inner: rows(STORES, storeRefLabel, []),
+    runs, read, out: out.slice(),
+    note: "Finished. The result is <b>" + out.join(", ") + "</b>, the true answer. The NULL never hurt, because EXISTS only asks \"did any row match?\". The answer is always yes or no." }, T)));
+  return { name: "NOT EXISTS is safe", code, steps, real: out.join(" "),
+    why: "Ana brought in Budi and Citra. Budi brought in Dewi. Citra and Dewi brought in nobody. NOT EXISTS treats the NULL row as simply not a match." };
+}
+
+const PRESETS = [program1(), program2(), program3(), program4(), program5()];
+
+// ---------------------------------------------------------------------------
+// The page
+// ---------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderRows(id, list) {
+  const box = $(id);
+  if (!list.length) { box.innerHTML = '<span class="empty">not used yet</span>'; return; }
+  box.innerHTML = list.map(r => '<div class="row ' + r.st + '"><span>' + esc(r.label) + "</span>" +
+    (r.tag ? '<span class="tag">' + esc(r.tag) + "</span>" : "") + "</div>").join("");
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? items.map(v => '<div class="chip">' + esc(v) + "</div>").join("") : '<span class="empty">no rows yet</span>';
+}
+const BADGE = { outer: ["On an outer row", "outer"], inner: ["Running the inner query", "inner"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  $("outerTitle").textContent = s.outerTitle;
+  $("innerTitle").textContent = s.innerTitle;
+  renderRows("outer", s.outer);
+  renderRows("inner", s.inner);
+  renderOut(s.out);
+  $("check").innerHTML = s.check || '<span class="empty">nothing to check yet</span>';
+  $("runs").textContent = s.runs;
+  $("read").textContent = s.read;
+  const b = BADGE[s.phase] || BADGE.outer;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").replace(/^\(|\)$/g, "").trim();
+const isNone = s => ["0 rows", "0", "none", "nothing", "empty", "no rows"].includes(norm(s));
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = PRESETS[cur].real;
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + PRESETS[cur].why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Result: " + esc(real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = norm(guess) === norm(real) || (real === "0 rows" && isNone(guess));
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real result is <code>" + esc(real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the purple side.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0;
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1700);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+
+// Self check: open the page with ?selftest to step through every program.
+if (location.search.includes("selftest")) {
+  const report = [];
+  try {
+    PRESETS.forEach((p, i) => {
+      pick(i);
+      while (idx < steps.length - 1) go(1);
+      report.push((i + 1) + ". " + p.name + ": " + steps.length + " steps, result [" + p.real + "], runs " + steps[idx].runs + ", read " + steps[idx].read);
+      while (idx > 0) go(-1);
+    });
+    pick(0);
+    report.push("SELFTEST OK");
+  } catch (e) { report.push("SELFTEST ERROR " + e.message); }
+  const pre = document.createElement("pre"); pre.id = "selftest"; pre.textContent = report.join("\n");
+  document.body.appendChild(pre);
+}
+</script>
+</body>
+</html>

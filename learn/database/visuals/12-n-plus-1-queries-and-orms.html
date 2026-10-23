@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N+1 Queries Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --app: #3b82f6; --app-bg: #e3eefe;
+    --db: #2f9e6b; --db-bg: #dff3ea;
+    --wait: #b7791f; --wait-bg: #fdf0d2;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --loader: #8b5cf6; --loader-bg: #efe8fd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 120px;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .78rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .counter { display: flex; gap: 10px; margin-bottom: 10px; }
+  .counter div { flex: 1; border-radius: 12px; padding: 8px 12px; background: var(--bad-bg); border: 2px solid var(--bad); }
+  .counter div.good { background: var(--db-bg); border-color: var(--db); }
+  .counter b { display: block; font-size: 1.8rem; line-height: 1.1; }
+  .counter span { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+
+  .lanes { display: grid; grid-template-columns: 90px 1fr 90px; gap: 0 6px; align-items: center; font-size: .8rem; }
+  .lane-head { font-weight: 800; text-align: center; border-radius: 8px; padding: 4px; font-size: .78rem; }
+  .lane-head.app { background: var(--app-bg); color: var(--app); }
+  .lane-head.db { background: var(--db-bg); color: var(--db); }
+  .trip { grid-column: 1 / 4; display: grid; grid-template-columns: 90px 1fr 90px; gap: 6px; align-items: center; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .trip .n { text-align: center; font-weight: 800; color: var(--app); }
+  .trip .arrows { font-family: ui-monospace, Menlo, monospace; font-size: .74rem; }
+  .trip .go { color: var(--app); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trip .back { color: var(--db); }
+  .trip .back.wait { color: var(--wait); }
+  .trip .d { text-align: center; color: var(--db); font-weight: 700; }
+  .trip.now { background: #fff8e1; border-radius: 8px; }
+  .trip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; }
+
+  table.res { border-collapse: collapse; font-family: ui-monospace, Menlo, monospace; font-size: .74rem; width: 100%; }
+  table.res th, table.res td { border: 1px solid var(--border); padding: 2px 6px; text-align: left; vertical-align: top; }
+  table.res th { background: #f3efe6; }
+  table.res td.null { color: var(--muted); }
+  table.res tr.repeat td.name { color: var(--bad); font-weight: 700; }
+
+  .stores { display: flex; flex-direction: column; gap: 5px; }
+  .store { display: flex; gap: 8px; align-items: center; border: 1.5px solid var(--app); background: var(--app-bg); border-radius: 8px; padding: 4px 10px; font-size: .8rem; }
+  .store b { min-width: 70px; }
+  .store .o { font-family: ui-monospace, Menlo, monospace; }
+  .store.wait { border-color: var(--wait); background: var(--wait-bg); }
+  .store.none { opacity: .45; border-style: dashed; }
+
+  .basket { border: 2px solid var(--loader); background: var(--loader-bg); border-radius: 12px; padding: 8px 10px; }
+  .basket .k { display: inline-block; background: #fff; border: 1.5px solid var(--loader); color: var(--loader); border-radius: 8px; padding: 3px 9px; margin: 0 5px 4px 0; font-weight: 800; font-family: ui-monospace, Menlo, monospace; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.app { background: var(--app); } .badge.db { background: var(--db); }
+  .badge.wait { background: var(--wait); } .badge.loader { background: var(--loader); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--db); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../12-n-plus-1-queries-and-orms.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>N+1 queries stepper</h1>
+  <p class="sub">The app is on the left. Postgres is on the right. Every arrow to the right is one trip over the network. Press Next and count the trips. The data comes from the 5 tiny stores in the practice file, and every result was checked on real PostgreSQL 18.3.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> How many queries will this code send to Postgres? Type a number, then step to the end.<br>
+    <input id="guess" placeholder="a number" autocomplete="off" inputmode="numeric">
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>The code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel" id="basketPanel" style="display:none">
+        <h2>The loader's waiting list (keys asked for in this tick)</h2>
+        <div class="basket" id="basket"></div>
+      </div>
+      <div class="panel">
+        <h2>App memory: the page data</h2>
+        <div class="stores" id="stores"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>Trips between the app and Postgres</h2>
+        <div class="counter">
+          <div id="cQ"><span>Queries sent</span><b id="nQ">0</b></div>
+          <div id="cR" class="good"><span>Rows that came back</span><b id="nR">0</b></div>
+        </div>
+        <div class="lanes" id="lanes"></div>
+      </div>
+      <div class="panel">
+        <h2>The last answer from Postgres</h2>
+        <div id="res"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Now: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> count the trips, not the speed of one query. A loop that sends one query per row makes 1 + N trips. Ask for all the rows in one go (a JOIN, or <code>= ANY($1)</code> with all the ids), then sort them into place in your code.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Trip:</b> the app sends one query and waits for the answer. (Interview word: <i>round trip</i>.)</li>
+      <li><b>N+1:</b> 1 query for the list, then N more queries, one for each item in the list.</li>
+      <li><b>Batch:</b> many small requests packed into one query.</li>
+      <li><b>Tick:</b> one turn of JavaScript running code before it looks at its waiting callbacks. DataLoader collects keys during one tick.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ---- Real data. Every row below was printed by PostgreSQL 18.3 on 2026-10-16. ----
+const STORES = [[1, "Alpha"], [2, "Bravo"], [3, "Cempaka"], [4, "Delta"], [5, "Elang"]];
+const ORDERS = { 1: [[1, 500], [2, 700], [4, 200]], 2: [[3, 300], [6, 400]], 3: [[5, 900], [8, 100]], 4: [[7, 1000]], 5: [] };
+// Batch query without ORDER BY: rows come back in table order, not grouped by store.
+const BATCH_ROWS = [[1, 1, 500], [2, 1, 700], [3, 2, 300], [4, 1, 200], [5, 3, 900], [6, 2, 400], [7, 4, 1000], [8, 3, 100]];
+const JOIN_ROWS = [[1, "Alpha", 1, 500], [1, "Alpha", 2, 700], [1, "Alpha", 4, 200], [2, "Bravo", 3, 300], [2, "Bravo", 6, 400],
+  [3, "Cempaka", 5, 900], [3, "Cempaka", 8, 100], [4, "Delta", 7, 1000], [5, "Elang", null, null]];
+const JSON_ROWS = [
+  [1, "Alpha", '[{"id": 1, "total_cents": 500}, {"id": 2, "total_cents": 700}, {"id": 4, "total_cents": 200}]'],
+  [2, "Bravo", '[{"id": 3, "total_cents": 300}, {"id": 6, "total_cents": 400}]'],
+  [3, "Cempaka", '[{"id": 5, "total_cents": 900}, {"id": 8, "total_cents": 100}]'],
+  [4, "Delta", '[{"id": 7, "total_cents": 1000}]'],
+  [5, "Elang", "[]"]];
+
+// ---- Small builders ----
+// mem: list of [name, orders] where orders is null (not asked yet), "wait" (waiting), or a list of ids
+const memNone = () => [];
+const memStores = filled => STORES.map(([id, name]) => [name, filled[id] === undefined ? null : filled[id]]);
+const idsOf = id => ORDERS[id].map(o => o[0]);
+const trip = (sql, back) => ({ sql, back });          // back: null while waiting, else text like "3 rows"
+const ST = (o) => Object.assign({ line: null, phase: "app", trips: [], res: null, mem: [], basket: null, q: 0, rows: 0 }, o);
+const resStores = { cols: ["id", "name"], rows: STORES };
+const resOrders = id => ({ cols: ["id", "total_cents"], rows: ORDERS[id] });
+
+// ---------------------------------------------------------------- 1. the N+1 loop
+function buildLoop() {
+  const steps = [];
+  const trips = [];
+  let rows = 0;
+  const filled = {};
+  steps.push(ST({ phase: "app", note: "The page must show 5 stores, and the orders of each store. Nothing has been sent yet. <b>Count the trips</b> as you press Next." }));
+  trips.push(trip("SELECT id, name FROM l12_stores", null));
+  steps.push(ST({ line: [0], phase: "wait", q: 1, trips: trips.map(t => ({ ...t })), note: "Query 1 goes to Postgres: <b>give me the stores</b>. The app now <b>waits</b>. It can do nothing else for this page until the answer comes back." }));
+  trips[0].back = "5 rows"; rows += 5;
+  steps.push(ST({ line: [0], phase: "db", q: 1, rows, trips: trips.map(t => ({ ...t })), res: resStores, mem: memStores(filled),
+    note: "The answer comes back: <b>5 stores</b>. This is the <b>1</b> in N+1. The orders are still unknown, shown as <b>?</b>." }));
+  STORES.forEach(([id, name], i) => {
+    const n = i + 2;
+    trips.push(trip("SELECT ... WHERE store_id = " + id, null));
+    filled[id] = "wait";
+    steps.push(ST({ line: [1, 2, 3], phase: "wait", q: n, rows, trips: trips.map(t => ({ ...t })), res: null, mem: memStores(filled),
+      note: "The loop is at <b>" + name + "</b>. Query " + n + " goes out: <code>WHERE store_id = " + id + "</code>. The app waits again." +
+        (i === 0 ? " Each of these queries is small and quick. The problem is <b>how many</b> there are." : "") }));
+    const k = ORDERS[id].length;
+    trips[trips.length - 1].back = k + (k === 1 ? " row" : " rows"); rows += k;
+    filled[id] = idsOf(id);
+    steps.push(ST({ line: [3], phase: "db", q: n, rows, trips: trips.map(t => ({ ...t })), res: resOrders(id), mem: memStores(filled),
+      note: k ? "Postgres sends back " + k + " order" + (k === 1 ? "" : "s") + " for " + name + ". The app puts them on the page." :
+        "Postgres sends back <b>0 rows</b> for Elang. A whole trip, for nothing. The loop is finished." }));
+  });
+  steps.push(ST({ line: [5], phase: "done", q: 6, rows, trips: trips.map(t => ({ ...t })), res: null, mem: memStores(filled),
+    note: "Done. <b>6 queries</b> for 5 stores: 1 for the list + 5 for the orders. That is <b>1 + N</b>. With 100 stores it is <b>101</b> trips. If one trip costs 1 ms of travel, that is about 100 ms of waiting before Postgres does any real work." }));
+  return steps;
+}
+
+// ---------------------------------------------------------------- 2. one JOIN
+function buildJoin() {
+  const t = "SELECT ... FROM l12_stores LEFT JOIN l12_orders ...";
+  const all = {};
+  STORES.forEach(([id]) => all[id] = idsOf(id));
+  return [
+    ST({ note: "Same page, same data. This time the app asks for <b>everything in one query</b> with a JOIN (lesson 02)." }),
+    ST({ line: [0, 1, 2, 3, 4], phase: "wait", q: 1, trips: [trip(t, null)], note: "Query 1 goes out. It asks for every store <b>joined</b> with its orders. <code>LEFT JOIN</code> keeps stores that have no orders." }),
+    ST({ line: [0, 1, 2, 3, 4], phase: "db", q: 1, rows: 9, trips: [trip(t, "9 rows")], res: { cols: ["store_id", "name", "order_id", "total_cents"], rows: JOIN_ROWS, repeats: true },
+      note: "Postgres matches stores and orders inside the database and sends back <b>9 rows</b> in one answer. Look at the red names: <b>Alpha comes back 3 times</b>, once per order. Elang comes back once, with NULL for the order." }),
+    ST({ line: [5], phase: "app", q: 1, rows: 9, trips: [trip(t, "9 rows")], res: { cols: ["store_id", "name", "order_id", "total_cents"], rows: JOIN_ROWS, repeats: true }, mem: memStores(all),
+      note: "The app walks over the 9 rows and groups them by <code>store_id</code>. Rows with the same store go together. The NULL row for Elang becomes an empty list." }),
+    ST({ line: [6], phase: "done", q: 1, rows: 9, trips: [trip(t, "9 rows")], mem: memStores(all),
+      note: "Done. <b>1 query</b> instead of 6. The cost: the store columns are repeated for every order. With wide store rows and many orders, that repeated data gets big (picture 2e in the lesson)." })
+  ];
+}
+
+// ---------------------------------------------------------------- 3. IN batch
+function buildBatch() {
+  const t1 = "SELECT id, name FROM l12_stores", t2 = "SELECT ... WHERE store_id = ANY([1,2,3,4,5])";
+  const all = {};
+  STORES.forEach(([id]) => all[id] = idsOf(id));
+  const none = {};
+  return [
+    ST({ note: "Same page. This time the app sends <b>one query for the list</b>, and <b>one query for all the orders</b>." }),
+    ST({ line: [0], phase: "wait", q: 1, trips: [trip(t1, null)], note: "Query 1 goes out: give me the stores." }),
+    ST({ line: [0], phase: "db", q: 1, rows: 5, trips: [trip(t1, "5 rows")], res: resStores, mem: memStores(none), note: "5 stores come back. Their orders are not known yet." }),
+    ST({ line: [1], phase: "app", q: 1, rows: 5, trips: [trip(t1, "5 rows")], res: resStores, mem: memStores(none),
+      note: "The app does <b>not</b> loop over Postgres. It only collects the ids in its own memory: <code>[1, 2, 3, 4, 5]</code>. No trip happens here." }),
+    ST({ line: [2, 3], phase: "wait", q: 2, rows: 5, trips: [trip(t1, "5 rows"), trip(t2, null)], mem: memStores(none),
+      note: "Query 2 goes out with <b>the whole list as one parameter</b>: <code>store_id = ANY($1)</code>. <code>IN (1, 2, 3, 4, 5)</code> gives the same rows." }),
+    ST({ line: [2, 3], phase: "db", q: 2, rows: 13, trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], res: { cols: ["id", "store_id", "total_cents"], rows: BATCH_ROWS }, mem: memStores(none),
+      note: "8 orders come back in <b>one</b> answer. Look at the order: they are <b>mixed</b> (store 1, 1, 2, 1, 3 ...). Postgres does not group them for you." }),
+    ST({ line: [4], phase: "app", q: 2, rows: 13, trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], res: { cols: ["id", "store_id", "total_cents"], rows: BATCH_ROWS }, mem: memStores(none),
+      note: "The app sorts the rows into a Map by <code>store_id</code>: 1 has orders 1, 2, 4. 2 has 3, 6. 3 has 5, 8. 4 has 7. There is <b>no key 5</b>." }),
+    ST({ line: [5], phase: "app", q: 2, rows: 13, trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], mem: memStores(all),
+      note: "Each store takes its list from the Map. Elang is not in the Map, so <code>?? []</code> gives it an <b>empty list</b>. Forget this, and Elang gets <code>undefined</code>." }),
+    ST({ line: [6], phase: "done", q: 2, rows: 13, trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], mem: memStores(all),
+      note: "Done. <b>2 queries</b>, for 5 stores or for 100 stores. This is also what Prisma <code>include</code> does when it uses the <code>query</code> strategy: one query per table, joined in the app." })
+  ];
+}
+
+// ---------------------------------------------------------------- 4. DataLoader
+function buildLoader() {
+  const t1 = "SELECT id, name FROM l12_stores", t2 = "SELECT ... WHERE store_id = ANY([1,2,3,4,5])";
+  const steps = [];
+  const filled = {};
+  steps.push(ST({ basket: [], note: "A GraphQL server gets <code>{ stores { name orders { id } } }</code>. GraphQL calls the <b>orders resolver once for every store</b>. Without help, that is N+1 again. A <b>new loader</b> is made for this request." }));
+  steps.push(ST({ line: [9], phase: "wait", q: 1, basket: [], trips: [trip(t1, null)], note: "The <code>stores</code> resolver sends query 1." }));
+  steps.push(ST({ line: [9], phase: "db", q: 1, rows: 5, basket: [], trips: [trip(t1, "5 rows")], res: resStores, mem: memStores(filled), note: "5 stores come back. Now GraphQL must fill <code>orders</code> for each of them." }));
+  const keys = [];
+  STORES.forEach(([id, name], i) => {
+    keys.push(id); filled[id] = "wait";
+    steps.push(ST({ line: [8], phase: "loader", q: 1, rows: 5, basket: keys.slice(), trips: [trip(t1, "5 rows")], mem: memStores(filled),
+      note: "GraphQL calls the resolver for <b>" + name + "</b>. It calls <code>ordersLoader.load(" + id + ")</code>. The loader puts key <b>" + id + "</b> in its waiting list and gives back a promise. <b>No query is sent.</b> The counter stays at 1." }));
+  });
+  steps.push(ST({ line: [1, 2, 3], phase: "wait", q: 2, rows: 5, basket: keys.slice(), trips: [trip(t1, "5 rows"), trip(t2, null)], mem: memStores(filled),
+    note: "The running code is finished: this <b>tick</b> is over. Now the loader wakes up. It calls the batch function <b>once</b> with all the keys <code>[1, 2, 3, 4, 5]</code>. Query 2 goes out." }));
+  steps.push(ST({ line: [3], phase: "db", q: 2, rows: 13, basket: keys.slice(), trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], res: { cols: ["id", "store_id", "total_cents"], rows: BATCH_ROWS }, mem: memStores(filled),
+    note: "8 orders come back, mixed together, in one answer." }));
+  steps.push(ST({ line: [4, 5], phase: "loader", q: 2, rows: 13, basket: keys.slice(), trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], res: { cols: ["id", "store_id", "total_cents"], rows: BATCH_ROWS }, mem: memStores(filled),
+    note: "The batch function groups the rows by store and returns <b>5 lists, in the same order as the 5 keys</b>. Key 5 gets <code>[]</code>. This order rule is the one promise DataLoader asks you to keep." }));
+  STORES.forEach(([id]) => filled[id] = idsOf(id));
+  steps.push(ST({ line: [8], phase: "app", q: 2, rows: 13, basket: [], trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], mem: memStores(filled),
+    note: "The loader gives each waiting promise its own list. All 5 resolvers finish at once. The waiting list is empty again." }));
+  steps.push(ST({ phase: "done", q: 2, rows: 13, basket: [], trips: [trip(t1, "5 rows"), trip(t2, "8 rows")], mem: memStores(filled),
+    note: "Done. <b>2 queries</b>, and each resolver still only thinks about its own store. Checked with the real <code>dataloader</code> and <code>graphql</code> packages: without the loader this query sent 6 queries, with it 2." }));
+  return steps;
+}
+
+// ---------------------------------------------------------------- 5. Prisma join and Hasura
+function buildJson() {
+  const t = "SELECT s.id, s.name, o.orders FROM l12_stores s LEFT JOIN LATERAL (... jsonb_agg ...)";
+  const all = {};
+  STORES.forEach(([id]) => all[id] = idsOf(id));
+  const res = { cols: ["id", "name", "orders"], rows: JSON_ROWS };
+  return [
+    ST({ note: "Prisma with <code>relationLoadStrategy: \"join\"</code>, and Hasura for any nested query, do this: they write <b>one</b> SQL query that packs each store's orders into a JSON list inside Postgres. The SQL on the left is the same shape, written by hand." }),
+    ST({ line: [2, 3, 4, 5, 6, 7, 8, 9, 10], phase: "wait", q: 1, trips: [trip(t, null)], note: "One query goes out." }),
+    ST({ line: [4, 5, 6, 7, 8, 9], phase: "db", q: 1, trips: [trip(t, null)],
+      note: "Inside Postgres, for each store, the LATERAL part finds that store's orders and packs them with <code>jsonb_agg</code> into one JSON list. All this work happens <b>inside the database</b>, with no trips." }),
+    ST({ line: [2, 3, 4, 5, 6, 7, 8, 9, 10], phase: "db", q: 1, rows: 5, trips: [trip(t, "5 rows")], res,
+      note: "<b>5 rows</b> come back: one per store, already nested. Alpha appears once, not 3 times. Elang gets <code>[]</code> from <code>COALESCE</code>." }),
+    ST({ phase: "done", q: 1, rows: 5, trips: [trip(t, "5 rows")], mem: memStores(all),
+      note: "Done. <b>1 query</b>, and no repeated store columns. The cost: Postgres does the JSON work, and one big query is harder to read and tune. Hasura's <code>/v1/graphql/explain</code> shows you the SQL it made." })
+  ];
+}
+
+const PRESETS = [
+  { name: "The N+1 loop", answer: 6,
+    why: "1 query for the list of stores, then 1 query for every store inside the loop: 1 + 5 = 6.",
+    code: [
+      'const stores = await db.query("SELECT id, name FROM l12_stores ORDER BY id");',
+      'for (const s of stores) {',
+      '  s.orders = await db.query(',
+      '    "SELECT id, total_cents FROM l12_orders WHERE store_id = $1", [s.id]);',
+      '}',
+      'render(stores);'
+    ], steps: buildLoop() },
+  { name: "Fix 1: one JOIN", answer: 1,
+    why: "The JOIN happens inside Postgres, so the app sends one query and groups the rows itself.",
+    code: [
+      'const rows = await db.query(`',
+      '  SELECT s.id AS store_id, s.name, o.id AS order_id, o.total_cents',
+      '  FROM l12_stores s',
+      '  LEFT JOIN l12_orders o ON o.store_id = s.id',
+      '  ORDER BY s.id, o.id`);',
+      'const stores = groupRowsByStore(rows);   // your own small loop',
+      'render(stores);'
+    ], steps: buildJoin() },
+  { name: "Fix 2: IN batch", answer: 2,
+    why: "1 query for the stores, 1 query for all their orders. The count does not grow with the number of stores.",
+    code: [
+      'const stores = await db.query("SELECT id, name FROM l12_stores ORDER BY id");',
+      'const ids = stores.map(s => s.id);                       // [1, 2, 3, 4, 5]',
+      'const orders = await db.query(',
+      '  "SELECT id, store_id, total_cents FROM l12_orders WHERE store_id = ANY($1)", [ids]);',
+      'const byStore = Map.groupBy(orders, o => o.store_id);',
+      'for (const s of stores) s.orders = byStore.get(s.id) ?? [];',
+      'render(stores);'
+    ], steps: buildBatch() },
+  { name: "Fix 3: DataLoader", answer: 2,
+    why: "Each resolver calls load(), but the loader waits until the tick is over and sends all the keys in one query. 1 for the stores + 1 batch = 2.",
+    code: [
+      '// made once per request',
+      'const ordersLoader = new DataLoader(async (storeIds) => {',
+      '  const orders = await db.query(',
+      '    "SELECT id, store_id, total_cents FROM l12_orders WHERE store_id = ANY($1)", [storeIds]);',
+      '  const byStore = Map.groupBy(orders, o => o.store_id);',
+      '  return storeIds.map(id => byStore.get(id) ?? []);   // same order as the keys',
+      '});',
+      '// GraphQL calls this once for every store:',
+      'const resolveOrders = (store) => ordersLoader.load(store.id);',
+      '// and this once for the list:  SELECT id, name FROM l12_stores'
+    ], steps: buildLoader() },
+  { name: "Prisma join and Hasura", answer: 1,
+    why: "Prisma's join strategy and Hasura both build one SQL query that nests the orders as JSON inside Postgres.",
+    code: [
+      '// Prisma: findMany({ relationLoadStrategy: "join", include: { orders: true } })',
+      '// Hasura: query { stores { name orders { id total_cents } } }',
+      'SELECT s.id, s.name, o.orders',
+      'FROM l12_stores s',
+      'LEFT JOIN LATERAL (',
+      '  SELECT COALESCE(jsonb_agg(jsonb_build_object(',
+      "           'id', x.id, 'total_cents', x.total_cents) ORDER BY x.id), '[]') AS orders",
+      '  FROM l12_orders x',
+      '  WHERE x.store_id = s.id',
+      ') o ON true',
+      'ORDER BY s.id;'
+    ], steps: buildJson() }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, prevTrips = 0;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function renderCode(lines) {
+  const on = new Set(lines || []);
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (on.has(i) ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderTrips(trips) {
+  let h = '<div class="lane-head app">App</div><div></div><div class="lane-head db">Postgres</div>';
+  if (!trips.length) h += '<div class="trip"><div></div><div class="empty">no trips yet</div><div></div></div>';
+  trips.forEach((t, i) => {
+    const last = i === trips.length - 1;
+    h += '<div class="trip' + (last ? " now" : "") + (i >= prevTrips ? " pop" : "") + '"><div class="n">#' + (i + 1) + '</div><div class="arrows">' +
+      '<div class="go">→ ' + esc(t.sql) + "</div>" +
+      (t.back ? '<div class="back">← ' + esc(t.back) + "</div>" : '<div class="back wait">… the app waits</div>') +
+      '</div><div class="d">' + (t.back ? "answered" : "working") + "</div></div>";
+  });
+  $("lanes").innerHTML = h;
+  prevTrips = trips.length;
+}
+function renderRes(res) {
+  if (!res) { $("res").innerHTML = '<span class="empty">nothing on screen</span>'; return; }
+  const seen = new Set();
+  let h = '<table class="res"><tr>' + res.cols.map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>";
+  res.rows.forEach(r => {
+    const rep = res.repeats && seen.has(r[0]); seen.add(r[0]);
+    h += '<tr class="' + (rep ? "repeat" : "") + '">' + r.map((v, j) =>
+      '<td class="' + (v === null ? "null" : "") + (res.repeats && j === 1 ? " name" : "") + '">' + (v === null ? "NULL" : esc(v)) + "</td>").join("") + "</tr>";
+  });
+  h += "</table><div class='empty'>(" + res.rows.length + (res.rows.length === 1 ? " row)" : " rows)") + "</div>";
+  $("res").innerHTML = h;
+}
+function renderMem(mem) {
+  if (!mem.length) { $("stores").innerHTML = '<span class="empty">the page has no data yet</span>'; return; }
+  $("stores").innerHTML = mem.map(([name, o]) => {
+    let cls = "store", txt;
+    if (o === null) { txt = "orders: ?"; }
+    else if (o === "wait") { cls += " wait"; txt = "orders: waiting…"; }
+    else if (!o.length) { cls += " none"; txt = "orders: [] (none)"; }
+    else txt = "orders: " + o.join(", ");
+    return '<div class="' + cls + '"><b>' + esc(name) + '</b><span class="o">' + esc(txt) + "</span></div>";
+  }).join("");
+}
+function renderBasket(b) {
+  const show = PRESETS[cur].steps.some(s => s.basket !== null);
+  $("basketPanel").style.display = show ? "block" : "none";
+  if (!show) return;
+  $("basket").innerHTML = b && b.length ? b.map(k => '<span class="k">' + k + "</span>").join("") : '<span class="empty">empty</span>';
+}
+const BADGE = { app: ["The app is working", "app"], wait: ["The app waits for Postgres", "wait"], db: ["Postgres answered", "db"], loader: ["DataLoader is collecting", "loader"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  renderTrips(s.trips);
+  renderRes(s.res);
+  renderMem(s.mem);
+  renderBasket(s.basket);
+  $("nQ").textContent = s.q;
+  $("nR").textContent = s.rows;
+  $("cQ").className = s.q > 2 ? "" : "good";
+  const b = BADGE[s.phase] || BADGE.app;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const real = PRESETS[cur].answer;
+  const why = "<br><b>Why:</b> " + PRESETS[cur].why;
+  const guess = $("guess").value.trim();
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Queries sent: " + real + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = Number(guess) === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The real number is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and count the arrows going to the right.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0; prevTrips = 0;
+  $("guess").value = "";
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); if (d < 0) prevTrips = 999; render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; prevTrips = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 1900);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; prevTrips = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>

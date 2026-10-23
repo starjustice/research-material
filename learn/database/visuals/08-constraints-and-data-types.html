@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constraints and Data Types Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --pass: #1f7a4d; --pass-bg: #e3f5ea;
+    --fail: #c0392b; --fail-bg: #fdecea;
+    --wait: #6b7a86; --wait-bg: #f1eee7;
+    --now: #b7791f; --now-bg: #fdf0d2;
+    --blue: #2563a8; --blue-bg: #e3eefe;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 280px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .panel + .panel { margin-top: 12px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .78rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .rules { margin: 0 0 10px; font-family: ui-monospace, Menlo, monospace; font-size: .74rem; background: #f6f2e8; border-radius: 8px; padding: 8px 10px; white-space: pre; overflow-x: auto; color: #44515c; }
+
+  .gates { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .gate { border: 2px solid; border-radius: 10px; padding: 5px 10px; font-size: .8rem; font-weight: 700; }
+  .gate small { display: block; font-weight: 500; font-size: .7rem; }
+  .gate.wait { color: var(--wait); background: var(--wait-bg); border-color: #d6d0c4; }
+  .gate.now  { color: var(--now);  background: var(--now-bg);  border-color: var(--now); }
+  .gate.pass { color: var(--pass); background: var(--pass-bg); border-color: var(--pass); }
+  .gate.fail { color: var(--fail); background: var(--fail-bg); border-color: var(--fail); }
+  .gate.skip { color: var(--wait); background: #fff; border-color: #e3ddd1; border-style: dashed; opacity: .6; }
+  .arrow { color: var(--muted); font-weight: 700; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip2 { background: var(--blue-bg); color: var(--blue); border: 1.5px solid var(--blue); border-radius: 8px; padding: 3px 9px; font-size: .78rem; font-weight: 650; font-family: ui-monospace, Menlo, monospace; }
+
+  table.t { border-collapse: collapse; width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: .76rem; }
+  table.t th, table.t td { border: 1px solid var(--border); padding: 3px 6px; text-align: left; white-space: nowrap; }
+  table.t th { background: #f6f2e8; }
+  table.t tr.new td { background: var(--pass-bg); animation: pop .4s ease; }
+  table.t tr.dim td { color: #9aa6af; }
+  @keyframes pop { from { opacity: 0; } to { opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; margin-top: 12px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .line { color: #e8f0f5; font-family: ui-monospace, Menlo, monospace; font-size: .76rem; white-space: pre-wrap; word-break: break-word; }
+  .outbox .line.err { color: #ffb4aa; }
+  .outbox .line.ok { color: #a6e3b8; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: var(--blue); } .badge.error { background: var(--fail); }
+  .badge.saved { background: var(--pass); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--pass); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../08-constraints-and-data-types.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Constraints and data types stepper</h1>
+  <p class="sub">Press Next. Each INSERT walks through the rule gates from left to right. One red gate, and Postgres saves nothing. Every output here came from a real Postgres run.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> <span id="ask"></span><br>
+    <input id="guess" placeholder="your answer" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>The table and its rules</h2>
+        <div class="rules" id="rules"></div>
+        <h2>Your SQL</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2 id="gatesTitle">Rule gates for this statement</h2>
+        <div class="gates" id="gates"></div>
+        <div class="chips" id="chips"></div>
+      </div>
+      <div class="panel">
+        <h2 id="tableTitle">Rows in the table now</h2>
+        <div id="table"></div>
+        <div class="outbox"><h3>What psql prints</h3><div id="out"></div></div>
+      </div>
+      <div class="key">
+        <span class="gate wait">waiting</span> <span class="gate now">checking</span> <span class="gate pass">passed</span> <span class="gate fail">refused</span> <span class="gate skip">not reached</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="loop-line">Postgres: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> every program that writes to the table goes through the same gates: <b>DEFAULT</b> fills empty columns, then <b>NOT NULL</b>, then <b>CHECK</b>, then <b>UNIQUE</b>. One refused gate means an ERROR and nothing is saved. The id counter still moves. <b>timestamptz</b> stores one moment in UTC and only <b>shows</b> it in your session time zone.</p>
+  <p class="legend"><b>Words on this page:</b> <b>constraint</b> = a rule on a column that Postgres checks on every write. <b>DEFAULT</b> = the value Postgres uses when you leave a column out. <b>UTC</b> = the world's base clock, with no offset. <b>session time zone</b> = a setting on your connection that decides how times are shown. <b>partial unique index</b> = a unique rule that checks only some rows.</p>
+</div>
+
+<script>
+// ---- Small builders. A step is one snapshot. ----
+// gates: array of [name, state, small text]. state: wait now pass fail skip
+const G = (name, s, small = "") => ({ name, s, small });
+const ST = (o) => Object.assign({ line: null, phase: "run", gates: null, chips: [], rows: [], newRow: -1, out: [] }, o);
+const OK = t => ({ t, k: "ok" });
+const ER = t => ({ t, k: "err" });
+const TX = t => ({ t, k: "" });
+
+const ORDER_COLS = ["id", "store_id", "ref", "status", "total_cents"];
+const R1 = [1, 1, "A-1", "PENDING", 150000];
+const R6 = [6, 2, "A-5", "PAID", 5000];
+const W = (s1, s2, s3, s4) => [G("DEFAULT", s1), G("NOT NULL", s2), G("CHECK", s3), G("UNIQUE", s4)];
+
+const PRESETS = [
+  // ---------------------------------------------------------------- 1
+  {
+    name: "Six inserts meet the rules",
+    ask: "Which line numbers fail? Write them with spaces, for example 1 2.",
+    answers: ["2 3 4 5"],
+    real: "Lines 2 3 4 5 fail. Lines 1 and 6 are saved.",
+    why: "line 2 has no store_id (NOT NULL), line 3 repeats ref A-1 (UNIQUE), line 4 has a total below 0 (CHECK), line 5 writes lowercase paid, which is not in the list (CHECK).",
+    rules:
+"CREATE TABLE l08_orders (\n  id          serial PRIMARY KEY,\n  store_id    int    NOT NULL,\n  ref         text   NOT NULL UNIQUE,\n  status      text   NOT NULL DEFAULT 'PENDING'\n              CHECK (status IN ('PENDING','PAID','SHIPPED',\n                                'DELIVERED','CANCELLED')),\n  total_cents bigint NOT NULL CHECK (total_cents >= 0)\n);",
+    cols: ORDER_COLS,
+    code: [
+      "INSERT INTO l08_orders (store_id, ref, total_cents) VALUES (1, 'A-1', 150000);",
+      "INSERT INTO l08_orders (store_id, ref, total_cents) VALUES (NULL, 'A-2', 5000);",
+      "INSERT INTO l08_orders (store_id, ref, total_cents) VALUES (2, 'A-1', 5000);",
+      "INSERT INTO l08_orders (store_id, ref, total_cents) VALUES (2, 'A-3', -500);",
+      "INSERT INTO l08_orders (store_id, ref, status, total_cents) VALUES (2, 'A-4', 'paid', 5000);",
+      "INSERT INTO l08_orders (store_id, ref, status, total_cents) VALUES (2, 'A-5', 'PAID', 5000);",
+      "SELECT * FROM l08_orders;"
+    ],
+    steps: [
+      ST({ phase: "ready", note: "The table is empty. It has rules on every column. The id counter has not been used yet. Press Next to send the first INSERT.", gates: W("wait","wait","wait","wait"), chips: ["id counter: not used"] }),
+      ST({ line: 0, note: "Line 1. Postgres takes id <b>1</b> from the counter. You left out <code>status</code>, so the DEFAULT gate fills it with <b>PENDING</b>.", gates: W("pass","now","wait","wait"), chips: ["id counter: 1"] }),
+      ST({ line: 0, phase: "saved", note: "NOT NULL passes: every required column has a value. CHECK passes: <code>PENDING</code> is in the list and <code>150000 &gt;= 0</code>. UNIQUE passes: <code>A-1</code> is new. Postgres saves the row.", gates: W("pass","pass","pass","pass"), chips: ["id counter: 1"], rows: [R1], newRow: 0, out: [OK("INSERT 0 1")] }),
+      ST({ line: 1, phase: "error", note: "Line 2. Postgres takes id <b>2</b>. DEFAULT fills status. Then NOT NULL finds that <code>store_id</code> is empty. <b>Refused.</b> Postgres stops here, so the later gates never run.", gates: W("pass","fail","skip","skip"), chips: ["id counter: 2"], rows: [R1], out: [OK("INSERT 0 1"), ER('ERROR:  null value in column "store_id" of relation "l08_orders" violates not-null constraint'), ER("DETAIL:  Failing row contains (2, null, A-2, PENDING, 5000).")] }),
+      ST({ line: 2, phase: "error", note: "Line 3. Postgres takes id <b>3</b>. DEFAULT, NOT NULL and CHECK pass. UNIQUE finds that <code>A-1</code> is already in the table. <b>Refused.</b>", gates: W("pass","pass","pass","fail"), chips: ["id counter: 3"], rows: [R1], out: [OK("INSERT 0 1"), ER("ERROR:  ... not-null constraint"), ER('ERROR:  duplicate key value violates unique constraint "l08_orders_ref_key"'), ER("DETAIL:  Key (ref)=(A-1) already exists.")] }),
+      ST({ line: 3, phase: "error", note: "Line 4. Postgres takes id <b>4</b>. The CHECK <code>total_cents &gt;= 0</code> gives false for <b>-500</b>. <b>Refused.</b> Without this rule, the bug from picture 2b would be saved.", gates: W("pass","pass","fail","skip"), chips: ["id counter: 4"], rows: [R1], out: [OK("INSERT 0 1"), ER("ERROR:  ... not-null constraint"), ER("ERROR:  ... unique constraint"), ER('ERROR:  new row for relation "l08_orders" violates check constraint "l08_orders_total_cents_check"'), ER("DETAIL:  Failing row contains (4, 2, A-3, PENDING, -500).")] }),
+      ST({ line: 4, phase: "error", note: "Line 5. Postgres takes id <b>5</b>. You sent <code>status</code>, so DEFAULT does nothing. The CHECK compares text exactly. <b>paid</b> is not <b>PAID</b>. <b>Refused.</b>", gates: W("pass","pass","fail","skip"), chips: ["id counter: 5"], rows: [R1], out: [OK("INSERT 0 1"), ER("ERROR:  ... not-null constraint"), ER("ERROR:  ... unique constraint"), ER("ERROR:  ... l08_orders_total_cents_check"), ER('ERROR:  new row for relation "l08_orders" violates check constraint "l08_orders_status_check"'), ER("DETAIL:  Failing row contains (5, 2, A-4, paid, 5000).")] }),
+      ST({ line: 5, phase: "saved", note: "Line 6. Postgres takes id <b>6</b>. Every gate passes. The row is saved with id 6, not id 2. Ids 2 to 5 were used up by the refused rows.", gates: W("pass","pass","pass","pass"), chips: ["id counter: 6"], rows: [R1, R6], newRow: 1, out: [OK("INSERT 0 1"), ER("ERROR:  ... not-null constraint"), ER("ERROR:  ... unique constraint"), ER("ERROR:  ... l08_orders_total_cents_check"), ER("ERROR:  ... l08_orders_status_check"), OK("INSERT 0 1")] }),
+      ST({ line: 6, phase: "done", note: "Line 7 reads the table. Only <b>2 rows</b>: id 1 and id 6. Four bad rows never got in. The gap in the ids is normal. Never count rows with ids.", gates: W("skip","skip","skip","skip"), chips: ["id counter: 6"], rows: [R1, R6], out: [TX(" id | store_id | ref | status  | total_cents"), TX("  1 |        1 | A-1 | PENDING |      150000"), TX("  6 |        2 | A-5 | PAID    |        5000"), TX("(2 rows)")] })
+    ]
+  },
+  // ---------------------------------------------------------------- 2
+  {
+    name: "DEFAULT against NULL",
+    ask: "Which line number fails? Write the number.",
+    answers: ["2"],
+    real: "Only line 2 fails.",
+    why: "DEFAULT is used only when you give no value, or when you write the word DEFAULT. NULL is a value you gave, so NOT NULL refuses it.",
+    rules: "CREATE TABLE l08_d (\n  id     serial PRIMARY KEY,\n  status text NOT NULL DEFAULT 'PENDING',\n  note   text\n);",
+    cols: ["id", "status", "note"],
+    code: [
+      "INSERT INTO l08_d (note) VALUES ('left out');",
+      "INSERT INTO l08_d (status, note) VALUES (NULL, 'sent NULL');",
+      "INSERT INTO l08_d (status, note) VALUES (DEFAULT, 'wrote DEFAULT');",
+      "INSERT INTO l08_d (status, note) VALUES ('PAID', 'sent PAID');",
+      "SELECT * FROM l08_d;"
+    ],
+    steps: [
+      ST({ phase: "ready", note: "The table is empty. <code>status</code> is required, and its DEFAULT is <b>PENDING</b>.", gates: [G("DEFAULT","wait"), G("NOT NULL","wait")], chips: ["id counter: not used"] }),
+      ST({ line: 0, phase: "saved", note: "Line 1 leaves <code>status</code> out. The DEFAULT gate fills it with <b>PENDING</b>. NOT NULL passes. Saved as id 1.", gates: [G("DEFAULT","pass","filled PENDING"), G("NOT NULL","pass")], chips: ["id counter: 1"], rows: [[1, "PENDING", "left out"]], newRow: 0, out: [OK("INSERT 0 1")] }),
+      ST({ line: 1, phase: "error", note: "Line 2 <b>sends</b> NULL. You gave a value, so DEFAULT does nothing. NOT NULL sees an empty status. <b>Refused.</b> Id 2 is used up.", gates: [G("DEFAULT","skip","you sent a value"), G("NOT NULL","fail")], chips: ["id counter: 2"], rows: [[1, "PENDING", "left out"]], out: [OK("INSERT 0 1"), ER('ERROR:  null value in column "status" of relation "l08_d" violates not-null constraint'), ER("DETAIL:  Failing row contains (2, null, sent NULL).")] }),
+      ST({ line: 2, phase: "saved", note: "Line 3 writes the word <code>DEFAULT</code>. That means: use the default. Postgres fills <b>PENDING</b>. Saved as id 3.", gates: [G("DEFAULT","pass","filled PENDING"), G("NOT NULL","pass")], chips: ["id counter: 3"], rows: [[1, "PENDING", "left out"], [3, "PENDING", "wrote DEFAULT"]], newRow: 1, out: [OK("INSERT 0 1"), ER("ERROR:  ... not-null constraint"), OK("INSERT 0 1")] }),
+      ST({ line: 3, phase: "saved", note: "Line 4 sends <b>PAID</b>. The DEFAULT is not needed. Saved as id 4.", gates: [G("DEFAULT","skip","you sent a value"), G("NOT NULL","pass")], chips: ["id counter: 4"], rows: [[1, "PENDING", "left out"], [3, "PENDING", "wrote DEFAULT"], [4, "PAID", "sent PAID"]], newRow: 2, out: [OK("INSERT 0 1"), ER("ERROR:  ... not-null constraint"), OK("INSERT 0 1"), OK("INSERT 0 1")] }),
+      ST({ line: 4, phase: "done", note: "Three rows. In Prisma, <code>undefined</code> leaves the field out, like line 1. <code>null</code> sends NULL, like line 2.", gates: [G("DEFAULT","skip"), G("NOT NULL","skip")], chips: ["id counter: 4"], rows: [[1, "PENDING", "left out"], [3, "PENDING", "wrote DEFAULT"], [4, "PAID", "sent PAID"]], out: [TX(" id | status  | note"), TX("  1 | PENDING | left out"), TX("  3 | PENDING | wrote DEFAULT"), TX("  4 | PAID    | sent PAID"), TX("(3 rows)")] })
+    ]
+  },
+  // ---------------------------------------------------------------- 3
+  {
+    name: "One moment, two clocks",
+    ask: "At step 4 the zone is Asia/Jakarta. What time does with_tz show for the Sydney row? Write it like 09:00.",
+    answers: ["09:00", "9:00", "09:00:00", "09:00:00+07", "9"],
+    real: "09:00:00+07",
+    why: "both payments happened at the same moment, 02:00 UTC. timestamptz stores that moment and shows it in the session time zone. plain timestamp threw the offsets away, so it still shows 13:00 for Sydney.",
+    rules: "CREATE TABLE l08_times (\n  label   text,\n  plain   timestamp,     -- no time zone\n  with_tz timestamptz    -- with time zone\n);",
+    cols: ["label", "plain", "with_tz shown"],
+    gatesTitle: "What Postgres stores",
+    code: [
+      "INSERT INTO l08_times VALUES ('paid in Jakarta',",
+      "  '2026-10-16 09:00:00+07', '2026-10-16 09:00:00+07');",
+      "INSERT INTO l08_times VALUES ('paid in Sydney',",
+      "  '2026-10-16 13:00:00+11', '2026-10-16 13:00:00+11');",
+      "SET timezone = 'UTC';",
+      "SELECT label, plain, with_tz FROM l08_times;",
+      "SET timezone = 'Asia/Jakarta';",
+      "SELECT label, plain, with_tz FROM l08_times;",
+      "SET timezone = 'Australia/Sydney';",
+      "SELECT label, plain, with_tz FROM l08_times;"
+    ],
+    steps: [
+      ST({ phase: "ready", note: "Two apps pay at the <b>same moment</b>. One is in Jakarta (UTC plus 7). One is in Sydney (UTC plus 11 in October). Each sends its own clock time with its offset.", gates: [], chips: ["session zone: Asia/Jakarta"] }),
+      ST({ line: 0, phase: "saved", note: "Jakarta row. For <code>plain</code>, Postgres throws the <code>+07</code> away and keeps <b>09:00</b>. For <code>with_tz</code>, it subtracts 7 hours and stores <b>02:00 UTC</b>.", gates: [G("plain", "pass", "09:00, offset thrown away"), G("with_tz", "pass", "02:00 UTC")], chips: ["session zone: Asia/Jakarta"], rows: [["paid in Jakarta", "2026-10-16 09:00:00", "(stored 02:00 UTC)"]], newRow: 0, out: [OK("INSERT 0 1")] }),
+      ST({ line: 2, phase: "saved", note: "Sydney row. <code>plain</code> keeps <b>13:00</b>. <code>with_tz</code> subtracts 11 hours: <b>02:00 UTC</b>. The same stored value as Jakarta, because it is the same moment.", gates: [G("plain", "pass", "13:00, offset thrown away"), G("with_tz", "pass", "02:00 UTC")], chips: ["session zone: Asia/Jakarta"], rows: [["paid in Jakarta", "2026-10-16 09:00:00", "(stored 02:00 UTC)"], ["paid in Sydney", "2026-10-16 13:00:00", "(stored 02:00 UTC)"]], newRow: 1, out: [OK("INSERT 0 1"), OK("INSERT 0 1")] }),
+      ST({ line: 5, phase: "run", note: "Session zone <b>UTC</b>. Postgres shows the stored value with no change: <b>02:00+00</b> twice. <code>plain</code> shows the clock numbers it kept.", gates: [G("with_tz stored", "pass", "02:00 UTC for both")], chips: ["session zone: UTC"], rows: [["paid in Jakarta", "2026-10-16 09:00:00", "2026-10-16 02:00:00+00"], ["paid in Sydney", "2026-10-16 13:00:00", "2026-10-16 02:00:00+00"]], out: [TX("     label       |        plain        |        with_tz"), TX(" paid in Jakarta | 2026-10-16 09:00:00 | 2026-10-16 02:00:00+00"), TX(" paid in Sydney  | 2026-10-16 13:00:00 | 2026-10-16 02:00:00+00")] }),
+      ST({ line: 7, phase: "run", note: "Session zone <b>Asia/Jakarta</b>. Postgres adds 7 hours only for showing: <b>09:00+07</b> twice. The stored value did not change. <code>plain</code> still says 09:00 and 13:00, as if they were 4 hours apart.", gates: [G("with_tz stored", "pass", "02:00 UTC for both")], chips: ["session zone: Asia/Jakarta"], rows: [["paid in Jakarta", "2026-10-16 09:00:00", "2026-10-16 09:00:00+07"], ["paid in Sydney", "2026-10-16 13:00:00", "2026-10-16 09:00:00+07"]], out: [TX(" paid in Jakarta | 2026-10-16 09:00:00 | 2026-10-16 09:00:00+07"), TX(" paid in Sydney  | 2026-10-16 13:00:00 | 2026-10-16 09:00:00+07")] }),
+      ST({ line: 9, phase: "done", note: "Session zone <b>Australia/Sydney</b>: <b>13:00+11</b> twice. One stored moment, three ways to show it. <code>plain</code> never changes, so you cannot tell which zone its numbers came from.", gates: [G("with_tz stored", "pass", "02:00 UTC for both")], chips: ["session zone: Australia/Sydney"], rows: [["paid in Jakarta", "2026-10-16 09:00:00", "2026-10-16 13:00:00+11"], ["paid in Sydney", "2026-10-16 13:00:00", "2026-10-16 13:00:00+11"]], out: [TX(" paid in Jakarta | 2026-10-16 09:00:00 | 2026-10-16 13:00:00+11"), TX(" paid in Sydney  | 2026-10-16 13:00:00 | 2026-10-16 13:00:00+11")] })
+    ]
+  },
+  // ---------------------------------------------------------------- 4
+  {
+    name: "Soft delete",
+    ask: "Which line number fails? Write the number.",
+    answers: ["4"],
+    real: "Only line 4 fails.",
+    why: "the partial unique index checks only rows where deleted_at IS NULL. After line 2, the first Ana is deleted, so she is not checked. Line 3 makes a live Ana. Line 4 would be a second live Ana.",
+    rules: "CREATE TABLE l08_staff (\n  id         serial PRIMARY KEY,\n  email      text NOT NULL,\n  deleted_at timestamptz\n);\nCREATE UNIQUE INDEX l08_staff_email_live\n  ON l08_staff (email) WHERE deleted_at IS NULL;",
+    cols: ["id", "email", "deleted_at"],
+    code: [
+      "INSERT INTO l08_staff (email) VALUES ('ana@toko.id');",
+      "UPDATE l08_staff SET deleted_at = '2026-10-01 10:00:00+07' WHERE id = 1;",
+      "INSERT INTO l08_staff (email) VALUES ('ana@toko.id');",
+      "INSERT INTO l08_staff (email) VALUES ('ana@toko.id');",
+      "SELECT * FROM l08_staff ORDER BY id;"
+    ],
+    steps: [
+      ST({ phase: "ready", note: "Staff are never really deleted. <b>Deleted</b> means <code>deleted_at</code> has a time. The unique rule watches only <b>live</b> rows, where <code>deleted_at</code> is NULL.", gates: [G("NOT NULL","wait"), G("UNIQUE among live rows","wait")], chips: ["live Ana rows: 0"] }),
+      ST({ line: 0, phase: "saved", note: "Line 1. No live row has this email. Saved as id 1.", gates: [G("NOT NULL","pass"), G("UNIQUE among live rows","pass")], chips: ["live Ana rows: 1"], rows: [[1, "ana@toko.id", "NULL"]], newRow: 0, out: [OK("INSERT 0 1")] }),
+      ST({ line: 1, phase: "saved", note: "Line 2 is the soft delete. The row stays in the table, but it now has a time in <code>deleted_at</code>. The unique rule stops watching it.", gates: [G("NOT NULL","pass"), G("UNIQUE among live rows","pass")], chips: ["live Ana rows: 0"], rows: [[1, "ana@toko.id", "2026-10-01 10:00:00+07"]], newRow: 0, out: [OK("INSERT 0 1"), OK("UPDATE 1")] }),
+      ST({ line: 2, phase: "saved", note: "Line 3. Ana comes back. The only other Ana is deleted, so the rule ignores her. Saved as id 2. A normal UNIQUE on email would refuse this.", gates: [G("NOT NULL","pass"), G("UNIQUE among live rows","pass")], chips: ["live Ana rows: 1"], rows: [[1, "ana@toko.id", "2026-10-01 10:00:00+07"], [2, "ana@toko.id", "NULL"]], newRow: 1, out: [OK("INSERT 0 1"), OK("UPDATE 1"), OK("INSERT 0 1")] }),
+      ST({ line: 3, phase: "error", note: "Line 4. Postgres takes id 3. Row 2 is a live Ana already. <b>Refused.</b>", gates: [G("NOT NULL","pass"), G("UNIQUE among live rows","fail")], chips: ["live Ana rows: 1"], rows: [[1, "ana@toko.id", "2026-10-01 10:00:00+07"], [2, "ana@toko.id", "NULL"]], out: [OK("INSERT 0 1"), OK("UPDATE 1"), OK("INSERT 0 1"), ER('ERROR:  duplicate key value violates unique constraint "l08_staff_email_live"'), ER("DETAIL:  Key (email)=(ana@toko.id) already exists.")] }),
+      ST({ line: 4, phase: "done", note: "Two rows: one deleted Ana and one live Ana. Remember to add <code>WHERE deleted_at IS NULL</code> to normal queries too, or deleted rows show up.", gates: [G("NOT NULL","skip"), G("UNIQUE among live rows","skip")], chips: ["live Ana rows: 1"], rows: [[1, "ana@toko.id", "2026-10-01 10:00:00+07"], [2, "ana@toko.id", "NULL"]], out: [TX(" id |    email    |       deleted_at"), TX("  1 | ana@toko.id | 2026-10-01 10:00:00+07"), TX("  2 | ana@toko.id |"), TX("(2 rows)")] })
+    ]
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderGates(s) {
+  const g = s.gates || [];
+  $("gatesTitle").textContent = PRESETS[cur].gatesTitle || "Rule gates for this statement";
+  $("gates").innerHTML = g.length ? g.map((x, i) =>
+    (i ? '<span class="arrow">→</span>' : "") + '<span class="gate ' + x.s + '">' + esc(x.name) + (x.small ? "<small>" + esc(x.small) + "</small>" : "") + "</span>").join("")
+    : '<span class="empty">nothing stored yet</span>';
+  $("chips").innerHTML = s.chips.map(c => '<span class="chip2">' + esc(c) + "</span>").join("");
+}
+function renderTable(s) {
+  const cols = PRESETS[cur].cols;
+  if (!s.rows.length) { $("table").innerHTML = '<span class="empty">no rows yet</span>'; return; }
+  $("table").innerHTML = '<table class="t"><tr>' + cols.map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>" +
+    s.rows.map((r, i) => '<tr class="' + (i === s.newRow ? "new" : "") + '">' + r.map(v => "<td>" + esc(v) + "</td>").join("") + "</tr>").join("") + "</table>";
+}
+function renderOut(items) {
+  $("out").innerHTML = items.length ? items.map(o => '<div class="line ' + o.k + '">' + esc(o.t) + "</div>").join("") : '<span class="empty">nothing printed yet</span>';
+}
+const BADGE = { ready: ["Ready", ""], run: ["Running a statement", "run"], saved: ["Row saved", "saved"], error: ["Refused with an ERROR", "error"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  $("rules").textContent = PRESETS[cur].rules;
+  renderGates(s);
+  renderTable(s);
+  renderOut(s.out);
+  const b = BADGE[s.phase] || BADGE.run;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+const norm = s => s.toLowerCase().replace(/[\s,]+/g, " ").trim();
+function showResult() {
+  const r = $("result"), p = PRESETS[cur];
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(p.real) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = p.answers.some(a => norm(a) === norm(guess));
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The answer is <code>" + esc(p.real) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the gate that turns red.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0;
+  $("guess").value = ""; $("ask").textContent = PRESETS[i].ask;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2200);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+window.__pick = pick; window.__go = go; window.__state = () => ({ cur, idx, n: steps.length });
+pick(0);
+</script>
+</body>
+</html>

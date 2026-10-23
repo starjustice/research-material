@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Composite, Partial and Covering Indexes Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --idx: #3b82f6; --idx-bg: #e3eefe;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --visit: #b7791f; --visit-bg: #fdf0d2;
+    --out: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 160px; max-width: 100%;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .panel + .panel { margin-top: 12px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.75; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .idxdef { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: var(--idx-bg); color: var(--idx);
+    border: 1.5px solid var(--idx); border-radius: 8px; padding: 4px 9px; display: inline-block; margin-bottom: 8px; font-weight: 650; }
+  .entries { display: flex; flex-direction: column; gap: 3px; }
+  .ent {
+    display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--border); border-radius: 8px; padding: 3px 9px;
+    font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #fff; transition: background .2s;
+  }
+  .ent .ptr { width: 1.1em; color: var(--accent); font-weight: 900; }
+  .ent .k { font-weight: 700; }
+  .ent .r { margin-left: auto; color: var(--muted); }
+  .ent .tag { font-family: -apple-system, sans-serif; font-size: .7rem; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+  .ent.now { background: #fff1bf; border-color: var(--accent); }
+  .ent.keep { background: var(--keep-bg); border-color: var(--keep); }
+  .ent.keep .tag { background: var(--keep); color: #fff; }
+  .ent.drop { background: var(--drop-bg); border-color: var(--drop); }
+  .ent.drop .k { text-decoration: line-through; }
+  .ent.drop .tag { background: var(--drop); color: #fff; }
+  .ent.unread { opacity: .4; border-style: dashed; }
+  .ent.gap { margin-top: 6px; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .counters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .cnt { border-radius: 10px; padding: 6px 12px; font-size: .8rem; font-weight: 650; border: 1.5px solid; background: #fff; }
+  .cnt b { font-size: 1.05rem; margin-left: 4px; }
+  .cnt.read { color: var(--idx); border-color: var(--idx); background: var(--idx-bg); }
+  .cnt.visit { color: var(--visit); border-color: var(--visit); background: var(--visit-bg); }
+  .cnt.jump { color: #8b5cf6; border-color: #8b5cf6; background: #efe8fd; }
+
+  .visits { margin-top: 8px; font-size: .8rem; }
+  .visits .chip { display: inline-block; background: var(--visit-bg); border: 1px solid var(--visit); color: var(--visit); border-radius: 8px;
+    padding: 2px 8px; margin: 0 4px 4px 0; font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+
+  .outbox { background: var(--out); border-radius: 12px; padding: 8px 10px 10px; min-height: 64px; margin-top: 12px; }
+  .outbox h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: #9fb4c3; }
+  .outbox .items { display: flex; flex-direction: column; gap: 4px; }
+  .outbox .chip { background: #2b3a45; color: #fff; border: 1px solid #3a4b58; border-radius: 8px; padding: 3px 9px; font-family: ui-monospace, Menlo, monospace; font-size: .84rem; font-weight: 650; }
+  .outbox .empty { color: #7b8f9d; }
+
+  .plan { margin-top: 12px; display: none; }
+  .plan.show { display: block; }
+  .plan pre { margin: 0; background: #f3efe6; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: .76rem; overflow-x: auto; }
+
+  .loop-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .84rem; font-weight: 650; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.plan { background: #8b5cf6; } .badge.jump { background: #8b5cf6; } .badge.read { background: var(--idx); }
+  .badge.visit { background: var(--visit); } .badge.stop { background: var(--drop); } .badge.done { background: var(--ink); }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .key .ent { font-size: .72rem; padding: 1px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md" id="back">← Database lessons</a>
+    <a href="../10-composite-partial-and-covering-indexes.md" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Composite, partial and covering indexes stepper</h1>
+  <p class="sub">The index is a list of entries kept in sorted order. Press Next and watch which entries Postgres reads, which it keeps, and how often it must visit the table. The data is the small table <code>l10_orders</code> (13 orders) from the lesson. Every result and plan on this page came from a real run on PostgreSQL 18.3.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> <span id="ask"></span><br>
+    <input id="guess" placeholder="a number" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your query</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>Work done so far</h2>
+        <div class="counters">
+          <span class="cnt jump">Jumps into the index<b id="cJump">0</b></span>
+          <span class="cnt read">Index entries read<b id="cRead">0</b></span>
+          <span class="cnt visit">Table visits<b id="cVisit">0</b></span>
+        </div>
+        <div class="visits" id="visits"></div>
+        <div class="outbox"><h3>Rows sent back</h3><div class="items" id="out"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The index, in its sorted order</h2>
+      <div class="idxdef" id="idxdef"></div>
+      <div class="entries" id="entries"></div>
+      <div class="key">
+        <span class="ent now">reading now</span>
+        <span class="ent keep">kept</span>
+        <span class="ent drop">read, thrown away</span>
+        <span class="ent unread">never read</span>
+      </div>
+      <div class="plan" id="planBox"><h2 style="margin-top:10px">The plan Postgres 18.3 printed</h2><pre id="plan"></pre></div>
+    </div>
+  </div>
+
+  <div class="loop-line">Postgres: <span class="badge" id="badge">ready</span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> an index on <b>(store_id, created_at)</b> is sorted by store first, then by date inside each store, like a phone book sorted by last name, then first name. Postgres can <b>jump</b> only to a value of the <b>first</b> column. After the jump it reads entries in order and can <b>stop early</b>. A <b>partial</b> index holds only the rows you care about. A <b>covering</b> index carries extra values, so Postgres does not need to visit the table.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Index entry:</b> one line in the index: the key values plus a pointer to the row in the table.</li>
+      <li><b>Jump:</b> Postgres walks down the index tree to the first matching entry. EXPLAIN on Postgres 18 counts these as <b>Index Searches</b>.</li>
+      <li><b>Table visit:</b> Postgres follows the pointer to read the full row from the table. EXPLAIN calls a visit during an Index Only Scan a <b>Heap Fetch</b>. (Heap is the Postgres word for the table itself.)</li>
+      <li><b>Composite index</b> (multicolumn index): one index on two or more columns.</li>
+      <li><b>Skip scan:</b> new in Postgres 18. When the first column has only a few different values, Postgres can jump once per value instead of reading the whole index.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ---- The data: the 13 rows of l10_orders, exactly as inserted in the lesson ----
+// id, store_id, status, total_cents, created_at
+const ROWS = [
+  [1, 7, "PAID", 5000, "10-01"], [2, 9, "PENDING", 1200, "10-01"], [3, 7, "PENDING", 800, "10-03"],
+  [4, 8, "PAID", 2500, "10-03"], [5, 9, "PAID", 4000, "10-04"], [6, 7, "SHIPPED", 3000, "10-05"],
+  [7, 8, "PENDING", 1500, "10-06"], [8, 7, "PAID", 900, "10-07"], [9, 9, "CANCELLED", 700, "10-08"],
+  [10, 7, "PAID", 6000, "10-09"], [11, 8, "PAID", 2000, "10-10"], [12, 7, "PENDING", 1100, "10-11"],
+  [13, 7, "PAID", 3500, "10-12"]
+].map(([id, store, status, total, day]) => ({ id, store, status, total, day }));
+const byId = id => ROWS.find(r => r.id === id);
+
+// The composite index (store_id, created_at DESC): store ascending, newest date first inside a store.
+const COMPOSITE = [...ROWS].sort((a, b) => a.store - b.store || (a.day < b.day ? 1 : -1));
+// The single index on created_at, read backward (newest first). Ties: id 4 before id 3, like the real run.
+const BY_DATE_DESC = [...ROWS].sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : b.id - a.id));
+// The partial index: only PENDING rows, oldest first.
+const PENDING = ROWS.filter(r => r.status === "PENDING").sort((a, b) => (a.day > b.day ? 1 : -1));
+
+// ---- A step is one snapshot. marks maps entry position -> "now" | "keep" | "drop" | "unread" ----
+function S(o) { return Object.assign({ line: null, phase: "read", note: "", marks: {}, jumps: 0, read: 0, visits: [], out: [], plan: false, entries: null, idxdef: null }, o); }
+
+const PRESETS = [];
+
+// ---------------------------------------------------------------- 1. Both columns
+(function () {
+  const E = COMPOSITE.map(r => ({ k: "store " + r.store + " · " + r.day, r: r.id, gap: false }));
+  E.forEach((e, i) => { if (i > 0 && COMPOSITE[i - 1].store !== COMPOSITE[i].store) e.gap = true; });
+  const start = COMPOSITE.findIndex(r => r.store === 7);
+  const steps = [];
+  steps.push(S({ phase: "plan", line: 2, note: "<b>Plan.</b> Postgres sees <code>store_id = 7</code>. The index starts with <b>store_id</b>, so it can <b>jump</b> straight to store 7. Inside store 7 the entries are already <b>newest first</b>, which is exactly the <code>ORDER BY</code>. So no Sort step is needed." }));
+  steps.push(S({ phase: "jump", line: 2, jumps: 1, marks: { [start]: "now" }, note: "<b>Jump.</b> Postgres walks down the index tree to the first entry with store 7. That is <b>store 7 · 10-12</b>, the newest order of store 7. One jump is one <b>Index Search</b>." }));
+  let out = [], visits = [], marks = {};
+  for (let n = 0; n < 5; n++) {
+    const i = start + n, row = COMPOSITE[i];
+    visits = visits.concat("row " + row.id);
+    out = out.concat(row.id + " | 2026-" + row.day + " | " + row.total);
+    marks = Object.assign({}, marks, { [i]: "keep" });
+    const m = Object.assign({}, marks, { [i]: "now" });
+    const left = 4 - n;
+    steps.push(S({ phase: "visit", line: 0, jumps: 1, read: n + 1, visits, out, marks: m,
+      note: "Postgres reads entry <b>" + E[i].k + "</b>. The query also wants <code>total_cents</code>, which is not in the index, so Postgres <b>visits the table</b> for row " + row.id + " and sends the row back. " + (left ? left + " more to go." : "That is the 5th row.") }));
+  }
+  const endMarks = Object.assign({}, marks);
+  E.forEach((_, i) => { if (!endMarks[i]) endMarks[i] = "unread"; });
+  steps.push(S({ phase: "stop", line: 4, jumps: 1, read: 5, visits, out, marks: endMarks,
+    note: "<b>LIMIT 5 reached, so Postgres stops.</b> It never reads the older orders of store 7, and never touches stores 8 and 9. On the 100,000-row seed the same plan read about <b>8 pages</b> instead of <b>834</b>." }));
+  steps.push(S({ phase: "done", line: null, jumps: 1, read: 5, visits, out, marks: endMarks, plan: true,
+    note: "Finished. <b>1 jump, 5 entries read, 5 table visits, no sorting.</b> The plan says <code>Index Scan</code> with <code>Index Cond: (store_id = 7)</code> and no Sort node." }));
+  PRESETS.push({
+    name: "Both columns", ask: "How many index entries will Postgres read before it stops?", answer: "5",
+    why: "Postgres jumps to store 7, reads the 5 newest entries in order, and LIMIT 5 stops it.",
+    idxdef: "INDEX ON l10_orders (store_id, created_at DESC)", entries: E,
+    code: ["SELECT id, created_at, total_cents", "FROM l10_orders", "WHERE store_id = 7", "ORDER BY created_at DESC", "LIMIT 5;"],
+    plan: "Limit (actual rows=5.00 loops=1)\n  ->  Index Scan using l10_store_created on l10_orders (actual rows=5.00 loops=1)\n        Index Cond: (store_id = 7)\n        Index Searches: 1",
+    steps
+  });
+})();
+
+// ---------------------------------------------------------------- 2. Two single indexes
+(function () {
+  const E = BY_DATE_DESC.map(r => ({ k: r.day, r: r.id }));
+  const steps = [];
+  steps.push(S({ phase: "plan", line: 3, note: "<b>Plan.</b> Now there are <b>two separate indexes</b>: one on <code>store_id</code> and one on <code>created_at</code>. No index has both. Postgres picks the <code>created_at</code> index and reads it <b>backward</b>, newest first. The catch: this index does not know the store." }));
+  steps.push(S({ phase: "jump", line: 3, jumps: 1, marks: { 0: "now" }, note: "<b>Jump</b> to the newest end of the date index." }));
+  let out = [], visits = [], marks = {}, kept = 0, i = 0;
+  while (kept < 5) {
+    const row = BY_DATE_DESC[i];
+    visits = visits.concat("row " + row.id);
+    const ok = row.store === 7;
+    if (ok) { kept++; out = out.concat(row.id + " | 2026-" + row.day + " | " + row.total); }
+    marks = Object.assign({}, marks, { [i]: ok ? "keep" : "drop" });
+    E[i].tag = "store " + row.store;
+    const m = Object.assign({}, marks, { [i]: "now" });
+    steps.push(S({ phase: "visit", line: ok ? 0 : 2, jumps: 1, read: i + 1, visits, out, marks: m, reveal: i,
+      note: "Entry <b>" + row.day + " → row " + row.id + "</b>. The index has no store, so Postgres must <b>visit the table</b> to check it. Row " + row.id + " belongs to <b>store " + row.store + "</b>. " +
+        (ok ? "It matches, so Postgres keeps it (" + kept + " of 5)." : "Wrong store: Postgres <b>throws it away</b>. That visit was wasted.") }));
+    i++;
+  }
+  const endMarks = Object.assign({}, marks);
+  E.forEach((_, j) => { if (!endMarks[j]) endMarks[j] = "unread"; });
+  steps.push(S({ phase: "stop", line: 4, jumps: 1, read: i, visits, out, marks: endMarks, reveal: i - 1,
+    note: "<b>5 rows found, so Postgres stops.</b> It read " + i + " entries and visited the table " + i + " times to keep 5. Here only 3 were wasted. On the 100,000-row seed, the same plan threw away <b>3,787 rows</b> to find 5." }));
+  steps.push(S({ phase: "done", jumps: 1, read: i, visits, out, marks: endMarks, plan: true, reveal: i - 1,
+    note: "Finished, same 5 rows as tab 1, but much more work. The other choice is no better: use the <code>store_id</code> index, fetch <b>all</b> store 7 rows, then <b>sort</b> them. Two single indexes cannot give you &quot;store 7, newest first&quot; in one walk. (On this tiny table we switched off the other plans to show this one. On the seed, Postgres chose it by itself.)" }));
+  PRESETS.push({
+    name: "Two single indexes", ask: "How many rows will Postgres read from the table and throw away?", answer: "3",
+    why: "The date index does not know the store, so Postgres checks every entry in the table. Rows 11, 9 and 7 belong to other stores.",
+    idxdef: "INDEX ON l10_orders (created_at), read backward", entries: E,
+    code: ["SELECT id, created_at, total_cents", "FROM l10_orders", "WHERE store_id = 7", "ORDER BY created_at DESC", "LIMIT 5;"],
+    plan: "Limit (actual rows=5.00 loops=1)\n  ->  Index Scan Backward using l10_created on l10_orders (actual rows=5.00 loops=1)\n        Filter: (store_id = 7)\n        Rows Removed by Filter: 3\n        Index Searches: 1",
+    steps
+  });
+})();
+
+// ---------------------------------------------------------------- 3. Only the second column
+(function () {
+  const E = COMPOSITE.map((r, i) => ({ k: "store " + r.store + " · " + r.day, r: r.id, gap: i > 0 && COMPOSITE[i - 1].store !== r.store }));
+  const hit = r => r.day === "10-03";
+  const steps = [];
+  steps.push(S({ phase: "plan", line: 2, note: "<b>Plan.</b> The query asks only for <code>created_at = 2026-10-03</code>. It says nothing about <b>store_id</b>, the first column. The dates 10-03 are <b>spread out</b>: one inside store 7, one inside store 8. There is no single place to jump to. Like asking a phone book for everyone named &quot;Budi&quot;." }));
+  steps.push(S({ phase: "jump", line: 2, jumps: 1, marks: { 0: "now" }, note: "No jump to the answer is possible. Postgres starts at the <b>very first entry</b> and must read <b>everything</b>." }));
+  let marks = {}, out = [], read = 0;
+  [7, 8, 9].forEach(store => {
+    COMPOSITE.forEach((r, i) => { if (r.store === store) { marks[i] = hit(r) ? "keep" : "drop"; read++; if (hit(r)) out = out.concat(r.id + " | store " + r.store); } });
+    const kept = COMPOSITE.filter(r => r.store === store && hit(r)).map(r => "row " + r.id);
+    steps.push(S({ phase: "read", line: 2, jumps: 1, read, out: out.slice(), marks: Object.assign({}, marks),
+      note: "Postgres reads every entry of <b>store " + store + "</b> and checks the date. " + (kept.length ? "It keeps " + kept.join(", ") + "." : "Nothing matches here, but it had to look anyway.") }));
+  });
+  steps.push(S({ phase: "stop", line: null, jumps: 1, read, out: out.slice(), marks: Object.assign({}, marks), plan: true,
+    note: "<b>The whole index was read: 13 entries to find 2.</b> On a big table this is slow, so Postgres up to version 17 usually reads the table instead (Seq Scan). On the seed, with 900 stores, Postgres 18 also chose a Seq Scan." }));
+  // Postgres 18 skip scan, the other way
+  const jumpsTo = [7, 8, 9].map(s => COMPOSITE.findIndex(r => r.store === s && r.day <= "10-03"));
+  let sm = {}, sout = [], sread = 0, sj = 1;
+  steps.push(S({ phase: "plan", line: 2, jumps: 0, read: 0, out: [], marks: {},
+    note: "<b>Postgres 18: skip scan.</b> Same index, a smarter way. Postgres asks itself: &quot;store 7 and 10-03? store 8 and 10-03? store 9 and 10-03?&quot; That is one <b>jump per store</b>. It only pays when the first column has <b>few different values</b>, like 3 stores here or 5 order statuses." }));
+  [7, 8, 9].forEach((store, n) => {
+    const i = jumpsTo[n];
+    const r = COMPOSITE[i];
+    sread++;
+    const ok = hit(r);
+    if (ok) sout = sout.concat(r.id + " | store " + r.store);
+    sm = Object.assign({}, sm, { [i]: ok ? "keep" : "drop" });
+    const m = Object.assign({}, sm, { [i]: "now" });
+    steps.push(S({ phase: "jump", line: 2, jumps: sj++, read: sread, out: sout.slice(), marks: m,
+      note: "<b>Jump " + (n + 1) + ":</b> straight to <b>store " + store + " · 10-03</b>. " + (ok ? "Found row " + r.id + "." : "Store 9 has no 10-03. Postgres lands on the next older entry (" + r.day + "), sees it is past 10-03, and moves on.") }));
+  });
+  const fm = Object.assign({}, sm);
+  E.forEach((_, j) => { if (!fm[j]) fm[j] = "unread"; });
+  steps.push(S({ phase: "done", line: null, jumps: 3, read: sread, out: sout.slice(), marks: fm, plan: true,
+    note: "Finished. Same 2 rows, but most entries were <b>never read</b>. Postgres also needs about one extra search to find where the next store starts. On the seed, an index on <code>(status, created_at)</code> and a query on <code>created_at</code> only showed <code>Index Searches: 6</code>: one per status plus one. <b>Postgres 16, in your Docker playground, has no skip scan.</b> It reads the whole index or the whole table." }));
+  PRESETS.push({
+    name: "Only the second column", ask: "Without skip scan, how many index entries must Postgres read to find the 10-03 orders?", answer: "13",
+    why: "The index is sorted by store first. Dates are spread inside each store, so without a store value there is no place to jump to. Postgres reads all 13 entries.",
+    idxdef: "INDEX ON l10_orders (store_id, created_at DESC)", entries: E,
+    code: ["SELECT id, store_id", "FROM l10_orders", "WHERE created_at = '2026-10-03';"],
+    plan: "-- tiny table, seq scans switched off, no skip scan chosen:\nIndex Scan using l10_store_created on l10_orders (actual rows=2.00 loops=1)\n  Index Cond: (created_at = '2026-10-03'::date)\n  Index Searches: 1\n\n-- seed, index (status, created_at), skip scan chosen:\nBitmap Index Scan on orders_status_created_idx (actual rows=273.00 loops=1)\n  Index Cond: (created_at >= (now() - '1 day'::interval))\n  Index Searches: 6",
+    steps
+  });
+})();
+
+// ---------------------------------------------------------------- 4. Partial index
+(function () {
+  const E = PENDING.map(r => ({ k: r.day + " (PENDING)", r: r.id }));
+  const steps = [];
+  steps.push(S({ phase: "plan", line: null, note: "<b>Build.</b> <code>CREATE INDEX ... WHERE status = 'PENDING'</code>. Postgres puts <b>only the PENDING rows</b> into this index. The table has 13 rows, but the index holds just <b>" + E.length + " entries</b>. On the seed: 336 kB instead of 3,352 kB for a full index." }));
+  steps.push(S({ phase: "plan", line: 2, note: "<b>Plan.</b> The query says <code>status = 'PENDING'</code>, the same condition as the index. So Postgres knows every row it needs is inside this index. It can use it." }));
+  steps.push(S({ phase: "jump", line: 3, jumps: 1, marks: { 0: "now" }, note: "<b>Jump</b> to the start of the index: the oldest PENDING order. The index is sorted by <code>created_at</code>, which is the <code>ORDER BY</code>." }));
+  let out = [], visits = [], marks = {};
+  for (let n = 0; n < 3; n++) {
+    const r = PENDING[n];
+    visits = visits.concat("row " + r.id);
+    out = out.concat(r.id + " | " + r.store + " | 2026-" + r.day);
+    marks = Object.assign({}, marks, { [n]: "keep" });
+    steps.push(S({ phase: "visit", line: 0, jumps: 1, read: n + 1, visits, out, marks: Object.assign({}, marks, { [n]: "now" }),
+      note: "Entry <b>" + r.day + " → row " + r.id + "</b>. Postgres visits the table to get <code>store_id</code> and sends the row back. No status check is needed: every entry here is PENDING." }));
+  }
+  const em = Object.assign({}, marks, { 3: "unread" });
+  steps.push(S({ phase: "stop", line: 4, jumps: 1, read: 3, visits, out, marks: em, plan: true,
+    note: "<b>LIMIT 3 reached. Stop.</b> Notice the plan has <b>no Index Cond line</b>: the index itself is the filter. A query for <code>status = 'PAID'</code> cannot use this index, because PAID rows are not in it. On the seed that query fell back to Seq Scan plus Sort." }));
+  PRESETS.push({
+    name: "Partial index", ask: "How many entries does this partial index hold?", answer: "4",
+    why: "Only rows with status PENDING go into the index: rows 2, 3, 7 and 12.",
+    idxdef: "INDEX ON l10_orders (created_at) WHERE status = 'PENDING'", entries: E,
+    code: ["SELECT id, store_id, created_at", "FROM l10_orders", "WHERE status = 'PENDING'", "ORDER BY created_at", "LIMIT 3;"],
+    plan: "Limit (actual rows=3.00 loops=1)\n  ->  Index Scan using l10_pending on l10_orders (actual rows=3.00 loops=1)\n        Index Searches: 1",
+    steps
+  });
+})();
+
+// ---------------------------------------------------------------- 5. Covering index
+(function () {
+  const plainE = COMPOSITE.map((r, i) => ({ k: "store " + r.store + " · " + r.day, r: r.id, gap: i > 0 && COMPOSITE[i - 1].store !== r.store }));
+  const coverE = COMPOSITE.map((r, i) => ({ k: "store " + r.store + " · " + r.day + " · total " + r.total, r: r.id, gap: i > 0 && COMPOSITE[i - 1].store !== r.store }));
+  const start = COMPOSITE.findIndex(r => r.store === 8);
+  const s8 = COMPOSITE.filter(r => r.store === 8);
+  const steps = [];
+  steps.push(S({ phase: "plan", line: 0, entries: plainE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC)",
+    note: "<b>First, the plain index.</b> The query wants <code>created_at</code> and <code>total_cents</code> for store 8. The index has the date, but <b>not the total</b>." }));
+  steps.push(S({ phase: "jump", line: 2, jumps: 1, marks: { [start]: "now" }, entries: plainE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC)", note: "<b>Jump</b> to store 8." }));
+  let out = [], visits = [], marks = {};
+  s8.forEach((r, n) => {
+    const i = start + n;
+    visits = visits.concat("row " + r.id);
+    out = out.concat("2026-" + r.day + " | " + r.total);
+    marks = Object.assign({}, marks, { [i]: "keep" });
+    steps.push(S({ phase: "visit", line: 0, jumps: 1, read: n + 1, visits, out, marks: Object.assign({}, marks, { [i]: "now" }), entries: plainE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC)",
+      note: "Entry <b>store 8 · " + r.day + "</b>. The total is not here, so Postgres <b>visits the table</b> for row " + r.id + " to read total " + r.total + "." }));
+  });
+  steps.push(S({ phase: "stop", line: null, jumps: 1, read: 3, visits, out, marks, entries: plainE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC)",
+    note: "The next entry is store 9, so Postgres stops. <b>3 rows, 3 table visits.</b> Each visit can be a separate page read." }));
+  // covering
+  steps.push(S({ phase: "plan", line: 0, entries: coverE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC) INCLUDE (total_cents)",
+    note: "<b>Now the covering index.</b> <code>INCLUDE (total_cents)</code> stores the total <b>inside each entry</b>. It is only carried along, not used for sorting or jumping. Now every column the query needs is in the index." }));
+  steps.push(S({ phase: "jump", line: 2, jumps: 1, marks: { [start]: "now" }, entries: coverE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC) INCLUDE (total_cents)", note: "<b>Jump</b> to store 8, same as before." }));
+  out = []; marks = {};
+  s8.forEach((r, n) => {
+    const i = start + n;
+    out = out.concat("2026-" + r.day + " | " + r.total);
+    marks = Object.assign({}, marks, { [i]: "keep" });
+    steps.push(S({ phase: "read", line: 0, jumps: 1, read: n + 1, visits: [], out, marks: Object.assign({}, marks, { [i]: "now" }), entries: coverE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC) INCLUDE (total_cents)",
+      note: "Entry <b>store 8 · " + r.day + " · total " + r.total + "</b>. Everything is right here. <b>No table visit.</b>" }));
+  });
+  steps.push(S({ phase: "done", line: null, jumps: 1, read: 3, visits: [], out, marks, plan: true, entries: coverE, idxdef: "INDEX ON l10_orders (store_id, created_at DESC) INCLUDE (total_cents)",
+    note: "Finished. Same 3 rows, <b>0 table visits</b>. The plan says <code>Index Only Scan</code> and <code>Heap Fetches: 0</code>. One condition: Postgres must know the table pages are clean. Right after many writes it printed <code>Heap Fetches: 3</code>. After <code>VACUUM</code> it printed 0." }));
+  PRESETS.push({
+    name: "Covering index", ask: "With the covering index, how many times does Postgres visit the table?", answer: "0",
+    why: "INCLUDE (total_cents) puts the total inside the index entries, so the index alone answers the query. That is an Index Only Scan.",
+    idxdef: "", entries: plainE,
+    code: ["SELECT created_at, total_cents", "FROM l10_orders", "WHERE store_id = 8", "ORDER BY created_at DESC;"],
+    plan: "-- plain index (store_id, created_at DESC):\nIndex Scan using l10_store_created on l10_orders (actual rows=3.00 loops=1)\n  Index Cond: (store_id = 8)\n  Index Searches: 1\n\n-- covering index, after VACUUM:\nIndex Only Scan using l10_store_created_cover on l10_orders (actual rows=3.00 loops=1)\n  Index Cond: (store_id = 8)\n  Heap Fetches: 0\n  Index Searches: 1",
+    steps
+  });
+})();
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null;
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function renderCode(line) {
+  $("code").innerHTML = PRESETS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+function renderEntries(s) {
+  const p = PRESETS[cur];
+  const E = s.entries || p.entries;
+  $("idxdef").textContent = s.idxdef || p.idxdef;
+  const root = $("entries");
+  root.innerHTML = "";
+  E.forEach((e, i) => {
+    const st = s.marks[i] || "";
+    const d = document.createElement("div");
+    d.className = "ent " + st + (e.gap ? " gap" : "");
+    let tag = "";
+    if (st === "keep") tag = '<span class="tag">kept</span>';
+    if (st === "drop") tag = '<span class="tag">thrown away</span>';
+    // tab 2: the store is only known after the table visit
+    let extra = "";
+    if (e.tag && s.reveal !== undefined && i <= s.reveal) extra = ' <span style="color:#b7791f">(' + esc(e.tag) + ")</span>";
+    d.innerHTML = '<span class="ptr">' + (st === "now" ? "▶" : "") + '</span><span class="k">' + esc(e.k) + "</span>" + extra + " " + tag + '<span class="r">→ row ' + e.r + "</span>";
+    root.appendChild(d);
+  });
+}
+function renderOut(items) {
+  const box = $("out");
+  box.innerHTML = items.length ? "" : '<span class="empty">nothing sent yet</span>';
+  items.forEach(v => { const c = document.createElement("div"); c.className = "chip"; c.textContent = v; box.appendChild(c); });
+}
+const BADGE = { plan: ["Planning", "plan"], jump: ["Jumping into the index", "jump"], read: ["Reading index entries", "read"], visit: ["Visiting the table", "visit"], stop: ["Stopping", "stop"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx];
+  renderCode(s.line);
+  renderEntries(s);
+  renderOut(s.out);
+  $("cJump").textContent = s.jumps; $("cRead").textContent = s.read; $("cVisit").textContent = s.visits.length;
+  $("visits").innerHTML = s.visits.length ? "Visited: " + s.visits.map(v => '<span class="chip">' + esc(v) + "</span>").join("") : '<span class="empty">no table visits yet</span>';
+  $("planBox").className = "plan" + (s.plan ? " show" : "");
+  $("plan").textContent = PRESETS[cur].plan;
+  const b = BADGE[s.phase] || BADGE.read;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = PRESETS[cur];
+  const guess = $("guess").value.trim();
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(p.answer) + "</b>" + why + "<br>Next time, type your guess first. Predicting is what makes it stick."; return; }
+  const ok = guess.replace(/\s+/g, "") === p.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You wrote <code>" + esc(guess) + "</code>. The answer is <code>" + esc(p.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and watch the counters as you step through again.");
+}
+function pick(i) {
+  stop(); cur = i; steps = PRESETS[i].steps; idx = 0;
+  $("guess").value = ""; $("ask").textContent = PRESETS[i].ask;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2200);
+}
+
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+$("guess").addEventListener("input", showResult);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__presets = PRESETS;
+pick(0);
+</script>
+</body>
+</html>
