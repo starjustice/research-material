@@ -21,6 +21,13 @@ graph LR
     I --> J["Caching"]
     J --> K["Webhooks and idempotency"]
     F --> L["Hasura"]
+    A --> R["WebSockets and SSE"]
+    B --> P["tRPC"]
+    B --> Q["gRPC"]
+    C --> S["Choosing an API style"]
+    P --> S
+    Q --> S
+    R --> S
 ```
 
 ## Lessons, one concept per file
@@ -65,7 +72,16 @@ Each ready lesson has a step-through page in [visuals/](visuals/) and a practice
 | 13 | [Webhooks and idempotency](13-webhooks-and-idempotency.md) | verify the signature, dedupe by event id, queue, answer fast, Idempotency-Key | ready |
 | 14 | [Hasura: when and when not](14-hasura-when-and-when-not.md) | permission rules, Actions, event triggers, limits, and when to choose it | ready |
 
-Each lesson from 06 to 14 (the Auth group and the Senior level group) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
+### API styles
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 15 | [tRPC](15-trpc.md) | typed calls inside one TypeScript repo, what travels on the wire, errors, and where it does not fit | ready |
+| 16 | [gRPC](16-grpc.md) | the `.proto` contract, how protobuf bytes look, the four call types, status codes and deadlines | ready |
+| 17 | [WebSockets and Server-Sent Events](17-websockets-and-server-sent-events.md) | polling, SSE and WebSocket, reconnects with backoff, and why many servers need a message bus | ready |
+| 18 | [Choosing an API style](18-choosing-an-api-style.md) | four questions that pick REST, GraphQL, tRPC or gRPC, and what each one costs | ready |
+
+Each lesson from 06 to 18 (the Auth, Senior level and API styles groups) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
 
 **To make the next lesson:** in a chat with this folder open, say `/learn backend-api 01` to learn it live with Claude, or ask "make lesson backend-api 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

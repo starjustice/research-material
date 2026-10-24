@@ -2,7 +2,7 @@
 
 > **Subject:** Backend and API · **Lesson:** 14 · **Made:** 2026-10-23 · **Status:** ready
 > **You will be able to:** say what Hasura does for you, how its permission rules work, where your own code goes (Actions and event triggers), and when to choose it or not.
-> **Before this:** [Webhooks and idempotency](13-webhooks-and-idempotency.md) · **Next:** back to the [lesson list](README.md). This is the last lesson of the Senior level group.
+> **Before this:** [Webhooks and idempotency](13-webhooks-and-idempotency.md) · **Next:** [tRPC](15-trpc.md). This is the last lesson of the Senior level group. The API styles group starts there.
 
 ## 1. The idea in one sentence
 

@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tRPC Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../15-trpc.md">Open the lesson ↗</a>
+  </div>
+  <h1>tRPC stepper</h1>
+  <p class="sub">A user API with a TypeScript client. Each story shows what goes over the wire, what the server checks, and what the client sees.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> the types help you while you write code. They are gone when the code runs, so the server must still <b>validate every input</b> and <b>hide unknown errors</b>.
+  <ul>
+    <li><b>RPC:</b> calling a function on another machine as if it were local.</li>
+    <li><b>Procedure:</b> one function the server offers. A <b>query</b> reads (GET). A <b>mutation</b> changes (POST).</li>
+    <li><b>Router:</b> a named group of procedures, like a folder.</li>
+    <li><b>End-to-end types:</b> the client imports the router's <b>type</b>, so it knows every input and output.</li>
+  </ul>
+  <b>Status codes:</b> <code>200</code> = ok. <code>400</code> = bad input. <code>401</code> = not logged in. <code>404</code> = not found. <code>207</code> = a batch with mixed results. <code>500</code> = our bug or an unknown error.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "client",
+  "title": "Client code",
+  "sub": "TypeScript, with types",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "wire",
+  "title": "On the wire",
+  "sub": "plain HTTP and JSON",
+  "color": "c2",
+  "empty": "nothing travelling"
+ },
+ {
+  "key": "server",
+  "title": "tRPC server",
+  "sub": "the checks, in order",
+  "color": "c3",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "reply",
+  "title": "Client gets",
+  "sub": "the answer",
+  "color": "c4",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "One call, step by step",
+  "question": "You write <code>trpc.user.byId.query({ id: 1 })</code>. What really goes over the network, and where do the types come from?",
+  "codeTitle": "Client line and server procedure",
+  "code": [
+   "// client",
+   "const user = await trpc.user.byId.query({ id: 1 });",
+   "// server",
+   "byId: t.procedure.input(z.object({ id: z.number().int() }))",
+   "  .query(({ input }) => users.find((u) => u.id === input.id)),"
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "boxes": {
+     "client": [
+      [
+       "Code",
+       "trpc.user.byId.query({ id: 1 })",
+       ""
+      ],
+      [
+       "Type of user",
+       "{ id: number; name: string } or undefined",
+       "good"
+      ]
+     ],
+     "wire": [],
+     "server": [],
+     "reply": []
+    },
+    "note": "It looks like a normal function call. The editor already knows the type of the answer, because the client imported the <b>type</b> of the server's router."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client link",
+     "Server",
+     "GET /user.byId?input={\"id\":1}"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Method",
+       "GET (a query)",
+       ""
+      ],
+      [
+       "URL",
+       "/user.byId?input={\"id\":1}",
+       ""
+      ],
+      [
+       "Body",
+       "none",
+       ""
+      ]
+     ]
+    },
+    "note": "The tRPC <b>link</b> turns the call into plain HTTP. A <b>query</b> is a <code>GET</code>. The name of the procedure is the path, and the input is JSON in the URL. A mutation would be a <code>POST</code> with a body."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Procedure found",
+       "user.byId, a query",
+       "good"
+      ],
+      [
+       "Validator",
+       "Zod: id is a whole number. Yes, 1.",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server finds the procedure and runs the <b>validator</b> on the real input. The input is fine."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Procedure found",
+       "user.byId, a query",
+       "good"
+      ],
+      [
+       "Validator",
+       "Zod: id is a whole number. Yes, 1.",
+       "good"
+      ],
+      [
+       "Your function",
+       "users.find(...) returns { id: 1, name: Ana }",
+       "good"
+      ]
+     ]
+    },
+    "note": "Now your function runs, with the checked input. It returns a plain object."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client link",
+     "200   {\"result\":{\"data\":{\"id\":1,\"name\":\"Ana\"}}}"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Status",
+       "200 OK",
+       "good"
+      ],
+      [
+       "Body",
+       "{\"result\":{\"data\":{\"id\":1,\"name\":\"Ana\"}}}",
+       ""
+      ]
+     ]
+    },
+    "note": "The answer is JSON: <code>result</code> and <code>data</code>. There is nothing special about it. You could read it in a browser."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "reply": [
+      [
+       "user",
+       "{ id: 1, name: Ana }",
+       "good"
+      ],
+      [
+       "Typed as",
+       "{ id: number; name: string } or undefined",
+       "good"
+      ]
+     ]
+    },
+    "note": "The client link gives <code>data</code> back as <code>user</code>. The type was never sent. It came from the router type at <b>build</b> time."
+   }
+  ],
+  "answer": "<b>Answer:</b> a plain <b>HTTP GET</b> with JSON, nothing more. The types never travel: the client imported the <b>type</b> of the router when it was built, so the editor knows the answer."
+ },
+ {
+  "tab": "Bad input from curl",
+  "question": "Someone sends <code>id: \"1\"</code> (a string) with curl. TypeScript would have refused it. What happens here?",
+  "codeTitle": "The curl call and the procedure",
+  "code": [
+   "# curl: nobody ran the TypeScript compiler here",
+   "curl 'http://localhost:3000/user.byId?input={\"id\":\"1\"}'",
+   "// server",
+   "byId: t.procedure.input(z.object({ id: z.number().int() }))",
+   "  .query(({ input }) => { reached++; return users.find((u) => u.id === input.id); }),"
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Tool",
+       "curl",
+       "warn"
+      ],
+      [
+       "Sends",
+       "id: \"1\", a string",
+       "warn"
+      ]
+     ],
+     "wire": [],
+     "server": [
+      [
+       "Calls that reached your function",
+       "0",
+       "good"
+      ]
+     ],
+     "reply": []
+    },
+    "note": "curl never ran the TypeScript compiler. It sends whatever the person typed."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "curl",
+     "Server",
+     "GET /user.byId?input={\"id\":\"1\"}"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "URL",
+       "/user.byId?input={\"id\":\"1\"}",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The request arrives. The server has no idea who wrote it, or what the types said."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Validator",
+       "Zod: expected number, received string",
+       "bad"
+      ],
+      [
+       "Calls that reached your function",
+       "0",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>The validator at run time</b> looks at the real input. A string is not a whole number. It says no."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "curl",
+     "400   { error: { code: BAD_REQUEST, ... } }"
+    ],
+    "status": [
+     "bad",
+     "400"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Status",
+       "400 Bad Request",
+       "bad"
+      ],
+      [
+       "Body",
+       "{\"error\":{\"message\":\"... expected number, received string ...\",\"code\":-32600,\"data\":{\"code\":\"BAD_REQUEST\",\"httpStatus\":400}}}",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Validator",
+       "Zod: expected number, received string",
+       "bad"
+      ],
+      [
+       "Calls that reached your function",
+       "0 (the line with reached++ never ran)",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "curl prints",
+       "400 and the Zod message",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The answer is <code>400</code>. The line <code>reached++</code> never ran. Your function was protected."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "A TypeScript client",
+       "would show: Type 'string' is not assignable to type 'number'",
+       "good"
+      ],
+      [
+       "Tool",
+       "curl",
+       "warn"
+      ]
+     ]
+    },
+    "note": "A TypeScript client would have refused to compile this. <b>Both</b> guards are needed: the types help the people who use your client, and the validator protects the server from everyone else."
+   }
+  ],
+  "answer": "<b>Answer:</b> the validator says no, the answer is <b>400</b>, and your function never runs. The types only help people who use the TypeScript client. The validator is what protects the server."
+ },
+ {
+  "tab": "A login middleware",
+  "question": "A stranger sends a rename request with a wrong input and no login. Which error does he get: 401 or 400? Does the order of the chain matter?",
+  "codeTitle": "The middleware and the procedure",
+  "code": [
+   "const isAuthed = t.middleware((opts) => {",
+   "  if (!opts.ctx.user) throw new TRPCError({ code: \"UNAUTHORIZED\" });",
+   "  return opts.next({ ctx: { user: opts.ctx.user } });",
+   "});",
+   "rename: t.procedure.use(isAuthed).input(RenameInput).mutation(({ input, ctx }) => ({ ...input, by: ctx.user.id })),"
+  ],
+  "steps": [
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "a stranger, no token",
+       "warn"
+      ],
+      [
+       "Sends",
+       "rename with id: \"x\" (wrong)",
+       "warn"
+      ]
+     ],
+     "wire": [],
+     "server": [],
+     "reply": []
+    },
+    "note": "A procedure with a chain: <code>.use(isAuthed)</code> first, then <code>.input(...)</code>. The stranger has no login <b>and</b> sends a wrong input."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Stranger",
+     "Server",
+     "POST /user.rename   { id: \"x\" }"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Method",
+       "POST (a mutation)",
+       ""
+      ],
+      [
+       "Body",
+       "{\"id\":\"x\"}",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Context made",
+       "ctx.user = null (no token)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The server builds the <b>context</b> (<code>ctx</code>) for this request. There is no token, so <code>ctx.user</code> is <code>null</code>."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Context made",
+       "ctx.user = null (no token)",
+       "warn"
+      ],
+      [
+       "Step 1: isAuthed",
+       "no user. Throw UNAUTHORIZED.",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The chain runs in <b>the order you wrote it</b>. <code>isAuthed</code> comes first. It sees no user and throws."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Stranger",
+     "401   UNAUTHORIZED"
+    ],
+    "status": [
+     "bad",
+     "401"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Status",
+       "401 Unauthorized",
+       "bad"
+      ]
+     ],
+     "server": [
+      [
+       "Step 1: isAuthed",
+       "no user. Throw UNAUTHORIZED.",
+       "bad"
+      ],
+      [
+       "Step 2: the validator",
+       "never reached",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Stranger gets",
+       "401. He learns nothing about your input rules.",
+       "good"
+      ]
+     ]
+    },
+    "note": "The answer is <b>401</b>. The validator was never reached. (I tested the other order, <code>.input(...).use(isAuthed)</code>: the same stranger then got <b>400</b>, so he could learn about your input rules.)"
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Ana",
+     "Server",
+     "POST /user.rename   { id: 1, name: \"Anna\" }   Authorization: Bearer ana"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Who",
+       "Ana, logged in",
+       "good"
+      ],
+      [
+       "Sends",
+       "rename with id 1 and name Anna",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Context made",
+       "ctx.user = { id: 1 }",
+       "good"
+      ],
+      [
+       "Step 1: isAuthed",
+       "a user is there. next().",
+       "good"
+      ]
+     ],
+     "wire": [
+      [
+       "Method",
+       "POST (a mutation)",
+       ""
+      ],
+      [
+       "Body",
+       "{\"id\":1,\"name\":\"Anna\"}",
+       ""
+      ]
+     ],
+     "reply": []
+    },
+    "note": "Ana sends a good request with her token. The context has her user, so <code>isAuthed</code> calls <code>next()</code>."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Ana",
+     "200   {\"result\":{\"data\":{\"id\":1,\"name\":\"Anna\",\"by\":1}}}"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Context made",
+       "ctx.user = { id: 1 }",
+       "good"
+      ],
+      [
+       "Step 1: isAuthed",
+       "passed",
+       "good"
+      ],
+      [
+       "Step 2: the validator",
+       "passed",
+       "good"
+      ],
+      [
+       "Your function",
+       "returns { id: 1, name: Anna, by: 1 }",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Ana gets",
+       "{ id: 1, name: Anna, by: 1 }",
+       "good"
+      ]
+     ]
+    },
+    "note": "The validator passes and the function runs. <b>One more thing:</b> this middleware only says <i>who</i> Ana is. If Ana sent <code>id: 2</code>, nothing in this code would stop her from renaming Budi. That is the owner check from lesson 08, and it belongs inside the procedure."
+   }
+  ],
+  "answer": "<b>Answer:</b> <b>401</b>, because the login check comes first in the chain. If the validator came first, he would get 400. A middleware says <i>who you are</i>, not <i>whose row it is</i>, so check the owner inside the procedure."
+ },
+ {
+  "tab": "Batching two calls into one",
+  "question": "Two <code>byId</code> calls start in the same moment. How many HTTP requests does the client send? What if one answer is 200 and the other is 404?",
+  "codeTitle": "Two calls at once",
+  "code": [
+   "// both calls start in the same moment",
+   "const [a, b] = await Promise.all([",
+   "  trpc.user.byId.query({ id: 1 }),",
+   "  trpc.user.byId.query({ id: 2 }),",
+   "]);"
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Client code",
+    "sub": "two calls",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "wire",
+    "title": "On the wire",
+    "sub": "HTTP requests made",
+    "color": "c2",
+    "empty": "nothing travelling"
+   },
+   {
+    "key": "server",
+    "title": "tRPC server",
+    "sub": "runs each procedure",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "reply",
+    "title": "Client gets",
+    "sub": "the answer",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Call A",
+       "trpc.user.byId.query({ id: 1 })",
+       ""
+      ],
+      [
+       "Call B",
+       "trpc.user.byId.query({ id: 2 })",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "HTTP requests",
+       "0 so far",
+       ""
+      ]
+     ],
+     "server": [],
+     "reply": []
+    },
+    "note": "Two calls, started in the same moment. Without batching, this would be <b>two</b> HTTP requests."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client link",
+     "Server",
+     "GET /user.byId,user.byId?batch=1&input={\"0\":{\"id\":1},\"1\":{\"id\":2}}"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "HTTP requests",
+       "1",
+       "good"
+      ],
+      [
+       "Path",
+       "user.byId,user.byId (names joined by a comma)",
+       ""
+      ],
+      [
+       "Query",
+       "batch=1",
+       ""
+      ],
+      [
+       "input",
+       "{\"0\":{\"id\":1},\"1\":{\"id\":2}} (keyed by position)",
+       ""
+      ]
+     ]
+    },
+    "note": "With <code>httpBatchLink</code>, the link waits a moment, collects the calls, and sends <b>one</b> request. The names are joined with commas, <code>batch=1</code> is added, and the inputs are keyed by position: 0 and 1."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Call 0",
+       "user.byId with id 1: validator OK, function runs",
+       "good"
+      ],
+      [
+       "Call 1",
+       "user.byId with id 2: validator OK, function runs",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server runs each call, one by one, with its own input."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client link",
+     "200   [ {result: Ana}, {result: Budi} ]"
+    ],
+    "status": [
+     "ok",
+     "200 OK"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "HTTP requests",
+       "1",
+       "good"
+      ],
+      [
+       "Answer",
+       "an ARRAY, one item per call, same order",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "a",
+       "{ id: 1, name: Ana }",
+       "good"
+      ],
+      [
+       "b",
+       "{ id: 2, name: Budi }",
+       "good"
+      ]
+     ]
+    },
+    "note": "The answer is an <b>array</b>, in the same order. The link hands item 0 to call A and item 1 to call B. <b>One round trip, two answers.</b> (This is what I measured: 2 calls, 1 request.)"
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client link",
+     "207   [ {result: Ana}, {error: NOT_FOUND} ]"
+    ],
+    "status": [
+     "warn",
+     "207 Multi-Status"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Call 0",
+       "id 1: found",
+       "good"
+      ],
+      [
+       "Call 1",
+       "id 99: NOT_FOUND (404)",
+       "warn"
+      ]
+     ],
+     "wire": [
+      [
+       "HTTP requests",
+       "1",
+       ""
+      ],
+      [
+       "Statuses inside",
+       "200 and 404, they differ",
+       "warn"
+      ],
+      [
+       "Status of the whole",
+       "207 Multi-Status",
+       "warn"
+      ]
+     ],
+     "reply": [
+      [
+       "a",
+       "{ id: 1, name: Ana }",
+       "good"
+      ],
+      [
+       "b",
+       "throws a TRPCClientError, code NOT_FOUND",
+       "warn"
+      ]
+     ]
+    },
+    "note": "If the calls inside end with <b>different</b> statuses, the whole answer is <code>207 Multi-Status</code> (the tRPC docs say so). The link still gives each call its own result or its own error."
+   }
+  ],
+  "answer": "<b>Answer:</b> <b>one</b> HTTP request, with an array answer. If one call fails and one works, the whole answer is <b>207 Multi-Status</b>, and each call still gets its own result or error. Batching saves round trips."
+ },
+ {
+  "tab": "The leak: wrong, then right",
+  "question": "A procedure throws an error whose text holds the database address and password. It is production mode. Does the client see the message?",
+  "codeTitle": "The WRONG setup",
+  "code": [
+   "// WRONG: the default error handling",
+   "const t = initTRPC.create({ isDev: false });",
+   "boom: t.procedure.query(() => { throw new Error(\"connect ECONNREFUSED 10.0.0.5:5432 password=hunter2\"); }),"
+  ],
+  "boxes": [
+   {
+    "key": "server",
+    "title": "Your procedure",
+    "sub": "throws an unknown error",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "log",
+    "title": "Server log",
+    "sub": "private",
+    "color": "c2",
+    "empty": "empty"
+   },
+   {
+    "key": "reply",
+    "title": "Client gets",
+    "sub": "over the wire",
+    "color": "c4",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Mode",
+       "production (isDev: false)",
+       ""
+      ],
+      [
+       "Throws",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "warn"
+      ]
+     ],
+     "log": [],
+     "reply": []
+    },
+    "note": "<b>Part 1: the default.</b> The procedure throws an ordinary <code>Error</code>. Its text has the database address and a password."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Mode",
+       "production (isDev: false)",
+       ""
+      ],
+      [
+       "Throws",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "warn"
+      ],
+      [
+       "Stack in the answer",
+       "not included, because isDev is false",
+       "good"
+      ]
+     ],
+     "log": []
+    },
+    "note": "In production, tRPC leaves the <b>stack</b> out of the answer. That looks safe. But look at the message."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Client",
+     "500   { error: { message: \"connect ECONNREFUSED 10.0.0.5:5432 password=hunter2\", ... } }"
+    ],
+    "status": [
+     "bad",
+     "500 and a leak"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "500",
+       "warn"
+      ],
+      [
+       "message in the answer",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The <b>message</b> is still in the answer. The client now knows the database address and the password. (I tested this on tRPC 11.19.0 with <code>NODE_ENV=production</code>, and also with <code>isDev: false</code>.)"
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: onError for the log, errorFormatter for the client",
+     "const t = initTRPC.create({",
+     "  isDev: false,",
+     "  errorFormatter({ shape }) { return { ...shape, message: shape.data.code === \"INTERNAL_SERVER_ERROR\" ? \"Something went wrong.\" : shape.message }; },",
+     "});",
+     "createHTTPServer({ router, onError: ({ error, path }) => console.error(path, error) });"
+    ],
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Mode",
+       "production (isDev: false)",
+       ""
+      ],
+      [
+       "Throws",
+       "connect ECONNREFUSED 10.0.0.5:5432 password=hunter2",
+       "warn"
+      ]
+     ],
+     "log": [],
+     "reply": []
+    },
+    "note": "<b>Part 2: the fix.</b> Same error. This time there is an <code>errorFormatter</code> and an <code>onError</code>."
+   },
+   {
+    "line": 5,
+    "code": [
+     "// RIGHT: onError for the log, errorFormatter for the client",
+     "const t = initTRPC.create({",
+     "  isDev: false,",
+     "  errorFormatter({ shape }) { return { ...shape, message: shape.data.code === \"INTERNAL_SERVER_ERROR\" ? \"Something went wrong.\" : shape.message }; },",
+     "});",
+     "createHTTPServer({ router, onError: ({ error, path }) => console.error(path, error) });"
+    ],
+    "wire": null,
+    "boxes": {
+     "log": [
+      [
+       "Log",
+       "/boom  INTERNAL_SERVER_ERROR  connect ECONNREFUSED 10.0.0.5:5432 password=hunter2  + the stack",
+       ""
+      ]
+     ]
+    },
+    "note": "<code>onError</code> sees <b>every</b> error, with all its details. It writes them to the <b>log</b>. Only your team reads the log."
+   },
+   {
+    "line": 3,
+    "code": [
+     "// RIGHT: onError for the log, errorFormatter for the client",
+     "const t = initTRPC.create({",
+     "  isDev: false,",
+     "  errorFormatter({ shape }) { return { ...shape, message: shape.data.code === \"INTERNAL_SERVER_ERROR\" ? \"Something went wrong.\" : shape.message }; },",
+     "});",
+     "createHTTPServer({ router, onError: ({ error, path }) => console.error(path, error) });"
+    ],
+    "wire": [
+     "Server",
+     "Client",
+     "500   { error: { message: \"Something went wrong.\", ... } }"
+    ],
+    "status": [
+     "ok",
+     "500 (safe)"
+    ],
+    "boxes": {
+     "reply": [
+      [
+       "Status",
+       "500",
+       "warn"
+      ],
+      [
+       "message in the answer",
+       "Something went wrong.",
+       "good"
+      ]
+     ],
+     "server": [
+      [
+       "errorFormatter",
+       "the code is INTERNAL_SERVER_ERROR, so swap the message",
+       "good"
+      ]
+     ]
+    },
+    "note": "<code>errorFormatter</code> changes the message of <b>unknown</b> errors only. A <code>NOT_FOUND</code> you wrote yourself keeps its message. The client learns nothing about the inside."
+   }
+  ],
+  "answer": "<b>Answer:</b> <b>yes</b>, by default. In production tRPC removes the stack, but the message stays in the answer. Fix it with an <code>errorFormatter</code> that swaps the message of <code>INTERNAL_SERVER_ERROR</code>, and use <code>onError</code> to log the real error. This is the lesson 10 rule: never show the insides."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

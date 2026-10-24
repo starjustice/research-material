@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Styles Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../18-choosing-an-api-style.md">Open the lesson ↗</a>
+  </div>
+  <h1>Choosing an API style: stepper</h1>
+  <p class="sub">Four styles, one job. Each story shows what travels, which question picks the style, and what breaks when a name changes.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> ask <b>who calls</b>, then what they need. Do not start from what is new or fast.
+  <ul>
+    <li><b>REST:</b> a menu of URLs. Best for outside callers and caching.</li>
+    <li><b>GraphQL:</b> the client picks the fields. Best when different apps want different data.</li>
+    <li><b>tRPC:</b> typed calls inside one TypeScript repo. Best when both sides ship together.</li>
+    <li><b>gRPC:</b> fast, typed, binary calls. Best between busy services.</li>
+  </ul>
+  <b>Words:</b> <b>contract</b> = what you can ask for and what you get. <b>Coupling</b> = how much two sides must change together. <b>Round trip</b> = one trip to the server and back.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "client",
+  "title": "Client",
+  "sub": "the caller",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "wire",
+  "title": "On the wire",
+  "sub": "what travels",
+  "color": "c2",
+  "empty": "nothing travelling"
+ },
+ {
+  "key": "server",
+  "title": "Server",
+  "sub": "what it holds and does",
+  "color": "c3",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "One job, four styles",
+  "question": "Four styles do the same job: get user 1. Which one sends back only the name? And for a page that needs the user AND the orders, which styles need only one HTTP request?",
+  "codeTitle": "The same job, from the client",
+  "code": [
+   "// REST",
+   "fetch(\"/users/1\")",
+   "// GraphQL",
+   "fetch(\"/graphql\", { method: \"POST\", body })",
+   "//   body: {\"query\":\"{ user(id: 1) { name } }\"}",
+   "// tRPC",
+   "trpc.user.byId.query({ id: 1 })",
+   "// gRPC",
+   "client.GetUser({ id: 1 }, callback)",
+   "// Job 2: the user AND the user's orders"
+  ],
+  "boxes": [
+   {
+    "key": "sent",
+    "title": "What the client sends",
+    "sub": "the request",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "back",
+    "title": "What comes back",
+    "sub": "the answer",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "cost",
+    "title": "What it cost",
+    "sub": "size and requests",
+    "color": "c3",
+    "empty": "not counted yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "GET /users/1"
+    ],
+    "status": [
+     "info",
+     "REST"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Method and URL",
+       "GET /users/1",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "Body",
+       "{\"id\":1,\"name\":\"Ana\",\"email\":\"ana@example.com\"}",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "Size",
+       "47 bytes, every field",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>REST.</b> The URL names the thing. The <b>server</b> decides the fields, so all three come back: 47 bytes."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /graphql   {\"query\":\"{ user(id: 1) { name } }\"}"
+    ],
+    "status": [
+     "info",
+     "GraphQL"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Method and URL",
+       "POST /graphql",
+       ""
+      ],
+      [
+       "Body (36 bytes)",
+       "{\"query\":\"{ user(id: 1) { name } }\"}",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "Body",
+       "{\"data\":{\"user\":{\"name\":\"Ana\"}}}",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "Size",
+       "32 bytes, only the field asked for",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>GraphQL.</b> The <b>client</b> chose <code>name</code>, so only <code>name</code> came back. The price: the client sends a query text, and the server needs a schema and a parser."
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Client",
+     "Server",
+     "GET /user.byId?input={\"id\":1}"
+    ],
+    "status": [
+     "info",
+     "tRPC"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Method and URL",
+       "GET /user.byId?input={\"id\":1}",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "Body",
+       "{\"result\":{\"data\":{\"id\":1,\"name\":\"Ana\",\"email\":\"ana@example.com\"}}}",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "Size",
+       "67 bytes, every field, wrapped in result and data",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>tRPC.</b> On the wire it is plain JSON over HTTP. The magic is in the client code: it is typed from the router, so a wrong name is a TypeScript error <b>before</b> you run anything."
+   },
+   {
+    "line": 8,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /demo.UserService/GetUser   (protobuf bytes)"
+    ],
+    "status": [
+     "info",
+     "gRPC"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Method and URL",
+       "POST /demo.UserService/GetUser",
+       ""
+      ],
+      [
+       "Body",
+       "protobuf, in binary",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "Body",
+       "binary protobuf. Field numbers are in it, field names are not.",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "Size",
+       "24 bytes, and 5 more for the framing",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>gRPC.</b> Always <code>POST</code>, and the body is binary. Smallest on the wire, but a browser cannot call it directly, and you cannot read it by eye."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "cost": [
+      [
+       "REST",
+       "47 bytes",
+       ""
+      ],
+      [
+       "GraphQL, name only",
+       "32 bytes",
+       "good"
+      ],
+      [
+       "tRPC",
+       "67 bytes",
+       ""
+      ],
+      [
+       "gRPC",
+       "24 bytes + 5 framing",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Job 1 in numbers.</b> Careful: this is <b>one tiny message</b>. It shows the shape of the difference, not a speed test. Real differences depend on the data, on compression and on the network."
+   },
+   {
+    "line": 9,
+    "wire": [
+     "Client",
+     "Server",
+     "GET /users/1      then      GET /users/1/orders"
+    ],
+    "status": [
+     "warn",
+     "2 requests"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Job 2: REST",
+       "GET /users/1, then GET /users/1/orders",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "Two answers",
+       "one for the user, one for the orders",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "HTTP requests",
+       "2",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>Job 2, REST.</b> The page needs the user and the orders. They are two things, so two URLs and <b>two requests</b>."
+   },
+   {
+    "line": 9,
+    "wire": [
+     "Client",
+     "Server",
+     "POST /graphql   { user(id: 1) { name orders { id } } }"
+    ],
+    "status": [
+     "ok",
+     "1 request"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Job 2: GraphQL",
+       "one query that asks for the name and the orders together",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "One answer",
+       "the user and the orders in one JSON",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "HTTP requests",
+       "1",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Job 2, GraphQL.</b> One query can reach both things, so <b>one request</b>. This is the fewer-round-trips part of GraphQL."
+   },
+   {
+    "line": 9,
+    "wire": [
+     "Client",
+     "Server",
+     "GET /user.byId,orders.byUser?batch=1&input=..."
+    ],
+    "status": [
+     "ok",
+     "1 request"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Job 2: tRPC",
+       "two calls in the same moment, batched into one request (lesson 15)",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "One answer",
+       "an array with one result for each call",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "HTTP requests",
+       "1",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Job 2, tRPC.</b> The client batches calls that start at the same moment into <b>one request</b>."
+   },
+   {
+    "line": 9,
+    "wire": [
+     "Client",
+     "Server",
+     "GetUser(...)   and   ListOrders(...)   on one HTTP/2 connection"
+    ],
+    "status": [
+     "info",
+     "2 calls"
+    ],
+    "boxes": {
+     "sent": [
+      [
+       "Job 2: gRPC",
+       "two calls, on one HTTP/2 connection (I did not measure this one)",
+       ""
+      ]
+     ],
+     "back": [
+      [
+       "Two answers",
+       "one for each call",
+       ""
+      ]
+     ],
+     "cost": [
+      [
+       "Calls",
+       "2, but only one connection",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>Job 2, gRPC.</b> Two calls. HTTP/2 lets them share one connection, so they are cheap, but they are still two calls."
+   }
+  ],
+  "answer": "<b>Answer:</b> GraphQL sends back only the fields you ask for (32 bytes for <code>name</code>). For the page with the user and the orders, GraphQL and tRPC need <b>1</b> HTTP request, REST needs <b>2</b>, and gRPC makes 2 calls on one connection. These numbers are for one tiny message. They show the shape of the difference, not a speed test."
+ },
+ {
+  "tab": "Five projects",
+  "question": "Walk each project through the four questions. Start with a public catalog that partner shops call. Which style is it, and how many questions do you need?",
+  "codeTitle": "The four questions, as code",
+  "code": [
+   "// chooseStyle: the first yes wins",
+   "if (n.publicThirdParties) api = \"rest\";",
+   "else if (n.serviceToService && (n.needsStreaming || n.manyLanguages)) api = \"grpc\";",
+   "else if (n.clientsAreAllTypeScriptInOneRepo && !n.oldClientsStayInstalled) api = \"trpc\";",
+   "else if (n.manyClientsNeedDifferentFields) api = \"graphql\";",
+   "else api = \"rest\";"
+  ],
+  "boxes": [
+   {
+    "key": "project",
+    "title": "The project",
+    "sub": "what we are building",
+    "color": "c1",
+    "empty": "none"
+   },
+   {
+    "key": "asked",
+    "title": "The questions",
+    "sub": "asked in order",
+    "color": "c2",
+    "empty": "not asked yet"
+   },
+   {
+    "key": "pick",
+    "title": "The pick",
+    "sub": "the style",
+    "color": "c3",
+    "empty": "not decided yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project 1 of 5",
+       "A public catalog for partner shops",
+       ""
+      ]
+     ],
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "yes",
+       "good"
+      ]
+     ],
+     "pick": [
+      [
+       "Pick",
+       "REST, with an OpenAPI contract",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Project 1.</b> Other companies call it, so question 1 is a <b>yes</b>, and we stop. Partners need a plain, documented API: <b>REST</b>."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project 2 of 5",
+       "Services in Go and Node, with a live price feed between them",
+       ""
+      ]
+     ],
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ]
+     ],
+     "pick": []
+    },
+    "note": "<b>Project 2.</b> Question 1: not public. <b>No.</b> Go on."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "yes: a live feed, and two languages",
+       "good"
+      ]
+     ],
+     "pick": [
+      [
+       "Pick",
+       "gRPC",
+       "good"
+      ],
+      [
+       "For the browser",
+       "SSE (a separate choice, lesson 17)",
+       ""
+      ]
+     ]
+    },
+    "note": "Question 2: server to server, with streaming and two languages. <b>Yes: gRPC.</b> If a browser shows the prices, pushing them is a <b>separate</b> choice on top: SSE."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project 3 of 5",
+       "A Next.js admin tool and its API, in one repo",
+       ""
+      ]
+     ],
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ]
+     ],
+     "pick": []
+    },
+    "note": "<b>Project 3.</b> Question 1: not public. <b>No.</b>"
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no: the caller is a browser app",
+       ""
+      ]
+     ]
+    },
+    "note": "Question 2: not server to server. <b>No.</b>"
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no: the caller is a browser app",
+       ""
+      ],
+      [
+       "3  All callers TypeScript, and shipped with the server?",
+       "yes: they change in one pull request",
+       "good"
+      ]
+     ],
+     "pick": [
+      [
+       "Pick",
+       "tRPC",
+       "good"
+      ]
+     ]
+    },
+    "note": "Question 3: all TypeScript, in one repo, shipped together. <b>Yes: tRPC.</b> A rename shows up as a TypeScript error before release."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project 4 of 5",
+       "A React Native app, a web app and a CMS that each want different fields",
+       ""
+      ]
+     ],
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ]
+     ],
+     "pick": []
+    },
+    "note": "<b>Project 4.</b> Question 1: not public. <b>No.</b>"
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no",
+       ""
+      ]
+     ]
+    },
+    "note": "Question 2: the callers are apps, not services. <b>No.</b>"
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no",
+       ""
+      ],
+      [
+       "3  All callers TypeScript, and shipped with the server?",
+       "no: the phone app stays installed for months",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Question 3: the mobile app lives in the app stores. Old versions stay installed, so it does <b>not</b> ship with the server. <b>No.</b>"
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no",
+       ""
+      ],
+      [
+       "3  All callers TypeScript, and shipped with the server?",
+       "no",
+       ""
+      ],
+      [
+       "4  Do different apps need different fields?",
+       "yes",
+       "good"
+      ]
+     ],
+     "pick": [
+      [
+       "Pick",
+       "GraphQL",
+       "good"
+      ]
+     ]
+    },
+    "note": "Question 4: three apps want different fields of the same data. <b>Yes: GraphQL.</b>"
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "project": [
+      [
+       "Project 5 of 5",
+       "A mobile app in the stores, with a TypeScript server in one repo",
+       ""
+      ]
+     ],
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ]
+     ],
+     "pick": []
+    },
+    "note": "<b>Project 5.</b> Question 1: not public. <b>No.</b>"
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no",
+       ""
+      ]
+     ]
+    },
+    "note": "Question 2: not server to server. <b>No.</b>"
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no",
+       ""
+      ],
+      [
+       "3  All callers TypeScript, and shipped with the server?",
+       "no: everything is TypeScript, but old app versions stay installed",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Question 3 is the <b>trap</b>. Everything is TypeScript, but the app in the store does not change when the server changes. <b>No</b>, so tRPC is out."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "asked": [
+      [
+       "1  Do other companies call it?",
+       "no",
+       ""
+      ],
+      [
+       "2  Server to server, with streaming or many languages?",
+       "no",
+       ""
+      ],
+      [
+       "3  All callers TypeScript, and shipped with the server?",
+       "no",
+       ""
+      ],
+      [
+       "4  Do different apps need different fields?",
+       "no: one app, one set of fields",
+       ""
+      ]
+     ],
+     "pick": [
+      [
+       "Pick",
+       "REST",
+       "good"
+      ],
+      [
+       "If the fields differ",
+       "GraphQL",
+       ""
+      ]
+     ]
+    },
+    "note": "Question 4: one app, so no need for different fields. <b>REST</b>, with versions. If different fields were needed, question 4 would say GraphQL."
+   }
+  ],
+  "answer": "<b>Answer:</b> ask in order. <b>Public</b>: REST. <b>Server to server with streaming or many languages</b>: gRPC. <b>All TypeScript and shipped together</b>: tRPC. <b>Different apps want different fields</b>: GraphQL. Anything else: REST. The trap is the mobile app in the stores: everything is TypeScript, but old versions stay installed, so tRPC is out."
+ },
+ {
+  "tab": "One system, many styles",
+  "question": "An example shop has five kinds of callers. Guess a style for each: the partner shops, the shop's own apps, the admin tool, two services, and a live price board in the browser.",
+  "codeTitle": "The lines of an example shop (not from your DBO notes)",
+  "code": [
+   "// the example shop's lines",
+   "// line 1  partner shops           -> ?",
+   "// line 2  mobile app, web, CMS    -> ?",
+   "// line 3  admin tool, same repo   -> ?",
+   "// line 4  order <-> price service -> ?",
+   "// line 5  price board in a page   -> ?"
+  ],
+  "boxes": [
+   {
+    "key": "who",
+    "title": "Who calls",
+    "sub": "the caller",
+    "color": "c1",
+    "empty": "none yet"
+   },
+   {
+    "key": "style",
+    "title": "The style",
+    "sub": "what we picked",
+    "color": "c2",
+    "empty": "none yet"
+   },
+   {
+    "key": "why",
+    "title": "Why",
+    "sub": "the reason",
+    "color": "c3",
+    "empty": "none yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "code": [
+     "// the example shop's lines",
+     "// line 1  partner shops           -> REST",
+     "// line 2  mobile app, web, CMS    -> ?",
+     "// line 3  admin tool, same repo   -> ?",
+     "// line 4  order <-> price service -> ?",
+     "// line 5  price board in a page   -> ?"
+    ],
+    "wire": [
+     "Partner shop",
+     "Shop API",
+     "GET /products/7"
+    ],
+    "status": [
+     "info",
+     "REST"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Line 1",
+       "Partner shops, other companies",
+       ""
+      ]
+     ],
+     "style": [
+      [
+       "Line 1",
+       "REST, with an OpenAPI contract",
+       ""
+      ]
+     ],
+     "why": [
+      [
+       "Line 1",
+       "Other companies call it. They need a plain, documented API.",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Line 1.</b> Outside partners get <b>REST</b>. Question 1 of the four."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// the example shop's lines",
+     "// line 1  partner shops           -> REST",
+     "// line 2  mobile app, web, CMS    -> GraphQL",
+     "// line 3  admin tool, same repo   -> ?",
+     "// line 4  order <-> price service -> ?",
+     "// line 5  price board in a page   -> ?"
+    ],
+    "wire": [
+     "Mobile app",
+     "Shop API",
+     "POST /graphql   { order(id: 41) { total } }"
+    ],
+    "status": [
+     "info",
+     "GraphQL"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Line 1",
+       "Partner shops, other companies",
+       ""
+      ],
+      [
+       "Line 2",
+       "Mobile app, web app, CMS",
+       ""
+      ]
+     ],
+     "style": [
+      [
+       "Line 1",
+       "REST, with an OpenAPI contract",
+       ""
+      ],
+      [
+       "Line 2",
+       "GraphQL",
+       ""
+      ]
+     ],
+     "why": [
+      [
+       "Line 1",
+       "Other companies call it. They need a plain, documented API.",
+       ""
+      ],
+      [
+       "Line 2",
+       "Each app wants different fields. The phone app stays installed for months.",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Line 2.</b> The shop's own apps want different fields, so <b>GraphQL</b>. The mobile app stays installed, so tRPC is out for this line."
+   },
+   {
+    "line": 3,
+    "code": [
+     "// the example shop's lines",
+     "// line 1  partner shops           -> REST",
+     "// line 2  mobile app, web, CMS    -> GraphQL",
+     "// line 3  admin tool, same repo   -> tRPC",
+     "// line 4  order <-> price service -> ?",
+     "// line 5  price board in a page   -> ?"
+    ],
+    "wire": [
+     "Admin tool",
+     "Shop API",
+     "GET /order.list?input={\"page\":1}"
+    ],
+    "status": [
+     "info",
+     "tRPC"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Line 1",
+       "Partner shops, other companies",
+       ""
+      ],
+      [
+       "Line 2",
+       "Mobile app, web app, CMS",
+       ""
+      ],
+      [
+       "Line 3",
+       "Admin tool in the same repo",
+       ""
+      ]
+     ],
+     "style": [
+      [
+       "Line 1",
+       "REST, with an OpenAPI contract",
+       ""
+      ],
+      [
+       "Line 2",
+       "GraphQL",
+       ""
+      ],
+      [
+       "Line 3",
+       "tRPC",
+       ""
+      ]
+     ],
+     "why": [
+      [
+       "Line 1",
+       "Other companies call it. They need a plain, documented API.",
+       ""
+      ],
+      [
+       "Line 2",
+       "Each app wants different fields. The phone app stays installed for months.",
+       ""
+      ],
+      [
+       "Line 3",
+       "All TypeScript, and it ships with the server in one pull request.",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Line 3.</b> The admin tool is TypeScript and changes together with the server: <b>tRPC</b>. Types for almost no setup."
+   },
+   {
+    "line": 4,
+    "code": [
+     "// the example shop's lines",
+     "// line 1  partner shops           -> REST",
+     "// line 2  mobile app, web, CMS    -> GraphQL",
+     "// line 3  admin tool, same repo   -> tRPC",
+     "// line 4  order <-> price service -> gRPC",
+     "// line 5  price board in a page   -> ?"
+    ],
+    "wire": [
+     "Order service",
+     "Price service",
+     "POST /demo.PriceService/Watch   (a stream of prices)"
+    ],
+    "status": [
+     "info",
+     "gRPC"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Line 1",
+       "Partner shops, other companies",
+       ""
+      ],
+      [
+       "Line 2",
+       "Mobile app, web app, CMS",
+       ""
+      ],
+      [
+       "Line 3",
+       "Admin tool in the same repo",
+       ""
+      ],
+      [
+       "Line 4",
+       "Order service and price service (Go and Node)",
+       ""
+      ]
+     ],
+     "style": [
+      [
+       "Line 1",
+       "REST, with an OpenAPI contract",
+       ""
+      ],
+      [
+       "Line 2",
+       "GraphQL",
+       ""
+      ],
+      [
+       "Line 3",
+       "tRPC",
+       ""
+      ],
+      [
+       "Line 4",
+       "gRPC",
+       ""
+      ]
+     ],
+     "why": [
+      [
+       "Line 1",
+       "Other companies call it. They need a plain, documented API.",
+       ""
+      ],
+      [
+       "Line 2",
+       "Each app wants different fields. The phone app stays installed for months.",
+       ""
+      ],
+      [
+       "Line 3",
+       "All TypeScript, and it ships with the server in one pull request.",
+       ""
+      ],
+      [
+       "Line 4",
+       "Server to server, with a stream and two languages.",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Line 4.</b> Two services in two languages, with a live stream between them: <b>gRPC</b>. (The service name is made up for this example.)"
+   },
+   {
+    "line": 5,
+    "code": [
+     "// the example shop's lines",
+     "// line 1  partner shops           -> REST",
+     "// line 2  mobile app, web, CMS    -> GraphQL",
+     "// line 3  admin tool, same repo   -> tRPC",
+     "// line 4  order <-> price service -> gRPC",
+     "// line 5  price board in a page   -> SSE"
+    ],
+    "wire": [
+     "Shop API",
+     "Browser",
+     "id: 12   event: price   data: 65000"
+    ],
+    "status": [
+     "info",
+     "SSE"
+    ],
+    "boxes": {
+     "who": [
+      [
+       "Line 1",
+       "Partner shops, other companies",
+       ""
+      ],
+      [
+       "Line 2",
+       "Mobile app, web app, CMS",
+       ""
+      ],
+      [
+       "Line 3",
+       "Admin tool in the same repo",
+       ""
+      ],
+      [
+       "Line 4",
+       "Order service and price service (Go and Node)",
+       ""
+      ],
+      [
+       "Line 5",
+       "Price board in a web page",
+       ""
+      ]
+     ],
+     "style": [
+      [
+       "Line 1",
+       "REST, with an OpenAPI contract",
+       ""
+      ],
+      [
+       "Line 2",
+       "GraphQL",
+       ""
+      ],
+      [
+       "Line 3",
+       "tRPC",
+       ""
+      ],
+      [
+       "Line 4",
+       "gRPC",
+       ""
+      ],
+      [
+       "Line 5",
+       "SSE, on top of the others",
+       ""
+      ]
+     ],
+     "why": [
+      [
+       "Line 1",
+       "Other companies call it. They need a plain, documented API.",
+       ""
+      ],
+      [
+       "Line 2",
+       "Each app wants different fields. The phone app stays installed for months.",
+       ""
+      ],
+      [
+       "Line 3",
+       "All TypeScript, and it ships with the server in one pull request.",
+       ""
+      ],
+      [
+       "Line 4",
+       "Server to server, with a stream and two languages.",
+       ""
+      ],
+      [
+       "Line 5",
+       "The server pushes, the page only listens: one way.",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Line 5.</b> Pushing news to a browser is a <b>separate</b> choice (lesson 17). One way means <b>SSE</b>. Both ways would mean WebSocket."
+   },
+   {
+    "line": null,
+    "code": [
+     "// the example shop's lines",
+     "// line 1  partner shops           -> REST",
+     "// line 2  mobile app, web, CMS    -> GraphQL",
+     "// line 3  admin tool, same repo   -> tRPC",
+     "// line 4  order <-> price service -> gRPC",
+     "// line 5  price board in a page   -> SSE"
+    ],
+    "wire": null,
+    "boxes": {
+     "why": [
+      [
+       "Line 1",
+       "Other companies call it. They need a plain, documented API.",
+       ""
+      ],
+      [
+       "Line 2",
+       "Each app wants different fields. The phone app stays installed for months.",
+       ""
+      ],
+      [
+       "Line 3",
+       "All TypeScript, and it ships with the server in one pull request.",
+       ""
+      ],
+      [
+       "Line 4",
+       "Server to server, with a stream and two languages.",
+       ""
+      ],
+      [
+       "Line 5",
+       "The server pushes, the page only listens: one way.",
+       ""
+      ],
+      [
+       "The rule",
+       "one style for each kind of caller",
+       "good"
+      ],
+      [
+       "The cost",
+       "each style is one more thing to learn and to run. Keep a reason for every line.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>The rule and the cost.</b> Mixing styles is normal, but <b>each one needs a reason</b>. Two styles are easy to run. Four need a clear line between them."
+   }
+  ],
+  "answer": "<b>Answer:</b> one style for each kind of caller, with a clear line between them: <b>REST</b> for outside partners, <b>GraphQL</b> for your own apps that want different fields, <b>tRPC</b> for a TypeScript tool that ships with the server, <b>gRPC</b> between busy services, and <b>SSE</b> on top for one-way pushes. Each one is something to learn and to run, so each needs a reason."
+ },
+ {
+  "tab": "What breaks on a rename",
+  "question": "On Monday you rename something. An old app is still installed on phones. What happens to that old app in REST, GraphQL, tRPC and gRPC? Which one fails loudest?",
+  "codeTitle": "The old app keeps calling the old name",
+  "code": [
+   "// REST:     rename the field total_price to totalPrice",
+   "// GraphQL:  rename the field price to total",
+   "// tRPC:     rename the procedure user.byId to user.get",
+   "// gRPC:     rename the field name to fullName",
+   "// gRPC:     rename the method GetUser to FetchUser"
+  ],
+  "boxes": [
+   {
+    "key": "change",
+    "title": "What you changed",
+    "sub": "on the server",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "old",
+    "title": "What the old app sees",
+    "sub": "still the old name",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "fix",
+    "title": "The safe way",
+    "sub": "so nobody breaks",
+    "color": "c3",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": [
+     "Old app",
+     "Server",
+     "GET /orders/41"
+    ],
+    "status": [
+     "warn",
+     "200, wrong shape"
+    ],
+    "boxes": {
+     "change": [
+      [
+       "REST",
+       "total_price is now totalPrice",
+       ""
+      ]
+     ],
+     "old": [
+      [
+       "REST",
+       "the app reads total_price and gets undefined. Often no error at all.",
+       "bad"
+      ]
+     ],
+     "fix": [
+      [
+       "REST",
+       "add the new field and keep the old one, or make /v2 (lesson 02)",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>REST.</b> The old app asks the same URL and gets an answer, but the field it wants is gone. It reads <code>undefined</code>. This one often fails <b>quietly</b>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Old app",
+     "Server",
+     "POST /graphql   { orders { price } }"
+    ],
+    "status": [
+     "bad",
+     "validation error"
+    ],
+    "boxes": {
+     "change": [
+      [
+       "REST",
+       "total_price is now totalPrice",
+       ""
+      ],
+      [
+       "GraphQL",
+       "price is now total",
+       ""
+      ]
+     ],
+     "old": [
+      [
+       "REST",
+       "the app reads total_price and gets undefined. Often no error at all.",
+       "bad"
+      ],
+      [
+       "GraphQL",
+       "the query fails: Cannot query field \"price\" on type \"Order\".",
+       "bad"
+      ]
+     ],
+     "fix": [
+      [
+       "REST",
+       "add the new field and keep the old one, or make /v2 (lesson 02)",
+       "good"
+      ],
+      [
+       "GraphQL",
+       "mark the old field @deprecated, keep it for a while, then remove it",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>GraphQL.</b> The server checks the query against the schema, so the old query fails <b>loudly</b>, with a message that says what is wrong. The HTTP status depends on the server (lesson 04)."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Old app",
+     "Server",
+     "GET /user.byId?input={\"id\":1}"
+    ],
+    "status": [
+     "bad",
+     "404 NOT_FOUND"
+    ],
+    "boxes": {
+     "change": [
+      [
+       "REST",
+       "total_price is now totalPrice",
+       ""
+      ],
+      [
+       "GraphQL",
+       "price is now total",
+       ""
+      ],
+      [
+       "tRPC",
+       "user.byId is now user.get",
+       ""
+      ]
+     ],
+     "old": [
+      [
+       "REST",
+       "the app reads total_price and gets undefined. Often no error at all.",
+       "bad"
+      ],
+      [
+       "GraphQL",
+       "the query fails: Cannot query field \"price\" on type \"Order\".",
+       "bad"
+      ],
+      [
+       "tRPC",
+       "No procedure found on path \"user.byId\" (NOT_FOUND, HTTP 404)",
+       "bad"
+      ]
+     ],
+     "fix": [
+      [
+       "REST",
+       "add the new field and keep the old one, or make /v2 (lesson 02)",
+       "good"
+      ],
+      [
+       "GraphQL",
+       "mark the old field @deprecated, keep it for a while, then remove it",
+       "good"
+      ],
+      [
+       "tRPC",
+       "callers you ship together get a TypeScript error before release. Old installed apps do not: keep the old procedure for a while.",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>tRPC.</b> In your own repo, a rename is a <b>TypeScript error</b> on every caller before you ship. That is the whole point. But an app already installed on a phone was built last month, and it gets a <code>404</code>."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Old app",
+     "Server",
+     "POST /demo.UserService/GetUser   (field 2 is still the name)"
+    ],
+    "status": [
+     "ok",
+     "still works"
+    ],
+    "boxes": {
+     "change": [
+      [
+       "REST",
+       "total_price is now totalPrice",
+       ""
+      ],
+      [
+       "GraphQL",
+       "price is now total",
+       ""
+      ],
+      [
+       "tRPC",
+       "user.byId is now user.get",
+       ""
+      ],
+      [
+       "gRPC, a field",
+       "name is now fullName, still field number 2",
+       ""
+      ]
+     ],
+     "old": [
+      [
+       "REST",
+       "the app reads total_price and gets undefined. Often no error at all.",
+       "bad"
+      ],
+      [
+       "GraphQL",
+       "the query fails: Cannot query field \"price\" on type \"Order\".",
+       "bad"
+      ],
+      [
+       "tRPC",
+       "No procedure found on path \"user.byId\" (NOT_FOUND, HTTP 404)",
+       "bad"
+      ],
+      [
+       "gRPC, a field",
+       "nothing breaks on the wire: the names are not in the bytes, only the number 2 is",
+       "good"
+      ]
+     ],
+     "fix": [
+      [
+       "REST",
+       "add the new field and keep the old one, or make /v2 (lesson 02)",
+       "good"
+      ],
+      [
+       "GraphQL",
+       "mark the old field @deprecated, keep it for a while, then remove it",
+       "good"
+      ],
+      [
+       "tRPC",
+       "callers you ship together get a TypeScript error before release. Old installed apps do not: keep the old procedure for a while.",
+       "good"
+      ],
+      [
+       "gRPC, a field",
+       "renaming is safe. Changing or reusing the number is not: use reserved (lesson 16)",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>gRPC, a field.</b> A protobuf message carries field <b>numbers</b>, not names. Renaming <code>name</code> to <code>fullName</code> changes the code you write, but not the bytes. (Changing or reusing the <b>number</b> would break old callers.)"
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Old app",
+     "Server",
+     "POST /demo.UserService/FetchUser"
+    ],
+    "status": [
+     "bad",
+     "UNIMPLEMENTED (12)"
+    ],
+    "boxes": {
+     "change": [
+      [
+       "REST",
+       "total_price is now totalPrice",
+       ""
+      ],
+      [
+       "GraphQL",
+       "price is now total",
+       ""
+      ],
+      [
+       "tRPC",
+       "user.byId is now user.get",
+       ""
+      ],
+      [
+       "gRPC, a field",
+       "name is now fullName, still field number 2",
+       ""
+      ],
+      [
+       "gRPC, a method",
+       "the server's method is named differently from what the old app calls",
+       ""
+      ]
+     ],
+     "old": [
+      [
+       "REST",
+       "the app reads total_price and gets undefined. Often no error at all.",
+       "bad"
+      ],
+      [
+       "GraphQL",
+       "the query fails: Cannot query field \"price\" on type \"Order\".",
+       "bad"
+      ],
+      [
+       "tRPC",
+       "No procedure found on path \"user.byId\" (NOT_FOUND, HTTP 404)",
+       "bad"
+      ],
+      [
+       "gRPC, a field",
+       "nothing breaks on the wire: the names are not in the bytes, only the number 2 is",
+       "good"
+      ],
+      [
+       "gRPC, a method",
+       "status 12 UNIMPLEMENTED: The server does not implement the method /demo.UserService/FetchUser",
+       "bad"
+      ]
+     ],
+     "fix": [
+      [
+       "REST",
+       "add the new field and keep the old one, or make /v2 (lesson 02)",
+       "good"
+      ],
+      [
+       "GraphQL",
+       "mark the old field @deprecated, keep it for a while, then remove it",
+       "good"
+      ],
+      [
+       "tRPC",
+       "callers you ship together get a TypeScript error before release. Old installed apps do not: keep the old procedure for a while.",
+       "good"
+      ],
+      [
+       "gRPC, a field",
+       "renaming is safe. Changing or reusing the number is not: use reserved (lesson 16)",
+       "good"
+      ],
+      [
+       "gRPC, a method",
+       "keep the old method next to the new one until old callers are gone",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>gRPC, a method.</b> The method name is part of the call path. A caller of a name the server does not have gets status <code>UNIMPLEMENTED</code> (12)."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "fix": [
+      [
+       "The pattern",
+       "a contract change is a change for every caller",
+       "warn"
+      ],
+      [
+       "The habit",
+       "add the new name, keep the old one for a while, remove it when nobody calls it",
+       "good"
+      ],
+      [
+       "Best fit for a rename",
+       "tRPC where callers ship together. Everywhere else: keep both, or version.",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>The pattern.</b> Every style has a contract, and a change to the contract is a change for <b>every</b> caller. The style decides how loudly it breaks, and for whom. The safe habit is the same in all four: <b>add the new, keep the old for a while, then remove</b>."
+   }
+  ],
+  "answer": "<b>Answer:</b> REST fails <b>quietly</b> (an old app reads <code>undefined</code>). GraphQL fails <b>loudly</b> with a validation error. tRPC fails at <b>build time</b> for callers you ship together, and with <code>404 NOT_FOUND</code> for an old installed app. gRPC is safe when you rename a field (the names are not in the bytes), but a renamed method gives <code>UNIMPLEMENTED</code>. The safe habit is the same for all four: add the new, keep the old for a while, then remove."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

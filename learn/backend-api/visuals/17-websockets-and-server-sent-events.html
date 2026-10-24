@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebSockets and SSE Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../17-websockets-and-server-sent-events.md">Open the lesson ↗</a>
+  </div>
+  <h1>WebSockets and SSE stepper</h1>
+  <p class="sub">News from the server to the browser. Each story shows what travels, what the server holds, and how connections break and come back.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> use the simplest one that works: <b>polling</b> for rare news, <b>SSE</b> for one-way pushes, <b>WebSocket</b> when both sides talk. Connections drop, so plan for reconnects.
+  <ul>
+    <li><b>Polling:</b> the client asks again and again, "anything new?"</li>
+    <li><b>SSE:</b> the server keeps one HTTP answer open and pushes text events. One way.</li>
+    <li><b>WebSocket:</b> one connection that stays open. Both sides can send at any time.</li>
+    <li><b>Heartbeat:</b> a tiny message on a timer to show the line is alive (ping and pong for WebSocket).</li>
+  </ul>
+  <b>Codes to know:</b> <code>101</code> = switching protocols (a WebSocket starts). <code>204</code> = tells an SSE client to stop reconnecting. WebSocket close codes: <code>1000</code> normal, <code>1006</code> the line died.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "client",
+  "title": "Client",
+  "sub": "the browser",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "wire",
+  "title": "On the wire",
+  "sub": "what travels",
+  "color": "c2",
+  "empty": "nothing travelling"
+ },
+ {
+  "key": "server",
+  "title": "Server",
+  "sub": "what it holds and does",
+  "color": "c3",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "Polling against push",
+  "question": "A goal is scored at 5 seconds. A page polls every 2 seconds. Another page listens with SSE. When does each page show the goal, and how many requests did each make?",
+  "codeTitle": "Two ways to get the news",
+  "code": [
+   "// POLLING: ask every 2 seconds",
+   "setInterval(() => fetch(\"/news\").then(show), 2000);",
+   "// SSE: ask once, then listen",
+   "new EventSource(\"/events\").onmessage = (e) => show(e.data);"
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Client",
+    "sub": "the browser",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "wire",
+    "title": "Requests made",
+    "sub": "counted from time 0",
+    "color": "c2",
+    "empty": "none yet"
+   },
+   {
+    "key": "server",
+    "title": "News on the server",
+    "sub": "goal scored at 5 seconds",
+    "color": "c3",
+    "empty": "no news yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Page A",
+       "polls every 2 seconds",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Page A",
+       "0 requests",
+       ""
+      ]
+     ],
+     "server": []
+    },
+    "note": "<b>Page A polls.</b> It asks \"any news?\" every 2 seconds. Time starts at 0."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Page A",
+     "Server",
+     "GET /news   (at 0 s, at 2 s, at 4 s)"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Page A",
+       "asked at 0 s, 2 s and 4 s. Each answer: no news.",
+       "warn"
+      ]
+     ],
+     "wire": [
+      [
+       "Page A",
+       "3 requests, all empty",
+       "warn"
+      ]
+     ],
+     "server": [
+      [
+       "At 4 s",
+       "still no news",
+       ""
+      ]
+     ]
+    },
+    "note": "Three requests, three answers of \"nothing\". Each one cost a trip to the server."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "At 5 s",
+       "GOAL! News is ready.",
+       "good"
+      ]
+     ],
+     "client": [
+      [
+       "Page A",
+       "does not know yet. Its next request is at 6 s.",
+       "warn"
+      ]
+     ],
+     "wire": [
+      [
+       "Page A",
+       "3 requests, all empty",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The goal is scored at 5 seconds. Page A has no idea. It will only ask again at 6 seconds."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Page A",
+     "Server",
+     "GET /news   (at 6 s)  ->  goal!"
+    ],
+    "status": [
+     "warn",
+     "1 s late"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Page A",
+       "shows the goal at 6 s. It was 1 s late.",
+       "warn"
+      ]
+     ],
+     "wire": [
+      [
+       "Page A",
+       "4 requests (3 empty)",
+       "warn"
+      ]
+     ]
+    },
+    "note": "At 6 seconds Page A asks and gets the goal. It is <b>1 second late</b>, and it made <b>4 requests</b>. With a 2 second timer, the news can be up to 2 seconds late."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Page B",
+     "Server",
+     "GET /events   (once, at 0 s)  ->  the answer stays open"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Page A",
+       "shows the goal at 6 s. It was 1 s late.",
+       "warn"
+      ],
+      [
+       "Page B (SSE)",
+       "opened one connection at 0 s and listens",
+       "good"
+      ]
+     ],
+     "wire": [
+      [
+       "Page A",
+       "4 requests (3 empty)",
+       "warn"
+      ],
+      [
+       "Page B",
+       "1 request, and it stays open",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Page B uses SSE.</b> It makes <b>one</b> request at 0 seconds. The server keeps the answer open."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Server",
+     "Page B",
+     "data: GOAL!   (at 5 s)"
+    ],
+    "status": [
+     "ok",
+     "on time"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Page A",
+       "shows the goal at 6 s. It was 1 s late.",
+       "warn"
+      ],
+      [
+       "Page B (SSE)",
+       "shows the goal at 5 s. On time.",
+       "good"
+      ]
+     ],
+     "wire": [
+      [
+       "Page A",
+       "4 requests (3 empty)",
+       "warn"
+      ],
+      [
+       "Page B",
+       "1 request in total",
+       "good"
+      ]
+     ]
+    },
+    "note": "At 5 seconds the server writes the event into the open answer. Page B shows it <b>at once</b>. One request, no delay."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "wire": [
+      [
+       "1,000 pages polling every 2 s",
+       "500 requests every second, nearly all empty",
+       "bad"
+      ],
+      [
+       "1,000 pages on SSE",
+       "1,000 open connections, and a write only when there is news",
+       "good"
+      ]
+     ]
+    },
+    "note": "Now think of 1,000 pages. Polling makes <b>500 requests every second</b>. SSE holds 1,000 open connections instead, and the server writes only when something happens. (The open connections cost memory. That is the price.)"
+   }
+  ],
+  "answer": "<b>Answer:</b> the polling page shows the goal at <b>6 s</b> (1 s late) after <b>4 requests</b>, three of them empty. The SSE page shows it at <b>5 s</b>, with <b>1 request</b>. Push is faster and cheaper per message, but it holds connections open."
+ },
+ {
+  "tab": "The WebSocket handshake",
+  "question": "A WebSocket starts as an HTTP request. What does the server answer, how does it prove it understood, and what happens to the connection after that?",
+  "codeTitle": "The handshake (real, from my run)",
+  "code": [
+   "GET /chat HTTP/1.1",
+   "Upgrade: websocket    Connection: Upgrade    Sec-WebSocket-Version: 13",
+   "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+   "HTTP/1.1 101 Switching Protocols",
+   "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Client",
+    "sub": "asks to upgrade",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "wire",
+    "title": "On the wire",
+    "sub": "HTTP, then frames",
+    "color": "c2",
+    "empty": "nothing travelling"
+   },
+   {
+    "key": "server",
+    "title": "Server",
+    "sub": "agrees, and then listens",
+    "color": "c3",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": [
+     "Client",
+     "Server",
+     "GET /chat HTTP/1.1"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Wants",
+       "a WebSocket on /chat",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Start",
+       "a normal HTTP request",
+       ""
+      ]
+     ],
+     "server": []
+    },
+    "note": "It starts as an ordinary <b>HTTP GET</b>. Nothing special yet."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "wire": [
+      [
+       "Start",
+       "a normal HTTP request",
+       ""
+      ],
+      [
+       "Headers",
+       "Upgrade: websocket, Connection: Upgrade, Sec-WebSocket-Version: 13",
+       ""
+      ]
+     ]
+    },
+    "note": "The headers say: \"please <b>upgrade</b> this connection to the WebSocket protocol.\""
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Wants",
+       "a WebSocket on /chat",
+       ""
+      ],
+      [
+       "Random key",
+       "dGhlIHNhbXBsZSBub25jZQ==",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Start",
+       "a normal HTTP request",
+       ""
+      ],
+      [
+       "Headers",
+       "Upgrade: websocket, Connection: Upgrade, Sec-WebSocket-Version: 13",
+       ""
+      ],
+      [
+       "Sec-WebSocket-Key",
+       "dGhlIHNhbXBsZSBub25jZQ==",
+       ""
+      ]
+     ]
+    },
+    "note": "The client adds a random <b>key</b>. This example key comes from the standard (RFC 6455)."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Step 1",
+       "take the key and add the fixed text 258EAFA5-E914-47DA-95CA-C5AB0DC85B11",
+       ""
+      ],
+      [
+       "Step 2",
+       "make a SHA-1 hash of it",
+       ""
+      ],
+      [
+       "Step 3",
+       "write the hash in base64: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server makes the <b>accept</b> value: key plus a fixed text, a SHA-1 hash, then base64. This proves it understands WebSocket and is not just an old server echoing headers."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Server",
+     "Client",
+     "HTTP/1.1 101 Switching Protocols   Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+    ],
+    "status": [
+     "ok",
+     "101"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Answer",
+       "101 Switching Protocols",
+       "good"
+      ],
+      [
+       "Sec-WebSocket-Accept",
+       "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+       "good"
+      ]
+     ],
+     "client": [
+      [
+       "Check",
+       "the accept value is the one I expected. Agreed.",
+       "good"
+      ]
+     ]
+    },
+    "note": "The answer is <code>101 Switching Protocols</code>. My real server gave exactly the value that the standard lists for this key."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Ana",
+     "Server",
+     "frame: hello"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Now",
+       "the same connection carries WebSocket frames, not HTTP",
+       "good"
+      ],
+      [
+       "Ana sends",
+       "hello",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Hub",
+       "Ana and Budi are connected",
+       ""
+      ],
+      [
+       "Gets",
+       "hello from Ana",
+       ""
+      ]
+     ]
+    },
+    "note": "From now on the same connection carries <b>frames</b>. Ana sends one."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Ana and Budi",
+     "frame: echo: hello  |  frame: from other: hello"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Now",
+       "the same connection carries WebSocket frames, not HTTP",
+       "good"
+      ],
+      [
+       "Ana gets",
+       "echo: hello",
+       ""
+      ],
+      [
+       "Budi gets",
+       "from other: hello",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Hub",
+       "sends to Ana (echo) and to Budi",
+       ""
+      ]
+     ]
+    },
+    "note": "The server pushes without being asked. Ana gets an echo. Budi gets Ana's message. This is what my real chat did."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client",
+     "ping   ->   pong"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Heartbeat",
+       "ping from one side, pong from the other",
+       "good"
+      ]
+     ],
+     "server": [
+      [
+       "Why",
+       "a dead line tells nobody. The ping finds it, and stops proxies closing an idle line.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "A <b>ping</b> frame must be answered with a <b>pong</b> frame. This is the <b>heartbeat</b>. Without it, a dead line looks alive."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "wire": [
+      [
+       "Close with code 1000",
+       "the server library saw 1000, normal closure",
+       "good"
+      ],
+      [
+       "Close with no code",
+       "the server library saw 1005",
+       "warn"
+      ],
+      [
+       "Line cut, no close frame",
+       "the server library saw 1006, abnormal",
+       "bad"
+      ]
+     ]
+    },
+    "note": "How it ends tells you something. These are the three I saw in my run. <code>1006</code> means the line just died, so be ready to <b>reconnect</b>."
+   }
+  ],
+  "answer": "<b>Answer:</b> the server answers <b>101 Switching Protocols</b> with a <code>Sec-WebSocket-Accept</code> made from the key (plus a fixed text, SHA-1, base64). After that, the same connection carries WebSocket frames, and either side can send at any time. Ping and pong are the heartbeat."
+ },
+ {
+  "tab": "SSE: drop and resume",
+  "question": "The connection drops after event 2. The server has events 1, 2 and 3. What does the browser do, and what does it receive?",
+  "codeTitle": "What the server writes",
+  "code": [
+   "res.write(\"id: 1\\nevent: price\\ndata: 65000\\n\\n\");",
+   "res.write(\"id: 2\\nevent: price\\ndata: 65500\\n\\n\");",
+   "// ... the connection drops here ...",
+   "// the browser reconnects with the header   Last-Event-ID: 2",
+   "res.write(\"id: 3\\nevent: note\\ndata: line one\\ndata: line two\\n\\n\");"
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Browser (EventSource)",
+    "sub": "listens and remembers the last id",
+    "color": "c1",
+    "empty": "not connected"
+   },
+   {
+    "key": "wire",
+    "title": "On the wire",
+    "sub": "the event stream",
+    "color": "c2",
+    "empty": "nothing travelling"
+   },
+   {
+    "key": "server",
+    "title": "Server",
+    "sub": "has events 1, 2 and 3",
+    "color": "c3",
+    "empty": "nothing yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": [
+     "Server",
+     "Browser",
+     "id: 1 | event: price | data: 65000 | (blank line)"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Last id",
+       "1",
+       "good"
+      ],
+      [
+       "Got",
+       "price 65000",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Text",
+       "id: 1\\nevent: price\\ndata: 65000\\n\\n",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Sent",
+       "event 1",
+       ""
+      ]
+     ]
+    },
+    "note": "The server writes event 1 as plain text. A <b>blank line</b> ends the event. The browser keeps the <code>id</code> as its <b>last event id</b>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Server",
+     "Browser",
+     "id: 2 | event: price | data: 65500 | (blank line)"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Last id",
+       "2",
+       "good"
+      ],
+      [
+       "Got",
+       "price 65000, price 65500",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Text",
+       "id: 2\\nevent: price\\ndata: 65500\\n\\n",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Sent",
+       "events 1 and 2",
+       ""
+      ]
+     ]
+    },
+    "note": "Event 2 arrives. The last id is now <b>2</b>."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "status": [
+     "bad",
+     "connection dropped"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Last id",
+       "2",
+       "good"
+      ],
+      [
+       "State",
+       "the connection dropped (a tunnel, a sleeping laptop)",
+       "bad"
+      ]
+     ],
+     "wire": [
+      [
+       "Line",
+       "dead",
+       "bad"
+      ]
+     ],
+     "server": [
+      [
+       "Event 3 happens",
+       "but nobody is listening",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The connection drops. Event 3 happens while the browser is away. With a WebSocket you would have to build the catch-up yourself."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Browser",
+     "Server",
+     "GET /events   Last-Event-ID: 2"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Last id",
+       "2",
+       "good"
+      ],
+      [
+       "State",
+       "waits a few seconds, or the retry time (3000 ms in my stream), then reconnects",
+       "warn"
+      ]
+     ],
+     "wire": [
+      [
+       "Request",
+       "GET /events",
+       ""
+      ],
+      [
+       "Header",
+       "Last-Event-ID: 2",
+       "good"
+      ]
+     ],
+     "server": [
+      [
+       "Reads the header",
+       "the browser has everything up to 2",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>By itself</b>, the browser waits (a few seconds by default, or the <code>retry</code> value the server sent) and asks again, with the header <code>Last-Event-ID: 2</code>."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Browser",
+     "id: 3 | event: note | data: line one | data: line two | (blank line)"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Last id",
+       "3",
+       "good"
+      ],
+      [
+       "Got",
+       "price 65000, price 65500, note \"line one\\nline two\"",
+       "good"
+      ]
+     ],
+     "wire": [
+      [
+       "Text",
+       "id: 3\\nevent: note\\ndata: line one\\ndata: line two\\n\\n",
+       ""
+      ]
+     ],
+     "server": [
+      [
+       "Sends",
+       "only what came after 2: event 3",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server sends <b>only the events after 2</b>. I tested this: with <code>Last-Event-ID: 2</code>, only event 3 came back. Two <code>data</code> lines are joined with a newline, so the browser gets \"line one\" and \"line two\" in one message."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Your job",
+       "keep recent events with their ids, so you can answer Last-Event-ID",
+       "warn"
+      ],
+      [
+       "To stop the reconnects",
+       "answer 204 No Content",
+       ""
+      ]
+     ]
+    },
+    "note": "The browser does the reconnecting. <b>Your</b> job is to keep recent events with their ids. To tell the browser to stop reconnecting for good, answer <code>204 No Content</code>."
+   }
+  ],
+  "answer": "<b>Answer:</b> the browser waits a moment and reconnects by itself, sending <code>Last-Event-ID: 2</code>. The server sends only <b>event 3</b>. SSE gives you the resume for free, as long as you keep events with ids."
+ },
+ {
+  "tab": "Many servers",
+  "question": "Ana is connected to server 1. Budi is connected to server 2. Budi sends a chat message. Does Ana get it?",
+  "codeTitle": "The WRONG version",
+  "code": [
+   "// WRONG: each server keeps only its own clients",
+   "const clients = new Set();",
+   "ws.on(\"message\", (m) => { for (const c of clients) c.send(m); });"
+  ],
+  "boxes": [
+   {
+    "key": "ana",
+    "title": "Server 1",
+    "sub": "Ana is connected here",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "budi",
+    "title": "Server 2",
+    "sub": "Budi is connected here",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "bus",
+    "title": "Message bus",
+    "sub": "for example Redis Pub/Sub",
+    "color": "c3",
+    "empty": "not used"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "ana": [
+      [
+       "clients",
+       "{ Ana }",
+       ""
+      ]
+     ],
+     "budi": [
+      [
+       "clients",
+       "{ Budi }",
+       ""
+      ]
+     ],
+     "bus": []
+    },
+    "note": "<b>Part 1: memory only.</b> A load balancer put Ana on server 1 and Budi on server 2. Each server keeps a list of <b>its own</b> clients."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "budi": [
+      [
+       "Gets",
+       "message from Budi: hello",
+       ""
+      ],
+      [
+       "Sends to",
+       "every client in ITS list: only Budi",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Budi sends \"hello\". Server 2 loops over <b>its</b> clients, and the only one is Budi."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "status": [
+     "bad",
+     "Ana gets nothing"
+    ],
+    "boxes": {
+     "ana": [
+      [
+       "clients",
+       "{ Ana }",
+       ""
+      ],
+      [
+       "Gets",
+       "nothing. Server 1 never heard about the message.",
+       "bad"
+      ]
+     ],
+     "budi": [
+      [
+       "Gets",
+       "message from Budi: hello",
+       ""
+      ],
+      [
+       "Sends to",
+       "every client in ITS list: only Budi",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Server 1 never heard about the message. <b>Ana gets nothing.</b> It works in your test with one server, and breaks the day you add a second."
+   },
+   {
+    "line": 0,
+    "code": [
+     "// RIGHT: publish on a bus, and every server forwards",
+     "ws.on(\"message\", (m) => bus.publish(\"chat\", m));",
+     "bus.subscribe(\"chat\", (m) => { for (const c of clients) c.send(m); });"
+    ],
+    "wire": null,
+    "boxes": {
+     "ana": [
+      [
+       "clients",
+       "{ Ana }",
+       ""
+      ],
+      [
+       "Subscribed to",
+       "chat",
+       "good"
+      ]
+     ],
+     "budi": [
+      [
+       "clients",
+       "{ Budi }",
+       ""
+      ],
+      [
+       "Subscribed to",
+       "chat",
+       "good"
+      ]
+     ],
+     "bus": [
+      [
+       "Channel",
+       "chat",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Part 2: a message bus.</b> Both servers subscribe to a channel called <code>chat</code>."
+   },
+   {
+    "line": 1,
+    "code": [
+     "// RIGHT: publish on a bus, and every server forwards",
+     "ws.on(\"message\", (m) => bus.publish(\"chat\", m));",
+     "bus.subscribe(\"chat\", (m) => { for (const c of clients) c.send(m); });"
+    ],
+    "wire": null,
+    "boxes": {
+     "budi": [
+      [
+       "clients",
+       "{ Budi }",
+       ""
+      ],
+      [
+       "Gets",
+       "message from Budi: hello",
+       ""
+      ],
+      [
+       "Does",
+       "bus.publish(\"chat\", hello)",
+       "good"
+      ]
+     ],
+     "bus": [
+      [
+       "Channel",
+       "chat",
+       "good"
+      ],
+      [
+       "Message",
+       "hello",
+       "good"
+      ]
+     ]
+    },
+    "note": "Server 2 does not send to its clients directly. It <b>publishes</b> the message on the bus."
+   },
+   {
+    "line": 2,
+    "code": [
+     "// RIGHT: publish on a bus, and every server forwards",
+     "ws.on(\"message\", (m) => bus.publish(\"chat\", m));",
+     "bus.subscribe(\"chat\", (m) => { for (const c of clients) c.send(m); });"
+    ],
+    "wire": null,
+    "boxes": {
+     "ana": [
+      [
+       "clients",
+       "{ Ana }",
+       ""
+      ],
+      [
+       "Gets",
+       "hello, from the bus",
+       "good"
+      ],
+      [
+       "Sends to",
+       "Ana",
+       "good"
+      ]
+     ],
+     "budi": [
+      [
+       "clients",
+       "{ Budi }",
+       ""
+      ],
+      [
+       "Gets",
+       "hello, from the bus",
+       "good"
+      ],
+      [
+       "Sends to",
+       "Budi",
+       "good"
+      ]
+     ],
+     "bus": [
+      [
+       "Channel",
+       "chat",
+       "good"
+      ],
+      [
+       "Message",
+       "hello, pushed to every subscriber",
+       "good"
+      ]
+     ]
+    },
+    "note": "The bus pushes the message to <b>every</b> server that is subscribed. Each server sends it to its own clients. Ana gets it."
+   },
+   {
+    "line": null,
+    "code": [
+     "// RIGHT: publish on a bus, and every server forwards",
+     "ws.on(\"message\", (m) => bus.publish(\"chat\", m));",
+     "bus.subscribe(\"chat\", (m) => { for (const c of clients) c.send(m); });"
+    ],
+    "wire": null,
+    "boxes": {
+     "bus": [
+      [
+       "Redis Pub/Sub delivers",
+       "at most once",
+       "warn"
+      ],
+      [
+       "If a server is not listening at that moment",
+       "the message is lost for ever",
+       "bad"
+      ],
+      [
+       "For must-arrive messages",
+       "give them ids and let clients fetch what they missed, or use a bus that keeps messages (Redis Streams)",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>One caution.</b> Redis Pub/Sub is <b>at-most-once</b>: if a server is not listening at that moment, the message is gone. For messages that must arrive, keep them somewhere (ids and a fetch, or Redis Streams)."
+   }
+  ],
+  "answer": "<b>Answer:</b> with each server keeping its own clients, <b>no</b>. With a message bus, <b>yes</b>: server 2 publishes, and every server forwards to its own clients. But Redis Pub/Sub is at-most-once, so important messages need ids and a way to fetch what was missed."
+ },
+ {
+  "tab": "A reconnect storm",
+  "question": "A server restarts, and 10,000 clients lose their connection. How do they reconnect so the server is not knocked over again?",
+  "codeTitle": "Reconnecting",
+  "code": [
+   "// WRONG: reconnect at once",
+   "ws.onclose = () => connect();",
+   "// RIGHT: backoff with jitter",
+   "const limit = Math.min(30000, 500 * 2 ** attempt);",
+   "ws.onclose = () => setTimeout(connect, Math.floor(Math.random() * limit));"
+  ],
+  "boxes": [
+   {
+    "key": "clients",
+    "title": "10,000 clients",
+    "sub": "all just lost the connection",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "server",
+    "title": "Server",
+    "sub": "restarting",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "load",
+    "title": "Reconnects per second",
+    "sub": "what the server must handle",
+    "color": "c3",
+    "empty": "none yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "clients": [
+      [
+       "State",
+       "all 10,000 lost the connection at the same moment",
+       "warn"
+      ]
+     ],
+     "server": [
+      [
+       "State",
+       "restarting. It is ready in 2 seconds.",
+       "warn"
+      ]
+     ],
+     "load": []
+    },
+    "note": "The server restarts. Every client gets <code>onclose</code> in the same moment."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "clients": [
+      [
+       "WRONG: reconnect at once",
+       "all 10,000 try again right now, and again, and again",
+       "bad"
+      ]
+     ],
+     "server": [
+      [
+       "State",
+       "just came back, and 10,000 connections arrive together",
+       "bad"
+      ]
+     ],
+     "load": [
+      [
+       "First second",
+       "10,000 reconnects at once",
+       "bad"
+      ]
+     ]
+    },
+    "note": "<b>Part 1: reconnect at once.</b> All 10,000 try again in the same second. The server just came back, and it is hit by a wave. Many fail, and each failure makes them try again. A short outage becomes a long one."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "clients": [
+      [
+       "RIGHT: each client picks a limit",
+       "attempt 0: up to 500 ms. attempt 1: up to 1000 ms. attempt 2: up to 2000 ms. Then 4000, 8000, 16000, and 30000 at most.",
+       "good"
+      ]
+     ],
+     "server": [
+      [
+       "State",
+       "restarting",
+       "warn"
+      ]
+     ],
+     "load": []
+    },
+    "note": "<b>Part 2: backoff.</b> The limit <b>doubles</b> after each failed attempt, up to a cap: <code>min(30000, 500 × 2<sup>attempt</sup>)</code>. These are the limits from the formula."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "clients": [
+      [
+       "Jitter: each client waits a RANDOM time up to its limit",
+       "for example 87 ms, 312 ms, 455 ms, 12 ms, 401 ms, ... all different",
+       "good"
+      ]
+     ],
+     "load": [
+      [
+       "First attempt",
+       "10,000 clients spread over 500 ms: about 20 per millisecond, not 10,000 at once",
+       "good"
+      ]
+     ]
+    },
+    "note": "<b>Jitter</b> is the random part: <code>Math.random() × limit</code>. Each client waits a different time, so the reconnects <b>spread out</b>. (The wait times here are examples. Yours will differ.)"
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "clients": [
+      [
+       "Clients that failed again",
+       "double their limit. The second attempt spreads over up to 1000 ms, then 2000 ms, then 4000 ms.",
+       "good"
+      ]
+     ],
+     "server": [
+      [
+       "State",
+       "up. Connections come in a smooth stream.",
+       "good"
+      ]
+     ],
+     "load": [
+      [
+       "Over the first seconds",
+       "a smooth stream, not a wave",
+       "good"
+      ]
+     ]
+    },
+    "note": "A client that fails again doubles its limit. The server comes back, and the load is a smooth stream instead of a wave."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "clients": [
+      [
+       "After a good connection",
+       "set the attempt counter back to 0",
+       "good"
+      ]
+     ],
+     "server": [
+      [
+       "SSE note",
+       "the server can also change the wait with a retry: line, in milliseconds",
+       ""
+      ]
+     ]
+    },
+    "note": "Two details: reset the attempt counter to 0 after a <b>good</b> connection, and for SSE the server can set the wait with <code>retry:</code>. The AWS Architecture Blog recommends this approach (capped exponential backoff with jitter)."
+   }
+  ],
+  "answer": "<b>Answer:</b> each client waits a <b>random</b> time up to a limit that <b>doubles</b> after every failure (backoff with jitter). The 10,000 reconnects then spread out and arrive as a stream, not as one wave. Reset the counter after a good connection."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

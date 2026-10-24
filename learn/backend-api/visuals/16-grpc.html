@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../README.md">← Backend and API lessons</a>
+    <a href="../16-grpc.md">Open the lesson ↗</a>
+  </div>
+  <h1>gRPC stepper</h1>
+  <p class="sub">A UserService with a .proto contract. Each story shows the real bytes, the headers and trailers, and what the client sees.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> number every field and never reuse a number, always set a <b>deadline</b>, and expect <b>gRPC status codes</b>, not HTTP ones.
+  <ul>
+    <li><b>gRPC:</b> calls between programs, as small binary messages over HTTP/2.</li>
+    <li><b>Protobuf:</b> the <code>.proto</code> contract file and the binary format of the messages.</li>
+    <li><b>Deadline:</b> the moment after which the caller stops waiting.</li>
+    <li><b>Stream:</b> many messages on one call.</li>
+  </ul>
+  <b>Status codes (a few):</b> <code>0 OK</code>, <code>3 INVALID_ARGUMENT</code>, <code>4 DEADLINE_EXCEEDED</code>, <code>5 NOT_FOUND</code>, <code>14 UNAVAILABLE</code> (retry with backoff), <code>16 UNAUTHENTICATED</code>. The HTTP status of a gRPC answer is <code>200</code> even for errors.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "client",
+  "title": "Client",
+  "sub": "calls a function that lives elsewhere",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "wire",
+  "title": "On the wire",
+  "sub": "HTTP/2, binary",
+  "color": "c2",
+  "empty": "nothing travelling"
+ },
+ {
+  "key": "server",
+  "title": "Server",
+  "sub": "your function",
+  "color": "c3",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "reply",
+  "title": "Client gets",
+  "sub": "the answer and the status",
+  "color": "c4",
+  "empty": "nothing yet"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "A message into bytes",
+  "question": "The user is <code>{ id: 1, name: \"Ana\", email: \"ana@example.com\" }</code>. As JSON it is 47 bytes. How many bytes is it in protobuf, and are the words <code>id</code>, <code>name</code> and <code>email</code> in them?",
+  "codeTitle": "The contract (.proto)",
+  "code": [
+   "message User {",
+   "  int32 id = 1;",
+   "  string name = 2;",
+   "  string email = 3;",
+   "}"
+  ],
+  "boxes": [
+   {
+    "key": "message",
+    "title": "The message",
+    "sub": "User { id: 1, name: Ana, email: ana@example.com }",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "bytes",
+    "title": "The bytes so far",
+    "sub": "hex, built field by field",
+    "color": "c2",
+    "empty": "no bytes yet"
+   },
+   {
+    "key": "size",
+    "title": "Size",
+    "sub": "protobuf against JSON",
+    "color": "c3",
+    "empty": "not counted yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": null,
+    "boxes": {
+     "message": [
+      [
+       "id",
+       "1",
+       ""
+      ],
+      [
+       "name",
+       "Ana",
+       ""
+      ],
+      [
+       "email",
+       "ana@example.com",
+       ""
+      ]
+     ],
+     "bytes": [],
+     "size": []
+    },
+    "note": "A message is a list of fields. In the contract, every field has a <b>number</b>: <code>id = 1</code>, <code>name = 2</code>, <code>email = 3</code>. Watch how each field becomes bytes."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "bytes": [
+      [
+       "Field 1 (id)",
+       "08 01",
+       "good"
+      ]
+     ],
+     "size": [
+      [
+       "Bytes so far",
+       "2",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Field 1.</b> The tag is <code>(1 × 8) + 0 = 8</code>, in hex <code>08</code>. The 0 means \"a number\". Then the value, <code>01</code>. Two bytes."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "bytes": [
+      [
+       "Field 1 (id)",
+       "08 01",
+       "good"
+      ],
+      [
+       "Field 2 (name)",
+       "12 03 41 6e 61",
+       "good"
+      ]
+     ],
+     "size": [
+      [
+       "Bytes so far",
+       "7",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Field 2.</b> The tag is <code>(2 × 8) + 2 = 18</code>, in hex <code>12</code>. The 2 means \"text\". Then the length, <code>03</code>. Then the letters <code>41 6e 61</code>, which spell <b>Ana</b>. Five bytes."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "bytes": [
+      [
+       "Field 1 (id)",
+       "08 01",
+       "good"
+      ],
+      [
+       "Field 2 (name)",
+       "12 03 41 6e 61",
+       "good"
+      ],
+      [
+       "Field 3 (email)",
+       "1a 0f 61 6e 61 40 65 78 61 6d 70 6c 65 2e 63 6f 6d",
+       "good"
+      ]
+     ],
+     "size": [
+      [
+       "Bytes so far",
+       "24",
+       ""
+      ]
+     ]
+    },
+    "note": "<b>Field 3.</b> The tag is <code>(3 × 8) + 2 = 26</code>, in hex <code>1a</code>. The length is <code>0f</code>, which is 15. Then the 15 letters of the email. In all, <b>24 bytes</b>."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "size": [
+      [
+       "Protobuf",
+       "24 bytes",
+       "good"
+      ],
+      [
+       "The same user as JSON",
+       "47 bytes: {\"id\":1,\"name\":\"Ana\",\"email\":\"ana@example.com\"}",
+       "warn"
+      ]
+     ]
+    },
+    "note": "The same data is <b>24 bytes</b> in protobuf and <b>47 bytes</b> in JSON. These are real numbers from a real run."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "bytes": [
+      [
+       "Field 1 (id)",
+       "08 01",
+       "good"
+      ],
+      [
+       "Field 2 (name)",
+       "12 03 41 6e 61",
+       "good"
+      ],
+      [
+       "Field 3 (email)",
+       "1a 0f 61 6e 61 40 65 78 61 6d 70 6c 65 2e 63 6f 6d",
+       "good"
+      ],
+      [
+       "Where are the words id, name, email?",
+       "NOT in the bytes. Only the numbers 1, 2 and 3 are.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "<b>The field names are not sent.</b> Only the numbers are. So the <b>number is the field</b>. If you change the number of <code>email</code> from 3 to 4, an old program that still sends field 3 will be misread. That is why you never reuse or renumber a field."
+   }
+  ],
+  "answer": "<b>Answer:</b> <b>24 bytes</b>, and the words <code>id</code>, <code>name</code> and <code>email</code> are <b>not</b> in them. Only the field <b>numbers</b> are. That is what makes the message small, and it is why a field number must never change."
+ },
+ {
+  "tab": "A unary call",
+  "question": "A client asks for user 1, with a login token and a deadline. What travels over the wire, and how does the server say \"OK\"?",
+  "codeTitle": "The client call and the server function",
+  "code": [
+   "const md = new grpc.Metadata();  md.set(\"authorization\", \"Bearer ana\");",
+   "client.GetUser({ id: 1 }, md, { deadline: Date.now() + 2000 }, (err, user) => { ... });",
+   "// server",
+   "GetUser(call, cb) { cb(null, USERS.find((u) => u.id === call.request.id)); }"
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Metadata",
+       "authorization = Bearer ana",
+       ""
+      ]
+     ],
+     "wire": [],
+     "server": [],
+     "reply": []
+    },
+    "note": "<b>Metadata</b> is a list of key and value pairs about the call, such as a token. On the wire it is just more HTTP headers."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "HEADERS  :method POST  :path /demo.UserService/GetUser  content-type: application/grpc  grpc-timeout (the deadline)  authorization"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Metadata",
+       "authorization = Bearer ana",
+       ""
+      ],
+      [
+       "Deadline",
+       "2000 ms from now",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Connection",
+       "one HTTP/2 connection. It can carry many calls at once.",
+       ""
+      ],
+      [
+       ":path",
+       "/demo.UserService/GetUser (the service and the method)",
+       ""
+      ],
+      [
+       "grpc-timeout",
+       "the deadline, sent as a number and a unit",
+       ""
+      ]
+     ]
+    },
+    "note": "The client opens <b>one HTTP/2 connection</b>. The call is a <code>POST</code> to a path made from the service and the method name. The <b>deadline</b> goes in <code>grpc-timeout</code>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "DATA  00 | 00 00 00 02 | 08 01"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Connection",
+       "one HTTP/2 connection",
+       ""
+      ],
+      [
+       "Message",
+       "1 byte: not compressed. 4 bytes: the length, 2. Then the protobuf bytes 08 01 (GetUserRequest { id: 1 })",
+       "good"
+      ]
+     ]
+    },
+    "note": "The message comes next: a byte that says \"not compressed\", four bytes for the <b>length</b>, and then the protobuf bytes. For <code>{ id: 1 }</code> that is just <code>08 01</code>."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "server": [
+      [
+       "Reads the bytes",
+       "with the same .proto: id is 1",
+       "good"
+      ],
+      [
+       "Your function",
+       "finds Ana and calls cb(null, user)",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server turns the bytes back into an object, using the same <code>.proto</code>, and runs <b>your function</b>. It finds Ana."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client",
+     "HEADERS :status 200  |  DATA  (the User bytes)"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Headers",
+       ":status 200",
+       "good"
+      ],
+      [
+       "Message",
+       "00 | length 24 | the 24 bytes of the User",
+       "good"
+      ]
+     ]
+    },
+    "note": "The answer: headers with <code>:status 200</code>, then the User message in the same framing: one flag byte, four length bytes, then the 24 bytes."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client",
+     "TRAILERS  grpc-status: 0"
+    ],
+    "status": [
+     "ok",
+     "grpc-status 0 (OK)"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Trailers",
+       "grpc-status: 0",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "err",
+       "null",
+       "good"
+      ],
+      [
+       "user",
+       "{ id: 1, name: Ana, email: ana@example.com }",
+       "good"
+      ]
+     ]
+    },
+    "note": "The call ends with <b>trailers</b>: <code>grpc-status: 0</code>, which means OK. The client's callback gets <code>err = null</code> and the user. (These steps follow the gRPC HTTP/2 specification. I used the real library for the results, but I did not capture the raw frames.)"
+   }
+  ],
+  "answer": "<b>Answer:</b> one HTTP/2 <code>POST</code> with headers (the path, the deadline and the metadata), then a framed protobuf message. The server ends the call with <b>trailers</b> that carry <code>grpc-status: 0</code>."
+ },
+ {
+  "tab": "Errors and retries",
+  "question": "A call fails with NOT_FOUND. What is the HTTP status of the answer? Should the client retry? And what about UNAVAILABLE?",
+  "codeTitle": "Handling the error code",
+  "code": [
+   "client.GetUser({ id: 99 }, (err, user) => {",
+   "  if (err.code === grpc.status.NOT_FOUND) return;          // a retry would fail the same way",
+   "  if (err.code === grpc.status.UNAVAILABLE) retryWithBackoff();   // the server may be back soon",
+   "});"
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": [
+     "Client",
+     "Server",
+     "GetUser { id: 99 }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Asks for",
+       "user 99, who does not exist",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Message",
+       "GetUser { id: 99 }",
+       ""
+      ]
+     ],
+     "server": [],
+     "reply": []
+    },
+    "note": "The client asks for a user who does not exist."
+   },
+   {
+    "line": null,
+    "wire": [
+     "Server",
+     "Client",
+     "HEADERS :status 200  |  TRAILERS grpc-status: 5  grpc-message: No user with that id"
+    ],
+    "status": [
+     "warn",
+     "HTTP 200, grpc-status 5"
+    ],
+    "boxes": {
+     "server": [
+      [
+       "Your function",
+       "calls cb({ code: NOT_FOUND, details: \"No user with that id\" })",
+       "warn"
+      ]
+     ],
+     "wire": [
+      [
+       "HTTP status",
+       ":status 200",
+       "warn"
+      ],
+      [
+       "The real error",
+       "trailers: grpc-status 5 (NOT_FOUND) and grpc-message",
+       "bad"
+      ]
+     ]
+    },
+    "note": "<b>The HTTP status is still 200.</b> The error is in the trailers: <code>grpc-status: 5</code>. A monitor that only reads HTTP status codes sees a healthy call."
+   },
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "reply": [
+      [
+       "err.code",
+       "5 (NOT_FOUND)",
+       "warn"
+      ],
+      [
+       "err.details",
+       "No user with that id",
+       ""
+      ],
+      [
+       "What to do",
+       "do not retry. The same request will fail the same way.",
+       "good"
+      ]
+     ]
+    },
+    "note": "In the client, the error arrives as <code>err.code = 5</code> and <code>err.details</code>. <b>Do not retry:</b> user 99 will not exist a second later."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "wire": [
+      [
+       "Behind a REST gateway",
+       "NOT_FOUND is usually shown as HTTP 404 (the code.proto mapping)",
+       ""
+      ]
+     ]
+    },
+    "note": "If a gateway turns gRPC into REST for outside callers, it uses a table. NOT_FOUND becomes <code>404</code>, INVALID_ARGUMENT becomes <code>400</code>, UNAVAILABLE becomes <code>503</code>. (The table is in the lesson, and you build it in the exercise.)"
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Client",
+     "TRAILERS grpc-status: 14 (UNAVAILABLE)"
+    ],
+    "status": [
+     "bad",
+     "UNAVAILABLE"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Attempt 1",
+       "fails with UNAVAILABLE. The server is restarting.",
+       "bad"
+      ]
+     ],
+     "wire": [
+      [
+       "The real error",
+       "trailers: grpc-status 14 (UNAVAILABLE)",
+       "bad"
+      ]
+     ],
+     "reply": [
+      [
+       "err.code",
+       "14 (UNAVAILABLE)",
+       "bad"
+      ],
+      [
+       "What to do",
+       "retry with backoff. The server may be back soon.",
+       "good"
+      ]
+     ]
+    },
+    "note": "A different failure. <b>UNAVAILABLE</b> means \"not now\". The docs say: retry with backoff."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Attempt 1",
+       "UNAVAILABLE",
+       "bad"
+      ],
+      [
+       "Wait",
+       "about 0.1 s (the docs' example: initial 0.1 s, doubling, at most 1 s, with 20% random jitter)",
+       "warn"
+      ],
+      [
+       "Attempt 2",
+       "UNAVAILABLE",
+       "bad"
+      ],
+      [
+       "Wait",
+       "about 0.2 s",
+       "warn"
+      ],
+      [
+       "Attempt 3",
+       "OK",
+       "good"
+      ]
+     ]
+    },
+    "note": "The waits <b>grow</b> (backoff) and have a bit of random time (jitter). So thousands of clients do not all come back at the same moment. A limit such as 4 attempts keeps the retries from going on for ever."
+   }
+  ],
+  "answer": "<b>Answer:</b> the HTTP status is <b>200</b>, and the real error is <code>grpc-status</code> in the trailers. <b>Do not retry</b> NOT_FOUND, because it will fail again. <b>Retry UNAVAILABLE</b> with backoff, with a limit on the attempts."
+ },
+ {
+  "tab": "Deadlines across services",
+  "question": "The client allows 2000 ms. Service A calls B, B calls C, and C needs 1500 ms. Who gives up, and when?",
+  "codeTitle": "Passing the deadline on",
+  "code": [
+   "// client",
+   "client.A(req, { deadline: Date.now() + 2000 }, cb);",
+   "// in service A, and in service B: pass on the time that is LEFT",
+   "const left = remainingMs(deadlineOfThisCall, Date.now());",
+   "nextService.call(req, { deadline: Date.now() + left }, cb);"
+  ],
+  "boxes": [
+   {
+    "key": "client",
+    "title": "Client",
+    "sub": "allows 2000 ms in all",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "a",
+    "title": "Service A",
+    "sub": "calls B",
+    "color": "c2",
+    "empty": "not called yet"
+   },
+   {
+    "key": "b",
+    "title": "Service B",
+    "sub": "calls C",
+    "color": "c3",
+    "empty": "not called yet"
+   },
+   {
+    "key": "c",
+    "title": "Service C",
+    "sub": "slow: needs 1500 ms",
+    "color": "c4",
+    "empty": "not called yet"
+   }
+  ],
+  "steps": [
+   {
+    "line": 1,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Deadline",
+       "2000 ms from time 0",
+       "good"
+      ]
+     ],
+     "a": [],
+     "b": [],
+     "c": []
+    },
+    "note": "The client sets <b>one deadline</b>: it will wait 2000 ms in all. (gRPC sets no deadline by itself. You must.)"
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Deadline",
+       "2000 ms from time 0",
+       "good"
+      ]
+     ],
+     "a": [
+      [
+       "Time 0 ms",
+       "A starts and does 300 ms of work",
+       ""
+      ]
+     ],
+     "b": [],
+     "c": []
+    },
+    "note": "Service A does its own work first. It takes 300 ms."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "a": [
+      [
+       "At 300 ms",
+       "time left is 2000 - 300 = 1700 ms",
+       "good"
+      ],
+      [
+       "Calls B with",
+       "a deadline of 1700 ms",
+       "good"
+      ]
+     ],
+     "b": [
+      [
+       "Starts at 300 ms",
+       "has 1700 ms",
+       ""
+      ]
+     ]
+    },
+    "note": "A calls B and passes on the time that is <b>left</b>: 1700 ms. (gRPC sends the time left, not the clock time, so different clocks do not matter.)"
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "b": [
+      [
+       "Works until 1200 ms",
+       "900 ms of work. Time left: 2000 - 1200 = 800 ms",
+       "good"
+      ],
+      [
+       "Calls C with",
+       "a deadline of 800 ms",
+       "good"
+      ]
+     ],
+     "c": [
+      [
+       "Starts at 1200 ms",
+       "has 800 ms, needs 1500 ms",
+       "warn"
+      ]
+     ]
+    },
+    "note": "B works for 900 ms, then calls C with the time that is left: <b>800 ms</b>. But C needs 1500 ms."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "c": [
+      [
+       "At 2000 ms",
+       "the deadline is reached. C is cancelled.",
+       "bad"
+      ],
+      [
+       "Not undone",
+       "anything C already changed is NOT rolled back",
+       "warn"
+      ]
+     ],
+     "b": [
+      [
+       "C's call ends with",
+       "DEADLINE_EXCEEDED",
+       "bad"
+      ]
+     ],
+     "a": [
+      [
+       "B's call ends with",
+       "an error, passed up",
+       "bad"
+      ]
+     ],
+     "client": [
+      [
+       "At 2000 ms",
+       "gives up with DEADLINE_EXCEEDED",
+       "bad"
+      ]
+     ]
+    },
+    "note": "At 2000 ms, everyone stops. The call to C ends with <code>DEADLINE_EXCEEDED</code>, and the error goes back up the chain. <b>One caution from the docs:</b> a cancel stops the work, but it does <b>not</b> undo changes that were already made."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "With NO deadline",
+       "the client would wait until C answers, or for ever if C hangs",
+       "bad"
+      ]
+     ],
+     "a": [
+      [
+       "A",
+       "still holding a connection and memory",
+       "bad"
+      ]
+     ],
+     "b": [
+      [
+       "B",
+       "still holding a connection and memory",
+       "bad"
+      ]
+     ],
+     "c": [
+      [
+       "C",
+       "hung on a slow database",
+       "bad"
+      ]
+     ]
+    },
+    "note": "<b>Without a deadline</b>, one hung service holds A and B and the client too. The waiting calls pile up behind it. That is why the docs say to <b>always</b> set a realistic deadline."
+   }
+  ],
+  "answer": "<b>Answer:</b> everybody stops at <b>2000 ms</b>. C gets only 800 ms but needs 1500, so the call to it ends with <code>DEADLINE_EXCEEDED</code> and the error travels back up. Each service passes on the <b>time that is left</b>, so the whole chain shares one deadline."
+ },
+ {
+  "tab": "Streaming",
+  "question": "A client asks for 3 users in one call. Does it get one big answer at the end, or something else?",
+  "codeTitle": "A server stream",
+  "code": [
+   "rpc ListUsers (ListUsersRequest) returns (stream User);",
+   "const call = client.ListUsers({ limit: 3 });",
+   "call.on(\"data\", (user) => console.log(user.name));",
+   "call.on(\"end\", () => console.log(\"stream ended\"));"
+  ],
+  "steps": [
+   {
+    "line": 0,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "Contract",
+       "ListUsers returns (stream User). The word stream marks it.",
+       "good"
+      ]
+     ],
+     "wire": [],
+     "server": [],
+     "reply": []
+    },
+    "note": "In the contract, the word <code>stream</code> means the server may send <b>many</b> messages for one request."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Client",
+     "Server",
+     "ListUsers { limit: 3 }"
+    ],
+    "boxes": {
+     "client": [
+      [
+       "Call",
+       "ListUsers with limit 3",
+       ""
+      ]
+     ],
+     "wire": [
+      [
+       "Request",
+       "one message: ListUsers { limit: 3 }",
+       ""
+      ]
+     ]
+    },
+    "note": "The client sends <b>one</b> request, and keeps the call open."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Client",
+     "User Ana"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Message 1",
+       "User Ana",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Got so far",
+       "Ana",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server sends the first user as soon as it has it. The client's <code>data</code> handler runs. It does not wait for the others."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Client",
+     "User Budi"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Message 2",
+       "User Budi",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Got so far",
+       "Ana, Budi",
+       "good"
+      ]
+     ]
+    },
+    "note": "Then the second. Each message has its own length prefix, on the same HTTP/2 stream."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Client",
+     "User Siti"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Message 3",
+       "User Siti",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Got so far",
+       "Ana, Budi, Siti",
+       "good"
+      ]
+     ]
+    },
+    "note": "And the third."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Server",
+     "Client",
+     "TRAILERS grpc-status: 0  (end of stream)"
+    ],
+    "status": [
+     "ok",
+     "stream ended, OK"
+    ],
+    "boxes": {
+     "wire": [
+      [
+       "Trailers",
+       "grpc-status: 0. The stream is over.",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "Got",
+       "Ana, Budi, Siti",
+       "good"
+      ],
+      [
+       "Event",
+       "end: stream ended",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server ends the call with trailers and <code>grpc-status: 0</code>. The client's <code>end</code> handler runs. This is what happened in my real run."
+   },
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "client": [
+      [
+       "The four kinds",
+       "unary, server stream, client stream, two-way stream",
+       "good"
+      ]
+     ],
+     "reply": [
+      [
+       "In a browser",
+       "gRPC-Web supports unary and server streaming. Client and two-way streaming are not supported.",
+       "warn"
+      ]
+     ]
+    },
+    "note": "There are <b>four</b> kinds of call: unary, server streaming (this story), client streaming (for example an upload in chunks) and two-way streaming (for example chat). In a browser, gRPC-Web supports only the first two."
+   }
+  ],
+  "answer": "<b>Answer:</b> something else. The server sends the users <b>one by one</b>, as it has them, on the same call. The client handles each as it arrives, and a final status ends the stream. There are four kinds of call, but gRPC-Web in a browser supports only unary and server streaming."
+ }
+];
+
+// ---------------------------------------------------------------- the engine
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>
