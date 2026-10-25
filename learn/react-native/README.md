@@ -98,7 +98,7 @@ For when you have not written React Native for a while. These are the things a l
 | 26 | Testing React Native `26-testing-react-native.md` | Jest and React Native Testing Library | planned |
 | 27 | Accessibility and platform `27-accessibility-and-platform.md` | accessibility props, permissions, dark mode, keyboard | planned |
 
-Runnable exercises for these lessons are in [`practice/`](practice/) (`cd learn/react-native/practice && npm install`, then `npm run test:11`, `test:14` or `test:17`). The layout answers are checked with Yoga, the same layout engine React Native uses.
+To type the answers in the browser, use the [code lab](visuals/code-lab.html). Runnable exercises for your editor are in [`practice/`](practice/) (`cd learn/react-native/practice && npm install`, then `npm run test:11`, `test:14` or `test:17`). The layout answers are checked with Yoga, the same layout engine React Native uses.
 
 **To make the next lesson:** in a chat with this folder open, say `/learn react-native 01` to learn it live with Claude, or ask "make lesson react-native 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 
@@ -116,6 +116,7 @@ Open in the browser. Everything visible on one page.
 
 ## Pages you can move
 
+- [**Code lab**](visuals/code-lab.html) - **type code in the browser.** 16 tasks (flexbox, animation maths, regex) with Run tests, a Try it box and a phone preview, plus 5 screens to build in Expo Snack with starter code. Your code is saved in your browser.
 - [Flexbox playground](visuals/11-flexbox-playground.html) - change `flexDirection`, `justifyContent` and the rest, and watch the boxes. Starts with the React Native defaults.
 - [Animated value lab](visuals/14-animated-lab.html) - drag the value, change the easing, compare `extend` and `clamp`.
 

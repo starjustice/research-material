@@ -284,7 +284,7 @@ Three problems. What are they?
 
 **C. Build it yourself** (in a Snack, not in Node)
 
-Make these four, each in under 10 minutes. No answer file, because it needs a phone preview. Compare with the docs when stuck.
+Open the [Reanimated starter in Snack](visuals/code-lab.html#snack) (the last card on that page) for the spring box. Then make these four, each in under 10 minutes. No answer file, because it needs a phone preview. Compare with the docs when stuck. Reanimated 4 may not run in every Snack preview platform, so if the preview fails, try a device preview or a local Expo app.
 
 1. A box that toggles between left and right with a spring when you press it.
 2. A heart that pulses forever (`withRepeat`).

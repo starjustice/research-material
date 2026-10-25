@@ -295,7 +295,9 @@ The card shows only a tiny strip. Two things are wrong. What?
 
 **C. Write it yourself (runnable)**
 
-Open `learn/react-native/practice/11-flexbox.mjs`. Six tasks: center a box, spread a row, build the app shell, two equal columns, a wrapping grid, a corner badge. The tests run your styles through Yoga.
+**In the browser, no setup:** open the [code lab, Flexbox tasks](visuals/code-lab.html#flex-1). Type your style, press Run tests, and see your layout on a phone with a dashed target. Six tasks: center a box, spread a row, build the app shell, two equal columns, a wrapping grid, a corner badge. To try the same layout on a real screen, use the first Snack task at the end of the lab ([build in Snack](visuals/code-lab.html#snack)).
+
+**Or in your editor:** open `learn/react-native/practice/11-flexbox.mjs`. The tests run your styles through Yoga.
 
 ```bash
 cd learn/react-native/practice && npm install && npm run test:11

@@ -281,7 +281,9 @@ Two bugs. What are they?
 
 **C. Write it yourself (runnable)**
 
-Open `learn/react-native/practice/17-regex.mjs`. Seven tasks: OTP, digits only, thousands separator, deep link with named groups, password with lookaheads, card mask, hashtags.
+**In the browser, no setup:** open the [code lab, Regex tasks](visuals/code-lab.html#rx-1). Edit, press Run tests, and use the Try it box to test your own inputs. To use a regex in a real screen, build the OTP input in [Snack](visuals/code-lab.html#snack).
+
+**Or in your editor:** open `learn/react-native/practice/17-regex.mjs`. Seven tasks: OTP, digits only, thousands separator, deep link with named groups, password with lookaheads, card mask, hashtags.
 
 ```bash
 cd learn/react-native/practice && npm install && npm run test:17

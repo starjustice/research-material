@@ -277,7 +277,9 @@ Two problems. What are they?
 
 **C. Write it yourself (runnable)**
 
-Open `learn/react-native/practice/14-animation-math.mjs`. Three tasks: `interpolate` (several segments, extend and clamp), `timingValue` (progress plus easing), and `makeDiffClamp` (hide header on scroll).
+**In the browser, no setup:** open the [code lab, Animation maths tasks](visuals/code-lab.html#anim-1). Edit, press Run tests, and use the Try it box to call your function. To see a real animation, build the two Animated tasks in [Snack](visuals/code-lab.html#snack) (fade and slide, and a pulse).
+
+**Or in your editor:** open `learn/react-native/practice/14-animation-math.mjs`. Three tasks: `interpolate` (several segments, extend and clamp), `timingValue` (progress plus easing), and `makeDiffClamp` (hide header on scroll).
 
 ```bash
 cd learn/react-native/practice && npm install && npm run test:14

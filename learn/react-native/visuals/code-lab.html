@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>React Native code lab</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1d2433; --muted:#5b6475; --line:#d6dae3; --accent:#2f6fed; --accent-soft:#e4ecfd; --ok:#2b9348; --bad:#d6336c; --code-bg:#10151f; --code-ink:#dbe4f5; --b1:#2f6fed; --b2:#e8590c; --b3:#2b9348; --b4:#9c36b5; --b5:#c2255c; --phone:#fff; --phone-line:#1d2433; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --panel:#1b2029; --ink:#e8ecf4; --muted:#9aa4b8; --line:#343b49; --accent:#6c9cff; --accent-soft:#263553; --ok:#51cf66; --bad:#ff6b9d; --code-bg:#0b0e14; --phone:#232a36; --phone-line:#8995ad; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size:1.35rem; margin:4px 0; }
+  p.lead { margin:0 0 14px; color:var(--muted); }
+  .layout { display:grid; grid-template-columns: 250px minmax(0,1fr); gap:16px; align-items:start; }
+  @media (max-width: 800px) { .layout { grid-template-columns: minmax(0,1fr); } }
+  .layout > * { min-width:0; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
+  .side h2 { font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:10px 0 4px; }
+  .side h2:first-child { margin-top:0; }
+  .task { display:flex; gap:8px; align-items:center; width:100%; text-align:left; border:0; background:transparent; color:var(--ink); font:inherit; font-size:.9rem; padding:6px 8px; border-radius:6px; cursor:pointer; }
+  .task:hover { background:var(--accent-soft); }
+  .task[aria-current="true"] { background:var(--accent-soft); font-weight:600; }
+  .task:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .dot { width:12px; height:12px; flex:none; border-radius:50%; border:2px solid var(--muted); }
+  .dot.done { background:var(--ok); border-color:var(--ok); }
+  .progress { font-size:.85rem; color:var(--muted); margin-bottom:6px; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-bottom:6px; }
+  .bar i { display:block; height:100%; background:var(--ok); width:0; transition:width .2s; }
+  .crumb { font-size:.8rem; color:var(--muted); }
+  .crumb a { color:var(--accent); }
+  h2.title { font-size:1.15rem; margin:2px 0 6px; }
+  .brief { margin:0 0 8px; }
+  .brief code, .hint code { background:var(--accent-soft); padding:1px 5px; border-radius:4px; font-size:.9em; }
+  textarea { width:100%; min-height:230px; resize:vertical; background:var(--code-bg); color:var(--code-ink); border:1px solid var(--line); border-radius:8px; padding:12px; font:13.5px/1.5 ui-monospace,Menlo,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
+  textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  button.b { border:1px solid var(--line); background:transparent; color:var(--ink); border-radius:6px; padding:7px 12px; font:inherit; font-size:.9rem; cursor:pointer; }
+  button.b.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button.b:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .results { margin:8px 0 0; padding:0; list-style:none; }
+  .results li { padding:6px 8px; border-left:4px solid var(--line); margin-bottom:4px; background:var(--panel); border-radius:0 6px 6px 0; font-size:.9rem; }
+  .results li.pass { border-color:var(--ok); }
+  .results li.fail { border-color:var(--bad); }
+  .results .mark { font-weight:700; margin-right:6px; }
+  .results li.pass .mark { color:var(--ok); } .results li.fail .mark { color:var(--bad); }
+  .results pre.msg { margin:4px 0 0; white-space:pre-wrap; font:12.5px/1.45 ui-monospace,Menlo,monospace; color:var(--muted); }
+  .summary { font-weight:700; margin:8px 0 0; }
+  .summary.ok { color:var(--ok); } .summary.bad { color:var(--bad); }
+  .error { color:var(--bad); background:var(--panel); border:1px solid var(--bad); border-radius:6px; padding:8px; white-space:pre-wrap; font:13px ui-monospace,Menlo,monospace; }
+  details { margin-top:8px; } summary { cursor:pointer; color:var(--accent); }
+  details pre { background:var(--code-bg); color:var(--code-ink); padding:10px; border-radius:8px; overflow:auto; font:13px/1.5 ui-monospace,Menlo,monospace; }
+  .try { display:flex; gap:6px; margin-top:10px; }
+  .try input { flex:1; min-width:0; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--ink); font:13px ui-monospace,Menlo,monospace; }
+  .tryout { margin-top:6px; font:13px ui-monospace,Menlo,monospace; white-space:pre-wrap; min-height:1.4em; }
+  .phones { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; margin-top:10px; }
+  .phonewrap { width:156px; }
+  .phonewrap .cap { font-size:.75rem; color:var(--muted); margin-bottom:4px; }
+  .phone { width:154px; height:304px; border:2px solid var(--phone-line); border-radius:10px; background:var(--phone); overflow:hidden; position:relative; }
+  .phone .scaler { width:300px; height:600px; transform:scale(.5); transform-origin:0 0; position:absolute; left:0; top:0; }
+  .ghost { position:absolute; border:5px dashed var(--ok); pointer-events:none; z-index:5; }
+  .rn, .rn * { box-sizing:border-box; min-width:0; min-height:0; position:relative; }
+  .rn { display:flex; flex-direction:column; align-content:flex-start; flex-shrink:0; }
+  .rn > .item { flex-shrink:0; border-radius:4px; }
+  .rn > .item::after { content:attr(data-n); position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; }
+  .item:nth-child(1){background:var(--b1)} .item:nth-child(2){background:var(--b2)} .item:nth-child(3){background:var(--b3)} .item:nth-child(4){background:var(--b4)} .item:nth-child(5){background:var(--b5)}
+  #measure { position:fixed; left:-10000px; top:0; width:300px; height:600px; }
+  .snack { border:1px solid var(--line); border-radius:8px; padding:10px; margin:8px 0; background:var(--panel); }
+  .snack h3 { margin:0 0 4px; font-size:1rem; }
+  .snack a.open { display:inline-block; margin-top:6px; background:var(--accent); color:#fff; padding:7px 12px; border-radius:6px; text-decoration:none; font-weight:600; font-size:.9rem; }
+  .snack ul { margin:6px 0 0; padding-left:20px; }
+  .note { font-size:.85rem; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>React Native code lab</h1>
+  <p class="lead">Type the code yourself. Press <b>Run tests</b> (or <b>Ctrl or Cmd + Enter</b>). Your code is saved in this browser. Nothing is sent anywhere.</p>
+  <div class="layout">
+    <aside class="side panel" id="side" aria-label="Tasks"></aside>
+    <main id="main"></main>
+  </div>
+</div>
+<div id="measure" class="rn"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+const fmt = v => JSON.stringify(v, (k, x) => x === undefined ? '__undefined__' : x).replace(/"__undefined__"/g, 'undefined');
+const eq = (got, want, msg) => { if (fmt(got) !== fmt(want)) throw new Error((msg ? msg + '\n' : '') + 'expected ' + fmt(want) + '\n     got ' + fmt(got)); };
+const BOX = { width: 50, height: 50 };
+
+/* ---------- flexbox renderer: browser CSS with React Native defaults ---------- */
+const ENUMS = {
+  flexDirection: ['column', 'row', 'column-reverse', 'row-reverse'],
+  justifyContent: ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly'],
+  alignItems: ['stretch', 'flex-start', 'center', 'flex-end', 'baseline'],
+  alignSelf: ['auto', 'flex-start', 'center', 'flex-end', 'stretch', 'baseline'],
+  flexWrap: ['nowrap', 'wrap', 'wrap-reverse'],
+  position: ['relative', 'absolute'],
+};
+const NUMERIC = new Set(['width', 'height', 'top', 'left', 'right', 'bottom', 'gap', 'rowGap', 'columnGap', 'padding', 'margin', 'flexBasis', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'flexGrow', 'flexShrink', 'aspectRatio']);
+function applyStyle(node, style) {
+  if (style == null || typeof style !== 'object' || Array.isArray(style)) throw new Error('A style must be an object like { flex: 1 }. You returned: ' + fmt(style));
+  for (const [k, v] of Object.entries(style)) {
+    if (v === undefined) continue;
+    if (ENUMS[k]) {
+      if (!ENUMS[k].includes(v)) throw new Error('"' + v + '" is not a valid value for ' + k + '. Try one of: ' + ENUMS[k].join(', '));
+      node.style[k] = v;
+    } else if (k === 'flex') {
+      if (typeof v !== 'number') throw new Error('flex must be a single number, like flex: 1.');
+      if (v > 0) { node.style.flexGrow = v; node.style.flexShrink = 0; node.style.flexBasis = '0px'; }
+    } else if (NUMERIC.has(k)) {
+      if (typeof v === 'string' && /%$/.test(v)) node.style[k] = v;
+      else if (typeof v !== 'number') throw new Error(k + ' must be a number, you gave ' + fmt(v) + '.');
+      else if (k === 'flexGrow' || k === 'flexShrink' || k === 'aspectRatio') node.style[k] = String(v);
+      else node.style[k] = v + 'px';
+    } else {
+      throw new Error('The lab does not know the style "' + k + '". Check the spelling. Known: flex, flexDirection, justifyContent, alignItems, alignSelf, flexWrap, gap, width, height, position, top, left, right, bottom, padding, margin.');
+    }
+  }
+}
+function drawLayout(host, containerStyle, childStyles) {
+  host.innerHTML = '';
+  const c = el('div', 'rn');
+  c.style.width = '300px'; c.style.height = '600px';
+  applyStyle(c, containerStyle || {});
+  childStyles.forEach((s, i) => { const d = el('div', 'item'); d.dataset.n = String(i + 1); applyStyle(d, s || {}); c.appendChild(d); });
+  host.appendChild(c);
+  return c;
+}
+function measure(containerStyle, childStyles) {
+  const host = $('#measure');
+  const c = drawLayout(host, containerStyle, childStyles);
+  const box = c.getBoundingClientRect();
+  const out = [...c.children].map(ch => { const r = ch.getBoundingClientRect(); return [r.left - box.left, r.top - box.top, r.width, r.height].map(v => Math.round(v * 100) / 100); });
+  host.innerHTML = '';
+  return out;
+}
+
+/* ---------- tasks ---------- */
+const R = String.raw;
+const TASKS = [
+/* ===== Lesson 11: flexbox ===== */
+{ id: 'flex-1', group: 'Lesson 11: Flexbox', lesson: '11-flexbox-layout', title: 'Center one box', fn: 'centerOne', kind: 'flex',
+  brief: 'One 50 by 50 box must sit in the exact middle of a 300 by 600 screen. Return the style of the <b>parent</b> View.',
+  hint: 'You need one property for each axis. In a column, which axis does <code>justifyContent</code> use? And <code>alignItems</code>?',
+  starter: R`function centerOne() {
+  return {};
+}`,
+  answer: R`function centerOne() {
+  return { flex: 1, justifyContent: "center", alignItems: "center" };
+}`,
+  ghosts: [[125, 275, 50, 50]],
+  build: f => ({ container: f(), children: [BOX] }),
+  tests: [['the box is in the exact middle', f => { const b = measure(f(), [BOX])[0]; eq(b, [125, 275, 50, 50], 'Centering needs one property for each axis.'); }]] },
+
+{ id: 'flex-2', group: 'Lesson 11: Flexbox', lesson: '11-flexbox-layout', title: 'Spread a row', fn: 'spreadRow', kind: 'flex',
+  brief: 'Three 50 by 50 boxes in one row. The first touches the left edge, the last touches the right edge, the middle one is in the middle.',
+  hint: 'Two things: the direction, and how to spread along the main axis. The default direction in React Native is not a row.',
+  starter: R`function spreadRow() {
+  return {};
+}`,
+  answer: R`function spreadRow() {
+  return { flexDirection: "row", justifyContent: "space-between" };
+}`,
+  ghosts: [[0, 0, 50, 50], [125, 0, 50, 50], [250, 0, 50, 50]],
+  build: f => ({ container: f(), children: [BOX, BOX, BOX] }),
+  tests: [['x is 0, 125, 250 and y is 0', f => eq(measure(f(), [BOX, BOX, BOX]).map(b => [b[0], b[1]]), [[0, 0], [125, 0], [250, 0]], 'Is the direction a row? Which property spreads along the main axis?')]] },
+
+{ id: 'flex-3', group: 'Lesson 11: Flexbox', lesson: '11-flexbox-layout', title: 'App shell', fn: 'appShell', kind: 'flex',
+  brief: 'A header (60 tall), a content area and a footer (50 tall) in a plain column. Return <code>{ header, content, footer }</code>, the styles of the three children. The content takes all the space left.',
+  hint: 'The header and footer have fixed heights. The content gets a number, not a height. Leftover space is 600 - 60 - 50.',
+  starter: R`function appShell() {
+  return { header: {}, content: {}, footer: {} };
+}`,
+  answer: R`function appShell() {
+  return { header: { height: 60 }, content: { flex: 1 }, footer: { height: 50 } };
+}`,
+  ghosts: [[0, 0, 300, 60], [0, 60, 300, 490], [0, 550, 300, 50]],
+  build: f => { const r = f(); return { container: {}, children: [r.header, r.content, r.footer] }; },
+  tests: [['header is 60 tall at the top', f => { const r = f(); const [h] = measure({}, [r.header, r.content, r.footer]); eq([h[1], h[3]], [0, 60], 'The header must be 60 tall.'); }],
+          ['content fills the leftover 490', f => { const r = f(); const [, c] = measure({}, [r.header, r.content, r.footer]); eq([c[1], c[3]], [60, 490], 'The content must grow into the space that is left.'); }],
+          ['footer is 50 tall at the bottom', f => { const r = f(); const [, , ft] = measure({}, [r.header, r.content, r.footer]); eq([ft[1], ft[3]], [550, 50], 'The footer must be 50 tall and sit at the bottom.'); }]] },
+
+{ id: 'flex-4', group: 'Lesson 11: Flexbox', lesson: '11-flexbox-layout', title: 'Two equal columns', fn: 'twoEqualColumns', kind: 'flex',
+  brief: 'Two children side by side, each 50 tall, sharing the width equally. Return <code>{ container, child }</code>. The children must not have a fixed width.',
+  hint: 'A row for the container. For the children, ask for an equal share of the leftover space.',
+  starter: R`function twoEqualColumns() {
+  return { container: {}, child: {} };
+}`,
+  answer: R`function twoEqualColumns() {
+  return { container: { flexDirection: "row" }, child: { flex: 1, height: 50 } };
+}`,
+  ghosts: [[0, 0, 150, 50], [150, 0, 150, 50]],
+  build: f => { const r = f(); return { container: r.container, children: [r.child, r.child] }; },
+  tests: [['no fixed width on the children', f => eq(f().child.width, undefined, 'Do not give the children a fixed width.')],
+          ['each child is 150 wide and 50 tall, side by side', f => { const r = f(); eq(measure(r.container, [r.child, r.child]).map(b => [b[0], b[2], b[3]]), [[0, 150, 50], [150, 150, 50]]); }]] },
+
+{ id: 'flex-5', group: 'Lesson 11: Flexbox', lesson: '11-flexbox-layout', title: 'Wrapping grid', fn: 'wrapGrid', kind: 'flex',
+  brief: 'Five 100 by 100 boxes. Three fit on the first row, the other two wrap to the second row. Return the style of the parent.',
+  hint: 'Boxes in a row, and they need permission to go to the next line.',
+  starter: R`function wrapGrid() {
+  return {};
+}`,
+  answer: R`function wrapGrid() {
+  return { flexDirection: "row", flexWrap: "wrap" };
+}`,
+  ghosts: [[0, 0, 100, 100], [100, 0, 100, 100], [200, 0, 100, 100], [0, 100, 100, 100], [100, 100, 100, 100]],
+  build: f => ({ container: f(), children: Array(5).fill({ width: 100, height: 100 }) }),
+  tests: [['three on the first row, two on the second', f => eq(measure(f(), Array(5).fill({ width: 100, height: 100 })).map(b => [b[0], b[1]]), [[0, 0], [100, 0], [200, 0], [0, 100], [100, 100]])]] },
+
+{ id: 'flex-6', group: 'Lesson 11: Flexbox', lesson: '11-flexbox-layout', title: 'Corner badge', fn: 'cornerBadge', kind: 'flex',
+  brief: 'A 20 by 20 badge sits in the top right corner of a 300 by 600 card. Return the style of the <b>badge</b>. It must not push anything: the next View (50 tall) must stay at the top.',
+  hint: 'The badge leaves the normal flow. Which position value does that, and which two edges pin a corner?',
+  starter: R`function cornerBadge() {
+  return {};
+}`,
+  answer: R`function cornerBadge() {
+  return { position: "absolute", top: 0, right: 0, width: 20, height: 20 };
+}`,
+  ghosts: [[280, 0, 20, 20], [0, 0, 300, 50]],
+  build: f => ({ container: {}, children: [f(), { height: 50 }] }),
+  tests: [['the badge is at x 280, y 0, 20 by 20', f => eq(measure({}, [f(), { height: 50 }])[0], [280, 0, 20, 20], 'The badge needs a size and a position.')],
+          ['the next View is not pushed down', f => eq(measure({}, [f(), { height: 50 }])[1][1], 0, 'An absolute child must not take space in the column.')]] },
+
+/* ===== Lesson 14: animation maths ===== */
+{ id: 'anim-1', group: 'Lesson 14: Animation maths', lesson: '14-animated-api', title: 'interpolate', fn: 'interpolate', kind: 'code',
+  brief: 'Map a number from one range to another, like <code>value.interpolate</code>. Support several segments, <code>extend</code> (default) and <code>clamp</code>, with <code>extrapolate</code>, <code>extrapolateLeft</code> and <code>extrapolateRight</code> in <code>options</code>. A specific side wins over <code>extrapolate</code>.',
+  hint: 'Find the segment first: the first index i (from 1) where inputRange[i] is at least the value, or the last one. Then do outMin + progress x (outMax - outMin). Clamp the value to the segment edge only if that side says clamp.',
+  starter: R`function interpolate(value, inputRange, outputRange, options = {}) {
+  return value;
+}`,
+  answer: R`function interpolate(value, inputRange, outputRange, options = {}) {
+  const left = options.extrapolateLeft ?? options.extrapolate ?? "extend";
+  const right = options.extrapolateRight ?? options.extrapolate ?? "extend";
+  let i = 1;
+  for (; i < inputRange.length - 1; i++) if (inputRange[i] >= value) break;
+  const inMin = inputRange[i - 1], inMax = inputRange[i];
+  const outMin = outputRange[i - 1], outMax = outputRange[i];
+  let v = value;
+  if (v < inMin && left === "clamp") v = inMin;
+  if (v > inMax && right === "clamp") v = inMax;
+  return outMin + ((v - inMin) / (inMax - inMin)) * (outMax - outMin);
+}`,
+  tryHint: 'interpolate(2, [0, 1], [0, 100], { extrapolate: "clamp" })',
+  tests: [['one segment', f => { eq(f(0.5, [0, 1], [0, 100]), 50); eq(f(0, [0, 1], [10, 20]), 10); eq(f(1, [0, 1], [10, 20]), 20); eq(f(0.25, [0, 1], [0, 360]), 90); }],
+          ['several segments', f => { eq(f(0.25, [0, 0.5, 1], [0, 100, 100]), 50); eq(f(0.75, [0, 0.5, 1], [0, 100, 100]), 100); eq(f(75, [0, 50, 100], [1, 0.5, 0]), 0.25); }],
+          ['extend is the default', f => { eq(f(2, [0, 1], [0, 100]), 200); eq(f(-1, [0, 1], [0, 100]), -100); eq(f(3, [0, 1, 2], [0, 10, 30]), 50, 'the last segment is extended'); }],
+          ['clamp', f => { eq(f(2, [0, 1], [0, 100], { extrapolate: 'clamp' }), 100); eq(f(-1, [0, 1], [0, 100], { extrapolate: 'clamp' }), 0); eq(f(2, [0, 1], [0, 100], { extrapolateRight: 'clamp' }), 100); eq(f(-1, [0, 1], [0, 100], { extrapolateRight: 'clamp' }), -100, 'left still extends'); eq(f(-1, [0, 1], [0, 100], { extrapolate: 'clamp', extrapolateLeft: 'extend' }), -100, 'a specific side wins'); }]] },
+
+{ id: 'anim-2', group: 'Lesson 14: Animation maths', lesson: '14-animated-api', title: 'timingValue', fn: 'timingValue', kind: 'code',
+  brief: 'The value of a timing animation after some time. <code>progress</code> goes from 0 to 1 over <code>duration</code> ms and never leaves 0 and 1. The result is <code>from + (to - from) * easing(progress)</code>. The default easing is linear.',
+  hint: 'progress = elapsed / duration, then keep it between 0 and 1 with Math.min and Math.max.',
+  starter: R`function timingValue({ from, to, elapsed, duration, easing = (t) => t }) {
+  return from;
+}`,
+  answer: R`function timingValue({ from, to, elapsed, duration, easing = (t) => t }) {
+  const progress = Math.min(Math.max(elapsed / duration, 0), 1);
+  return from + (to - from) * easing(progress);
+}`,
+  tryHint: 'timingValue({ from: 0, to: 100, elapsed: 250, duration: 500 })',
+  tests: [['linear and eased', f => { eq(f({ from: 0, to: 100, elapsed: 0, duration: 500 }), 0); eq(f({ from: 0, to: 100, elapsed: 250, duration: 500 }), 50); eq(f({ from: 0, to: 100, elapsed: 500, duration: 500 }), 100); eq(f({ from: 0, to: 100, elapsed: 900, duration: 500 }), 100, 'after the end it stays at the end'); eq(f({ from: 10, to: 0, elapsed: 250, duration: 500 }), 5); eq(f({ from: 0, to: 100, elapsed: 250, duration: 500, easing: t => t * t }), 25); }]] },
+
+{ id: 'anim-3', group: 'Lesson 14: Animation maths', lesson: '14-animated-api', title: 'makeDiffClamp', fn: 'makeDiffClamp', kind: 'code',
+  brief: 'Hide a header when scrolling down and show it when scrolling up. <code>makeDiffClamp(min, max, start)</code> returns a function. Call it with the new scroll position <code>a</code>. The change since the last call is added to the current value, and the result stays between <code>min</code> and <code>max</code>. The first "last position" and the first value are both <code>start</code>.',
+  hint: 'Keep two variables in the outer function: last and value. Each call: value = clamp(value + (a - last)); last = a.',
+  starter: R`function makeDiffClamp(min, max, start = 0) {
+  return (a) => a;
+}`,
+  answer: R`function makeDiffClamp(min, max, start = 0) {
+  let last = start;
+  let value = start;
+  return (a) => {
+    value = Math.min(Math.max(value + (a - last), min), max);
+    last = a;
+    return value;
+  };
+}`,
+  tryHint: 'makeDiffClamp(0, 50, 0)(30)',
+  tests: [['header hides going down and shows going up', f => { const h = f(0, 50, 0); eq(h(30), 30); eq(h(80), 50, 'capped at max'); eq(h(60), 30, 'scrolling up by 20 shows 20 of the header again'); eq(h(0), 0, 'never below min'); eq(h(10), 10); }]] },
+
+/* ===== Lesson 17: regex ===== */
+{ id: 'rx-1', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'isOtp', fn: 'isOtp', kind: 'code',
+  brief: 'Exactly 6 digits, nothing else. <code>"123456"</code> yes, <code>"12345"</code> no, <code>"12a456"</code> no.',
+  hint: 'Start anchor, six digits, end anchor.',
+  starter: R`function isOtp(text) {
+  return false;
+}`,
+  answer: R`function isOtp(text) {
+  return /^\d{6}$/.test(text);
+}`,
+  tryHint: 'isOtp("123456")',
+  tests: [['accepts and rejects the right texts', f => { eq(f('123456'), true); eq(f('12345'), false, 'too short'); eq(f('1234567'), false, 'too long. Did you anchor with ^ and $?'); eq(f('12a456'), false); eq(f('123456\n'), false, 'a trailing newline is not a digit'); eq(f(''), false); }]] },
+
+{ id: 'rx-2', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'onlyDigits', fn: 'onlyDigits', kind: 'code',
+  brief: 'Keep only the digits. Used in a TextInput <code>onChangeText</code>. <code>"0812-345 (67)"</code> becomes <code>"081234567"</code>.',
+  hint: 'Replace every character that is not a digit with nothing. Do not forget the g flag.',
+  starter: R`function onlyDigits(text) {
+  return text;
+}`,
+  answer: R`function onlyDigits(text) {
+  return text.replace(/\D/g, "");
+}`,
+  tryHint: 'onlyDigits("0812-345 (67)")',
+  tests: [['strips non digits', f => { eq(f('0812-345 (67)'), '081234567'); eq(f('abc'), ''); eq(f('1a2b3c'), '123', 'replace every match, not only the first'); }]] },
+
+{ id: 'rx-3', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'formatThousands', fn: 'formatThousands', kind: 'code',
+  brief: 'Put a separator between groups of three digits, from the right. <code>formatThousands(1234567)</code> is <code>"1.234.567"</code>, and <code>formatThousands(999)</code> is <code>"999"</code>. The default separator is ".". Use a regular expression, not toLocaleString.',
+  hint: 'A lookahead that says "only groups of three digits follow, up to the end", plus \\B so you do not put a separator at the very start.',
+  starter: R`function formatThousands(number, separator = ".") {
+  return String(number);
+}`,
+  answer: R`function formatThousands(number, separator = ".") {
+  return String(number).replace(/\B(?=(\d{3})+(?!\d))/g, separator);
+}`,
+  tryHint: 'formatThousands(1234567, ",")',
+  tests: [['groups of three from the right', f => { eq(f(1234567), '1.234.567'); eq(f(999), '999'); eq(f(1000), '1.000'); eq(f(100000), '100.000'); eq(f(1234567, ','), '1,234,567'); eq(f(0), '0'); }]] },
+
+{ id: 'rx-4', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'parseDeepLink', fn: 'parseDeepLink', kind: 'code',
+  brief: 'Read <code>"myapp://product/123?ref=abc"</code> and return <code>{ screen: "product", id: "123", ref: "abc" }</code>. The ref part is optional (then <code>ref</code> is undefined). Return <code>null</code> if it is not a deep link for the "myapp" scheme or the id is not digits. Use named groups.',
+  hint: 'Pattern: scheme, //, letters (screen), /, digits (id), then an optional group for ?ref=... Use (?<screen>...) and read m.groups.',
+  starter: R`function parseDeepLink(url) {
+  return null;
+}`,
+  answer: R`function parseDeepLink(url) {
+  const m = /^myapp:\/\/(?<screen>[a-z]+)\/(?<id>\d+)(?:\?ref=(?<ref>[\w-]+))?$/.exec(url);
+  return m ? { screen: m.groups.screen, id: m.groups.id, ref: m.groups.ref } : null;
+}`,
+  tryHint: 'parseDeepLink("myapp://cart/9")',
+  tests: [['reads screen, id and ref', f => { eq(f('myapp://product/123?ref=abc'), { screen: 'product', id: '123', ref: 'abc' }); eq(f('myapp://cart/9'), { screen: 'cart', id: '9', ref: undefined }); }],
+          ['rejects bad links', f => { eq(f('https://example.com/product/123'), null, 'wrong scheme'); eq(f('myapp://product/abc'), null, 'id must be digits'); eq(f(''), null); }]] },
+
+{ id: 'rx-5', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'isStrongPassword', fn: 'isStrongPassword', kind: 'code',
+  brief: 'At least 8 characters, one lowercase letter, one uppercase letter and one digit. Use lookaheads.',
+  hint: 'Start anchor, then three lookaheads like (?=.*[a-z]), then .{8,} and the end anchor.',
+  starter: R`function isStrongPassword(password) {
+  return false;
+}`,
+  answer: R`function isStrongPassword(password) {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
+}`,
+  tryHint: 'isStrongPassword("Abcdef12")',
+  tests: [['checks each rule', f => { eq(f('Abcdef12'), true); eq(f('abcdef12'), false, 'no uppercase'); eq(f('ABCDEF12'), false, 'no lowercase'); eq(f('Abcdefgh'), false, 'no digit'); eq(f('Abc12'), false, 'too short'); eq(f('Abc def 12 and more'), true, 'spaces are allowed'); }]] },
+
+{ id: 'rx-6', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'maskCard', fn: 'maskCard', kind: 'code',
+  brief: 'Hide the middle of a 16 digit card number. <code>"4111111111111111"</code> becomes <code>"4111 **** **** 1111"</code>. Return <code>null</code> if it is not exactly 16 digits (spaces are not allowed).',
+  hint: 'Two groups of four digits with eight digits in the middle, and both anchors. Build the result from the two groups.',
+  starter: R`function maskCard(number) {
+  return null;
+}`,
+  answer: R`function maskCard(number) {
+  const m = /^(\d{4})\d{8}(\d{4})$/.exec(number);
+  return m ? m[1] + " **** **** " + m[2] : null;
+}`,
+  tryHint: 'maskCard("4111111111111111")',
+  tests: [['masks the middle and rejects bad input', f => { eq(f('4111111111111111'), '4111 **** **** 1111'); eq(f('411111111111111'), null, '15 digits'); eq(f('41111111111111112'), null, '17 digits'); eq(f('4111 1111 1111 1111'), null, 'spaces not allowed'); }]] },
+
+{ id: 'rx-7', group: 'Lesson 17: Regex', lesson: '17-regex-for-forms', title: 'extractHashtags', fn: 'extractHashtags', kind: 'code',
+  brief: 'Find every hashtag. A hashtag is # followed by letters, digits or underscore. <code>"Learning #ReactNative and #regex_2026!"</code> gives <code>["ReactNative", "regex_2026"]</code> (without the #).',
+  hint: 'matchAll needs the g flag. Put the word part in a group, then map each match to its group 1.',
+  starter: R`function extractHashtags(text) {
+  return [];
+}`,
+  answer: R`function extractHashtags(text) {
+  return [...text.matchAll(/#(\w+)/g)].map((m) => m[1]);
+}`,
+  tryHint: 'extractHashtags("#a#b and #c")',
+  tests: [['finds all of them', f => { eq(f('Learning #ReactNative and #regex_2026!'), ['ReactNative', 'regex_2026']); eq(f('no tags here'), []); eq(f('#a#b'), ['a', 'b']); }]] },
+];
+
+/* ---------- Snack tasks (real React Native) ---------- */
+const SNACKS = [
+  { title: 'Fade and slide in (Animated)', lesson: '14-animated-api', todo: ['Fade a card in over 500 ms.', 'At the same time slide it up from 20 points below.', 'Use useNativeDriver: true and keep the value in useAnimatedValue.'], deps: '',
+    code: R`import { useEffect } from 'react';
+import { Animated, Text, View, useAnimatedValue } from 'react-native';
+
+export default function App() {
+  const progress = useAnimatedValue(0);
+  // TODO 1: in useEffect, run Animated.timing on progress to 1 (500 ms, useNativeDriver: true)
+  // TODO 2: translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [20, 0] })
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Animated.View style={{ padding: 24, backgroundColor: 'gold' /* TODO 3: opacity and transform */ }}>
+        <Text>Hello</Text>
+      </Animated.View>
+    </View>
+  );
+}` },
+  { title: 'Pulse forever (Animated.loop)', lesson: '14-animated-api', todo: ['Scale a circle from 1 to 1.2 and back, forever.', 'Use Animated.loop and Animated.sequence.'], deps: '',
+    code: R`import { useEffect } from 'react';
+import { Animated, View, useAnimatedValue } from 'react-native';
+
+export default function App() {
+  const scale = useAnimatedValue(1);
+  // TODO: Animated.loop(Animated.sequence([timing to 1.2, timing to 1])).start() inside useEffect
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Animated.View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'tomato', transform: [{ scale }] }} />
+    </View>
+  );
+}` },
+  { title: 'Header, content, footer on a real screen', lesson: '11-flexbox-layout', todo: ['A 60 tall header, a footer 50 tall, content in between.', 'Center the text "Content" in the middle of the content area.', 'Then rotate the phone preview and check it still works.'], deps: '',
+    code: R`import { Text, View } from 'react-native';
+
+export default function App() {
+  return (
+    <View style={{ /* TODO: fill the screen */ }}>
+      <View style={{ backgroundColor: 'steelblue' /* TODO: height 60 */ }} />
+      <View style={{ backgroundColor: 'gold' /* TODO: take the leftover and center the text */ }}>
+        <Text>Content</Text>
+      </View>
+      <View style={{ backgroundColor: 'tomato' /* TODO: height 50 */ }} />
+    </View>
+  );
+}` },
+  { title: 'OTP input that only accepts 6 digits', lesson: '17-regex-for-forms', todo: ['Only digits can be typed (strip the rest in onChangeText).', 'Max 6 characters and a number keyboard.', 'The Verify button is disabled until the code is exactly 6 digits.'], deps: '',
+    code: R`import { useState } from 'react';
+import { Button, Text, TextInput, View } from 'react-native';
+
+export default function App() {
+  const [code, setCode] = useState('');
+  const valid = false; // TODO: use a regex with ^ and $
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
+      <TextInput
+        value={code}
+        onChangeText={(t) => setCode(t) /* TODO: keep digits only */}
+        style={{ borderWidth: 1, padding: 12, fontSize: 24, letterSpacing: 8 }}
+        placeholder="000000"
+      />
+      <Button title="Verify" disabled={!valid} onPress={() => alert('Verified ' + code)} />
+      <Text>{valid ? 'Looks good' : 'Enter 6 digits'}</Text>
+    </View>
+  );
+}` },
+  { title: 'Spring a box left and right (Reanimated)', lesson: '15-reanimated', todo: ['Press the button to spring the box 200 points right, press again to come back.', 'Read .value only inside useAnimatedStyle.', 'Bonus: add a repeating pulse with withRepeat.'], deps: 'react-native-reanimated,react-native-worklets', note: 'Reanimated 4 needs the New Architecture and the worklets package. Snack may not run it on every preview platform. If the preview fails, try a native device preview, or run it in a local Expo app.',
+    code: R`import { Button, View } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+
+export default function App() {
+  const offset = useSharedValue(0);
+  // TODO: useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }))
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 16 }}>
+      <Animated.View style={[{ width: 80, height: 80, backgroundColor: 'tomato' } /* TODO: add the animated style */]} />
+      <Button title="Move" onPress={() => { /* TODO: offset.value = withSpring(...) */ }} />
+    </View>
+  );
+}` },
+];
+const snackUrl = s => 'https://snack.expo.dev/?platform=web&name=' + encodeURIComponent(s.title) + (s.deps ? '&dependencies=' + encodeURIComponent(s.deps) : '') + '&code=' + encodeURIComponent(s.code);
+
+/* ---------- app ---------- */
+let currentId = null;
+const done = () => TASKS.filter(t => store.get('rn-lab:done:' + t.id) === '1').length;
+
+function renderSide() {
+  const side = $('#side'); side.innerHTML = '';
+  const n = done();
+  side.appendChild(el('div', 'progress', n + ' of ' + TASKS.length + ' tasks passed'));
+  const bar = el('div', 'bar'); const fill = el('i'); fill.style.width = Math.round(100 * n / TASKS.length) + '%'; bar.appendChild(fill); side.appendChild(bar);
+  let g = '';
+  TASKS.forEach(t => {
+    if (t.group !== g) { g = t.group; side.appendChild(el('h2', '', g)); }
+    const b = el('button', 'task'); b.type = 'button';
+    b.setAttribute('aria-current', String(t.id === currentId));
+    const d = el('span', 'dot' + (store.get('rn-lab:done:' + t.id) === '1' ? ' done' : '')); b.appendChild(d);
+    b.appendChild(el('span', '', t.title));
+    b.onclick = () => show(t.id);
+    side.appendChild(b);
+  });
+  side.appendChild(el('h2', '', 'Build in Snack (real React Native)'));
+  const b = el('button', 'task'); b.type = 'button'; b.setAttribute('aria-current', String(currentId === 'snack'));
+  b.appendChild(el('span', 'dot')); b.appendChild(el('span', '', '5 screens to build')); b.onclick = () => show('snack'); side.appendChild(b);
+}
+
+function show(id) {
+  currentId = id; history.replaceState(null, '', '#' + id); renderSide();
+  const main = $('#main'); main.innerHTML = '';
+  if (id === 'snack') return showSnack(main);
+  const t = TASKS.find(x => x.id === id) || TASKS[0];
+  currentId = t.id; renderSide();
+  const p = el('div', 'panel');
+  const crumb = el('div', 'crumb'); crumb.innerHTML = t.group + ' &middot; <a href="../../../viewer.html?note=learn/react-native/' + t.lesson + '">open the lesson</a>';
+  p.appendChild(crumb);
+  p.appendChild(el('h2', 'title', t.title));
+  const brief = el('p', 'brief'); brief.innerHTML = t.brief; p.appendChild(brief);
+  const ta = el('textarea'); ta.spellcheck = false; ta.setAttribute('aria-label', 'Your code for ' + t.title);
+  ta.value = store.get('rn-lab:code:' + t.id) ?? t.starter;
+  ta.addEventListener('input', () => store.set('rn-lab:code:' + t.id, ta.value));
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Tab') { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('  ', s, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input')); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); }
+  });
+  p.appendChild(ta);
+  const btns = el('div', 'btns');
+  const runB = el('button', 'b primary', 'Run tests'); runB.type = 'button'; runB.onclick = run;
+  const resetB = el('button', 'b', 'Reset to starter'); resetB.type = 'button'; resetB.onclick = () => { ta.value = t.starter; ta.dispatchEvent(new Event('input')); out.innerHTML = ''; paintPreview(); };
+  btns.append(runB, resetB); p.appendChild(btns);
+  const out = el('div'); p.appendChild(out);
+  const hint = el('details'); hint.appendChild(el('summary', '', 'Hint')); const hp = el('p', 'hint'); hp.innerHTML = t.hint; hint.appendChild(hp); p.appendChild(hint);
+  const ans = el('details'); ans.appendChild(el('summary', '', 'Show one possible answer (try first!)')); const pre = el('pre'); pre.textContent = t.answer; ans.appendChild(pre);
+  const load = el('button', 'b', 'Load this answer into the editor'); load.type = 'button'; load.onclick = () => { ta.value = t.answer; ta.dispatchEvent(new Event('input')); }; ans.appendChild(load); p.appendChild(ans);
+  let tryOut;
+  if (t.kind === 'code') {
+    const row = el('div', 'try'); const inp = el('input'); inp.value = t.tryHint; inp.setAttribute('aria-label', 'Try an expression'); inp.spellcheck = false;
+    const go = el('button', 'b', 'Try it'); go.type = 'button'; tryOut = el('div', 'tryout');
+    const tryRun = () => {
+      try { const v = new Function(ta.value + '\n;return (' + inp.value + ');')(); tryOut.textContent = '= ' + fmt(v); tryOut.style.color = ''; }
+      catch (e) { tryOut.textContent = String(e.message); tryOut.style.color = 'var(--bad)'; }
+    };
+    go.onclick = tryRun; inp.addEventListener('keydown', e => { if (e.key === 'Enter') tryRun(); });
+    row.append(inp, go); p.appendChild(el('h2', '', '')); p.appendChild(row); p.appendChild(tryOut);
+  }
+  let previewBox;
+  if (t.kind === 'flex') { previewBox = el('div', 'phones'); p.appendChild(previewBox); }
+  main.appendChild(p);
+
+  function compile() {
+    const f = new Function('BOX', ta.value + '\n;return typeof ' + t.fn + ' === "function" ? ' + t.fn + ' : undefined;')(BOX);
+    if (!f) throw new Error('Keep the function named ' + t.fn + '.');
+    return f;
+  }
+  function paintPreview() {
+    if (!previewBox) return;
+    previewBox.innerHTML = '';
+    const mine = el('div', 'phonewrap'); mine.appendChild(el('div', 'cap', 'Your layout'));
+    const ph = el('div', 'phone'); const sc = el('div', 'scaler'); ph.appendChild(sc); mine.appendChild(ph);
+    try {
+      const f = compile(); const b = t.build(f); drawLayout(sc, b.container, b.children);
+    } catch (e) { sc.innerHTML = ''; }
+    t.ghosts.forEach(g => { const d = el('div', 'ghost'); d.style.left = g[0] + 'px'; d.style.top = g[1] + 'px'; d.style.width = g[2] + 'px'; d.style.height = g[3] + 'px'; sc.appendChild(d); });
+    previewBox.appendChild(mine);
+    previewBox.appendChild(el('div', 'note', 'The dashed green outlines are where the boxes must end up.'));
+  }
+  function run() {
+    out.innerHTML = '';
+    let f;
+    try { f = compile(); } catch (e) { const er = el('div', 'error', String(e.message)); out.appendChild(er); return; }
+    const ul = el('ul', 'results'); let pass = 0;
+    t.tests.forEach(([name, fn]) => {
+      const li = el('li'); let ok = true, msg = '';
+      try { fn(f); } catch (e) { ok = false; msg = String(e.message); }
+      li.className = ok ? 'pass' : 'fail';
+      li.appendChild(el('span', 'mark', ok ? 'PASS' : 'FAIL')); li.appendChild(document.createTextNode(name));
+      if (!ok) li.appendChild(el('pre', 'msg', msg));
+      if (ok) pass++; ul.appendChild(li);
+    });
+    out.appendChild(ul);
+    const all = pass === t.tests.length;
+    out.appendChild(el('div', 'summary ' + (all ? 'ok' : 'bad'), all ? 'All ' + pass + ' passed. Nice. Now open the answer and compare, or explain it out loud.' : pass + ' of ' + t.tests.length + ' passed. Read the message, fix, run again.'));
+    store.set('rn-lab:done:' + t.id, all ? '1' : '0'); renderSide();
+    paintPreview();
+  }
+  paintPreview();
+}
+
+function showSnack(main) {
+  const p = el('div', 'panel');
+  p.appendChild(el('h2', 'title', 'Build these in Expo Snack'));
+  const lead = el('p', 'brief'); lead.textContent = 'These need real React Native, so they open in Snack with starter code. Replace each TODO. Aim for under 10 minutes each, then look at the lesson to compare. There are no tests here, so you judge it by looking at the preview.'; p.appendChild(lead);
+  SNACKS.forEach(s => {
+    const c = el('div', 'snack'); c.appendChild(el('h3', '', s.title));
+    const ul = el('ul'); s.todo.forEach(x => ul.appendChild(el('li', '', x))); c.appendChild(ul);
+    if (s.note) c.appendChild(el('p', 'note', s.note));
+    const a = el('a', 'open', 'Open starter in Snack'); a.href = snackUrl(s); a.target = '_blank'; a.rel = 'noopener'; c.appendChild(a);
+    const l = el('span', 'note', ' '); const la = el('a', '', ' lesson'); la.href = '../../../viewer.html?note=learn/react-native/' + s.lesson; l.appendChild(la); c.appendChild(l);
+    p.appendChild(c);
+  });
+  main.appendChild(p);
+}
+
+window.__lab = { TASKS, measure, store };
+window.addEventListener('hashchange', () => { const id = location.hash.slice(1); if (id && id !== currentId) show(id); });
+show(location.hash.slice(1) || TASKS[0].id);
+</script>
+</body>
+</html>
