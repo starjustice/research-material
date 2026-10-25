@@ -1,0 +1,15 @@
+{
+  "name": "react-native-practice",
+  "private": true,
+  "type": "module",
+  "description": "Runnable exercises for the React Native lessons. Layout answers are checked with Yoga, the layout engine React Native uses.",
+  "scripts": {
+    "test": "node --test",
+    "test:11": "node --test 11-flexbox.test.mjs",
+    "test:17": "node --test 17-regex.test.mjs",
+    "test:14": "node --test 14-animation-math.test.mjs"
+  },
+  "devDependencies": {
+    "yoga-layout": "3.2.1"
+  }
+}

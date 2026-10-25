@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flexbox playground (React Native defaults)</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1d2433; --muted: #5b6475; --line: #d6dae3;
+    --accent: #2f6fed; --accent-soft: #e4ecfd; --phone: #ffffff; --phone-line: #1d2433;
+    --b1: #2f6fed; --b2: #e8590c; --b3: #2b9348; --b4: #9c36b5; --b5: #c2255c;
+    --code-bg: #10151f; --code-ink: #dbe4f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --panel: #1b2029; --ink: #e8ecf4; --muted: #9aa4b8; --line: #343b49;
+      --accent: #6c9cff; --accent-soft: #263553; --phone: #232a36; --phone-line: #8995ad;
+      --code-bg: #0b0e14; --code-ink: #dbe4f5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.35rem; margin: 4px 0 4px; }
+  p.lead { margin: 0 0 14px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .panel h2 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .phone-area { display: flex; justify-content: center; }
+  /* The phone. These rules copy the React Native defaults. */
+  .phone { width: 300px; height: 520px; background: var(--phone); border: 2px solid var(--phone-line); border-radius: 14px; overflow: hidden; }
+  .rn, .rn * { box-sizing: border-box; min-width: 0; min-height: 0; position: relative; }
+  .rn { display: flex; flex-direction: column; align-content: flex-start; flex-shrink: 0; }
+  .rn > .item { flex-shrink: 0; color: #fff; font-weight: 700; border-radius: 4px; font-size: 14px; }
+  /* The number is drawn on top so it never changes the size of the box, like an empty View. */
+  .rn > .item::after { content: attr(data-n); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .item:nth-child(1) { background: var(--b1); } .item:nth-child(2) { background: var(--b2); }
+  .item:nth-child(3) { background: var(--b3); } .item:nth-child(4) { background: var(--b4); }
+  .item:nth-child(5) { background: var(--b5); } .item:nth-child(6) { background: #6c757d; }
+  .axes { margin-top: 8px; font-size: .85rem; color: var(--muted); text-align: center; }
+  label { display: block; font-size: .85rem; margin: 8px 0 3px; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; padding: 5px 8px; font-size: .8rem; cursor: pointer; font-family: inherit; }
+  .opt[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+  .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  select, input[type=range] { width: 100%; }
+  select { padding: 4px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+  .checks label { display: flex; gap: 6px; align-items: center; margin: 6px 0; color: var(--ink); }
+  pre { margin: 0; background: var(--code-bg); color: var(--code-ink); padding: 12px; border-radius: 8px; overflow: auto; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .tip { margin-top: 10px; padding: 8px 10px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 4px; font-size: .9rem; }
+  .small { font-size: .8rem; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Flexbox playground</h1>
+  <p class="lead">Change the container on the left. Watch the boxes. The page starts with the React Native defaults: <b>column</b>, no shrinking, and <b>stretch</b> on the cross axis.</p>
+
+  <div class="presets" id="presets" role="group" aria-label="Presets"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Container (parent View)</h2>
+        <label>flexDirection (the main axis)</label>
+        <div class="row" data-prop="flexDirection"></div>
+        <label>justifyContent (along the main axis)</label>
+        <div class="row" data-prop="justifyContent"></div>
+        <label>alignItems (along the cross axis)</label>
+        <div class="row" data-prop="alignItems"></div>
+        <label>flexWrap</label>
+        <div class="row" data-prop="flexWrap"></div>
+        <label>gap: <b id="gapOut">0</b></label>
+        <input type="range" id="gap" min="0" max="40" step="5" value="0" aria-label="gap">
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h2>Boxes (children)</h2>
+        <label>How many boxes</label>
+        <div class="row" data-prop="count"></div>
+        <label>flex on box 2 (the other boxes stay 0)</label>
+        <div class="row" data-prop="flexTwo"></div>
+        <label>alignSelf on box 1</label>
+        <div class="row" data-prop="alignSelfOne"></div>
+        <div class="checks">
+          <label><input type="checkbox" id="noCross"> Remove the box size on the cross axis (shows stretch)</label>
+          <label><input type="checkbox" id="big"> Make boxes 100 wide (shows wrap and shrink)</label>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel phone-area" style="flex-direction:column; align-items:center">
+        <div class="phone"><div class="rn" id="container"></div></div>
+        <div class="axes" id="axes"></div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h2>The React Native style you would write</h2>
+        <pre id="code"></pre>
+        <div class="tip" id="tip"></div>
+        <p class="small">This page uses browser CSS with React Native's defaults switched on (column, flexShrink 0, alignContent flex-start, no automatic minimum size). The numbers in lesson 11 were checked with Yoga, the layout engine React Native uses. Small differences can still exist, so confirm in an Expo Snack when it matters.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const OPTIONS = {
+  flexDirection: ['column', 'row', 'column-reverse', 'row-reverse'],
+  justifyContent: ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly'],
+  alignItems: ['stretch', 'flex-start', 'center', 'flex-end'],
+  flexWrap: ['nowrap', 'wrap'],
+  count: [1, 2, 3, 4, 5, 6],
+  flexTwo: [0, 1, 2],
+  alignSelfOne: ['auto', 'flex-start', 'center', 'flex-end'],
+};
+const DEFAULTS = { flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'stretch', flexWrap: 'nowrap', gap: 0, count: 3, flexTwo: 0, alignSelfOne: 'auto', noCross: false, big: false };
+const PRESETS = {
+  'RN defaults': {},
+  'Center everything': { justifyContent: 'center', alignItems: 'center', count: 1 },
+  'Row, space between': { flexDirection: 'row', justifyContent: 'space-between' },
+  'Header, content, footer': { count: 3, flexTwo: 1 },
+  'Wrap grid': { flexDirection: 'row', flexWrap: 'wrap', big: true, count: 5 },
+  'Web habit: shrink': { flexDirection: 'row', big: true, count: 5 },
+};
+let state = { ...DEFAULTS };
+
+function build() {
+  document.querySelectorAll('.row[data-prop]').forEach(row => {
+    const prop = row.dataset.prop;
+    row.innerHTML = '';
+    OPTIONS[prop].forEach(v => {
+      const b = document.createElement('button');
+      b.className = 'opt'; b.type = 'button'; b.textContent = v;
+      b.setAttribute('aria-pressed', String(state[prop] === v));
+      b.onclick = () => { state[prop] = v; render(); };
+      row.appendChild(b);
+    });
+  });
+  const pr = document.getElementById('presets'); pr.innerHTML = '';
+  Object.keys(PRESETS).forEach(name => {
+    const b = document.createElement('button');
+    b.className = 'opt'; b.type = 'button'; b.textContent = name;
+    b.onclick = () => { state = { ...DEFAULTS, ...PRESETS[name] }; sync(); render(); };
+    pr.appendChild(b);
+  });
+}
+function sync() {
+  document.getElementById('gap').value = state.gap;
+  document.getElementById('noCross').checked = state.noCross;
+  document.getElementById('big').checked = state.big;
+}
+
+function childStyle(i) {
+  const horizontal = state.flexDirection.startsWith('row');
+  const size = state.big ? 100 : 50;
+  const s = {};
+  const flexy = i === 1 && state.flexTwo > 0;
+  if (flexy) s.flex = state.flexTwo;
+  const mainKey = horizontal ? 'width' : 'height';
+  const crossKey = horizontal ? 'height' : 'width';
+  if (!flexy) s[mainKey] = size;
+  if (!state.noCross) s[crossKey] = size;
+  if (i === 0 && state.alignSelfOne !== 'auto') s.alignSelf = state.alignSelfOne;
+  return s;
+}
+
+function render() {
+  const c = document.getElementById('container');
+  c.style.flexDirection = state.flexDirection;
+  c.style.justifyContent = state.justifyContent;
+  c.style.alignItems = state.alignItems;
+  c.style.flexWrap = state.flexWrap;
+  c.style.gap = state.gap + 'px';
+  c.style.width = '100%'; c.style.height = '100%';
+  c.innerHTML = '';
+  for (let i = 0; i < state.count; i++) {
+    const d = document.createElement('div');
+    d.className = 'item'; d.dataset.n = String(i + 1);
+    const s = childStyle(i);
+    if (s.flex) { d.style.flexGrow = s.flex; d.style.flexShrink = 0; d.style.flexBasis = '0px'; }
+    if (s.width != null) d.style.width = s.width + 'px';
+    if (s.height != null) d.style.height = s.height + 'px';
+    if (s.alignSelf) d.style.alignSelf = s.alignSelf;
+    c.appendChild(d);
+  }
+  document.getElementById('gapOut').textContent = state.gap;
+  document.querySelectorAll('.row[data-prop]').forEach(row => {
+    [...row.children].forEach((b, i) => b.setAttribute('aria-pressed', String(OPTIONS[row.dataset.prop][i] === state[row.dataset.prop])));
+  });
+  const horizontal = state.flexDirection.startsWith('row');
+  document.getElementById('axes').textContent = 'Main axis: ' + (horizontal ? 'left to right' : 'top to bottom') +
+    '. Cross axis: ' + (horizontal ? 'top to bottom' : 'left to right') + '.';
+  renderCode(); renderTip();
+}
+
+function renderCode() {
+  const lines = [];
+  const add = (k, v, def) => { if (v !== def) lines.push('  ' + k + ': ' + (typeof v === 'number' ? v : "'" + v + "'") + ','); };
+  add('flexDirection', state.flexDirection, 'column');
+  add('justifyContent', state.justifyContent, 'flex-start');
+  add('alignItems', state.alignItems, 'stretch');
+  add('flexWrap', state.flexWrap, 'nowrap');
+  add('gap', state.gap, 0);
+  let out = '// parent\n{\n' + (lines.join('\n') || '  // all defaults') + '\n}';
+  out += '\n\n// each box';
+  const s0 = childStyle(0);
+  out += '\n' + JSON.stringify(s0).replace(/"/g, "'").replace(/:/g, ': ').replace(/,/g, ', ');
+  if (state.flexTwo > 0 && state.count > 1) out += '\n// box 2\n' + JSON.stringify(childStyle(1)).replace(/"/g, "'").replace(/:/g, ': ').replace(/,/g, ', ');
+  document.getElementById('code').textContent = out;
+}
+
+function renderTip() {
+  const horizontal = state.flexDirection.startsWith('row');
+  let t = 'Try changing flexDirection first. justifyContent always follows the main axis, so it moves boxes up and down in a column but left and right in a row.';
+  if (state.big && horizontal && state.flexWrap === 'nowrap' && state.count * 100 > 300) t = 'The boxes are wider than the phone and React Native does not shrink them (flexShrink is 0). On the web they would squeeze together. Add flexWrap: wrap or set flexShrink: 1.';
+  else if (state.noCross && state.alignItems === 'stretch') t = 'The boxes have no ' + (horizontal ? 'height' : 'width') + ', so alignItems: stretch makes them fill the cross axis. Set alignItems to anything else and they shrink to their content.';
+  else if (state.flexTwo > 0 && state.count > 1) t = 'Box 2 has flex, so it takes all the space left after the other boxes get their fixed size. Two boxes with flex share the leftover by their numbers.';
+  else if (state.alignSelfOne !== 'auto') t = 'alignSelf lets one box ignore alignItems of the parent. It works on the cross axis only.';
+  document.getElementById('tip').textContent = t;
+}
+
+document.getElementById('gap').oninput = e => { state.gap = Number(e.target.value); render(); };
+document.getElementById('noCross').onchange = e => { state.noCross = e.target.checked; render(); };
+document.getElementById('big').onchange = e => { state.big = e.target.checked; render(); };
+
+// For checking against Yoga from a script.
+window.__flexLab = {
+  set(cfg) { state = { ...DEFAULTS, ...cfg }; sync(); render(); },
+  measure() {
+    const box = document.getElementById('container').getBoundingClientRect();
+    return [...document.getElementById('container').children].map(el => {
+      const r = el.getBoundingClientRect();
+      return [r.left - box.left, r.top - box.top, r.width, r.height].map(v => Math.round(v * 100) / 100);
+    });
+  },
+  childStyle, state: () => state,
+};
+build(); sync(); render();
+</script>
+</body>
+</html>

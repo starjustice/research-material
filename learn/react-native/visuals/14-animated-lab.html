@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animated value lab</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1d2433; --muted:#5b6475; --line:#d6dae3; --accent:#2f6fed; --accent-soft:#e4ecfd; --box:#2f6fed; --warn:#e8590c; --code-bg:#10151f; --code-ink:#dbe4f5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --panel:#1b2029; --ink:#e8ecf4; --muted:#9aa4b8; --line:#343b49; --accent:#6c9cff; --accent-soft:#263553; --box:#6c9cff; --warn:#ff922b; --code-bg:#0b0e14; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.35rem; margin: 4px 0; }
+  p.lead { margin: 0 0 14px; color: var(--muted); }
+  .grid { display:grid; grid-template-columns: 340px 1fr; gap:16px; align-items:start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
+  .panel h2 { font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  label { display:block; font-size:.85rem; margin:8px 0 3px; color:var(--muted); }
+  input[type=range] { width:100%; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; }
+  .opt, .play { border:1px solid var(--line); background:transparent; color:var(--ink); border-radius:6px; padding:6px 10px; font-size:.85rem; cursor:pointer; font-family:inherit; }
+  .opt[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); font-weight:600; }
+  .play { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  .opt:focus-visible, .play:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .stage { position:relative; height:160px; border:1px dashed var(--line); border-radius:8px; overflow:hidden; background:repeating-linear-gradient(90deg, transparent 0 49px, var(--line) 49px 50px); }
+  .ball { position:absolute; left:20px; top:50px; width:60px; height:60px; border-radius:10px; background:var(--box); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; }
+  td, th { text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); }
+  td.n { font-variant-numeric: tabular-nums; text-align:right; font-family: ui-monospace, Menlo, monospace; }
+  pre { margin:0; background:var(--code-bg); color:var(--code-ink); padding:12px; border-radius:8px; overflow:auto; font:13px/1.5 ui-monospace,Menlo,Consolas,monospace; }
+  svg { width:100%; height:auto; display:block; }
+  .tip { margin-top:8px; padding:8px 10px; border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:4px; font-size:.9rem; }
+  .small { font-size:.8rem; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Animated value lab</h1>
+  <p class="lead">An animation is one number moving from 0 to 1. <code>interpolate</code> turns that number into opacity, position and rotation. Drag the slider, or press Play.</p>
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>The value (what Animated.Value holds)</h2>
+        <label>value: <b id="vOut">0.00</b></label>
+        <input id="v" type="range" min="-0.5" max="1.5" step="0.01" value="0" aria-label="value">
+        <label>Timing animation</label>
+        <div class="row" id="easing"></div>
+        <label>duration: <b id="dOut">1000</b> ms</label>
+        <input id="d" type="range" min="200" max="3000" step="100" value="1000" aria-label="duration">
+        <div class="row" style="margin-top:8px"><button class="play" id="play" type="button">Play 0 to 1</button><button class="opt" id="reset" type="button">Reset</button></div>
+      </div>
+      <div class="panel">
+        <h2>extrapolate</h2>
+        <div class="row" id="extra"></div>
+        <div class="tip" id="tip"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>The box</h2>
+        <div class="stage"><div class="ball" id="ball">A</div></div>
+        <table style="margin-top:10px">
+          <tr><th>style</th><th>inputRange</th><th>outputRange</th><th style="text-align:right">now</th></tr>
+          <tr><td>opacity</td><td>[0, 1]</td><td>[0.2, 1]</td><td class="n" id="oOpacity"></td></tr>
+          <tr><td>translateX</td><td>[0, 1]</td><td>[0, 200]</td><td class="n" id="oX"></td></tr>
+          <tr><td>rotate (deg)</td><td>[0, 0.5, 1]</td><td>[0, 90, 90]</td><td class="n" id="oRot"></td></tr>
+        </table>
+      </div>
+      <div class="panel">
+        <h2>The easing curve (progress against time)</h2>
+        <svg viewBox="0 0 300 150" id="curve" role="img" aria-label="Easing curve"></svg>
+      </div>
+      <div class="panel">
+        <h2>Code</h2>
+<pre id="code"></pre>
+        <p class="small">The maths here is the same <code>interpolate</code> as the exercise answer in <code>practice/14-animation-math.mjs</code>, and it follows the <code>interpolate</code> source of react-native 0.88.0 (number outputs only). The page draws with CSS and does not use the native driver.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function interpolate(value, inputRange, outputRange, options) {
+  options = options || {};
+  const left = options.extrapolateLeft || options.extrapolate || 'extend';
+  const right = options.extrapolateRight || options.extrapolate || 'extend';
+  let i = 1;
+  for (; i < inputRange.length - 1; i++) if (inputRange[i] >= value) break;
+  const inMin = inputRange[i - 1], inMax = inputRange[i];
+  const outMin = outputRange[i - 1], outMax = outputRange[i];
+  let v = value;
+  if (v < inMin && left === 'clamp') v = inMin;
+  if (v > inMax && right === 'clamp') v = inMax;
+  return outMin + ((v - inMin) / (inMax - inMin)) * (outMax - outMin);
+}
+const EASINGS = {
+  'linear': t => t,
+  'in out quad': t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+  'quad in': t => t * t,
+  'back out': t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+};
+let easingName = 'in out quad', extra = 'extend', raf = 0;
+const $ = id => document.getElementById(id);
+function buttons(id, list, current, onPick) {
+  const el = $(id); el.innerHTML = '';
+  list.forEach(name => { const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.textContent = name;
+    b.setAttribute('aria-pressed', String(name === current())); b.onclick = () => { onPick(name); [...el.children].forEach(c => c.setAttribute('aria-pressed', String(c.textContent === current()))); render(); }; el.appendChild(b); });
+}
+function render() {
+  const v = Number($('v').value);
+  const opts = { extrapolate: extra };
+  const op = interpolate(v, [0, 1], [0.2, 1], opts);
+  const x = interpolate(v, [0, 1], [0, 200], opts);
+  const rot = interpolate(v, [0, 0.5, 1], [0, 90, 90], opts);
+  $('ball').style.opacity = Math.max(0, Math.min(1, op));
+  $('ball').style.transform = 'translateX(' + x + 'px) rotate(' + rot + 'deg)';
+  $('vOut').textContent = v.toFixed(2); $('dOut').textContent = $('d').value;
+  $('oOpacity').textContent = op.toFixed(2) + (op > 1 || op < 0 ? ' (RN would draw it clamped by the screen)' : '');
+  $('oX').textContent = x.toFixed(0); $('oRot').textContent = rot.toFixed(0) + '°';
+  const tip = $('tip');
+  if (v < 0 || v > 1) tip.textContent = extra === 'extend' ? 'The value is outside 0 to 1, so extend keeps drawing the same straight line. The box goes past its end point.' : 'The value is outside 0 to 1, but clamp stops at the end points. The box stays put.';
+  else tip.textContent = 'Move the slider below 0 or above 1 and compare extend with clamp. Extend is the default in React Native.';
+  $('code').textContent =
+`const value = useAnimatedValue(0);
+const opacity = value.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1]${extra === 'extend' ? '' : ", extrapolate: 'clamp'"} });
+const translateX = value.interpolate({ inputRange: [0, 1], outputRange: [0, 200]${extra === 'extend' ? '' : ", extrapolate: 'clamp'"} });
+Animated.timing(value, { toValue: 1, duration: ${$('d').value}, easing: Easing.${easingName === 'linear' ? 'linear' : easingName === 'quad in' ? 'in(Easing.quad)' : easingName === 'back out' ? 'out(Easing.back())' : 'inOut(Easing.quad)'}, useNativeDriver: true }).start();`;
+  drawCurve(v);
+}
+function drawCurve(v) {
+  const f = EASINGS[easingName]; let d = '';
+  for (let i = 0; i <= 60; i++) { const t = i / 60; const y = f(t); d += (i ? 'L' : 'M') + (20 + t * 260).toFixed(1) + ' ' + (130 - y * 100).toFixed(1); }
+  const t = Math.min(1, Math.max(0, v)); const y = f(t);
+  $('curve').innerHTML = '<line x1="20" y1="130" x2="280" y2="130" stroke="currentColor" opacity=".3"/><line x1="20" y1="130" x2="20" y2="20" stroke="currentColor" opacity=".3"/>' +
+    '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="2.5"/>' +
+    '<circle cx="' + (20 + t * 260) + '" cy="' + (130 - y * 100) + '" r="5" fill="var(--warn)"/>' +
+    '<text x="150" y="146" font-size="10" text-anchor="middle" fill="currentColor">time</text><text x="4" y="75" font-size="10" fill="currentColor" transform="rotate(-90 8 75)">value</text>';
+}
+$('v').oninput = () => { cancelAnimationFrame(raf); render(); };
+$('d').oninput = render;
+$('reset').onclick = () => { cancelAnimationFrame(raf); $('v').value = 0; render(); };
+$('play').onclick = () => {
+  cancelAnimationFrame(raf); const dur = Number($('d').value); const f = EASINGS[easingName]; const t0 = performance.now(); $('v').value = 0;
+  const tick = now => { const t = Math.min(1, (now - t0) / dur); $('v').value = f(t); render(); if (t < 1) raf = requestAnimationFrame(tick); };
+  raf = requestAnimationFrame(tick);
+};
+buttons('easing', Object.keys(EASINGS), () => easingName, n => { easingName = n; });
+buttons('extra', ['extend', 'clamp'], () => extra, n => { extra = n; });
+window.__lab = { interpolate };
+render();
+</script>
+</body>
+</html>
