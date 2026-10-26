@@ -17,22 +17,22 @@
    A page keeps its own colors (--bg, --card, --ink, and every meaning color such as --keep or --drop).
    Calm only adds shape: outline, hard shadow, corner size, fonts, and six soft box colors. */
 body.calm {
-  --edge: #1b1b1b; --shade: #1b1b1b; --on-accent: #1b1b1b;
-  --line: 2px solid var(--edge); --shadow: 4px 4px 0 var(--shade); --shadow-s: 3px 3px 0 var(--shade);
-  --radius: 12px;
-  --c-blue: #dbeafe; --c-yellow: #fff1bf; --c-violet: #ede4ff;
-  --c-green: #dcf3e6; --c-pink: #ffe1ea; --c-orange: #ffe6cc;
-  --font-body: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-head: "Space Grotesk", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-family: var(--font-body);
+  --calm-edge: #1b1b1b; --calm-shade: #1b1b1b; --calm-on-accent: #1b1b1b;
+  --calm-line: 2px solid var(--calm-edge); --calm-shadow: 4px 4px 0 var(--calm-shade); --calm-shadow-s: 3px 3px 0 var(--calm-shade);
+  --calm-radius: 12px;
+  --calm-blue: #dbeafe; --calm-yellow: #fff1bf; --calm-violet: #ede4ff;
+  --calm-green: #dcf3e6; --calm-pink: #ffe1ea; --calm-orange: #ffe6cc;
+  --calm-font-body: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --calm-font-head: "Space Grotesk", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--calm-font-body);
 }
 body.calm button, body.calm input, body.calm select, body.calm textarea { font-family: inherit; }
-body.calm h1, body.calm h2, body.calm h3 { font-family: var(--font-head); letter-spacing: -.005em; }
+body.calm h1, body.calm h2, body.calm h3 { font-family: var(--calm-font-head); letter-spacing: -.005em; }
 @media (prefers-color-scheme: dark) {
   body.calm.can-dark {
-    --edge: #7d8b99; --shade: #05080b; --on-accent: #1b1b1b;
-    --c-blue: #1a2c42; --c-yellow: #3a3115; --c-violet: #2a2244;
-    --c-green: #15302a; --c-pink: #3b1d24; --c-orange: #3a2a15;
+    --calm-edge: #7d8b99; --calm-shade: #05080b; --calm-on-accent: #1b1b1b;
+    --calm-blue: #1a2c42; --calm-yellow: #3a3115; --calm-violet: #2a2244;
+    --calm-green: #15302a; --calm-pink: #3b1d24; --calm-orange: #3a2a15;
   }
 }
 
@@ -164,58 +164,58 @@ body.page-hub header p {
 }
 body.page-hub h2 {
   display: inline-block; font-size: 1rem; font-weight: 800; margin: 34px 0 0; padding: 4px 14px;
-  border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); background: var(--c-yellow);
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); background: var(--calm-yellow);
 }
-body.page-hub h2:nth-of-type(2) { background: var(--c-blue); }
-body.page-hub h2:nth-of-type(3) { background: var(--c-orange); }
-body.page-hub h2:nth-of-type(4) { background: var(--c-green); }
+body.page-hub h2:nth-of-type(2) { background: var(--calm-blue); }
+body.page-hub h2:nth-of-type(3) { background: var(--calm-orange); }
+body.page-hub h2:nth-of-type(4) { background: var(--calm-green); }
 body.page-hub h2 + p { color: var(--muted); font-size: .88rem; margin: 10px 0 12px; }
 
 /* a card is one link: press it and it moves down */
 body.page-hub .card {
   display: block; background: var(--card); color: var(--ink); text-decoration: none;
-  border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow-s);
+  border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s);
   padding: 12px 16px; margin-bottom: 12px; transition: transform .08s, box-shadow .08s;
 }
-body.page-hub .card:hover { background: var(--c-yellow); }
+body.page-hub .card:hover { background: var(--calm-yellow); }
 body.page-hub .card:active { transform: translate(3px, 3px); box-shadow: none; }
-body.page-hub .card b { display: block; margin-bottom: 2px; font-family: var(--font-head); font-size: 1.02rem; }
+body.page-hub .card b { display: block; margin-bottom: 2px; font-family: var(--calm-font-head); font-size: 1.02rem; }
 body.page-hub .card span { font-size: .84rem; line-height: 1.5; color: var(--muted); }
 
 /* the small label on each card keeps its five colors */
 body.page-hub .tag {
   display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .03em;
-  border: 2px solid var(--edge); border-radius: 8px; padding: 1px 8px; margin-bottom: 6px;
+  border: 2px solid var(--calm-edge); border-radius: 8px; padding: 1px 8px; margin-bottom: 6px;
 }
 body.page-hub .card span.tag { color: var(--ink); }
-body.page-hub .tag.sheet { background: var(--accent); color: var(--on-accent); }
+body.page-hub .tag.sheet { background: var(--accent); color: var(--calm-on-accent); }
 body.page-hub .tag.note { background: var(--blue-soft); }
 body.page-hub .tag.map, body.page-hub .tag.lesson { background: var(--violet); }
 body.page-hub .tag.app { background: #e3f4ec; color: #22744f !important; }
 
 /* a subject is a folder: a colored bar that opens a list */
 body.page-hub details.subject {
-  background: var(--card); border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow-s);
+  background: var(--card); border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s);
   margin-bottom: 12px; overflow: hidden;
 }
 body.page-hub details.subject > summary {
   cursor: pointer; list-style: none; padding: 12px 16px; display: flex;
-  justify-content: space-between; align-items: baseline; gap: 10px; background: var(--c-blue);
+  justify-content: space-between; align-items: baseline; gap: 10px; background: var(--calm-blue);
 }
-body.page-hub details.subject:nth-of-type(6n+2) > summary { background: var(--c-violet); }
-body.page-hub details.subject:nth-of-type(6n+3) > summary { background: var(--c-green); }
-body.page-hub details.subject:nth-of-type(6n+4) > summary { background: var(--c-orange); }
-body.page-hub details.subject:nth-of-type(6n+5) > summary { background: var(--c-pink); }
-body.page-hub details.subject:nth-of-type(6n+6) > summary { background: var(--c-yellow); }
+body.page-hub details.subject:nth-of-type(6n+2) > summary { background: var(--calm-violet); }
+body.page-hub details.subject:nth-of-type(6n+3) > summary { background: var(--calm-green); }
+body.page-hub details.subject:nth-of-type(6n+4) > summary { background: var(--calm-orange); }
+body.page-hub details.subject:nth-of-type(6n+5) > summary { background: var(--calm-pink); }
+body.page-hub details.subject:nth-of-type(6n+6) > summary { background: var(--calm-yellow); }
 body.page-hub details.subject > summary::-webkit-details-marker { display: none; }
 body.page-hub details.subject > summary::before { content: "\25B8"; margin-right: 6px; }
 body.page-hub details.subject[open] > summary::before { content: "\25BE"; }
-body.page-hub details.subject[open] > summary { border-bottom: var(--line); }
-body.page-hub details.subject > summary b { flex: 1; font-family: var(--font-head); font-size: 1.05rem; }
+body.page-hub details.subject[open] > summary { border-bottom: var(--calm-line); }
+body.page-hub details.subject > summary b { flex: 1; font-family: var(--calm-font-head); font-size: 1.05rem; }
 body.page-hub details.subject > summary small { color: var(--ink); opacity: .72; font-size: .78rem; }
 /* inside a folder the cards become plain rows, so the page is not all heavy boxes */
 body.page-hub details.subject .card {
-  border: 0; border-bottom: 1px solid var(--edge); border-radius: 0; box-shadow: none; margin: 0; transition: none;
+  border: 0; border-bottom: 1px solid var(--calm-edge); border-radius: 0; box-shadow: none; margin: 0; transition: none;
 }
 body.page-hub details.subject .card:last-child { border-bottom: 0; }
 body.page-hub details.subject .card:active { transform: none; }
@@ -228,42 +228,103 @@ body.page-speak h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em
 body.page-speak .sub { font-size: .95rem; line-height: 1.65; }
 body.page-speak .top a {
   display: inline-block; color: var(--ink); font-weight: 600; background: var(--card);
-  border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); padding: 3px 12px;
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); padding: 3px 12px;
 }
 body.page-speak .top a:active { transform: translate(3px, 3px); box-shadow: none; }
 
-body.page-speak .card { border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 18px; }
+body.page-speak .card { border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow); padding: 16px 18px; margin-bottom: 18px; }
 body.page-speak .card h2 {
-  display: inline-block; color: var(--ink); background: var(--c-violet); font-size: .74rem; font-weight: 800;
-  border: 2px solid var(--edge); border-radius: 8px; padding: 2px 10px; margin: 0 0 12px;
+  display: inline-block; color: var(--ink); background: var(--calm-violet); font-size: .74rem; font-weight: 800;
+  border: 2px solid var(--calm-edge); border-radius: 8px; padding: 2px 10px; margin: 0 0 12px;
 }
 body.page-speak label.f { font-weight: 800; }
 body.page-speak input[type=text], body.page-speak select, body.page-speak textarea {
-  border: var(--line); border-radius: 10px; background: #fff;
+  border: var(--calm-line); border-radius: 10px; background: #fff;
 }
 body.page-speak input:focus, body.page-speak select:focus, body.page-speak textarea:focus {
-  outline: 3px solid var(--c-yellow); outline-offset: 1px; box-shadow: 3px 3px 0 var(--shade);
+  outline: 3px solid var(--calm-yellow); outline-offset: 1px; box-shadow: 3px 3px 0 var(--calm-shade);
 }
 body.page-speak textarea { line-height: 1.7; }
 
 /* the four parts: tick one and it turns green */
-body.page-speak .parts label { background: var(--c-yellow); border: 2px solid var(--edge); border-radius: 10px; padding: 10px 12px; }
-body.page-speak .parts label:has(input:checked) { background: var(--c-green); }
+body.page-speak .parts label { background: var(--calm-yellow); border: 2px solid var(--calm-edge); border-radius: 10px; padding: 10px 12px; }
+body.page-speak .parts label:has(input:checked) { background: var(--calm-green); }
 body.page-speak .parts small { color: var(--ink); opacity: .7; }
 
-body.page-speak #recBtn:not(.on) { box-shadow: var(--shadow-s); }
+body.page-speak #recBtn:not(.on) { box-shadow: var(--calm-shadow-s); }
 body.page-speak #recBtn:active { transform: translate(3px, 3px); box-shadow: none; }
 
-body.page-speak .stat { background: var(--c-blue); border: 2px solid var(--edge); border-radius: 10px; }
+body.page-speak .stat { background: var(--calm-blue); border: 2px solid var(--calm-edge); border-radius: 10px; }
 body.page-speak .stat small { color: var(--ink); opacity: .7; }
-body.page-speak .fill span { background: var(--c-orange); border: 2px solid var(--edge); }
+body.page-speak .fill span { background: var(--calm-orange); border: 2px solid var(--calm-edge); }
 
 body.page-speak .btns button {
-  border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); font-weight: 700; padding: 9px 16px;
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); font-weight: 700; padding: 9px 16px;
 }
-body.page-speak .btns button:hover { background: var(--c-yellow); }
-body.page-speak .btns button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--edge); }
+body.page-speak .btns button:hover { background: var(--calm-yellow); }
+body.page-speak .btns button.primary { background: var(--accent); color: var(--calm-on-accent); border-color: var(--calm-edge); }
 body.page-speak .btns button:active { transform: translate(3px, 3px); box-shadow: none; }
-body.page-speak .warn { border: var(--line); border-radius: 10px; }
-body.page-speak code { background: var(--c-yellow); border: 1px solid var(--edge); }
+body.page-speak .warn { border: var(--calm-line); border-radius: 10px; }
+body.page-speak code { background: var(--calm-yellow); border: 1px solid var(--calm-edge); }
 body.page-speak .help li { line-height: 1.65; }
+
+/* ===== 5. Step-by-step pages (learn/*/visuals/*.html) =====
+   Each page keeps its own colors for meaning (kept, dropped, running now, error, the pipeline boxes).
+   Calm only changes shape: outline, shadow, corners, font, buttons. On elements a page recolors for meaning
+   (.note, .result) it sets no background and no left-border color. */
+body.page-step { line-height: 1.6; }
+body.page-step h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 12px 0 4px; }
+body.page-step .sub { font-size: .95rem; line-height: 1.65; }
+
+/* back and lesson links: small pressable buttons */
+body.page-step .top a {
+  display: inline-block; color: var(--ink); font-weight: 600; text-decoration: none; background: var(--card);
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); padding: 3px 12px;
+}
+body.page-step .top a:active { transform: translate(3px, 3px); box-shadow: none; }
+
+/* tabs: pressable buttons, the open one is yellow and pushed in */
+body.page-step .tabs button {
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); font-weight: 700; padding: 6px 14px;
+}
+body.page-step .tabs button:hover { background: var(--calm-yellow); }
+body.page-step .tabs button.on {
+  background: var(--accent); color: var(--calm-on-accent); border-color: var(--calm-edge);
+  transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--calm-shade);
+}
+
+/* "Predict first" box */
+body.page-step .predict {
+  background: var(--calm-yellow); border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s);
+  padding: 12px 16px; font-size: .95rem; line-height: 1.65;
+}
+body.page-step .predict input { border: var(--calm-line); border-radius: 8px; background: var(--card); color: var(--ink); }
+
+/* panels */
+body.page-step .panel { border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow); }
+body.page-step .panel h2 { font-size: .76rem; font-weight: 800; padding-bottom: 6px; border-bottom: 2px solid var(--calm-edge); margin-bottom: 10px; }
+
+/* the teacher's note under the picture (only when it sits directly in the page, as on 61 of 62 pages): outlined, with the page's own colored tab on the left */
+body.page-step .wrap > .note {
+  border-style: solid; border-width: 2px 2px 2px 8px;
+  border-top-color: var(--calm-edge); border-right-color: var(--calm-edge); border-bottom-color: var(--calm-edge);
+  border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s); line-height: 1.65;
+}
+
+/* controls: Next is the big yellow button */
+body.page-step .controls button {
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); font-weight: 700;
+}
+body.page-step .controls button:hover:not(:disabled) { background: var(--calm-yellow); }
+body.page-step .controls button.primary { background: var(--accent); color: var(--calm-on-accent); border-color: var(--calm-edge); }
+body.page-step .controls button:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: none; }
+body.page-step .controls button:disabled { box-shadow: none; }
+body.page-step .wrap > .bar { height: 12px; border: 2px solid var(--calm-edge); border-radius: 999px; }
+
+/* the result keeps its green or red background (that is the meaning); only the outline is Calm */
+body.page-step .wrap > .result, body.page-step .outbox {
+  border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s);
+}
+body.page-step .legend { line-height: 1.65; }
+/* a long line of code must scroll inside its panel, not stretch the whole page on a phone (08-classes and 14-observability did) */
+body.page-step .grid > *, body.page-step .col > * { min-width: 0; }
