@@ -1,0 +1,117 @@
+/* Calm look. SPIKE: loaded by viewer.html only when the URL has ?look=calm.
+   Everything is scoped under body.look-calm, so the default look is untouched.
+   Style idea comes from neobrutalism.dev: dark borders, hard offset shadows, flat colors. */
+
+body.look-calm {
+  --ink: #1b1b1b; --muted: #5d6670; --bg: #faf6ee; --card: #fffdf8; --border: #1b1b1b;
+  --line: 2px solid #1b1b1b; --shadow: 4px 4px 0 #1b1b1b; --shadow-s: 3px 3px 0 #1b1b1b;
+  --radius: 12px; --accent: #ffd84d; --blue-soft: #dbeafe; --side-hover: #fff1bf;
+  --c-blue: #dbeafe; --c-yellow: #fff1bf; --c-violet: #ede4ff;
+  --c-green: #dcf3e6; --c-pink: #ffe1ea; --c-orange: #ffe6cc;
+}
+
+/* fonts: body text is easy to read, headings are bold. Switch the body font with &font=lexend|atkinson|dmsans|system */
+body.look-calm {
+  --font-body: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
+}
+body.look-calm[data-font="atkinson"] { --font-body: "Atkinson Hyperlegible Next", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body.look-calm[data-font="dmsans"] { --font-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body.look-calm[data-font="system"] { --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.look-calm button { font-family: inherit; }
+.look-calm article h1, .look-calm article h2, .look-calm article h3, .look-calm article summary,
+.look-calm .side-title, .look-calm #pager b, .look-calm a.rec-btn { font-family: var(--font-head); letter-spacing: -.005em; }
+
+/* comfortable reading: a little bigger, more space between lines */
+.look-calm article p, .look-calm article li { font-size: 1rem; line-height: 1.75; }
+.look-calm article li { margin-bottom: 6px; }
+.look-calm article td, .look-calm article th { font-size: .9rem; line-height: 1.5; }
+
+/* top bar and menu button */
+.look-calm nav.top { border-bottom: var(--line); gap: 10px; }
+.look-calm nav.top a { white-space: nowrap; font-size: .82rem; }
+.look-calm #menuBtn { border: var(--line); box-shadow: var(--shadow-s); white-space: nowrap; font-size: .82rem; }
+@media (max-width: 480px) { .look-calm nav.top a.gh { font-size: .74rem; } }
+
+/* sidebar */
+.look-calm .s-item { border: 2px solid transparent; }
+.look-calm a.s-item:hover { background: var(--c-yellow); border-color: var(--ink); }
+.look-calm .s-item.current { background: var(--c-yellow); border: var(--line); box-shadow: var(--shadow-s); }
+.look-calm .side-bar { height: 12px; border: var(--line); border-radius: 999px; background: #fff; }
+.look-calm .side-bar i { background: #6fcf97; border-radius: 999px; }
+.look-calm .s-outline a.active { background: var(--c-violet); }
+
+/* page title */
+.look-calm article h1 { font-size: 2rem; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; margin: 14px 0 16px; }
+
+/* notes and callouts */
+.look-calm article blockquote {
+  background: var(--c-blue); border: var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-s); padding: 10px 14px; margin: 14px 0;
+}
+
+/* each numbered section is its own card (viewer.html adds .chunk) */
+.look-calm .chunk {
+  background: var(--card); border: var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 0 18px 16px; margin: 28px 0;
+}
+.look-calm article .chunk > h2 {
+  margin: 0 -18px 14px; padding: 12px 18px; border-bottom: var(--line);
+  border-radius: 10px 10px 0 0; font-size: 1.15rem; font-weight: 800; background: var(--c-yellow);
+}
+.look-calm .chunk[data-kind="idea"] > h2,
+.look-calm .chunk[data-kind="why"] > h2,
+.look-calm .chunk[data-kind="review"] > h2 { background: var(--c-blue); }
+.look-calm .chunk[data-kind="analogy"] > h2,
+.look-calm .chunk[data-kind="watch"] > h2 { background: var(--c-violet); }
+.look-calm .chunk[data-kind="code"] > h2,
+.look-calm .chunk[data-kind="practice"] > h2 { background: var(--c-green); }
+.look-calm .chunk[data-kind="trace"] > h2,
+.look-calm .chunk[data-kind="interview"] > h2 { background: var(--c-orange); }
+.look-calm .chunk[data-kind="mistake"] > h2 { background: var(--c-pink); }
+
+/* sub headings become small tags */
+.look-calm article h3 {
+  display: inline-block; max-width: 100%; font-size: .95rem; font-weight: 800;
+  background: var(--c-violet); border: var(--line); border-radius: 999px; padding: 3px 12px; margin: 22px 0 8px;
+}
+
+/* text */
+.look-calm article li::marker { color: var(--ink); font-weight: 800; }
+.look-calm article strong { background: linear-gradient(transparent 62%, #ffe58a 62%); }
+.look-calm article a { color: #1d4ed8; text-underline-offset: 2px; }
+
+/* code */
+.look-calm article code { background: var(--c-yellow); border: 1px solid var(--ink); border-radius: 5px; padding: 0 5px; }
+.look-calm article pre { border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
+.look-calm article pre code { background: none; border: 0; padding: 0; }
+
+/* tables and diagrams */
+.look-calm article table { border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
+.look-calm article th { background: var(--c-yellow); }
+.look-calm .mermaid { background: #fff; border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
+
+/* hidden answers: a pressable bar that opens */
+.look-calm article details {
+  border: var(--line); border-radius: 10px; background: #fff; box-shadow: var(--shadow-s);
+  margin: 14px 0; overflow: hidden;
+}
+.look-calm article summary {
+  cursor: pointer; list-style: none; background: var(--c-yellow); padding: 9px 14px; font-weight: 700;
+}
+.look-calm article summary::-webkit-details-marker { display: none; }
+.look-calm article summary::before { content: "\25B8\00a0"; }
+.look-calm article details[open] > summary::before { content: "\25BE\00a0"; }
+.look-calm article details[open] > summary { border-bottom: var(--line); }
+.look-calm article summary:hover { background: #ffe58a; }
+.look-calm article details > :not(summary) { margin-left: 14px; margin-right: 14px; }
+.look-calm article details > summary + * { margin-top: 12px; }
+.look-calm article details > :last-child { margin-bottom: 12px; }
+
+/* buttons */
+.look-calm #pager a { border: var(--line); box-shadow: var(--shadow-s); background: var(--card); }
+.look-calm #pager a:hover { background: var(--c-yellow); }
+.look-calm #pager a:active, .look-calm a.rec-btn:active { transform: translate(3px, 3px); box-shadow: none; }
+.look-calm a.rec-btn { border: var(--line); box-shadow: var(--shadow-s); }
+.look-calm .error { border: var(--line); border-radius: var(--radius); }

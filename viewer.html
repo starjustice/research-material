@@ -143,6 +143,19 @@
     body.no-side .layout { padding: 0 16px; }
   }
 </style>
+<script>
+  // SPIKE: add &look=calm to the address to try the Calm look (calm.css). Without it, nothing changes.
+  if (new URLSearchParams(location.search).get("look") === "calm") {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "calm.css";
+    document.head.appendChild(link);
+    const fonts = document.createElement("link");
+    fonts.rel = "stylesheet";
+    fonts.href = "https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Atkinson+Hyperlegible+Next:wght@400;700;800&family=DM+Sans:wght@400;600;800&family=Space+Grotesk:wght@700&display=swap";
+    document.head.appendChild(fonts);
+  }
+</script>
 </head>
 <body class="no-side">
 
@@ -167,6 +180,13 @@
   const side = document.getElementById("side");
   const pager = document.getElementById("pager");
   const slug = new URLSearchParams(location.search).get("note") || "";
+  // SPIKE: keep the Calm look on while moving between lessons.
+  const calm = new URLSearchParams(location.search).get("look") === "calm";
+  // &font=lexend (default) | atkinson | dmsans | system
+  const fontParam = new URLSearchParams(location.search).get("font");
+  const font = ["lexend", "atkinson", "dmsans", "system"].includes(fontParam) ? fontParam : "";
+  const lookQ = calm ? "&look=calm" + (font ? "&font=" + font : "") : "";
+  if (calm) { document.body.classList.add("look-calm"); document.body.dataset.font = font || "lexend"; }
 
   // A path from the repo root without .md (e.g. learn/react/react-js-frontend-interview-guide).
   // Dots are still excluded, so ".." traversal is impossible.
@@ -221,7 +241,10 @@
     : slug === subjectReadmeSlug ? Promise.resolve(md)
     : getText(subjectReadmeSlug + ".md").catch(() => null);
 
-  content.innerHTML = marked.parse(md);
+  // SPIKE: template placeholders like <write here> look like HTML tags and swallow the rest of the page. Show them as text.
+  content.innerHTML = marked.parse(calm
+    ? md.replace(/^<(write here|the explain-coach agent writes here)>\s*$/gm, "&lt;$1&gt;")
+    : md);
 
   // Turn ```mermaid code blocks into rendered diagrams.
   content.querySelectorAll("pre code.language-mermaid").forEach(el => {
@@ -250,7 +273,7 @@
   content.querySelectorAll('a[href$=".md"]').forEach(a => {
     const href = a.getAttribute("href");
     if (!/^https?:\/\//.test(href)) {
-      a.href = "viewer.html?note=" + resolveFromNote(href.replace(/\.md$/, ""));
+      a.href = "viewer.html?note=" + resolveFromNote(href.replace(/\.md$/, "")) + lookQ;
     }
   });
 
@@ -289,6 +312,27 @@
       wrap.appendChild(link);
       eb.insertAdjacentElement("afterend", wrap);
     }
+  }
+
+  // ---- SPIKE, Calm look: each numbered section becomes its own card ----
+  if (calm) {
+    const kinds = [
+      [/idea/i, "idea"], [/picture/i, "picture"], [/analogy/i, "analogy"], [/code/i, "code"],
+      [/step by step|really happens/i, "trace"], [/why it exists|cost/i, "why"], [/mistake/i, "mistake"],
+      [/watch|play/i, "watch"], [/practice/i, "practice"], [/interview/i, "interview"],
+      [/explain/i, "explain"], [/review/i, "review"]
+    ];
+    let chunk = null;
+    Array.from(content.childNodes).forEach(node => {
+      if (node.nodeName === "H2") {
+        chunk = document.createElement("section");
+        chunk.className = "chunk";
+        const k = kinds.find(([re]) => re.test(node.textContent));
+        if (k) chunk.dataset.kind = k[1];
+        content.insertBefore(chunk, node);
+      }
+      if (chunk) chunk.appendChild(node);
+    });
   }
 
   // ---- Parse the subject README into groups of lessons and a few link lists ----
@@ -338,7 +382,7 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  const noteHref = s => "viewer.html?note=" + s;
+  const noteHref = s => "viewer.html?note=" + s + lookQ;
 
   // The outline of the page being read: shown under the current item in the sidebar.
   function buildOutline() {
