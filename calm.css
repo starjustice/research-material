@@ -153,3 +153,71 @@ body.look-calm {
 .look-calm #pager a:active, .look-calm a.rec-btn:active { transform: translate(3px, 3px); box-shadow: none; }
 .look-calm a.rec-btn { border: var(--line); box-shadow: var(--shadow-s); }
 .look-calm .error { border: var(--line); border-radius: var(--radius); }
+
+/* ===== 3. Hub (index.html, built by scripts/build-hub.py) =====
+   build-hub.py keeps the palette; everything about the look is here. */
+body.page-hub header { text-align: center; margin-bottom: 26px; }
+body.page-hub h1 { font-size: 2.1rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+body.page-hub header p {
+  display: inline-block; margin-top: 8px; font-weight: 600;
+  background: linear-gradient(transparent 60%, var(--accent) 60%);
+}
+body.page-hub h2 {
+  display: inline-block; font-size: 1rem; font-weight: 800; margin: 34px 0 0; padding: 4px 14px;
+  border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); background: var(--c-yellow);
+}
+body.page-hub h2:nth-of-type(2) { background: var(--c-blue); }
+body.page-hub h2:nth-of-type(3) { background: var(--c-orange); }
+body.page-hub h2:nth-of-type(4) { background: var(--c-green); }
+body.page-hub h2 + p { color: var(--muted); font-size: .88rem; margin: 10px 0 12px; }
+
+/* a card is one link: press it and it moves down */
+body.page-hub .card {
+  display: block; background: var(--card); color: var(--ink); text-decoration: none;
+  border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow-s);
+  padding: 12px 16px; margin-bottom: 12px; transition: transform .08s, box-shadow .08s;
+}
+body.page-hub .card:hover { background: var(--c-yellow); }
+body.page-hub .card:active { transform: translate(3px, 3px); box-shadow: none; }
+body.page-hub .card b { display: block; margin-bottom: 2px; font-family: var(--font-head); font-size: 1.02rem; }
+body.page-hub .card span { font-size: .84rem; line-height: 1.5; color: var(--muted); }
+
+/* the small label on each card keeps its five colors */
+body.page-hub .tag {
+  display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .03em;
+  border: 2px solid var(--edge); border-radius: 8px; padding: 1px 8px; margin-bottom: 6px;
+}
+body.page-hub .card span.tag { color: var(--ink); }
+body.page-hub .tag.sheet { background: var(--accent); color: var(--on-accent); }
+body.page-hub .tag.note { background: var(--blue-soft); }
+body.page-hub .tag.map, body.page-hub .tag.lesson { background: var(--violet); }
+body.page-hub .tag.app { background: #e3f4ec; color: #22744f !important; }
+
+/* a subject is a folder: a colored bar that opens a list */
+body.page-hub details.subject {
+  background: var(--card); border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow-s);
+  margin-bottom: 12px; overflow: hidden;
+}
+body.page-hub details.subject > summary {
+  cursor: pointer; list-style: none; padding: 12px 16px; display: flex;
+  justify-content: space-between; align-items: baseline; gap: 10px; background: var(--c-blue);
+}
+body.page-hub details.subject:nth-of-type(6n+2) > summary { background: var(--c-violet); }
+body.page-hub details.subject:nth-of-type(6n+3) > summary { background: var(--c-green); }
+body.page-hub details.subject:nth-of-type(6n+4) > summary { background: var(--c-orange); }
+body.page-hub details.subject:nth-of-type(6n+5) > summary { background: var(--c-pink); }
+body.page-hub details.subject:nth-of-type(6n+6) > summary { background: var(--c-yellow); }
+body.page-hub details.subject > summary::-webkit-details-marker { display: none; }
+body.page-hub details.subject > summary::before { content: "\25B8"; margin-right: 6px; }
+body.page-hub details.subject[open] > summary::before { content: "\25BE"; }
+body.page-hub details.subject[open] > summary { border-bottom: var(--line); }
+body.page-hub details.subject > summary b { flex: 1; font-family: var(--font-head); font-size: 1.05rem; }
+body.page-hub details.subject > summary small { color: var(--ink); opacity: .72; font-size: .78rem; }
+/* inside a folder the cards become plain rows, so the page is not all heavy boxes */
+body.page-hub details.subject .card {
+  border: 0; border-bottom: 1px solid var(--edge); border-radius: 0; box-shadow: none; margin: 0; transition: none;
+}
+body.page-hub details.subject .card:last-child { border-bottom: 0; }
+body.page-hub details.subject .card:active { transform: none; }
+
+body.page-hub footer { text-align: center; margin-top: 34px; color: var(--muted); font-size: .8rem; }
