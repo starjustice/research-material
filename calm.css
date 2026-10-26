@@ -1,5 +1,5 @@
-/* Calm look. SPIKE: loaded by viewer.html only when the URL has ?look=calm.
-   Everything is scoped under body.look-calm, so the default look is untouched.
+/* Calm look for the lesson viewer (viewer.html loads this for every note).
+   Everything is scoped under body.look-calm, so other pages that do not set that class are untouched.
    Style idea comes from neobrutalism.dev: dark borders, hard offset shadows, flat colors. */
 
 body.look-calm {
@@ -10,15 +10,12 @@ body.look-calm {
   --c-green: #dcf3e6; --c-pink: #ffe1ea; --c-orange: #ffe6cc;
 }
 
-/* fonts: body text is easy to read, headings are bold. Switch the body font with &font=lexend|atkinson|dmsans|system */
+/* fonts: Lexend for body text (easy to read), Space Grotesk for bold headings. viewer.html loads both from Google Fonts. */
 body.look-calm {
   --font-body: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-head: "Space Grotesk", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-family: var(--font-body);
 }
-body.look-calm[data-font="atkinson"] { --font-body: "Atkinson Hyperlegible Next", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-body.look-calm[data-font="dmsans"] { --font-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-body.look-calm[data-font="system"] { --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .look-calm button { font-family: inherit; }
 .look-calm article h1, .look-calm article h2, .look-calm article h3, .look-calm article summary,
 .look-calm .side-title, .look-calm #pager b, .look-calm a.rec-btn { font-family: var(--font-head); letter-spacing: -.005em; }

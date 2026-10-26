@@ -145,21 +145,12 @@
     body.no-side .layout { padding: 0 16px; }
   }
 </style>
-<script>
-  // SPIKE: add &look=calm to the address to try the Calm look (calm.css). Without it, nothing changes.
-  if (new URLSearchParams(location.search).get("look") === "calm") {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "calm.css";
-    document.head.appendChild(link);
-    const fonts = document.createElement("link");
-    fonts.rel = "stylesheet";
-    fonts.href = "https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Atkinson+Hyperlegible+Next:wght@400;700;800&family=DM+Sans:wght@400;600;800&family=Space+Grotesk:wght@700&display=swap";
-    document.head.appendChild(fonts);
-  }
-</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Space+Grotesk:wght@700&display=swap">
+<link rel="stylesheet" href="calm.css">
 </head>
-<body class="no-side">
+<body class="no-side look-calm">
 
 <nav class="top">
   <button id="menuBtn" type="button" aria-label="Open lesson menu">☰ Lessons</button>
@@ -182,13 +173,6 @@
   const side = document.getElementById("side");
   const pager = document.getElementById("pager");
   const slug = new URLSearchParams(location.search).get("note") || "";
-  // SPIKE: keep the Calm look on while moving between lessons.
-  const calm = new URLSearchParams(location.search).get("look") === "calm";
-  // &font=lexend (default) | atkinson | dmsans | system
-  const fontParam = new URLSearchParams(location.search).get("font");
-  const font = ["lexend", "atkinson", "dmsans", "system"].includes(fontParam) ? fontParam : "";
-  const lookQ = calm ? "&look=calm" + (font ? "&font=" + font : "") : "";
-  if (calm) { document.body.classList.add("look-calm"); document.body.dataset.font = font || "lexend"; }
 
   // A path from the repo root without .md (e.g. learn/react/react-js-frontend-interview-guide).
   // Dots are still excluded, so ".." traversal is impossible.
@@ -273,7 +257,7 @@
   content.querySelectorAll('a[href$=".md"]').forEach(a => {
     const href = a.getAttribute("href");
     if (!/^https?:\/\//.test(href)) {
-      a.href = "viewer.html?note=" + resolveFromNote(href.replace(/\.md$/, "")) + lookQ;
+      a.href = "viewer.html?note=" + resolveFromNote(href.replace(/\.md$/, ""));
     }
   });
 
@@ -314,20 +298,18 @@
     }
   }
 
-  // ---- SPIKE, Calm look: each numbered section becomes its own card ----
-  if (calm) {
-    let chunk = null;
-    Array.from(content.childNodes).forEach(node => {
-      if (node.nodeName === "H2") {
-        chunk = document.createElement("section");
-        chunk.className = "chunk";
-        const kind = ViewerHelpers.sectionKind(node.textContent);
-        if (kind) chunk.dataset.kind = kind;
-        content.insertBefore(chunk, node);
-      }
-      if (chunk) chunk.appendChild(node);
-    });
-  }
+  // ---- Each numbered section becomes its own card ----
+  let chunk = null;
+  Array.from(content.childNodes).forEach(node => {
+    if (node.nodeName === "H2") {
+      chunk = document.createElement("section");
+      chunk.className = "chunk";
+      const kind = ViewerHelpers.sectionKind(node.textContent);
+      if (kind) chunk.dataset.kind = kind;
+      content.insertBefore(chunk, node);
+    }
+    if (chunk) chunk.appendChild(node);
+  });
 
   // ---- Parse the subject README into groups of lessons and a few link lists ----
   function parseSubject(text) {
@@ -376,7 +358,7 @@
     if (text != null) e.textContent = text;
     return e;
   }
-  const noteHref = s => "viewer.html?note=" + s + lookQ;
+  const noteHref = s => "viewer.html?note=" + s;
 
   // The outline of the page being read: shown under the current item in the sidebar.
   function buildOutline() {
