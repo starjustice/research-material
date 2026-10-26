@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Study Route</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: fixed route sidebar (tracks in order) + one reading column. Home is a dashboard of the route.
    Colour: cool paper and ink, one track hue per track so progress is readable at a glance. */
@@ -254,8 +254,9 @@ details.wk .scroll{margin-top:.6rem}
 }
 @media (prefers-reduced-motion:reduce){.rail{transition:none}}
 </style>
+<link rel="stylesheet" href="calm.css">
 </head>
-<body>
+<body class="calm page-study can-dark">
 <header class="top">
   <div class="top-in">
     <button class="menu" id="menuBtn" type="button" aria-controls="rail" aria-expanded="false">Route</button>

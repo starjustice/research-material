@@ -17,7 +17,7 @@
    A page keeps its own colors (--bg, --card, --ink, and every meaning color such as --keep or --drop).
    Calm only adds shape: outline, hard shadow, corner size, fonts, and six soft box colors. */
 body.calm {
-  --calm-edge: #1b1b1b; --calm-shade: #1b1b1b; --calm-on-accent: #1b1b1b;
+  --calm-edge: #1b1b1b; --calm-shade: #1b1b1b; --calm-on-accent: #1b1b1b; --calm-accent: #ffd84d;
   --calm-line: 2px solid var(--calm-edge); --calm-shadow: 4px 4px 0 var(--calm-shade); --calm-shadow-s: 3px 3px 0 var(--calm-shade);
   --calm-radius: 12px;
   --calm-blue: #dbeafe; --calm-yellow: #fff1bf; --calm-violet: #ede4ff;
@@ -30,7 +30,7 @@ body.calm button, body.calm input, body.calm select, body.calm textarea { font-f
 body.calm h1, body.calm h2, body.calm h3 { font-family: var(--calm-font-head); letter-spacing: -.005em; }
 @media (prefers-color-scheme: dark) {
   body.calm.can-dark {
-    --calm-edge: #7d8b99; --calm-shade: #05080b; --calm-on-accent: #1b1b1b;
+    --calm-edge: #7d8b99; --calm-shade: #05080b; --calm-on-accent: #1b1b1b; --calm-accent: #e8b93a;
     --calm-blue: #1a2c42; --calm-yellow: #3a3115; --calm-violet: #2a2244;
     --calm-green: #15302a; --calm-pink: #3b1d24; --calm-orange: #3a2a15;
   }
@@ -384,3 +384,57 @@ body.page-sheet .hook, body.page-sheet .case, body.page-sheet .qwhy {
 
 body.page-sheet .tablewrap { border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s); }
 body.page-sheet pre { border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); }
+
+/* ===== 7. Study route (study.html) =====
+   The page keeps its own colors and its track hues (--tc: JavaScript amber, database rust, ...), its dark mode
+   (it follows the system setting) and its layout. Calm swaps the two fonts, then adds outline, shadow, corners
+   and pressable buttons. */
+body.page-study { --font-body: var(--calm-font-body); --font-display: var(--calm-font-head); }
+
+body.page-study .top { border-bottom: var(--calm-line); }
+body.page-study .menu, body.page-study .btn {
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s);
+}
+body.page-study .btn { background: var(--calm-accent); color: var(--calm-on-accent); font-weight: 700; }
+body.page-study .btn:hover { opacity: 1; background: var(--calm-yellow); color: var(--ink); }
+body.page-study .btn.ghost { background: var(--surface); color: var(--ink); border-color: var(--calm-edge); }
+body.page-study .btn.on { background: var(--ok); border-color: var(--calm-edge); color: #fff; }
+body.page-study .menu:active, body.page-study .btn:active { transform: translate(3px, 3px); box-shadow: none; }
+body.page-study .search input { border: var(--calm-line); border-radius: 10px; }
+body.page-study .results { border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow); }
+
+/* the route list on the left */
+body.page-study .rail { border-right: var(--calm-line); }
+body.page-study .rail-home, body.page-study .item { border: 2px solid transparent; }
+body.page-study .rail-home:hover, body.page-study .item:hover { background: var(--calm-yellow); border-color: var(--calm-edge); }
+body.page-study .rail-home[aria-current="page"], body.page-study .item[aria-current="page"] {
+  background: var(--calm-yellow); border: var(--calm-line); box-shadow: var(--calm-shadow-s);
+}
+
+/* cards */
+body.page-study .loop li, body.page-study .tcard, body.page-study .row, body.page-study .goal, body.page-study .pgroup,
+body.page-study .tool, body.page-study .stepsbox, body.page-study .toc, body.page-study .pn a, body.page-study .vis-card,
+body.page-study .week, body.page-study .md .tablewrap {
+  border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s);
+}
+body.page-study .tcard:hover { border-color: var(--tc); }
+body.page-study .pn a:hover { border-color: var(--calm-edge); background: var(--calm-yellow); }
+body.page-study .due a {
+  border-style: solid; border-width: 2px 2px 2px 6px; border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s);
+  border-top-color: var(--calm-edge); border-right-color: var(--calm-edge); border-bottom-color: var(--calm-edge);
+}
+body.page-study .tag:not(.warn) { border: 2px solid var(--calm-edge); border-radius: 8px; }
+body.page-study .bar { height: .8rem; border: 2px solid var(--calm-edge); border-radius: 999px; }
+body.page-study .bar > i { border-radius: 0; }
+body.page-study .itemhead { border-bottom: var(--calm-line); }
+body.page-study .selfq { border: var(--calm-line); border-radius: var(--calm-radius); }
+
+/* the reading column: same look as the lesson viewer */
+body.page-study .md blockquote {
+  background: var(--calm-blue); border: var(--calm-line); border-radius: var(--calm-radius);
+  box-shadow: var(--calm-shadow-s); color: var(--ink); padding: .6rem 1rem;
+}
+body.page-study .md pre { border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); }
+body.page-study .md h2 { border-top: var(--calm-line); }
+/* a long command chip such as "/explain-check Design workbook part 2" must wrap, not push the page wide on a phone */
+body.page-study .cmd { white-space: normal; overflow-wrap: anywhere; }
