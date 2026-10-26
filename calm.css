@@ -143,6 +143,9 @@ body.look-calm {
 .look-calm article details[open] > summary::before { content: "\25BE\00a0"; }
 .look-calm article details[open] > summary { border-bottom: var(--line); }
 .look-calm article summary:hover { background: #ffe58a; }
+/* a guess bar (<details class="guess">) is orange, so "try it first" looks different from "go deeper" */
+.look-calm article details.guess > summary { background: var(--c-orange); }
+.look-calm article details.guess > summary:hover { background: #ffd5aa; }
 .look-calm article details > :not(summary) { margin-left: 14px; margin-right: 14px; }
 .look-calm article details > summary + * { margin-top: 12px; }
 .look-calm article details > :last-child { margin-bottom: 12px; }

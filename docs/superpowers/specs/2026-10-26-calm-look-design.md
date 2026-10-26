@@ -110,3 +110,31 @@ hub, record page, 62 step-by-step pages, 32 cheatsheets, study route, and the le
 - **A guard test** (`tests/calm-pages.test.js`) fails for any new page without the Calm look, and for any new kind of page that no group covers.
 - **Phone fixes found on the way:** `08-classes` and `14-observability` scrolled sideways, and 7 of 8 sampled study route notes did (a long command chip could not wrap). All fixed.
 - **Known minor:** on a 375px phone one metric tile in `14-observability` hangs about 10px past its panel border (still on screen).
+
+## Phase 5 trial: Database lesson 01 in short cards (2026-10-26)
+
+The owner said yes to a trial on one lesson before changing the other 60. The lesson file was rewritten in place (the old version is in git at `e2ad0fd`). Nothing else changed except one small rule in `calm.css`.
+
+**The shape of a card.** Every card is one idea and starts with a picture or an analogy. Then the owner guesses, then presses an orange bar (`<details class="guess">`) to see the answer. Each card ends with one `> **Remember:**` line. The text outside the answer bars stays near 100 words.
+
+**What changed in the lesson.**
+
+- The wall of pictures in section 2 is gone. Each picture now sits inside the card that needs it.
+- The "Common mistakes" section became three cards (a new name in WHERE, `= NULL`, LIMIT without ORDER BY). Each one is problem first, then a guess, then the fix.
+- Cards 1 to 7 hold about 510 words outside the answer bars (about 780 with the answers). The old main path was about 1,500 words.
+- Kept as they were: the stepper, the links, the interview answer, "Explain it back" (the record button still appears), review questions. The Go deeper boxes moved to one last card.
+- The practice "fix the bug" now has three bugs in one query, so it tests all three cards together.
+
+**Rules found on the way (for the other lessons).**
+
+- Use `graph TB`. A left-to-right picture is too wide on a phone. To stack two separate flows in one picture, join them with `~~~` (an invisible link).
+- Keep picture labels short. A branching graph with three answers was 376px wide on a 375px phone, so it became a three row table.
+- Keep code lines near 36 characters. Put comments on their own line above the code. A comment at the end of a line was cut off and hid the step numbers.
+- Emoji in picture labels render fine (the librarian picture).
+- The viewer needs no code change. Each H2 is already a card. Only a `details.guess` color rule was added.
+
+**Checked.** Every SQL block was run on PostgreSQL 17.5 (PGlite) and the results match the lesson. All 5 pictures render. No sideways scroll at 375px and 1100px, no console errors, 23 tests pass.
+
+**Known.** The 4 column orders table is 337px wide on a 375px phone, so it swipes (the open "tables on phones" decision). The big-table examples in the Go deeper box (`stores`) were carried over from the 2026-10-16 check and not re-run.
+
+**Not done, waits for the owner:** change `templates/lesson-template.md`, `research-material.md` and the `learn` skill to write lessons in this shape, then reshape the other lessons (about 60), starting with the ones the owner reads next.
