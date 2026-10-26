@@ -1,4 +1,5 @@
-/* Shared look for the database cheatsheets. Same paper-and-ink style as the PostgreSQL queries cheatsheet,
+/* Shared colors, dark mode and parts for the database, system design and networking cheatsheets (one copy, at the repo root).
+   The Calm look on top of this is in calm.css. Same paper-and-ink style as the PostgreSQL queries cheatsheet,
    plus a dark mode. Colour roles: blue = structure, green = good path, pink = problem, yellow = "say this". */
 :root{
   --bg:#faf6ee; --card:#ffffff; --ink:#1e3a4c; --muted:#5f6e7a; --border:#e6dfd2;

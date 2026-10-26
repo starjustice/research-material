@@ -21,6 +21,7 @@ const all = htmlFiles();
 const GROUPS = [
   { name: "hub", pageClass: "page-hub", files: all.filter(f => f === "index.html") },
   { name: "record", pageClass: "page-speak", files: all.filter(f => f === "speak.html") },
+  { name: "cheatsheet", pageClass: "page-sheet", files: all.filter(f => /-cheatsheet\.html$/.test(f)) },
   { name: "step-by-step", pageClass: "page-step", files: all.filter(f => /^learn\/[^/]+\/visuals\/[^/]+\.html$/.test(f)) },
 ];
 

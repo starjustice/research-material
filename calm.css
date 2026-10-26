@@ -159,8 +159,9 @@ body.look-calm {
 body.page-hub header { text-align: center; margin-bottom: 26px; }
 body.page-hub h1 { font-size: 2.1rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
 body.page-hub header p {
-  display: inline-block; margin-top: 8px; font-weight: 600;
+  display: inline; margin-top: 8px; font-weight: 600; padding: 0 .2em; line-height: 1.7;
   background: linear-gradient(transparent 60%, var(--accent) 60%);
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
 }
 body.page-hub h2 {
   display: inline-block; font-size: 1rem; font-weight: 800; margin: 34px 0 0; padding: 4px 14px;
@@ -328,3 +329,58 @@ body.page-step .wrap > .result, body.page-step .outbox {
 body.page-step .legend { line-height: 1.65; }
 /* a long line of code must scroll inside its panel, not stretch the whole page on a phone (08-classes and 14-observability did) */
 body.page-step .grid > *, body.page-step .col > * { min-width: 0; }
+
+/* ===== 6. Cheatsheets (*-cheatsheet.html) =====
+   17 pages share /sheet.css (they have dark mode), 15 carry their own inline CSS (no dark mode). Both use the same
+   part names, so one section covers both. Calm adds outline, shadow, corners and pressable buttons.
+   Colors that mean something stay: the green "known" border, right and wrong answers, ok and no buttons, the
+   colored left bar on a callout, and every box color inside the pictures. */
+body.page-sheet header h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+body.page-sheet header .back {
+  display: block; width: fit-content; text-align: left; color: var(--ink); font-weight: 600; text-decoration: none;
+  background: var(--card); border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); padding: 3px 12px;
+}
+/* the yellow highlight follows the words, also when the subtitle wraps to two lines on a phone */
+body.page-sheet header p.sub {
+  display: inline; padding: 0 .2em; line-height: 1.7;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+}
+body.page-sheet .progress-bar { height: 14px; border: var(--calm-line); border-radius: 999px; }
+body.page-sheet h2.block {
+  display: inline-block; background: var(--calm-yellow); border: var(--calm-line); border-radius: 10px;
+  box-shadow: var(--calm-shadow-s); padding: 3px 14px; margin-bottom: 14px;
+}
+
+/* tabs, flashcard and quiz buttons: pressable. The open tab is yellow and pushed in. */
+body.page-sheet nav button, body.page-sheet .fc-bar button, body.page-sheet .fc-bar select,
+body.page-sheet .fc-actions button, body.page-sheet .qnav button {
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); font-weight: 700;
+}
+body.page-sheet nav button:hover { background: var(--calm-yellow); }
+body.page-sheet nav button.active {
+  background: var(--accent); color: var(--calm-on-accent); border-color: var(--calm-edge);
+  transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--calm-shade);
+}
+body.page-sheet .opts button { box-shadow: var(--calm-shadow-s); }
+body.page-sheet .opts button:not(.right):not(.wrong) { border-color: var(--calm-edge); }
+body.page-sheet nav button:active, body.page-sheet .fc-bar button:active, body.page-sheet .fc-actions button:active,
+body.page-sheet .qnav button:active, body.page-sheet .opts button:active { transform: translate(3px, 3px); box-shadow: none; }
+
+/* cards */
+body.page-sheet .concept, body.page-sheet .diagram-card, body.page-sheet .decision, body.page-sheet .fc, body.page-sheet .quiz {
+  border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow);
+}
+body.page-sheet .concept.known { border-color: var(--green); }
+body.page-sheet .concept .num-chip { border: 2px solid var(--calm-edge); }
+body.page-sheet .fc .cat { border: 2px solid var(--calm-edge); }
+body.page-sheet .hook, body.page-sheet .case { border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s); }
+
+/* callouts keep the colored bar on the left (that color says what kind it is); the other three sides get the outline */
+body.page-sheet .say, body.page-sheet .verdict, body.page-sheet .follow, body.page-sheet .red, body.page-sheet .rule,
+body.page-sheet .hook, body.page-sheet .case, body.page-sheet .qwhy {
+  border-style: solid; border-width: 2px 2px 2px 6px;
+  border-top-color: var(--calm-edge); border-right-color: var(--calm-edge); border-bottom-color: var(--calm-edge);
+}
+
+body.page-sheet .tablewrap { border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s); }
+body.page-sheet pre { border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); }
