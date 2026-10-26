@@ -92,6 +92,10 @@ templates/              lesson-template.md, study-note-template.md
 scripts/build-hub.py    rebuilds index.html from the folders
 index.html, viewer.html the hub and the markdown viewer (GitHub Pages)
 study.html              the Study Route site (GitHub Pages)
+speak.html              the record-yourself page
+calm.css                the one shared look for every page (sections per page type)
+sheet.css               shared colors and dark mode for the database, system design and networking cheatsheets
+scripts/calm-apply.js   gives a new page the Calm look: node scripts/calm-apply.js page-step|page-sheet <file>
 ```
 
 Subjects: `javascript`, `typescript`, `react`, `react-native`, `backend-api`, `database`, `system-design`, `networking`, `devops-cloud`, `problem-solving`, `other-stacks`.
@@ -102,6 +106,7 @@ Rules:
 - A company or job-description note goes in `interview/companies/<company>/`, with the company prefix in the file name.
 - General interview reports go in `interview/practice-reports/`. Company reports go in the company folder.
 - After adding or moving files, run `python3 scripts/build-hub.py` to rebuild `index.html`. If a new general guide should appear on the Study Route site, add it to the `ITEMS` list in `study.html`. Company folders are deliberately not listed there.
+- A new step-by-step page (`learn/<subject>/visuals/*.html`) or cheatsheet (`*-cheatsheet.html`) must use the Calm look. Run `node scripts/calm-apply.js page-step <file>` (or `page-sheet`), then `node --test tests/*.test.js`. The test fails for any page without it. Keep a page's own colors for meaning (kept, dropped, error); calm.css only changes shape.
 
 ## How I learn (applies to every task)
 

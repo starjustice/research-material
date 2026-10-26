@@ -42,6 +42,20 @@ function problemsFor(rel, pageClass) {
   return out;
 }
 
+// Pages that show nothing, so there is nothing to style.
+const EXEMPT = ["visuals/code-lab.html"]; // an old address that redirects to the React Native code lab
+
+test("the lesson viewer uses the Calm look", () => {
+  const html = fs.readFileSync(path.join(ROOT, "viewer.html"), "utf8");
+  assert.ok(html.includes('<link rel="stylesheet" href="calm.css">'));
+  assert.match(html, /<body[^>]*class="[^"]*\blook-calm\b/);
+});
+
+test("no HTML page is left out of a Calm group", () => {
+  const covered = new Set([...GROUPS.flatMap(g => g.files), "viewer.html", ...EXEMPT]);
+  assert.deepStrictEqual(all.filter(f => !covered.has(f)), [], "a new kind of page needs a group above, or an entry in EXEMPT");
+});
+
 test("calm.css exists at the repo root", () => {
   assert.ok(fs.existsSync(path.join(ROOT, "calm.css")));
 });
