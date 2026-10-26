@@ -20,6 +20,7 @@ function htmlFiles(dir = ROOT) {
 const all = htmlFiles();
 const GROUPS = [
   { name: "hub", pageClass: "page-hub", files: all.filter(f => f === "index.html") },
+  { name: "record", pageClass: "page-speak", files: all.filter(f => f === "speak.html") },
 ];
 
 function problemsFor(rel, pageClass) {
