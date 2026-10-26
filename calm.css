@@ -1,6 +1,43 @@
-/* Calm look for the lesson viewer (viewer.html loads this for every note).
-   Everything is scoped under body.look-calm, so other pages that do not set that class are untouched.
-   Style idea comes from neobrutalism.dev: dark borders, hard offset shadows, flat colors. */
+/* The Calm look for the whole study site. One shared file, one section per page type.
+   Style idea comes from neobrutalism.dev: dark borders, hard offset shadows, flat colors.
+
+   Sections, each scoped so it cannot touch another page type:
+     1. Shared tokens        body.calm            (every page except the viewer)
+     2. Lesson viewer        body.look-calm       (viewer.html)
+     3. Hub                  body.page-hub
+     4. Record page          body.page-speak
+     5. Step-by-step pages   body.page-step
+     6. Cheatsheets          body.page-sheet
+     7. Study route          body.page-study
+   scripts/calm-apply.js adds the <link> and the classes. A page with its own dark mode also gets can-dark. */
+
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Space+Grotesk:wght@700&display=swap");
+
+/* ===== 1. Shared tokens (every page except the viewer) =====
+   A page keeps its own colors (--bg, --card, --ink, and every meaning color such as --keep or --drop).
+   Calm only adds shape: outline, hard shadow, corner size, fonts, and six soft box colors. */
+body.calm {
+  --edge: #1b1b1b; --shade: #1b1b1b; --on-accent: #1b1b1b;
+  --line: 2px solid var(--edge); --shadow: 4px 4px 0 var(--shade); --shadow-s: 3px 3px 0 var(--shade);
+  --radius: 12px;
+  --c-blue: #dbeafe; --c-yellow: #fff1bf; --c-violet: #ede4ff;
+  --c-green: #dcf3e6; --c-pink: #ffe1ea; --c-orange: #ffe6cc;
+  --font-body: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
+}
+body.calm button, body.calm input, body.calm select, body.calm textarea { font-family: inherit; }
+body.calm h1, body.calm h2, body.calm h3 { font-family: var(--font-head); letter-spacing: -.005em; }
+@media (prefers-color-scheme: dark) {
+  body.calm.can-dark {
+    --edge: #7d8b99; --shade: #05080b; --on-accent: #1b1b1b;
+    --c-blue: #1a2c42; --c-yellow: #3a3115; --c-violet: #2a2244;
+    --c-green: #15302a; --c-pink: #3b1d24; --c-orange: #3a2a15;
+  }
+}
+
+/* ===== 2. Lesson viewer (viewer.html) =====
+   Everything here is scoped under body.look-calm. */
 
 body.look-calm {
   --ink: #1b1b1b; --muted: #5d6670; --bg: #faf6ee; --card: #fffdf8; --border: #1b1b1b;
