@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { escapePlaceholders, sectionKind, fitDiagram } = require("../viewer-helpers");
+const { escapePlaceholders, sectionKind, fitDiagram, columnWidths } = require("../viewer-helpers");
 
 test("escapePlaceholders shows a standalone placeholder as text", () => {
   assert.strictEqual(escapePlaceholders("a\n\n<write here>\n\n## Next"), "a\n\n&lt;write here&gt;\n\n## Next");
@@ -40,4 +40,20 @@ test("fitDiagram leaves a diagram that fits, shrinks a little, scrolls a very wi
 test("fitDiagram ignores a diagram that failed to render", () => {
   for (const [n, c] of [[0, 680], [NaN, 680], [1500, 0], [undefined, 680]])
     assert.deepStrictEqual(fitDiagram(n, c), { width: null, scrolls: false });
+});
+
+test("columnWidths gives short columns a small width and long text columns a capped width", () => {
+  const rows = [
+    ["Step", "Part", "What Postgres does", "Rows after"],
+    ["1", "read the query", "Postgres reads the whole query. It does not start at line 1.", "none yet"],
+  ];
+  assert.deepStrictEqual(columnWidths(rows), [4, 14, 24, 10]);
+});
+
+test("columnWidths respects the floor and the cap, and copes with empty or uneven rows", () => {
+  assert.deepStrictEqual(columnWidths([]), []);
+  assert.deepStrictEqual(columnWidths([["a", "b"], ["a"]]), [4, 4]);
+  assert.deepStrictEqual(columnWidths([["x".repeat(50)]]), [24]);
+  assert.deepStrictEqual(columnWidths([["x".repeat(50)]], { cap: 30 }), [30]);
+  assert.deepStrictEqual(columnWidths([["  padded  "]]), [6]);
 });

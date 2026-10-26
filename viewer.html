@@ -534,6 +534,22 @@
     }
   });
 
+  // A table keeps a readable width per column (see columnWidths) and scrolls sideways when it needs more room.
+  // The widths only apply on small screens (calm.css). Measure after the fonts load, so the sizes are right.
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  content.querySelectorAll("table").forEach(table => {
+    const head = table.rows[0];
+    if (!head || Array.from(head.cells).some(c => c.colSpan > 1)) return;
+    const widths = ViewerHelpers.columnWidths(Array.from(table.rows, r => Array.from(r.cells, c => c.textContent)));
+    Array.from(head.cells).forEach((cell, i) => cell.style.setProperty("--col-min", widths[i] + "ch"));
+    if (table.scrollWidth > table.clientWidth + 1) {
+      const hint = document.createElement("p");
+      hint.className = "swipe-hint";
+      hint.textContent = "Swipe sideways to see all columns";
+      table.before(hint);
+    }
+  });
+
   // Jump to a section if the link had one (#some-heading).
   if (location.hash.length > 1) {
     const t = document.getElementById(decodeURIComponent(location.hash.slice(1)));

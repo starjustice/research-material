@@ -87,6 +87,10 @@ body.look-calm {
 /* tables and diagrams */
 .look-calm article table { border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
 .look-calm article th { background: var(--c-yellow); }
+/* On small screens each column keeps the width viewer.html measured (--col-min), so text is not one word per line. */
+@media (max-width: 900px) {
+  .look-calm article th, .look-calm article td { min-width: var(--col-min, 0); }
+}
 .look-calm .mermaid { background: #fff; border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
 
 /* hidden answers: a pressable bar that opens */

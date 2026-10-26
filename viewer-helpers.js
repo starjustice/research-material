@@ -44,7 +44,17 @@
     return { width: Math.max(containerWidth, scaled), scrolls: scaled > containerWidth };
   }
 
-  const api = { escapePlaceholders, sectionKind, fitDiagram };
+  // How wide each table column must stay, in ch, so text does not wrap one word per line on a phone.
+  // A short column stays small. A long text column stops at cap, and the table scrolls sideways instead.
+  function columnWidths(rows, { floor = 4, cap = 24 } = {}) {
+    const longest = [];
+    for (const row of rows) {
+      row.forEach((text, i) => { longest[i] = Math.max(longest[i] || 0, text.trim().length); });
+    }
+    return longest.map(n => Math.min(cap, Math.max(floor, n)));
+  }
+
+  const api = { escapePlaceholders, sectionKind, fitDiagram, columnWidths };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else window.ViewerHelpers = api;
 })();
