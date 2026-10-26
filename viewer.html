@@ -6,6 +6,7 @@
 <title>Note — Study Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="viewer-helpers.js"></script>
 <style>
   :root {
     --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86;
@@ -122,6 +123,7 @@
     padding: 12px; margin: 12px 0; text-align: center; overflow-x: auto;
   }
   .mermaid svg { max-width: 100%; height: auto; }
+  .swipe-hint { font-size: .78rem; color: var(--muted); margin: 10px 0 -4px; }
   a.rec-btn { display: inline-block; background: #e0453a; color: #fff !important; text-decoration: none; font-weight: 700; border-radius: 10px; padding: 9px 16px; font-size: .92rem; }
   a.rec-btn:hover { background: #c93a30; }
   .error {
@@ -241,10 +243,8 @@
     : slug === subjectReadmeSlug ? Promise.resolve(md)
     : getText(subjectReadmeSlug + ".md").catch(() => null);
 
-  // SPIKE: template placeholders like <write here> look like HTML tags and swallow the rest of the page. Show them as text.
-  content.innerHTML = marked.parse(calm
-    ? md.replace(/^<(write here|the explain-coach agent writes here)>\s*$/gm, "&lt;$1&gt;")
-    : md);
+  // Template placeholders like <write here> look like HTML tags and swallow the rest of the page. Show them as text.
+  content.innerHTML = marked.parse(ViewerHelpers.escapePlaceholders(md));
 
   // Turn ```mermaid code blocks into rendered diagrams.
   content.querySelectorAll("pre code.language-mermaid").forEach(el => {
@@ -316,19 +316,13 @@
 
   // ---- SPIKE, Calm look: each numbered section becomes its own card ----
   if (calm) {
-    const kinds = [
-      [/idea/i, "idea"], [/picture/i, "picture"], [/analogy/i, "analogy"], [/code/i, "code"],
-      [/step by step|really happens/i, "trace"], [/why it exists|cost/i, "why"], [/mistake/i, "mistake"],
-      [/watch|play/i, "watch"], [/practice/i, "practice"], [/interview/i, "interview"],
-      [/explain/i, "explain"], [/review/i, "review"]
-    ];
     let chunk = null;
     Array.from(content.childNodes).forEach(node => {
       if (node.nodeName === "H2") {
         chunk = document.createElement("section");
         chunk.className = "chunk";
-        const k = kinds.find(([re]) => re.test(node.textContent));
-        if (k) chunk.dataset.kind = k[1];
+        const kind = ViewerHelpers.sectionKind(node.textContent);
+        if (kind) chunk.dataset.kind = kind;
         content.insertBefore(chunk, node);
       }
       if (chunk) chunk.appendChild(node);
@@ -538,6 +532,25 @@
       console.warn("Mermaid render issue:", e);
     }
   }
+
+  // A diagram wider than its box keeps a readable size and the box scrolls sideways (see fitDiagram).
+  content.querySelectorAll(".mermaid").forEach(box => {
+    const svg = box.querySelector("svg");
+    if (!svg) return; // this diagram did not render
+    const cs = getComputedStyle(box);
+    const inner = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const fit = ViewerHelpers.fitDiagram(svg.viewBox.baseVal.width, inner);
+    if (fit.width === null) return;
+    svg.style.maxWidth = "none";
+    svg.style.width = fit.width + "px";
+    if (fit.scrolls) {
+      box.classList.add("scrolls");
+      const hint = document.createElement("p");
+      hint.className = "swipe-hint";
+      hint.textContent = "Swipe sideways to see the whole picture";
+      box.before(hint);
+    }
+  });
 
   // Jump to a section if the link had one (#some-heading).
   if (location.hash.length > 1) {
