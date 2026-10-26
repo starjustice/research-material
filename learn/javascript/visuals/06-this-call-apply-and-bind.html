@@ -145,8 +145,8 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <a href="../README.md" id="back">← JavaScript lessons</a>
-    <a href="../06-this-call-apply-and-bind.md" id="lessonLink">Open the lesson ↗</a>
+    <a href="../../../viewer.html?note=learn/javascript/README" id="back">← JavaScript lessons</a>
+    <a href="../../../viewer.html?note=learn/javascript/06-this-call-apply-and-bind" id="lessonLink">Open the lesson ↗</a>
   </div>
   <h1>this, call, apply and bind stepper</h1>
   <p class="sub">Look at <b>how the function is called</b>, not at where it is written. Each call has two steps: first <b>you</b> guess the rule, then JavaScript shows its answer.</p>
@@ -483,7 +483,7 @@ const PRESETS = [
         note: `Timer 2 gets an <b>arrow wrapper</b>. The arrow will call <code>user.hi()</code> itself, with a dot, when the time comes.` },
       { line: 4, timers: ["timer 1: the function hi, alone", "timer 2: an arrow that will call user.hi()", "timer 3: hi bound to user"],
         heap: [O("user", "user", ['name: "Ana"', "hi: function"]), O("bound", "bound hi", ["target: hi", "locked this: user"], "fn")],
-        note: `Timer 3 gets a <b>bound</b> copy of <code>hi</code> with <code>this</code> locked to <code>user</code>. The script is now finished. The stack is empty, so the timers fire one by one (see <a href="../11-the-event-loop.md">the event loop lesson</a>).` },
+        note: `Timer 3 gets a <b>bound</b> copy of <code>hi</code> with <code>this</code> locked to <code>user</code>. The script is now finished. The stack is empty, so the timers fire one by one (see <a href="../../../viewer.html?note=learn/javascript/11-the-event-loop">the event loop lesson</a>).` },
       { line: 1, phase: "call", call: `<u>timer</u>._onTimeout()`, rules: ["method", `Node calls your function through its own <b>Timeout object</b>, with a dot`], thisTo: "timeout", frame: "hi", timers: ["timer 2: an arrow that will call user.hi()", "timer 3: hi bound to user"],
         note: `Timer 1 fires. Inside Node, the call is written like <code>timer._onTimeout()</code>. That is a dot call, so rule 3 sets <code>this</code> to the <b>Timeout object</b>. It is <b>not</b> <code>user</code>. (A browser would give the global object. Either way, not <code>user</code>.)` },
       { line: 1, keep: true, print: ["false"], note: `<code>this === user</code> is <b>false</b>. The bug: the method lost its object. In Node there is no error here, because the Timeout object is a real object. The bug is silent.` },
