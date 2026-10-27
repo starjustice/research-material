@@ -12,7 +12,8 @@ How the lessons connect. Learn left to right. Each group builds on the one befor
 graph LR
     A["Queries 01 to 05"] --> B["Design 06 to 08"]
     B --> C["Indexes and speed 09 to 12"]
-    C --> D["Transactions 13 to 16"]
+    C --> I["Inside Postgres 24 to 26"]
+    I --> D["Transactions 13 to 16"]
     D --> E["Senior and production 17 to 23"]
 ```
 
@@ -48,6 +49,16 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 10 | [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md) | the leftmost column rule, indexing only a hot slice, and when an index is NOT used | ready |
 | 11 | [Reading EXPLAIN](11-reading-explain.md) | seq scan against index scan, estimated against actual rows, and a slow-query workflow | ready |
 | 12 | [N+1 queries and ORMs](12-n-plus-1-queries-and-orms.md) | why one page can run 101 queries, and fixes in Prisma, GraphQL DataLoader and Hasura | ready |
+
+### Inside Postgres: what happens in the background
+
+Short cards with a guess before each answer. Every number was run on PostgreSQL 17.5. Read them after lessons 09 to 11, or before, if you want the map first.
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 24 | [One query, from start to finish](24-one-query-start-to-finish.md) | connect, parse, plan, run, memory and disk, and what a write adds (the log goes first) | ready |
+| 25 | [An index, built and searched](25-an-index-built-and-searched.md) | the B-tree from the table up, how it is built, and why a lookup reads 4 pages and not 10,301 | ready |
+| 26 | [What an index costs, and when Postgres ignores it](26-what-an-index-costs.md) | page splits, HOT updates, why the planner skips an index, and BRIN | ready |
 
 ### Transactions: many users at once
 

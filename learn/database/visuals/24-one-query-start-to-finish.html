@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One Query, Start to Finish Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/24-one-query-start-to-finish" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>One query, start to finish: stepper</h1>
+  <p class="sub">Press Next and follow one statement through the stops. Every number on this page came from a real run on PostgreSQL 17.5.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The stops</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> a query passes <b>connect, parse, names, plan, run, memory</b>. Typos fail at parse. Wrong names fail at names. Bad math fails at run. A write adds the <b>log</b>: it must reach the disk before the pages do.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Backend process:</b> the helper Postgres starts for each connection.</li>
+      <li><b>Planner:</b> picks the cheapest way to run the query, using a score called cost.</li>
+      <li><b>Executor:</b> the part that really reads and changes rows.</li>
+      <li><b>Shared buffers:</b> the memory area where recently used 8 KB pages wait.</li>
+      <li><b>WAL (write-ahead log):</b> the log of changes. After a crash Postgres replays it.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Built from real runs on PostgreSQL 17.5. The lesson and its practice file show the same numbers.
+const PROGRAMS = [{"name": "A SELECT", "stops": ["Connect", "Parse", "Names", "Plan", "Run", "Memory", "Back"], "code": ["SELECT id, total_cents", "FROM l24_orders", "WHERE status = 'PAID'", "ORDER BY total_cents DESC", "LIMIT 2;"], "ask": {"q": "How many pages does the Seq Scan read?", "opts": ["2", "541", "100,000"], "answer": "541", "why": "There is no index on status, and the Sort needs all 90,000 PAID rows. So the scan reads every page of the table: 541."}, "steps": [{"stop": null, "line": null, "note": "Your app is about to send this query. It will pass the stops below, one by one. Guess first, then press Next.", "facts": []}, {"stop": 0, "line": null, "note": "<b>Connect.</b> The postmaster started one <b>backend process</b> just for your connection. It runs every query you send on this connection.", "facts": [["Process", "your own backend process"], ["Other connections", "each has its own process"]]}, {"stop": 1, "line": 0, "note": "<b>Parse.</b> The parser reads the words and builds a tree. The grammar is right: SELECT, FROM, WHERE, ORDER BY, LIMIT.", "facts": [["Grammar", "ok"]]}, {"stop": 2, "line": 1, "note": "<b>Names.</b> Postgres checks every name in its catalog. The table <code>l24_orders</code> and the columns <code>id</code>, <code>total_cents</code> and <code>status</code> all exist.", "facts": [["Table", "l24_orders found"], ["Columns", "id, total_cents, status found"]]}, {"stop": 3, "line": null, "note": "<b>Plan.</b> The planner scores the ways, using its notes. There is no index on <code>status</code>, so it reads the table with a Seq Scan. The plan is a tree: Limit on top, then Sort, then Seq Scan.", "facts": [["Seq Scan cost", "1791.00"], ["Where it comes from", "541 pages + 1,000 + 250"], ["Plan", "Limit, Sort, Seq Scan"]]}, {"stop": 4, "line": 2, "note": "<b>Run.</b> The executor starts at the bottom. The Seq Scan reads the table page by page and tests <code>status = 'PAID'</code> on every row.", "facts": [["Rows tested", "100,000"], ["Rows passed up", "90,000"], ["Rows thrown away", "10,000"]], "count": {"label": "Pages read", "value": "541"}}, {"stop": 5, "line": null, "note": "<b>Memory.</b> Each page comes from shared buffers if it is there. Here all 541 pages were already in memory.", "facts": [["EXPLAIN says", "Buffers: shared hit=541"]], "count": {"label": "Pages from memory (hit)", "value": "541"}}, {"stop": 4, "line": 3, "note": "<b>Run: Sort.</b> The Sort receives 90,000 rows, but it only keeps the best 2. It uses a top-N heapsort and 17kB of memory.", "facts": [["Rows in", "90,000"], ["Rows out", "2"], ["Memory", "17kB"]]}, {"stop": 4, "line": 4, "note": "<b>Run: Limit.</b> Limit has its 2 rows, so it stops asking for more.", "facts": [["Rows out", "2"]]}, {"stop": 6, "line": null, "note": "<b>Back to you.</b> 2 rows go back over your connection. Finished.", "facts": [["Rows sent", "2"]], "done": true}]}, {"name": "A typo", "stops": ["Connect", "Parse", "Names", "Plan", "Run"], "code": ["SELCT id", "FROM l24_orders;"], "ask": {"q": "Which stop stops this statement?", "opts": ["Parse", "Names", "Run"], "answer": "Parse", "why": "The grammar is wrong: SELCT is not a SQL word. The parser fails before any name is checked and before any row is read."}, "steps": [{"stop": null, "line": null, "note": "This statement has a typo. Which stop will catch it? Guess first, then press Next.", "facts": []}, {"stop": 0, "line": null, "note": "<b>Connect.</b> Your own backend process is ready.", "facts": []}, {"stop": 1, "line": 0, "note": "<b>Parse.</b> The parser does not know the word <code>SELCT</code>. It stops here.", "facts": [["ERROR", "syntax error at or near \"SELCT\""]], "fail": true}, {"stop": null, "line": null, "note": "Finished with an error. Names, Plan and Run never started. No row was read.", "facts": [["ERROR", "syntax error at or near \"SELCT\""]], "fail": true, "done": true}]}, {"name": "A wrong name", "stops": ["Connect", "Parse", "Names", "Plan", "Run"], "code": ["SELECT idd", "FROM l24_orders;"], "ask": {"q": "Which stop stops this statement?", "opts": ["Parse", "Names", "Run"], "answer": "Names", "why": "The grammar is fine, so Parse passes. But the table has no column idd. Postgres finds that when it checks the names in its catalog, before it reads any row."}, "steps": [{"stop": null, "line": null, "note": "The words are spelled right, but one column name is wrong. Which stop will catch it? Guess first.", "facts": []}, {"stop": 0, "line": null, "note": "<b>Connect.</b> Your own backend process is ready.", "facts": []}, {"stop": 1, "line": 0, "note": "<b>Parse.</b> The grammar is right. This stop passes.", "facts": [["Grammar", "ok"]]}, {"stop": 2, "line": 0, "note": "<b>Names.</b> Postgres looks for a column <code>idd</code> in <code>l24_orders</code> and does not find one. It stops here.", "facts": [["ERROR", "column \"idd\" does not exist"]], "fail": true}, {"stop": null, "line": null, "note": "Finished with an error. Plan and Run never started. No row was read.", "facts": [["ERROR", "column \"idd\" does not exist"]], "fail": true, "done": true}]}, {"name": "Bad math", "stops": ["Connect", "Parse", "Names", "Plan", "Run"], "code": ["SELECT 1 / 0;"], "ask": {"q": "Which stop stops this statement?", "opts": ["Parse", "Names", "Run"], "answer": "Run", "why": "The words and names are fine, so Parse, Names and Plan all pass. The division only happens when the executor runs, and that is where it fails."}, "steps": [{"stop": null, "line": null, "note": "The words and names are fine. The math is not. Which stop will catch it? Guess first.", "facts": []}, {"stop": 0, "line": null, "note": "<b>Connect.</b> Your own backend process is ready.", "facts": []}, {"stop": 1, "line": 0, "note": "<b>Parse.</b> The grammar is right.", "facts": [["Grammar", "ok"]]}, {"stop": 2, "line": 0, "note": "<b>Names.</b> There is no table and no column here, so there is nothing to look up.", "facts": [["Names", "nothing to check"]]}, {"stop": 3, "line": 0, "note": "<b>Plan.</b> The plan is one step: work out <code>1 / 0</code>.", "facts": [["Plan", "one step"]]}, {"stop": 4, "line": 0, "note": "<b>Run.</b> The executor tries the division and fails.", "facts": [["ERROR", "division by zero"]], "fail": true}, {"stop": null, "line": null, "note": "Finished with an error. Only now, at the Run stop, did the math fail.", "facts": [["ERROR", "division by zero"]], "fail": true, "done": true}]}, {"name": "An INSERT", "stops": ["Connect", "Parse", "Names", "Plan", "Run", "Commit", "Later"], "code": ["INSERT INTO l24_orders", "VALUES (100001, 'PAID', 5000);"], "ask": {"q": "When COMMIT finishes, what has reached the disk?", "opts": ["The log only", "The table page only", "Both the log and the table page"], "answer": "The log only", "why": "COMMIT waits for the log (WAL) to be flushed to disk. The table page and the index pages may still be only in memory. They are written later, in the background. After a crash, Postgres replays the log to rebuild them."}, "steps": [{"stop": null, "line": null, "note": "A write has one more job than a read: it must survive a crash. Guess first, then press Next.", "facts": []}, {"stop": 0, "line": null, "note": "<b>Connect.</b> Your own backend process is ready.", "facts": []}, {"stop": 1, "line": 0, "note": "<b>Parse.</b> The grammar is right.", "facts": [["Grammar", "ok"]]}, {"stop": 2, "line": 0, "note": "<b>Names.</b> The table <code>l24_orders</code> exists, and so do its three columns.", "facts": [["Table", "l24_orders found"]]}, {"stop": 3, "line": 0, "note": "<b>Plan.</b> An INSERT has one way: put the row in. There is nothing to choose.", "facts": [["Plan", "Insert on l24_orders"]]}, {"stop": 4, "line": 1, "note": "<b>Run.</b> The executor changes the table page in memory, adds one entry to each index, and describes the change in the log (WAL). The rule is that the log reaches the disk before the pages do.", "facts": [["Table page", "changed in memory"], ["Index pages", "one new entry in each index"], ["Log", "about 240 to 300 bytes written"]]}, {"stop": 5, "line": null, "note": "<b>Commit.</b> COMMIT waits until the log is flushed to disk. Now the change is safe, even if the power fails.", "facts": [["On disk", "the log"], ["Only in memory", "table and index pages"]]}, {"stop": 6, "line": null, "note": "<b>Later.</b> In the background, a checkpoint writes the changed pages to their files. If Postgres crashed before that, it would replay the log.", "facts": [["Background job", "checkpoint writes the pages"]]}, {"stop": null, "line": null, "note": "<b>Back to you.</b> Postgres answers <code>INSERT 0 1</code>. Finished.", "facts": [["Answer", "INSERT 0 1"]], "done": true}]}, {"name": "An UPDATE", "stops": ["Connect", "Parse", "Names", "Plan", "Run", "Commit", "Later"], "code": ["UPDATE l24_orders", "SET status = 'CANCELLED'", "WHERE id = 7;"], "ask": {"q": "Where is row 7 after the UPDATE?", "opts": ["Still at (0,7)", "At a new address near the end of the table", "Deleted from the table"], "answer": "At a new address near the end of the table", "why": "An UPDATE does not change the row in place. It writes a new row version at a new address, and marks the old one dead. VACUUM cleans the old one later."}, "steps": [{"stop": null, "line": null, "note": "An UPDATE looks small, but it does more than an INSERT. Guess first, then press Next.", "facts": []}, {"stop": 0, "line": null, "note": "<b>Connect.</b> Your own backend process is ready.", "facts": []}, {"stop": 1, "line": 0, "note": "<b>Parse.</b> The grammar is right.", "facts": [["Grammar", "ok"]]}, {"stop": 2, "line": 2, "note": "<b>Names.</b> The table <code>l24_orders</code> and the columns <code>status</code> and <code>id</code> exist.", "facts": [["Table", "l24_orders found"]]}, {"stop": 3, "line": 2, "note": "<b>Plan.</b> Row 7 is found with the primary key index, so the plan is an Index Scan.", "facts": [["Plan", "Update, Index Scan on id"]]}, {"stop": 4, "line": 2, "note": "<b>Run: find.</b> The executor finds row 7 at address <code>(0,7)</code>: page 0, slot 7.", "facts": [["Row 7", "(0,7), status PAID"]]}, {"stop": 4, "line": 1, "note": "<b>Run: write.</b> It writes a <b>new row version</b> near the end of the table and marks the old one dead. It does not erase it, because other transactions may still need to see it.", "facts": [["Old row", "(0,7), now dead"], ["New row", "(540,103), status CANCELLED"]]}, {"stop": 4, "line": null, "note": "<b>Run: indexes.</b> The row has a new address, so each index gets a new entry that points to it. The log records all of this.", "facts": [["Indexes", "a new entry in each one"], ["Log", "the change is described"]]}, {"stop": 5, "line": null, "note": "<b>Commit.</b> COMMIT waits for the log to reach the disk.", "facts": [["On disk", "the log"]]}, {"stop": 6, "line": null, "note": "<b>Later.</b> VACUUM removes the old row version and the old index entries. Until then the table is bigger.", "facts": [["Cleaner", "VACUUM (autovacuum)"]]}, {"stop": null, "line": null, "note": "<b>Back to you.</b> <code>UPDATE 1</code>. Finished.", "facts": [["Answer", "UPDATE 1"]], "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

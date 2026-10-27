@@ -479,7 +479,7 @@
   <span>Runnable: docker compose up → track tables → row permission → Action (10 minutes)</span>
 </a>
 </details>
-<details class="subject"><summary><b>Database</b><small>11 lessons, 6 guides, 11 visuals, 6 cheatsheets</small></summary>
+<details class="subject"><summary><b>Database</b><small>14 lessons, 6 guides, 14 visuals, 6 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/database/README">
   <span class="tag map">MAP</span>
   <b>Database: map and lesson list</b>
@@ -540,6 +540,21 @@
   <b>12. N+1 queries and ORMs</b>
   <span>say why one page can send 101 queries, find it in a query log, and fix it with a JOIN, an `= ANY($1)` batch, Prisma `include`, a GraphQL DataLoader, or Hasura.</span>
 </a>
+<a class="card" href="viewer.html?note=learn/database/24-one-query-start-to-finish">
+  <span class="tag lesson">LESSON 24</span>
+  <b>24. One query, from start to finish</b>
+  <span>say what Postgres does from the moment you press Enter until the rows come back (connect, parse, plan, run, memory, disk), say what a write adds (the log goes first), and tell which stop a problem comes from.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/25-an-index-built-and-searched">
+  <span class="tag lesson">LESSON 25</span>
+  <b>25. An index, built and searched</b>
+  <span>draw a B-tree index from the table up (page, leaf, tree), say how it is built, walk one lookup page by page, and explain why a lookup reads 4 pages and not 10,301.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/26-what-an-index-costs">
+  <span class="tag lesson">LESSON 26</span>
+  <b>26. What an index costs, and when Postgres ignores it</b>
+  <span>say what an INSERT and an UPDATE do to every index (including the page split and the HOT shortcut), say why the planner sometimes ignores an index, and pick a better index type for a huge table.</span>
+</a>
 <a class="card" href="learn/database/visuals/01-sql-basics-and-query-order.html">
   <span class="tag app">VISUAL</span>
   <b>01-sql-basics-and-query-order.html</b>
@@ -593,6 +608,21 @@
 <a class="card" href="learn/database/visuals/12-n-plus-1-queries-and-orms.html">
   <span class="tag app">VISUAL</span>
   <b>12-n-plus-1-queries-and-orms.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/24-one-query-start-to-finish.html">
+  <span class="tag app">VISUAL</span>
+  <b>24-one-query-start-to-finish.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/25-an-index-built-and-searched.html">
+  <span class="tag app">VISUAL</span>
+  <b>25-an-index-built-and-searched.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/26-what-an-index-costs.html">
+  <span class="tag app">VISUAL</span>
+  <b>26-what-an-index-costs.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/database/advanced-sql-workbook">

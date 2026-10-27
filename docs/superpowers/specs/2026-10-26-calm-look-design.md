@@ -138,3 +138,28 @@ The owner said yes to a trial on one lesson before changing the other 60. The le
 **Known.** The 4 column orders table is 337px wide on a 375px phone, so it swipes (the open "tables on phones" decision). The big-table examples in the Go deeper box (`stores`) were carried over from the 2026-10-16 check and not re-run.
 
 **Not done, waits for the owner:** change `templates/lesson-template.md`, `research-material.md` and the `learn` skill to write lessons in this shape, then reshape the other lessons (about 60), starting with the ones the owner reads next.
+
+## Inside Postgres: lessons 24 to 26 in the short-card shape (2026-10-27)
+
+The owner asked for a lesson on how the database works in the background, and on indexing "from the beginning to the detail", for senior interviews. The owner had also said the trial lesson "looks ok for now". So the new lessons use the Phase 5 shape from the start. The older long lessons (09 to 11) and the long guide `postgres-internals-visual.md` are unchanged.
+
+**What was added.** Three lessons, not two. One lesson with all the index topics would have been 20 cards, which is the long text the owner dislikes.
+
+- 24 One query, from start to finish: connect, parse, names, plan, run, memory, and what a write adds (the log, a new row version).
+- 25 An index, built and searched: pages and addresses, the leaf, the tree, a lookup in 4 pages against 10,301, index-only scans and the visibility map, CREATE INDEX CONCURRENTLY.
+- 26 What an index costs, and when Postgres ignores it: page splits, every index written on every non-HOT UPDATE, HOT updates, low selectivity, hidden columns, BRIN, unused indexes.
+
+Each lesson has a practice file (`practice/NN-*.sql`, with exact expected results) and a stepper (`visuals/NN-*.html`). The README has a new group "Inside Postgres" (24 to 26).
+
+**Checked.** Every number was run on PostgreSQL 17.5 (PGlite 0.4.1), using the real tools `pageinspect`, `pg_visibility`, `pg_buffercache` and `pg_stat_*`. Each practice file's setup and the answer blocks in the lessons were run end to end. Facts about connections, CREATE INDEX locks, HOT, index-only scans, prepared statements, full_page_writes and index types were checked in the official docs. The Postgres 18 notes (async I/O, skip scan) were taken from the release announcement and are marked "not run here".
+
+**A correction found by measuring.** The first draft of lesson 26 said an UPDATE adds an entry only to the index on the changed column. The measurement showed the primary key index doubled too (2,208 kB to 4,408 kB) when only `email` changed. A non-HOT UPDATE gives the row a new address, so every index gets a new entry. The lesson was fixed.
+
+**Testing rules learned for PGlite.**
+
+- PGlite has no parallel workers. A plain Seq Scan on a big table, or a CREATE INDEX on a big table, hangs. Run `SET max_parallel_workers_per_gather = 0; SET max_parallel_maintenance_workers = 0;` first. The practice files for lessons 25 and 26 set the first one too, so plans on a real server match the lesson.
+- PGlite has no autovacuum. That is why the "before ANALYZE" guess shows. The practice tables use `autovacuum_enabled = false`, so a real server shows the same.
+- `ANALYZE` samples rows, so row estimates move a little on each run. The lesson says "about".
+- A wide diagram (two boxes side by side, or a yes/no split) is over 400px on a phone. Use a vertical chain, or a two-column table.
+
+**Not done, waits for the owner.** The template, the `research-material` agent and the `learn` skill still describe the old long shape. The open decisions (tables on phones, wide diagrams) are unchanged.
