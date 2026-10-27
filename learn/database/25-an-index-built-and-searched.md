@@ -6,7 +6,7 @@
 >
 > **Before this:** [Indexes and B-trees](09-indexes-and-b-trees.md) is the gentle start. [One query, from start to finish](24-one-query-start-to-finish.md) gives the map. · **Next:** [What an index costs, and when Postgres ignores it](26-what-an-index-costs.md)
 >
-> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes.
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
 ## 1. The idea: a card catalog
 
@@ -34,6 +34,16 @@ Card 5 shows what happens with no index.
 > **Remember:** an index is a second, sorted copy of one column, with the address of each row.
 
 The catalog is only an analogy. A person sorts the cards once. Postgres must keep the index sorted on every write, and that costs (lesson 26).
+
+<details class="more"><summary>📖 More detail: why a B-tree, and not a simpler tree</summary>
+
+- **A binary tree** has 2 children per node. For 1 million keys that is about 20 levels (2 to the power of 20 is about 1 million). If every node is a different page, one lookup reads 20 pages. A B-tree node is a whole 8 KB page with hundreds of keys, so 1 million keys need only 3 levels.
+- **A hash table** finds one key fast, but it knows nothing about order. It cannot do `<`, `BETWEEN` or `ORDER BY`. A B-tree keeps the keys sorted, so it handles `=`, `<`, `>`, `BETWEEN`, `IS NULL` and sorted output. The docs list these.
+- **The page is the unit.** The disk, the memory cache and the log all work in 8 KB pages. A tree whose nodes are pages fits the whole machine.
+
+The Postgres B-tree follows a paper by Lehman and Yao (1981). It is a design for many sessions reading and writing the same tree at the same time. The source README says so.
+
+</details>
 
 ## 2. First, the table: pages and addresses
 
@@ -72,6 +82,34 @@ With no index, Postgres reads page 0 and looks at every slot. Fine for 6 rows. F
 
 > **Remember:** a row's address is (page, slot). Postgres always reads whole pages.
 
+<details class="more"><summary>📖 More detail: inside one 8 KB page</summary>
+
+| Part | Size |
+|---|---|
+| Header | 24 bytes |
+| Line pointers | 4 bytes each |
+| Free space | the middle |
+| Rows | the rest |
+
+The line pointers grow forward from the header. The rows grow backward from the end of the page. The free space is what is left between them.
+
+Real numbers from the tiny table. `page_header` says `lower = 48`: 24 bytes of header plus 6 line pointers of 4 bytes. It says `upper = 7944`: the place where the rows start. The 6 rows take 37 to 41 bytes each: a 24-byte header (23 bytes and 1 byte of padding) and the data.
+
+The slot in an address `(page, slot)` is the number of a **line pointer**. It is not a byte position. The line pointer says where the row is inside the page. So Postgres can move rows inside the page to join the free space, and the address does not change. The docs say a line pointer is never moved until it is freed.
+
+A table page has no special area (`special = 8192`, the same as the page size). An index page does: 16 bytes at the end, with the links to its left and right neighbor pages (`special = 8176`).
+
+You can look at a page yourself with `pageinspect` (test database only):
+
+```sql
+SELECT lower, upper, special
+FROM page_header(
+  get_raw_page(
+    'l25_people', 0));
+```
+
+</details>
+
 ## 3. The leaf: sorted keys with addresses
 
 The primary key made an index on `id`. We can look at its only leaf page with the `pageinspect` tool.
@@ -103,6 +141,32 @@ The items are in sorted order. That is the whole trick. A sorted list can be sea
 
 > **Remember:** a leaf item is a key plus the address of its row. Items are sorted.
 
+<details class="more"><summary>📖 More detail: one leaf item, and the high key</summary>
+
+One leaf item of an integer index is 16 bytes: 8 bytes for the row address and flags, and 8 bytes for the key (a 4-byte integer, padded). Add a 4-byte line pointer and an entry is 20 bytes. So a page holds about 400 entries. In the split test, 407 fit.
+
+`bt_page_items` also shows the size of each item:
+
+```sql
+SELECT itemoffset, ctid,
+       itemlen
+FROM bt_page_items(
+  'l25_people_pkey', 1)
+LIMIT 3;
+```
+
+| itemoffset | ctid | itemlen |
+|---|---|---|
+| 1 | (0,1) | 16 |
+| 2 | (0,2) | 16 |
+| 3 | (0,3) | 16 |
+
+Two rows can have the same key. Postgres adds the row address as the last part of the key, so every entry is unique and sorted. The source README says it uses the heap TID as a tiebreaker.
+
+A page that has a right neighbor starts with a **high key**: the upper limit of the keys that may live on that page. If a search arrives and its key is bigger than the high key, it moves right. This helps when a page was split a moment ago. In the split test of lesson 26, the left leaf had 367 items: the high key, and the keys 1 to 366.
+
+</details>
+
 ## 4. Many leaves become a tree
 
 A leaf page holds about 400 integer keys. One million keys need **2,733 leaf pages**. How do you know which leaf to open? Add pages above that say "keys 1 to 3,000 are on these leaves". Then add one more page above those.
@@ -130,6 +194,38 @@ Each page holds a few hundred entries. So each new level multiplies the room by 
 </details>
 
 > **Remember:** short and wide. 1 million rows is only 3 levels.
+
+<details class="more"><summary>📖 More detail: the root page, with real keys</summary>
+
+This is the root page of the 1 million row index, read with `pageinspect`:
+
+```sql
+SELECT itemoffset,
+       ctid AS child_page,
+       data
+FROM bt_page_items(
+  'l25_big_pkey',
+  (SELECT root
+   FROM bt_metap(
+     'l25_big_pkey')));
+```
+
+| Entry | Child | Smallest key |
+|---|---|---|
+| 1 | 3 | none |
+| 2 | 411 | 104,311 |
+| 3 | 698 | 208,621 |
+| 4 | 984 | 312,931 |
+
+The root has 10 entries. Each one names a child page and the smallest key that can be in that child. Entry 1 has no key: it holds everything below entry 2. The keys are about 104,000 apart. So key 777777 belongs to about the 8th entry.
+
+Each child is a middle page with about 270 entries, one for each leaf.
+
+How full are the pages? I measured the whole index. Leaf pages were 9.9% empty (the default fillfactor is 90). Middle pages were 32.6% empty.
+
+How deep for a bigger table? With about 270 children per middle page, 100 million rows would need about 270,000 leaves and about 1,000 middle pages. That is too many for one root page, so there would be one more level: about 4 levels. This is an estimate from the arithmetic. I did not build that table.
+
+</details>
 
 ## 5. A lookup: walk down, then one jump
 
@@ -175,6 +271,22 @@ Two more things come free with a sorted leaf chain. The leaf pages are linked le
 
 > **Remember:** with an index, about 4 pages. Without one, every page.
 
+<details class="more"><summary>📖 More detail: inside a page, and what stays in memory</summary>
+
+Inside one page the items are sorted. So Postgres does a **binary search**: look at the middle item, then the middle of the half that is left, and so on. For 367 items that is about 9 comparisons. Over the 3 index pages it is about 20 comparisons in all, the same as a binary tree. But it touches only 4 pages.
+
+The root and the middle pages are used by every lookup. So they almost always sit in shared buffers. Usually only the leaf page and the table page can be missing from memory. In my test, the first email lookup right after the index was built said `shared hit=3 read=1`. The second said `shared hit=4`.
+
+After the leaf gives an address, Postgres opens that table page, goes to the line pointer, reads the row, and checks that the row is visible to you (xmin and xmax, lesson 24, card 9). That check is why card 6 needs the visibility map.
+
+EXPLAIN shows three kinds of index scan:
+
+- **Index Scan:** one address at a time. Each one jumps to the table.
+- **Bitmap scan:** collect all the addresses, sort them by table page, then read each table page once, in order. Good when many rows match.
+- **Index Only Scan:** no table visit (card 6).
+
+</details>
+
 ## 6. Index-only scan: skip the table
 
 Sometimes the answer is already in the leaf. `SELECT id ... WHERE id BETWEEN 1000 AND 2000` only needs ids, and the leaf has them. So why visit the table?
@@ -205,6 +317,34 @@ Index Only Scan
 </details>
 
 > **Remember:** an index-only scan needs two things: every column in the index, and VACUUMed pages.
+
+<details class="more"><summary>📖 More detail: the visibility map, and a covering index</summary>
+
+The visibility map keeps **two bits for each table page**: *all-visible* (every row is visible to everyone) and *all-frozen*. Only VACUUM sets them. Any change to the page clears them. The docs say both.
+
+Real counts on `l25_big` (10,301 pages):
+
+| When | Marked pages |
+|---|---|
+| loaded | 0 |
+| VACUUM | 10,301 |
+| 1 UPDATE | 10,299 |
+
+These are the all-visible marks: after loading, after VACUUM, and after an UPDATE of one row. The one-row UPDATE cleared the mark on two pages: the page of the old row and the page of the new row. (All-frozen was 0 after VACUUM, because the rows were too new to freeze.)
+
+Autovacuum also runs on tables that only get inserts, after 1,000 inserts by default (`autovacuum_vacuum_insert_threshold`). So the marks do get set.
+
+**Covering index.** `SELECT id, note` cannot use the primary key index, because `note` is not in it. Add it as an extra column:
+
+```sql
+CREATE INDEX l25_big_id_note
+  ON l25_big (id)
+  INCLUDE (note);
+```
+
+After VACUUM, the query `SELECT id, note ... WHERE id BETWEEN 1000 AND 2000` was an Index Only Scan with `Heap Fetches: 0`. The price: this index is 39 MB, against 21 MB for the plain primary key index. Lesson 10 has more on covering indexes.
+
+</details>
 
 ## 7. Building the index
 
@@ -246,6 +386,31 @@ Drop it and try again.
 </details>
 
 > **Remember:** on a live table, use CREATE INDEX CONCURRENTLY. Then check for INVALID.
+
+<details class="more"><summary>📖 More detail: why building is faster than inserting</summary>
+
+`CREATE INDEX` sorts all the keys first. Then it writes full leaf pages one after the other, and then the pages above them. No page ever has to split. Inserting one key at a time into an existing index lands on random leaves and causes many splits (lesson 26).
+
+My test: 1 million rows with random-looking keys.
+
+- Index first, then load the rows: 4.2 seconds, index 27 MB.
+- Load first, then `CREATE INDEX`: 1.9 seconds (0.5 seconds of it for the index), index 21 MB.
+
+The times come from my test machine and will differ on yours. The size is the steadier part. So for a big first load, create the indexes after loading.
+
+The sort uses `maintenance_work_mem` (64 MB by default). More memory makes a big build faster. Postgres can also use parallel workers for a B-tree build. I turned them off in my tests.
+
+Pages are not filled to the brim. A B-tree index is built with a `fillfactor` of 90 by default. In the 1 million row index, leaf pages were 9.9% empty. That room is for new keys.
+
+How `CONCURRENTLY` works, from the docs:
+
+1. The index is added to the catalog as "invalid".
+2. A first scan of the table builds it, after waiting for transactions that changed the table.
+3. A second scan adds the rows that changed in the meantime.
+4. Postgres waits for transactions that hold old snapshots.
+5. The index is marked "valid".
+
+</details>
 
 ## 8. Watch it run, step by step
 

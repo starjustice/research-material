@@ -6,7 +6,7 @@
 >
 > **Before this:** [An index, built and searched](25-an-index-built-and-searched.md). · **Next:** none yet. Transactions come later (lessons 13 to 16, not written yet).
 >
-> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes.
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
 ## 1. The idea: every catalog needs a new card
 
@@ -29,6 +29,23 @@ Reads got fast in lesson 25. This lesson is the bill for it.
 </details>
 
 > **Remember:** every index is written on every INSERT. More indexes, slower writes.
+
+<details class="more"><summary>📖 More detail: write amplification, measured</summary>
+
+**Write amplification** means: one small change you make causes many bigger writes inside the database. For an INSERT, each index adds a page to change and a record to log.
+
+I measured the log (WAL) for a single-row INSERT into tables with 0, 1, 3 and 5 indexes. 5,000 inserts each:
+
+| Indexes | Log bytes per row |
+|---|---|
+| 0 | 120 |
+| 1 | 193 |
+| 3 | 344 |
+| 5 | 495 |
+
+Each index adds about 75 bytes of log to every INSERT. On top of that come the page changes in memory, and later the page writes to disk. Your numbers will differ a little by version, but the pattern holds: **more indexes, more log per write**. This is why a table that is written a lot should keep only the indexes it needs.
+
+</details>
 
 ## 2. A full page splits
 
@@ -64,6 +81,25 @@ A split writes three pages (old leaf, new leaf, and the parent), not one. It is 
 
 > **Remember:** a full page splits in two. Keys in order split only on the right edge.
 
+<details class="more"><summary>📖 More detail: what a split does</summary>
+
+A split has three steps:
+
+1. Postgres allocates a new page.
+2. It moves the upper part of the items to the new page. The left page keeps the lower part, and gets a **high key** and a **right link** to the new page.
+3. It adds an entry for the new page in the parent. If the parent is full, the parent splits too, and so on up to the root. A root split adds one level. The docs say so.
+
+A search that arrives in the middle of a split follows the right link and still finds its key. This is the Lehman and Yao design from the source README.
+
+Now measure which keys split more. I inserted 200,000 integers into an index that already existed:
+
+- In order: leaf pages 10.0% empty, 547 leaf pages.
+- In random order: leaf pages 24.6% empty, 654 leaf pages.
+
+The random order made about 20% more leaf pages for the same data. More pages to cache and to write. `REINDEX` makes it tidy again. This is the cost of a random key, like a random UUID. When keys arrive in order, only the last page splits, and the other pages stay 90% full.
+
+</details>
+
 ## 3. An UPDATE that is not HOT writes into every index
 
 An UPDATE writes a new row version (lesson 24, card 9). The new version has a **new address**. Every index finds rows by address. So every index needs a new entry, not only the index on the column you changed.
@@ -95,6 +131,21 @@ The old entries and old rows stay, dead, until VACUUM cleans them. VACUUM makes 
 
 > **Remember:** an UPDATE that is not HOT adds an entry to every index, even for columns you did not change.
 
+<details class="more"><summary>📖 More detail: the log cost of an UPDATE</summary>
+
+I measured the log for single-row UPDATEs on a table with 3 indexes. 3,000 updates each:
+
+- HOT update (a plain column, room on the page): **442 bytes** per update.
+- Not HOT (an indexed column changes): **890 bytes** per update.
+
+About twice as much log, because every index also needs a new entry.
+
+Then there is the clean-up. VACUUM must remove every dead row version, and every dead entry from every index. Postgres helps in two ways. When a leaf page is about to split because of old versions from updates, it first tries to delete dead entries from that page (*bottom-up deletion*). And when one key appears many times, it can store the key once with a list of addresses (*deduplication*, on by default). Both are in the source README. Both help only when keys repeat, or when the update does not change the key.
+
+An index that is much bigger than it needs to be is called **bloated**. `REINDEX INDEX CONCURRENTLY` rebuilds it without blocking writes.
+
+</details>
+
 ## 4. HOT: the shortcut
 
 Card 3 was the expensive case. What if you change a column that has **no index**, like `note`? The new row version can stay on the same page, and the indexes keep pointing at the old spot. A small forward link finishes the job. This is a **HOT update** (heap-only tuple). It needs no new index entry at all.
@@ -122,6 +173,25 @@ Updating every row in one statement is the worst case. In a live system, old ver
 </details>
 
 > **Remember:** HOT needs no indexed column changed and room on the page. A lower fillfactor leaves room.
+
+<details class="more"><summary>📖 More detail: HOT on the page, and how often it works</summary>
+
+With `pageinspect` you can see a HOT chain. I made a table with `fillfactor = 70`, inserted 3 rows, and updated a plain column of row 2:
+
+| Slot | ctid | Flag |
+|---|---|---|
+| 2 | (0,4) | HEAP_HOT_UPDATED |
+| 4 | (0,4) | HEAP_ONLY_TUPLE |
+
+Slot 2 is the old version. It points to slot 4 and is marked "HOT updated". Slot 4 is the new version, marked "heap only": **no index points to it**. The indexes still point to slot 2. A lookup finds slot 2, sees the mark, and follows the chain to slot 4.
+
+Old versions in a HOT chain are cleaned inside the page, without VACUUM. This is called *pruning*. It happens when a page is nearly full, even during a SELECT. The docs say so.
+
+The test in card 4 updated every row in one statement. That is the worst case. In a second test I updated 3,000 different rows, one statement each, with `fillfactor = 100`. **2,627 of them (88%) were HOT**, because pruning freed room between the updates.
+
+Two notes from the docs. A `fillfactor` set with `ALTER TABLE` only affects pages written afterwards. And a BRIN index does not stop a HOT update.
+
+</details>
 
 ## 5. The planner ignores your index: too many rows
 
@@ -158,6 +228,31 @@ Why: using the index means jumping to table pages in a scattered order, 900,000 
 </details>
 
 > **Remember:** an index helps when few rows match. When most rows match, reading the table is cheaper.
+
+<details class="more"><summary>📖 More detail: the numbers behind the choice</summary>
+
+For PAID (900,000 rows) I looked at both plans:
+
+- Seq Scan: cost **22,801**.
+- Bitmap Heap Scan (forced with `SET enable_seqscan = off`): cost **31,589**.
+
+For PENDING (100,000 rows) the bitmap plan costs **12,664**. That is less than the 22,801 of the Seq Scan, so the index wins.
+
+A **bitmap scan** first collects the addresses from the index, sorts them by table page, and then reads each table page once, in order. It is the middle way between one-by-one index jumps and reading everything.
+
+The break-even is not a fixed percent. It also depends on **correlation**: how well the column order matches the row order in the table (lesson 24, card 5, More detail). `id` has correlation 1, so an index scan reads the table pages in order, which is cheap. For `WHERE id < X` on 1 million rows:
+
+| Rows matched | Plan |
+|---|---|
+| 0.1% | Index Scan |
+| 5% | Index Scan |
+| 20% | Index Scan |
+| 50% | Index Scan |
+| 90% | Seq Scan |
+
+Do not learn a percent. Ask EXPLAIN.
+
+</details>
 
 ## 6. The planner ignores your index: you hid the column
 
@@ -202,6 +297,23 @@ After the first fix, query 2 uses `Bitmap Index Scan on l26_orders_email_lower`.
 
 > **Remember:** do not wrap the indexed column in a function or a cast. If you must, index the expression.
 
+<details class="more"><summary>📖 More detail: why the index cannot help</summary>
+
+An index on `email` is sorted by `email`. The values of `lower(email)` are another list, in another order. The index knows nothing about them. The same is true for `id::text`.
+
+**Dates are the most common case.** There is a B-tree index on the timestamp `at` (1 million rows):
+
+- `at::date = '2026-01-05'`: Seq Scan.
+- `at >= '2026-01-05' AND at < '2026-01-06'`: Index Only Scan.
+
+The rule: leave the column alone, and change the other side. Turn "this day" into a range.
+
+**LIKE.** `LIKE 'abc%'` has a fixed start, so a B-tree can help. `LIKE '%abc'` has none. In a database that does not use the C locale, the index also needs `text_pattern_ops` before `LIKE` can use it (the docs say so). My test database uses the C locale, so I did not test that.
+
+An **expression index** stores the result for every row, for example `lower(email)`. The query must use the same expression. And the expression is worked out again on every INSERT and UPDATE.
+
+</details>
+
 ## 7. Other kinds of index
 
 B-tree is the default. Postgres has more.
@@ -229,6 +341,26 @@ For the exact row it is less precise than a B-tree, so it reads a few extra page
 </details>
 
 > **Remember:** default to B-tree. Think BRIN for huge tables that grow in the order of one column.
+
+<details class="more"><summary>📖 More detail: BRIN ranges, and the hash index</summary>
+
+A BRIN index keeps a small summary for each **block range**: 128 table pages by default (`pages_per_range`). For the column `at` it keeps the smallest and the largest time in the range. With `brin_page_items` I read the first three ranges of the events index:
+
+| Table pages | Smallest | Largest |
+|---|---|---|
+| 0 to 127 | 07:00:01 | 13:34:40 |
+| 128 to 255 | 13:34:41 | 20:09:20 |
+| 256 to 383 | 20:09:21 | 02:44:00 |
+
+(The times are in the +07 time zone of my test. The third range ends on the next day.) The table has 5,406 pages, so there are 43 ranges. The whole index is 24 kB, which is 3 pages.
+
+A query for one day checks the ranges and skips every range that cannot contain it. It reads the others and checks each row again. BRIN is *lossy*, the docs say.
+
+It works only because new rows have later times, so each range covers its own slice of time. If the rows were in random time order, every range would cover nearly the whole span, and nothing could be skipped.
+
+**Hash.** A hash index stores only a 4-byte **hash** of each key, so its size does not depend on how long the key is. It answers `=` only, and it is lossy too. On 1 million `note` texts: hash 32 MB, B-tree 39 MB. The docs say it is fully crash recoverable.
+
+</details>
 
 ## 8. Cleaning up: indexes nobody uses
 
@@ -261,6 +393,25 @@ Careful before you drop one. `idx_scan = 0` only means "not used since the count
 </details>
 
 > **Remember:** unused indexes still cost on every write. Check `idx_scan`, then drop with care.
+
+<details class="more"><summary>📖 More detail: reading the counters safely</summary>
+
+`pg_stat_user_indexes` has two useful columns: `idx_scan` (how many scans) and `last_idx_scan` (the time of the last scan). In my test, the two used indexes had a time, and the two unused ones had none. "Not used for 3 months" is a stronger sign than "0 scans".
+
+Where the counters can fool you:
+
+- They start at the last **reset**. After a clean restart they are kept. After a crash or an immediate shutdown, **all counters are reset**. The docs say so. Look at `stats_reset` in `pg_stat_database`.
+- Each server keeps its own counters. A read replica counts its own scans, not the primary's. Check both.
+- A monthly or yearly report may use an index that looks unused today.
+
+Do not drop an index only because its count is 0 if it:
+
+- backs a PRIMARY KEY, UNIQUE or EXCLUDE rule, or
+- is on the columns of a **foreign key**. The docs say it is often a good idea to index the referencing columns, because deleting a row from the referenced table must look for the rows that refer to it.
+
+Also look for two indexes on the same columns. One of them is waste.
+
+</details>
 
 ## 9. Watch it run, step by step
 

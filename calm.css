@@ -146,6 +146,9 @@ body.look-calm {
 /* a guess bar (<details class="guess">) is orange, so "try it first" looks different from "go deeper" */
 .look-calm article details.guess > summary { background: var(--c-orange); }
 .look-calm article details.guess > summary:hover { background: #ffd5aa; }
+/* a "More detail" bar (<details class="more">) is blue: the longer explanation under a short card */
+.look-calm article details.more > summary { background: var(--c-blue); }
+.look-calm article details.more > summary:hover { background: #c5dcfb; }
 .look-calm article details > :not(summary) { margin-left: 14px; margin-right: 14px; }
 .look-calm article details > summary + * { margin-top: 12px; }
 .look-calm article details > :last-child { margin-bottom: 12px; }

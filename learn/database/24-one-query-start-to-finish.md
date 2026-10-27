@@ -6,7 +6,7 @@
 >
 > **Before this:** [SQL basics and the order a query runs](01-sql-basics-and-query-order.md). [Reading EXPLAIN](11-reading-explain.md) helps, but you can read this first. · **Next:** [An index, built and searched](25-an-index-built-and-searched.md)
 >
-> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes.
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
 ## 1. The idea: a restaurant kitchen
 
@@ -35,6 +35,23 @@ The cook who reads the slip (the parser) and the head chef (the planner) never t
 
 > **Remember:** six stops: connect, parse, plan, run, memory, disk. Only "run" reads rows.
 
+<details class="more"><summary>📖 More detail: the real names of the six stops</summary>
+
+The kitchen is an analogy. These are the real names:
+
+- **Connect:** the *postmaster* starts a *backend process* for you.
+- **Parse:** the *parser* checks the grammar and builds a tree. It does not need to know your tables.
+- **Names:** *parse analysis* looks up tables, columns, types and functions in the catalog. It also checks that the types fit.
+- **Rewrite:** the *rewriter* replaces a view with the query behind it.
+- **Plan:** the *planner* (also called the optimizer) scores the ways and picks the cheapest.
+- **Run:** the *executor* walks the plan tree and reads or changes the rows.
+- **Memory and disk:** the *buffer manager* keeps 8 KB pages in memory. The table and index files on disk hold the rest.
+- **Log:** the *WAL* records every change before the pages reach the disk.
+
+The official docs list the stages as connection, parser, rewrite system, planner/optimizer and executor. See [The Path of a Query](https://www.postgresql.org/docs/current/query-path.html).
+
+</details>
+
 ## 2. Stop 1: you get your own process
 
 A host waits at the door. When you connect, the host starts one new helper just for you.
@@ -56,6 +73,24 @@ Each one uses memory, and the computer must switch between them. So people keep 
 </details>
 
 > **Remember:** one connection is one process. Keep connections few. Use a pool.
+
+<details class="more"><summary>📖 More detail: memory, and why connections are not free</summary>
+
+Each backend process has its own private memory. All of them also share one big memory area (shared buffers, the log buffers, the lock tables).
+
+The setting `work_mem` is **not** per connection. It is per sort or hash step inside a query. The default is 4 MB. A query with 3 such steps can use 12 MB, and 100 sessions can do that at the same time. So the total can be many times `work_mem`. The docs say this too.
+
+By default Postgres allows 100 connections (`max_connections`). A pool such as PgBouncer keeps a small number of real connections and shares them between many clients. This matters for serverless apps, where every function instance can open its own connection.
+
+You can see the helper processes on a real server:
+
+```sql
+SELECT backend_type, count(*)
+FROM pg_stat_activity
+GROUP BY backend_type;
+```
+
+</details>
 
 ## 3. Stop 2: the parser reads your words
 
@@ -93,6 +128,47 @@ Statement 2 is the same kind of error as lesson 1, card 3. The name check happen
 
 > **Remember:** typos and unknown names fail early, before any row is read. Bad math fails late.
 
+<details class="more"><summary>📖 More detail: type errors, and what a view becomes</summary>
+
+The name check also checks **types**. Two more statements. Both fail before any row is read:
+
+```sql
+SELECT * FROM l24_orders
+WHERE id = 'abc';
+-- invalid input syntax
+--   for type integer: "abc"
+
+SELECT * FROM l24_orders
+WHERE id = status;
+-- operator does not exist:
+--   integer = text
+```
+
+The quoted `'abc'` has no type yet. Postgres tries to turn it into an integer and cannot. And there is no operator to compare an integer with text. But `WHERE id = '5'` works: the `'5'` becomes the integer 5.
+
+Now the **rewrite** step. Make a view and ask for it:
+
+```sql
+CREATE VIEW l24_paid AS
+  SELECT id, total_cents
+  FROM l24_orders
+  WHERE status = 'PAID';
+
+EXPLAIN (COSTS OFF)
+SELECT * FROM l24_paid
+WHERE total_cents > 20000;
+```
+
+```text
+Seq Scan on l24_orders
+  Filter: (total_cents > 20000
+    AND status = 'PAID')
+```
+
+(Shortened.) The view is gone. Postgres joined its WHERE with yours and ran it on the real table.
+
+</details>
+
 ## 4. Stop 3: the planner picks the cheapest way
 
 There is an index on `total_cents`. So this query has two ways to run.
@@ -125,6 +201,43 @@ Cost is **not** milliseconds. It is a made-up score. These prices are settings y
 
 > **Remember:** the planner scores each way and picks the lowest. The score is a guess, not a time.
 
+<details class="more"><summary>📖 More detail: start-up cost, and the prices</summary>
+
+`cost=0.00..1791.00` has two numbers. The first is the **start-up cost**: the work to do before the first row can come out. The second is the **total cost**.
+
+Look at a query that sorts all 100,000 rows (`ORDER BY total_cents DESC`):
+
+```text
+Sort
+  cost=9845.82..10095.82
+  -> Seq Scan
+     cost=0.00..1541.00
+```
+
+The Seq Scan can give its first row at once (start-up 0.00). The Sort cannot give any row until it has read and sorted all of them. So its start-up cost is almost its whole cost: 9,845.82 of 10,095.82.
+
+Now `ORDER BY id`. The rows already come out of the primary key index in order, so there is nothing to sort:
+
+```text
+Index Scan using
+  l24_orders_pkey
+  cost=0.29..3148.29
+```
+
+The start-up cost is tiny (0.29). This is why `ORDER BY ... LIMIT 10` likes an index on the sort column.
+
+The prices are settings. These are the defaults:
+
+- `seq_page_cost` = 1.0: read a page in order.
+- `random_page_cost` = 4.0: read a page out of order.
+- `cpu_tuple_cost` = 0.01: handle one row.
+- `cpu_index_tuple_cost` = 0.005: handle one index entry.
+- `cpu_operator_cost` = 0.0025: run one operator, like `=`.
+
+The planner also chooses the join order and the join method (nested loop, hash join, merge join). See [How Postgres works inside](postgres-internals-visual.md), Part 6.
+
+</details>
+
 ## 5. The planner's notes
 
 How does the planner know the table has 100,000 rows, and that 10% are PENDING? It keeps **notes** (statistics). It does not count the rows each time.
@@ -149,6 +262,29 @@ In a real database, **autovacuum** runs ANALYZE for you after about 10% of the r
 </details>
 
 > **Remember:** wrong notes make a wrong plan. After a big load, run `ANALYZE`.
+
+<details class="more"><summary>📖 More detail: what is in the notes</summary>
+
+The notes live in the view `pg_stats`. This is `l24_orders` after one `ANALYZE`:
+
+- `id`: n_distinct = -1, correlation = 1
+- `status`: n_distinct = 2, correlation = 0.82
+- `total_cents`: n_distinct = -0.19, correlation = -0.005
+
+What the columns mean:
+
+- **n_distinct:** how many different values. A negative number is a share of the rows. -1 means every row is different.
+- **most_common_vals and most_common_freqs:** for `status`: PAID 0.898 and PENDING 0.102.
+- **histogram_bounds:** for `total_cents`: 101 values that cut the column into 100 groups with about the same number of rows. The first four are 1001, 1199, 1382 and 1582.
+- **correlation:** how well the order of the values matches the order of the rows in the table, from -1 to 1. `id` is 1, because the rows were loaded in id order. A high number makes an index scan look cheaper.
+
+The guess is just arithmetic. 100,000 rows × 0.10213 (the share of PENDING) = 10,213. In this run EXPLAIN printed `rows=10213`. (`ANALYZE` reads a random sample, so every run gives a slightly different number. The card showed 9,807 from another run.)
+
+Before the first `ANALYZE`, `pg_class.reltuples` is -1 ("unknown"). So the planner builds a guess from the size of the file and a default share. That is where `rows=325` came from.
+
+Two limits. The notes are always approximate. A bigger `default_statistics_target` (100 by default) means a bigger sample and more detail. And the notes look at each column alone. If two columns depend on each other, like city and country, the guess can be far off. `CREATE STATISTICS` can help.
+
+</details>
 
 ## 6. Stop 4: the executor runs the plan
 
@@ -183,6 +319,43 @@ Rows are pulled up one at a time. When Limit has enough, it stops asking, and th
 
 > **Remember:** the executor pulls rows up the tree. A box that has enough stops asking.
 
+<details class="more"><summary>📖 More detail: one row at a time, and spilling to disk</summary>
+
+Each box asks the box below it for the next row. Some boxes pass rows on as they get them (Seq Scan, Limit). Some must see **all** the rows first (Sort). That is the start-up cost from card 4.
+
+A sort needs memory. The limit is `work_mem` (4 MB by default). Sort all 100,000 rows:
+
+```sql
+EXPLAIN (ANALYZE, COSTS OFF)
+SELECT id, total_cents
+FROM l24_orders
+ORDER BY total_cents DESC;
+```
+
+```text
+Sort Method: quicksort
+  Memory: 3983kB
+```
+
+Almost 4 MB. It just fits. Now give it less memory:
+
+```sql
+SET work_mem = '64kB';
+```
+
+```text
+Sort Method: external merge
+  Disk: 1824kB
+```
+
+Now Postgres writes temporary files to disk and merges them. This is much slower.
+
+Each sort or hash step in a query can use `work_mem` on its own, so do not raise it for the whole server. Raise it only in the one session that needs it.
+
+With `LIMIT 2`, the sort only needs the best 2 rows. It keeps a tiny heap: `top-N heapsort, Memory: 17kB`.
+
+</details>
+
 ## 7. Memory first, disk second
 
 The stove shelf is fast. The warehouse is slow. Postgres keeps recent pages on the shelf.
@@ -213,6 +386,45 @@ One catch: `read` does not always mean the physical disk. The operating system k
 
 > **Remember:** `hit` is memory, `read` is not. A page is always 8 KB.
 
+<details class="more"><summary>📖 More detail: what happens when the shelf is full</summary>
+
+Shared buffers are 128 MB by default. That is 16,384 pages of 8 KB.
+
+When a new page is needed and every buffer is in use, Postgres must throw one out. It uses a **clock sweep**. A "hand" walks around the buffers. Each time a page is used, its **usage count** goes up, to a small limit. The hand lowers the count as it passes, and takes the first buffer that is not in use and has a count of 0. If that page was changed, it is written out first.
+
+Two helpers. A big sequential scan uses only a small ring of 256 KB, so one huge scan does not push everything else out. And the *background writer* writes changed pages early, in small steps.
+
+Postgres is not the only cache. The operating system caches files too, so a page can be in both. The setting `effective_cache_size` (4 GB by default) only tells the planner how much cache to expect. It reserves nothing.
+
+You can look inside with the `pg_buffercache` extension (test database only). After loading `l24_orders`:
+
+```sql
+SELECT c.relname,
+       count(*) AS buffers
+FROM pg_buffercache b
+JOIN pg_class c
+  ON b.relfilenode =
+     pg_relation_filenode(
+       c.oid)
+WHERE c.relname LIKE 'l24%'
+  AND b.reldatabase = (
+    SELECT oid
+    FROM pg_database
+    WHERE datname =
+      current_database())
+GROUP BY 1
+ORDER BY 2 DESC;
+```
+
+| relname | buffers |
+|---|---|
+| l24_orders | 544 |
+| l24_orders_pkey | 276 |
+
+541 of the 544 table buffers are table pages. The other 3 are small helper files. Most buffers had a usage count of 5, the highest I saw.
+
+</details>
+
 ## 8. A write: the log goes first
 
 Before the cook moves anything in the pantry, she writes it in the logbook. If the lights go out, she reads the book and finishes the job.
@@ -240,6 +452,20 @@ So COMMIT waits for the log to reach the disk, not for the table. That wait is t
 </details>
 
 > **Remember:** log first, table later. COMMIT waits for the log.
+
+<details class="more"><summary>📖 More detail: the log, checkpoints and the trade-off</summary>
+
+A log record is a small description of a change. Its place in the log is the **LSN** (log sequence number), like `0/22DED50`. Every page remembers the LSN of its last change. The rule: a page may be written to disk only after the log up to that LSN is on disk. The docs say it this way: changes to data files must be written only after the WAL records describing them have been flushed.
+
+After a crash, Postgres starts from the last **checkpoint** and replays the log (this is called REDO). A checkpoint writes all changed pages to disk. It happens every 5 minutes (`checkpoint_timeout`), or sooner when the log reaches `max_wal_size` (1 GB by default).
+
+Why not write the table pages at COMMIT? One commit can change many pages in many files, all over the disk. The log is one file, written in order. Flushing only the log is much cheaper. The docs say so too.
+
+The same log also makes backup and point-in-time recovery possible (the docs).
+
+**The trade-off.** `synchronous_commit = off` makes COMMIT return before the log is flushed. A crash can lose the last few transactions, at most about 3 × `wal_writer_delay` (3 × 200 ms by default). It does **not** corrupt the database. `fsync = off` is different: it can corrupt the database. Never use it for data you care about.
+
+</details>
 
 ## 9. An UPDATE writes a new row
 
@@ -272,6 +498,37 @@ Two costs follow. The table grows until VACUUM runs. And every index must learn 
 </details>
 
 > **Remember:** an UPDATE is a new row plus a dead old row. The row moves.
+
+<details class="more"><summary>📖 More detail: look at the row versions yourself</summary>
+
+With the `pageinspect` extension (test database only) you can read the version fields of a row. This is row 7 of `l24_orders`, before and after the UPDATE:
+
+```sql
+SELECT lp, t_xmin, t_xmax,
+       t_ctid
+FROM heap_page_items(
+  get_raw_page(
+    'l24_orders', 0))
+WHERE lp = 7;
+```
+
+| Version | xmin | xmax | ctid |
+|---|---|---|---|
+| before | 747 | 0 | (0,7) |
+| old | 747 | 748 | (540,101) |
+| new | 748 | 0 | (540,101) |
+
+- **xmin:** the transaction that created this version.
+- **xmax:** the transaction that deleted or replaced it. 0 means nobody did.
+- **ctid:** the row's own address. For an old version it is the address of the newer one.
+
+Transaction 748 is the UPDATE. A query that started before 748 committed still sees the old version. This is how readers and writers do not block each other (MVCC, lesson 16, not written yet). In this run the new row landed at (540,101). In the card it was (540,103). The last number changes from run to run.
+
+**What happens to the old version?** On the next read of that page, Postgres does a cheap clean-up called *pruning*. It frees the old row's data, but keeps the 4-byte line pointer as a "dead" stub, because an index entry still points to it. Later, **VACUUM** removes the index entry and frees the stub. (By default VACUUM skips the index clean-up when there is very little to do. I used `VACUUM (INDEX_CLEANUP ON)` to see the stub freed.)
+
+A row of this table takes 40 bytes: a 24-byte header (23 bytes and 1 byte of padding) and 16 bytes of data.
+
+</details>
 
 ## 10. Watch it run, step by step
 
