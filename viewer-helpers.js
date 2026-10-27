@@ -54,7 +54,32 @@
     return longest.map(n => Math.min(cap, Math.max(floor, n)));
   }
 
-  const api = { escapePlaceholders, sectionKind, fitDiagram, columnWidths };
+  // Resolve a relative link against a folder, collapsing "." and ".." segments.
+  // Returns a path relative to the repo root. It can never climb above the repo root.
+  function resolveFrom(dir, href) {
+    const parts = dir.split("/").filter(Boolean).concat(href.split("/"));
+    const out = [];
+    for (const seg of parts) {
+      if (seg === "" || seg === ".") continue;
+      if (seg === "..") out.pop();
+      else out.push(seg);
+    }
+    return out.join("/");
+  }
+
+  // A lesson links to its practice files and example folders relative to its own folder (practice/01-x.sql).
+  // The page is viewer.html, so the browser looks in the wrong place. Send those links to GitHub, which also
+  // shows code on a phone (GitHub Pages would download a .sql file). Other links return null: .md and .html
+  // links are fixed by the viewer itself, and anchors, full URLs and mailto links are already right.
+  const REPO_URL = "https://github.com/starjustice/research-material";
+  function repoLinkFor(baseDir, href) {
+    if (!href || href.startsWith("#") || href.startsWith("/") || /^[a-z][a-z0-9+.-]*:/i.test(href)) return null;
+    if (/\.(md|html)([?#].*)?$/i.test(href)) return null;
+    const path = href.split(/[?#]/)[0];
+    return REPO_URL + (path.endsWith("/") ? "/tree/main/" : "/blob/main/") + resolveFrom(baseDir, path);
+  }
+
+  const api = { escapePlaceholders, sectionKind, fitDiagram, columnWidths, resolveFrom, repoLinkFor };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else window.ViewerHelpers = api;
 })();

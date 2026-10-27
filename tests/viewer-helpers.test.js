@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { escapePlaceholders, sectionKind, fitDiagram, columnWidths } = require("../viewer-helpers");
+const { escapePlaceholders, sectionKind, fitDiagram, columnWidths, repoLinkFor } = require("../viewer-helpers");
 
 test("escapePlaceholders shows a standalone placeholder as text", () => {
   assert.strictEqual(escapePlaceholders("a\n\n<write here>\n\n## Next"), "a\n\n&lt;write here&gt;\n\n## Next");
@@ -56,4 +56,22 @@ test("columnWidths respects the floor and the cap, and copes with empty or uneve
   assert.deepStrictEqual(columnWidths([["x".repeat(50)]]), [24]);
   assert.deepStrictEqual(columnWidths([["x".repeat(50)]], { cap: 30 }), [30]);
   assert.deepStrictEqual(columnWidths([["  padded  "]]), [6]);
+});
+
+const GH = "https://github.com/starjustice/research-material";
+
+test("repoLinkFor sends a relative file or folder link to GitHub, counted from the lesson's folder", () => {
+  assert.strictEqual(repoLinkFor("learn/database", "practice/01-x.sql"), GH + "/blob/main/learn/database/practice/01-x.sql");
+  assert.strictEqual(repoLinkFor("learn/database", "./practice/01-x.sql"), GH + "/blob/main/learn/database/practice/01-x.sql");
+  assert.strictEqual(repoLinkFor("learn/database", "examples/postgres-practice/"), GH + "/tree/main/learn/database/examples/postgres-practice");
+  assert.strictEqual(repoLinkFor("learn/system-design", "../backend-api/examples/app.ts"), GH + "/blob/main/learn/backend-api/examples/app.ts");
+});
+
+test("repoLinkFor leaves every other kind of link alone", () => {
+  const same = ["#top", "https://example.com/a.sql", "mailto:a@b.c", "other.md", "x/y.html", "other.md#part", "/abs/a.sql", "", undefined];
+  for (const href of same) assert.strictEqual(repoLinkFor("learn/database", href), null, String(href));
+});
+
+test("repoLinkFor cannot climb out of the repo", () => {
+  assert.strictEqual(repoLinkFor("learn/database", "../../../../x.sql"), GH + "/blob/main/x.sql");
 });
