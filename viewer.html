@@ -509,7 +509,44 @@
     }
   }
 
+  // Tap a diagram to see it full screen. It opens fitted to the screen (the whole picture); tap again for real size.
+  function openDiagram(svg) {
+    const natural = svg.viewBox.baseVal.width;
+    const dlg = document.createElement("dialog");
+    dlg.className = "diagram-zoom";
+    const bar = document.createElement("div");
+    bar.className = "diagram-zoom-bar";
+    const zoom = document.createElement("button");
+    const close = document.createElement("button");
+    close.textContent = "✕ Close";
+    bar.append(zoom, close);
+    const hint = document.createElement("p");
+    hint.className = "diagram-zoom-hint";
+    const pane = document.createElement("div");
+    pane.className = "diagram-zoom-pane";
+    const copy = svg.cloneNode(true);
+    copy.removeAttribute("style");
+    pane.append(copy);
+    dlg.append(bar, hint, pane);
+    const setMode = real => {
+      pane.classList.toggle("real", real);
+      copy.style.width = real ? natural + "px" : "";
+      zoom.textContent = real ? "Fit to screen" : "Real size";
+      hint.textContent = real ? "Drag to move around the picture." : "Too small? Turn your phone sideways, or tap Real size.";
+      hint.hidden = !real && natural * 0.7 <= innerWidth; // a picture that fits well needs no hint
+    };
+    zoom.onclick = () => setMode(!pane.classList.contains("real"));
+    copy.onclick = zoom.onclick;
+    close.onclick = () => dlg.close();
+    dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener("close", () => dlg.remove());
+    setMode(false);
+    document.body.append(dlg);
+    dlg.showModal();
+  }
+
   // A diagram wider than its box keeps a readable size and the box scrolls sideways (see fitDiagram).
+  // Any diagram that does not fit also gets a "tap to enlarge" button (openDiagram).
   content.querySelectorAll(".mermaid").forEach(box => {
     const svg = box.querySelector("svg");
     if (!svg) return; // this diagram did not render
@@ -519,13 +556,15 @@
     if (fit.width === null) return;
     svg.style.maxWidth = "none";
     svg.style.width = fit.width + "px";
-    if (fit.scrolls) {
-      box.classList.add("scrolls");
-      const hint = document.createElement("p");
-      hint.className = "swipe-hint";
-      hint.textContent = "Swipe sideways to see the whole picture";
-      box.before(hint);
-    }
+    if (fit.scrolls) box.classList.add("scrolls");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "enlarge-btn";
+    btn.textContent = "⤢ Tap the picture to enlarge";
+    btn.onclick = () => openDiagram(svg);
+    box.before(btn);
+    box.classList.add("zoomable");
+    box.addEventListener("click", () => openDiagram(svg));
   });
 
   // A table keeps a readable width per column (see columnWidths) and scrolls sideways when it needs more room.

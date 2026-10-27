@@ -120,6 +120,8 @@ body.look-calm {
 .look-calm article code { background: var(--c-yellow); border: 1px solid var(--ink); border-radius: 5px; padding: 0 5px; }
 .look-calm article pre { border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
 .look-calm article pre code { background: none; border: 0; padding: 0; }
+/* a long code word in a sentence (a token, a hash) breaks at the edge instead of pushing the page sideways */
+.look-calm article :not(pre) > code { overflow-wrap: break-word; }
 
 /* tables and diagrams */
 .look-calm article table { border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
@@ -129,6 +131,26 @@ body.look-calm {
   .look-calm article th, .look-calm article td { min-width: var(--col-min, 0); }
 }
 .look-calm .mermaid { background: #fff; border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); }
+
+/* a diagram that does not fit gets a "tap to enlarge" button (and the picture itself is tappable) */
+.look-calm .enlarge-btn, .look-calm .diagram-zoom-bar button {
+  font: 700 .8rem var(--font-body); color: var(--ink); background: var(--c-blue); cursor: pointer;
+  border: var(--line); border-radius: 999px; box-shadow: 2px 2px 0 #1b1b1b; padding: 5px 14px;
+}
+.look-calm .enlarge-btn { display: block; width: fit-content; max-width: 100%; margin: 12px 0 8px; }
+.look-calm .mermaid.zoomable { cursor: zoom-in; }
+/* the full screen view: a top bar with two buttons, then the picture. Fitted to the screen first, real size on tap. */
+.look-calm dialog.diagram-zoom {
+  width: 100vw; max-width: none; height: 100vh; height: 100dvh; max-height: none;
+  margin: 0; padding: 0; border: 0; background: #fff; color: var(--ink);
+}
+.look-calm dialog.diagram-zoom[open] { display: flex; flex-direction: column; }
+.look-calm .diagram-zoom-bar { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--c-yellow); border-bottom: var(--line); }
+.look-calm .diagram-zoom-hint { margin: 0; padding: 6px 12px; font-size: .78rem; color: var(--muted); border-bottom: 1px solid #d9d2c3; }
+.look-calm .diagram-zoom-pane { flex: 1; min-height: 0; overflow: auto; padding: 8px; touch-action: pan-x pan-y pinch-zoom; }
+.look-calm .diagram-zoom-pane svg { display: block; max-width: none; margin: 0 auto; cursor: zoom-in; }
+.look-calm .diagram-zoom-pane:not(.real) svg { width: 100%; height: 100%; }
+.look-calm .diagram-zoom-pane.real svg { height: auto; cursor: zoom-out; }
 
 /* hidden answers: a pressable bar that opens */
 .look-calm article details {
