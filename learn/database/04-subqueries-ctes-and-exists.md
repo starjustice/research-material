@@ -1,71 +1,195 @@
 # 04. Subqueries, CTEs and EXISTS
 
-> **Subject:** Database · **Lesson:** 04 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** Database · **Lesson:** 04 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** put one query inside another, split a long query into named steps with WITH, and answer "has at least one" and "has none" questions with EXISTS and NOT EXISTS, without falling into the NOT IN trap.
+>
 > **Before this:** [Grouping and aggregation](03-grouping-and-aggregation.md) · **Next:** [Window functions](05-window-functions.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: ask a friend first
 
-Some questions need another answer first, so you put a small query inside the big one, and Postgres uses the small answer in the big question.
+You want to know which orders are **bigger than the average order**. You cannot answer until you know the average. So you ask a friend first, then use the answer.
 
-New words, at most 4:
+```mermaid
+graph TB
+    Q["❓ Orders above average?"] --> A["1. Inner: the average is 48"]
+    A --> B["2. Outer: totals above 48"]
+```
 
-- **Subquery:** a query inside brackets, inside another query. Postgres uses its answer in the outer query. (Interview word: *subquery* or *inner query*.)
-- **Correlated subquery:** a subquery that uses a value from the outer row, like `s.id`. So Postgres runs it again for every outer row. (Interview word: *correlated subquery*.)
-- **CTE:** a named step at the top of a query, written with `WITH name AS (...)`. Later steps read it like a table. (Interview word: *CTE*, short for *common table expression*.)
-- **Unknown:** `NULL` means "no value". When Postgres compares anything with `NULL`, the answer is not true and not false. It is unknown. `WHERE` keeps a row only when the answer is true.
+Notice: the small query sits **inside** the big one, in brackets. Postgres runs the inner query first.
 
-The rule to remember: **for "has one", use EXISTS. For "has none", use NOT EXISTS. Never use NOT IN on a list that could hold a NULL.**
+Our tiny table `mini_orders` has 5 orders:
 
-## 2. The pictures
-
-All pictures use four tiny stores and five orders. Section 4 has the code to make them.
-
-| stores | id | name | referred_by |
+| id | store_id | status | total |
 |---|---|---|---|
-| | 1 | Ana | NULL |
-| | 2 | Budi | 1 |
-| | 3 | Citra | 1 |
-| | 4 | Dewi | 2 |
+| 101 | 1 | PAID | 50 |
+| 102 | 1 | PENDING | 20 |
+| 103 | 2 | CANCELLED | 70 |
+| 104 | 3 | PAID | 90 |
+| 105 | 3 | PAID | 10 |
 
-| orders | id | store_id | status | total |
-|---|---|---|---|---|
-| | 101 | 1 | PAID | 50 |
-| | 102 | 1 | PENDING | 20 |
-| | 103 | 2 | CANCELLED | 70 |
-| | 104 | 3 | PAID | 90 |
-| | 105 | 3 | PAID | 10 |
-
-`referred_by` says which store brought this store in. Ana brought Budi and Citra. Budi brought Dewi.
-
-### 2a. The big picture
-
-Notice that the inner answer comes in three shapes, and the shape decides where you can put it.
-
-```mermaid
-graph LR
-    I["Inner query in brackets"] -->|runs first| A["An answer"]
-    A -->|one value| W1["WHERE total is above the value"]
-    A -->|a list| W2["WHERE id IN the list"]
-    A -->|a whole table| F["FROM the table AS a name"]
-    W1 --> O["The outer query uses the answer"]
-    W2 --> O
-    F --> O
+```sql
+SELECT id, total
+FROM mini_orders
+WHERE total > (
+  SELECT avg(total)
+  FROM mini_orders)
+ORDER BY id;
 ```
 
-### 2b. The problem, drawn
+<details class="guess"><summary>🤔 Guess: which orders come out? Press to check.</summary>
 
-Question: "Which orders are bigger than the average order?" You need the average first. Without a subquery, your app makes two trips. Notice the copied number in the middle.
-
-```mermaid
-graph LR
-    APP["Your app"] -->|trip 1 asks for the average| PG1["Postgres"]
-    PG1 -->|48| COPY["Your app copies 48 into a new query"]
-    COPY -->|trip 2 asks for totals above 48| PG2["Postgres"]
-    PG2 -->|101 103 104| DONE["Your app"]
+```
+ id  | total
+-----+-------
+ 101 |    50
+ 103 |    70
+ 104 |    90
+(3 rows)
 ```
 
-A second problem: "Which stores have **no** orders?" Notice that Dewi has no arrow. A normal `WHERE` looks at one store row at a time. It cannot see "no arrows". It must ask the orders table a question.
+The average is (50 + 20 + 70 + 90 + 10) / 5 = 48. Three orders are above 48.
+
+</details>
+
+> **Remember:** a subquery is a query in brackets. Postgres uses its answer in the outer query.
+
+<details class="more"><summary>📖 More detail: the four words, and what happens without a subquery</summary>
+
+- **Subquery:** a query inside brackets, inside another query. Postgres uses its answer in the outer query. (Interview words: *subquery* or *inner query*.)
+- **Correlated subquery:** a subquery that uses a value from the outer row, like `s.id`. So Postgres runs it again for every outer row (card 4).
+- **CTE:** a named step at the top of a query, written with `WITH name AS (...)`. Later steps read it like a table (card 7). (Interview word: *CTE*, short for *common table expression*.)
+- **Unknown:** `NULL` means "no value". When Postgres compares anything with `NULL`, the answer is not true and not false. It is unknown. `WHERE` keeps a row only when the answer is true (card 5).
+
+Without a subquery, your app makes **two trips**: ask for the average, copy 48 into a new query, ask again. A subquery does both in one trip.
+
+```mermaid
+graph TB
+    A["App asks for the average"] -->|48| B["App copies 48<br/>into a new query"]
+    B -->|trip 2| C["Postgres: 101 103 104"]
+```
+
+</details>
+
+## 2. Three shapes of an inner answer
+
+The inner query can give back one value, a list, or a whole table. The shape decides where you can put it.
+
+| The inner answer is | It goes in | Example |
+|---|---|---|
+| one value | `WHERE total > (...)` | above the average |
+| a list | `WHERE id IN (...)` | stores that have a PAID order |
+| a table | `FROM (...) AS name` | average orders per store |
+
+Our tiny table `mini_stores` has 4 stores. `referred_by` says which store brought this store in. Ana brought Budi and Citra. Budi brought Dewi.
+
+| id | name | referred_by |
+|---|---|---|
+| 1 | Ana | NULL |
+| 2 | Budi | 1 |
+| 3 | Citra | 1 |
+| 4 | Dewi | 2 |
+
+A list:
+
+```sql
+SELECT name
+FROM mini_stores
+WHERE id IN (
+  SELECT store_id
+  FROM mini_orders
+  WHERE status = 'PAID')
+ORDER BY id;
+```
+
+<details class="guess"><summary>🤔 Guess: which stores have a PAID order? Press to check.</summary>
+
+```
+ name
+-------
+ Ana
+ Citra
+(2 rows)
+```
+
+The inner query gives the list `1, 3, 3`. Orders 101, 104 and 105 are PAID. Only Ana (1) and Citra (3) are in the list.
+
+</details>
+
+> **Remember:** one value goes after `>` or `=`. A list goes after `IN`. A table goes in `FROM`.
+
+<details class="more"><summary>📖 More detail: the table shape, and an error with many rows</summary>
+
+A table: the average number of orders per store that has orders.
+
+```sql
+SELECT round(avg(order_count), 2)
+  AS avg_orders
+FROM (
+  SELECT store_id,
+    count(*) AS order_count
+  FROM mini_orders
+  GROUP BY store_id
+) AS per_store;
+```
+
+```
+ avg_orders
+------------
+       1.67
+```
+
+A table in `FROM` must have a name (`AS per_store`).
+
+**One value must be one row.** This fails, because three orders are PAID:
+
+```sql
+SELECT name
+FROM mini_stores
+WHERE id = (
+  SELECT store_id
+  FROM mini_orders
+  WHERE status = 'PAID');
+```
+
+```
+ERROR:  more than one row returned by a subquery used as an expression
+```
+
+`=` needs one value. Use `IN` for a list.
+
+Make the tables yourself (run once in any Postgres):
+
+```sql
+CREATE TABLE mini_stores (
+  id int PRIMARY KEY,
+  name text NOT NULL,
+  referred_by int);
+INSERT INTO mini_stores VALUES
+  (1, 'Ana', NULL), (2, 'Budi', 1),
+  (3, 'Citra', 1), (4, 'Dewi', 2);
+CREATE TABLE mini_orders (
+  id int PRIMARY KEY,
+  store_id int NOT NULL,
+  status text NOT NULL,
+  total int NOT NULL);
+INSERT INTO mini_orders VALUES
+  (101, 1, 'PAID', 50),
+  (102, 1, 'PENDING', 20),
+  (103, 2, 'CANCELLED', 70),
+  (104, 3, 'PAID', 90),
+  (105, 3, 'PAID', 10);
+```
+
+Checked on 2026-10-28 with PostgreSQL 17.5 (PGlite). Earlier checks on PostgreSQL 18.3 gave the same results.
+
+</details>
+
+## 3. EXISTS: has one, has none
+
+"Does this store have at least one PAID order?" is a yes or no question. `EXISTS` answers it. `NOT EXISTS` answers "has none".
 
 ```mermaid
 graph LR
@@ -74,273 +198,96 @@ graph LR
     BUDI["Budi"] --> O103["103 CANCELLED"]
     CITRA["Citra"] --> O104["104 PAID"]
     CITRA --> O105["105 PAID"]
-    DEWI["Dewi has no orders"]
+    DEWI["Dewi"] -.-> N["no orders"]
 ```
-
-### 2c. How it works over time
-
-A correlated subquery: "each store, with how many orders it has". Notice that the inner query runs once for **every** store row.
-
-```mermaid
-sequenceDiagram
-    participant O as Outer query on stores
-    participant I as Inner query on orders
-    O->>I: row Ana, so s.id is 1. Count orders of store 1
-    I-->>O: 2
-    O->>I: row Budi, so s.id is 2. Count orders of store 2
-    I-->>O: 1
-    O->>I: row Citra, so s.id is 3. Count orders of store 3
-    I-->>O: 2
-    O->>I: row Dewi, so s.id is 4. Count orders of store 4
-    I-->>O: 0
-    Note over O,I: 4 store rows, so the inner query ran 4 times
-```
-
-`EXISTS` for Citra: "does store 3 have a PAID order?" Notice that Postgres stops at the first yes. It never reads order 105.
-
-```mermaid
-sequenceDiagram
-    participant P as Postgres
-    participant T as orders table
-    P->>T: read 101
-    T-->>P: store 1, not a match
-    P->>T: read 102
-    T-->>P: store 1, not a match
-    P->>T: read 103
-    T-->>P: store 2, not a match
-    P->>T: read 104
-    T-->>P: store 3 and PAID, a match
-    Note over P,T: EXISTS is true. Postgres stops. 105 is never read.
-```
-
-### 2d. What is in memory right now
-
-The NOT IN trap, frozen at one moment. The query is `WHERE id NOT IN (SELECT referred_by FROM stores)`. The inner list is `NULL, 1, 1, 2`. Postgres is checking Citra, whose id is 3. Notice the one unknown.
-
-```mermaid
-graph TB
-    Q["Is 3 NOT IN the list NULL 1 1 2?"] --> C1["3 is different from NULL? unknown"]
-    Q --> C2["3 is different from 1? true"]
-    Q --> C3["3 is different from 1? true"]
-    Q --> C4["3 is different from 2? true"]
-    C1 --> ALL["NOT IN needs every check to be true. One is unknown."]
-    C2 --> ALL
-    C3 --> ALL
-    C4 --> ALL
-    ALL --> R["The answer is unknown, so WHERE drops Citra"]
-```
-
-Every store is dropped the same way. The query returns **0 rows**.
-
-| Store | id | Checks against NULL, 1, 1, 2 | NOT IN answer | Kept? |
-|---|---|---|---|---|
-| Ana | 1 | unknown, false, false, true | false | no |
-| Budi | 2 | unknown, true, true, false | false | no |
-| Citra | 3 | unknown, true, true, true | unknown | no |
-| Dewi | 4 | unknown, true, true, true | unknown | no |
-
-### 2e. Right against wrong
-
-Question: "Which stores never brought in another store?" The true answer is Citra and Dewi.
-
-**Wrong:** NOT IN. Notice that one NULL in the list wipes out every row.
-
-```mermaid
-graph LR
-    A["NOT IN list NULL 1 1 2"] --> B["Every check against NULL is unknown"]
-    B --> C["No store can be true"]
-    C --> D["0 rows and no error"]
-```
-
-**Right:** NOT EXISTS. Notice that it asks "is there a row that points at me?" The answer is always yes or no.
-
-```mermaid
-graph LR
-    A["For each store"] --> B["Look for a store whose referred_by is my id"]
-    B -->|found one| C["Drop me"]
-    B -->|found none| D["Keep me"]
-    D --> E["Citra and Dewi"]
-```
-
-### 2f. A CTE is a list of named steps
-
-Notice that you read it top to bottom, like a recipe. Each step can use the steps above it.
-
-```mermaid
-graph LR
-    S1["Step paid adds up PAID orders per store"] -->|feeds| S2["Step big keeps totals of 60 or more"]
-    S2 -->|feeds| S3["Final SELECT adds the store name"]
-    S3 --> R["Citra 100"]
-```
-
-## 3. Real life analogy
-
-- **Subquery:** before you ask "who scored above average?", you ask a friend "what is the average?". Then you use the answer.
-- **EXISTS:** "does anyone in this room have a pen?" You stop asking at the first yes.
-- **NOT IN with NULL:** a guard has a list of banned names. One line is smudged. Citra asks, "I am not on the list, right?" The guard says, "I do not know. The smudge could be you." Nobody gets in.
-
-Where it stops: a real guard would fix the list. Postgres never guesses and gives no warning. It just returns fewer rows.
-
-## 4. The smallest code that shows it
-
-Run this setup once. It makes the tiny tables from section 2.
 
 ```sql
-CREATE TABLE mini_stores (id int PRIMARY KEY, name text NOT NULL, referred_by int);
-INSERT INTO mini_stores VALUES (1, 'Ana', NULL), (2, 'Budi', 1), (3, 'Citra', 1), (4, 'Dewi', 2);
-CREATE TABLE mini_orders (id int PRIMARY KEY, store_id int NOT NULL, status text NOT NULL, total int NOT NULL);
-INSERT INTO mini_orders VALUES (101, 1, 'PAID', 50), (102, 1, 'PENDING', 20),
-  (103, 2, 'CANCELLED', 70), (104, 3, 'PAID', 90), (105, 3, 'PAID', 10);
-```
-
-Now the three shapes, one query each:
-
-```sql
--- One value: orders bigger than the average (the average is 48)
-SELECT id, total FROM mini_orders
-WHERE total > (SELECT avg(total) FROM mini_orders) ORDER BY id;
-
--- A list: stores that have a PAID order
-SELECT name FROM mini_stores
-WHERE id IN (SELECT store_id FROM mini_orders WHERE status = 'PAID') ORDER BY id;
-
--- A table: the average number of orders per store that has orders
-SELECT round(avg(order_count), 2) AS avg_orders
-FROM (SELECT store_id, count(*) AS order_count FROM mini_orders GROUP BY store_id) AS per_store;
-```
-
-**Output**, one result for each query:
-
-One value: orders above the average.
-
-```
- id  | total
------+-------
- 101 |    50
- 103 |    70
- 104 |    90
-```
-
-A list: stores with a PAID order.
-
-```
- name
--------
- Ana
- Citra
-```
-
-A table: average orders per store.
-
-```
- avg_orders
-------------
-       1.67
-```
-
-Now "has one", "has none" and the trap:
-
-```sql
--- has one: stores with at least one PAID order
-SELECT s.name FROM mini_stores s
-WHERE EXISTS (SELECT 1 FROM mini_orders o WHERE o.store_id = s.id AND o.status = 'PAID') ORDER BY s.id;
-
 -- has none: stores with no orders
-SELECT s.name FROM mini_stores s
-WHERE NOT EXISTS (SELECT 1 FROM mini_orders o WHERE o.store_id = s.id) ORDER BY s.id;
-
--- the trap: stores that never brought in another store
-SELECT name FROM mini_stores WHERE id NOT IN (SELECT referred_by FROM mini_stores) ORDER BY id;
-SELECT s.name FROM mini_stores s
-WHERE NOT EXISTS (SELECT 1 FROM mini_stores k WHERE k.referred_by = s.id) ORDER BY s.id;
+SELECT s.name
+FROM mini_stores s
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM mini_orders o
+  WHERE o.store_id = s.id)
+ORDER BY s.id;
 ```
 
-**Output**, one result for each query:
+<details class="guess"><summary>🤔 Guess: who is returned? And what does plain EXISTS with `AND o.status = 'PAID'` return? Press to check.</summary>
 
-Has one (EXISTS):
-
-```
- name
--------
- Ana
- Citra
-```
-
-Has none (NOT EXISTS):
+`NOT EXISTS` returns:
 
 ```
  name
 ------
  Dewi
+(1 row)
 ```
 
-The trap (NOT IN). Zero rows and no error:
+`EXISTS (... AND o.status = 'PAID')` returns Ana and Citra. Budi has an order, but it is CANCELLED.
 
-```
- name
-------
-(0 rows)
-```
+</details>
 
-The fix (NOT EXISTS):
+> **Remember:** "has one" is `EXISTS`. "has none" is `NOT EXISTS`. The answer is always yes or no.
 
-```
- name
--------
- Citra
- Dewi
-```
-
-And a CTE, the named steps from picture 2f:
-
-```sql
-WITH paid AS (                        -- step 1: PAID total per store
-  SELECT store_id, sum(total) AS paid_total
-  FROM mini_orders WHERE status = 'PAID'
-  GROUP BY store_id
-),
-big AS (                              -- step 2: uses step 1
-  SELECT store_id, paid_total FROM paid WHERE paid_total >= 60
-)
-SELECT s.name, big.paid_total
-FROM big JOIN mini_stores s ON s.id = big.store_id;
-```
-
-**Output:**
-
-```
- name  | paid_total
--------+------------
- Citra |        100
-```
-
-Ana has only 50 PAID, so step 2 drops her.
+<details class="more"><summary>📖 More detail: EXISTS stops at the first yes</summary>
 
 `SELECT 1` inside EXISTS is a habit. EXISTS only asks "is there a row?". It never looks at the columns.
 
-## 5. What really happens, step by step
+For Citra, "does store 3 have a PAID order?", Postgres reads the orders until it finds one:
 
-Trace of the EXISTS query: "stores with at least one PAID order". Postgres takes the store rows one by one. For each one, it reads orders until it finds a match. This is the simple model. On big tables Postgres often finds a faster way to get the same answer (see the Go deeper box below).
+```mermaid
+graph TB
+    A["read 101: store 1, no"] --> B["read 102: store 1, no"]
+    B --> C["read 103: store 2, no"]
+    C --> D["read 104: store 3 PAID, yes"]
+    D --> E["EXISTS is true. Stop.<br/>105 is never read."]
+```
 
-| Step | Outer row | What Postgres does | Orders read | EXISTS | Result so far |
-|---|---|---|---|---|---|
-| 1 | Ana, id 1 | Plugs 1 into `o.store_id = s.id`. Reads 101: store 1 and PAID. A match. Stops. | 101 | true | Ana |
-| 2 | Budi, id 2 | Reads 101, 102: other store. 103: store 2 but CANCELLED. 104, 105: other store. No match. | all 5 | false | Ana |
-| 3 | Citra, id 3 | Reads 101, 102, 103: other stores. 104: store 3 and PAID. Stops. 105 is skipped. | 4 | true | Ana, Citra |
-| 4 | Dewi, id 4 | Reads all 5 orders. None is store 4. | all 5 | false | Ana, Citra |
-| 5 | (done) | Returns the kept rows. | 15 in total | | **Ana, Citra** |
+A store **with** a match is cheap, because Postgres stops early. A store **without** a match is the expensive one: Postgres must read everything to be sure.
 
-Notice two things:
+</details>
 
-- A store **with** a match is cheap. Postgres stops early.
-- A store **without** a match is the expensive one. Postgres must read everything to be sure. That is also true for NOT EXISTS.
+## 4. Correlated: once for every row
 
-**On the big practice tables** (100,000 orders), EXISTS for one store at a time:
+Here the inner query uses `s.id` from the outer row. So Postgres runs it again for every store.
 
-| Store | Has a PAID order? | Order rows Postgres read |
+```sql
+SELECT s.name,
+  (SELECT count(*)
+   FROM mini_orders o
+   WHERE o.store_id = s.id) AS n
+FROM mini_stores s
+ORDER BY s.id;
+```
+
+| Outer row | Inner query asks | Answer |
 |---|---|---|
-| 1 | yes | a few hundred, then it stopped (random seed, so your number differs) |
-| 950 (has no orders) | no | all 100,000 |
+| Ana, id 1 | orders of store 1 | 2 |
+| Budi, id 2 | orders of store 2 | 1 |
+| Citra, id 3 | orders of store 3 | 2 |
+| Dewi, id 4 | orders of store 4 | 0 |
+
+<details class="guess"><summary>🤔 Guess: how many times does the inner query run? Press to check.</summary>
+
+4 times, once per store.
+
+```
+ name  | n
+-------+---
+ Ana   | 2
+ Budi  | 1
+ Citra | 2
+ Dewi  | 0
+(4 rows)
+```
+
+On 4 stores this is nothing. On 200 stores and 100,000 orders it is a problem (see the bar below).
+
+</details>
+
+> **Remember:** a correlated subquery runs once per outer row. Without an index, that can be slow.
+
+<details class="more"><summary>📖 More detail: the same thing at full size, in a real plan</summary>
 
 **A correlated subquery really runs once per row.** Here Postgres counts orders for the 200 stores in Medan:
 
@@ -370,50 +317,125 @@ How to read it:
 
 Checked on 2026-10-16 with PostgreSQL 18.3 (PGlite). On Postgres 16 you see `rows=200` without the `.00`.
 
-**Step through it yourself:** [open the subqueries and EXISTS stepper](visuals/04-subqueries-ctes-and-exists.html). Five programs: a plain subquery, a correlated one, EXISTS stopping early, the NOT IN trap, and NOT EXISTS. Counters show how often the inner query ran and how many rows it read.
+</details>
 
-<details><summary>Go deeper (optional): Postgres often does not loop</summary>
+## 5. Mistake 1: NOT IN and a NULL
 
-The tables above are the simple model. It is the promise Postgres makes: the docs say an EXISTS subquery is "generally only executed long enough to determine whether at least one row is returned".
+Question: "Which stores never brought in another store?" The true answer is Citra and Dewi. A common way:
 
-When EXISTS or NOT EXISTS sits in `WHERE`, Postgres usually rewrites it into a join that does all rows at once. Two interview words for these:
-
-- **Semi join:** keep a row from the left table if it has at least one match. This is EXISTS (and IN).
-- **Anti join:** keep a row only if it has no match. This is NOT EXISTS.
-
-On the practice database, the plans look like this:
-
-```
--- EXISTS (... status = 'PAID')            -- NOT EXISTS (...)
-Hash Join                                   Hash Right Anti Join
-  Hash Cond: (o.store_id = s.id)              Hash Cond: (o.store_id = s.id)
-  ->  HashAggregate                           ->  Seq Scan on orders o
-        Group Key: o.store_id                 ->  Hash
-        ->  Seq Scan on orders o                    ->  Seq Scan on stores s
-              Filter: (status = 'PAID'::text)
-  ->  Hash
-        ->  Seq Scan on stores s
+```sql
+SELECT name
+FROM mini_stores
+WHERE id NOT IN (
+  SELECT referred_by
+  FROM mini_stores)
+ORDER BY id;
 ```
 
-Postgres read orders once, not once per store. That is why EXISTS and IN are usually just as fast in modern Postgres.
+The inner list is `NULL, 1, 1, 2`. Ana was not referred by anyone, so her `referred_by` is NULL.
 
-`NOT IN (subquery)` cannot become an anti join, because of the NULL rule. Postgres runs it as a `hashed SubPlan` instead. The PostgreSQL wiki page "Don't Do This" warns that this can get very slow when the list is too big for memory.
+```mermaid
+graph TB
+    Q["Is 3 NOT IN NULL 1 1 2?"] --> C1["3 against NULL: unknown"]
+    C1 --> R["NOT IN needs all checks true"]
+    R --> X["Unknown, so WHERE drops Citra"]
+```
 
-The correlated subquery in the `SELECT` list stays a loop (`SubPlan` with `loops=200`). That is why it needs an index.
+<details class="guess"><summary>🤔 Guess: how many rows come back? Press to check.</summary>
+
+```
+ name
+------
+(0 rows)
+```
+
+**Zero rows, and no error.** One NULL in the list makes every check unknown (or false), so no store can be true. It looks like "no such stores".
+
+Fix: `NOT EXISTS` asks "is there a row that points at me?".
+
+```sql
+SELECT s.name
+FROM mini_stores s
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM mini_stores k
+  WHERE k.referred_by = s.id)
+ORDER BY s.id;
+```
+
+```
+ name
+-------
+ Citra
+ Dewi
+(2 rows)
+```
 
 </details>
 
-## 6. Why it exists and what it costs
+> **Remember:** never use `NOT IN` on a list that can hold a NULL. Use `NOT EXISTS`.
 
-- **Problem without it:** two trips with copied numbers (picture 2b), "has none" questions that are hard to write, and long queries full of nested brackets.
-- **How it solves it:** a subquery answers the small question in the same trip. EXISTS asks "is there a matching row?", always yes or no. A CTE names each step.
-- **Cost:**
-  - A correlated subquery in `SELECT` runs once per outer row. Without an index, that is slow (section 5).
-  - A subquery used as one value must return one row. Two rows is an error.
-  - `NOT IN` gives wrong answers when the list holds a NULL.
-  - A CTE used twice is worked out once and kept, so the outer `WHERE` cannot help inside it (Go deeper below).
+<details class="more"><summary>📖 More detail: why every store is dropped</summary>
 
-When to use which:
+| Store | id | Checks against NULL, 1, 1, 2 | NOT IN answer | Kept? |
+|---|---|---|---|---|
+| Ana | 1 | unknown, false, false, true | false | no |
+| Budi | 2 | unknown, true, true, false | false | no |
+| Citra | 3 | unknown, true, true, true | unknown | no |
+| Dewi | 4 | unknown, true, true, true | unknown | no |
+
+Adding `WHERE referred_by IS NOT NULL` inside the NOT IN also works (it gives Citra and Dewi). But you must remember it every time. NOT EXISTS has no such trap.
+
+A guard has a list of banned names. One line is smudged. Citra asks, "I am not on the list, right?" The guard says, "I do not know. The smudge could be you." Nobody gets in. A real guard would fix the list. Postgres never guesses and gives no warning.
+
+</details>
+
+## 6. Mistake 2: JOIN when you want "has one"
+
+"Which stores have a PAID order?" You can write it with a JOIN:
+
+```sql
+SELECT s.name
+FROM mini_stores s
+JOIN mini_orders o
+  ON o.store_id = s.id
+WHERE o.status = 'PAID'
+ORDER BY s.id;
+```
+
+<details class="guess"><summary>🤔 Guess: how many rows, and is anything wrong? Press to check.</summary>
+
+```
+ name
+-------
+ Ana
+ Citra
+ Citra
+(3 rows)
+```
+
+Citra appears **twice**, because she has two PAID orders. A JOIN makes one row per matching pair (fan-out, [lesson 02](02-joins.md)).
+
+Fix: `EXISTS` keeps each store once.
+
+```sql
+SELECT s.name
+FROM mini_stores s
+WHERE EXISTS (
+  SELECT 1
+  FROM mini_orders o
+  WHERE o.store_id = s.id
+    AND o.status = 'PAID')
+ORDER BY s.id;
+```
+
+That gives Ana and Citra.
+
+</details>
+
+> **Remember:** if you add `DISTINCT` after a JOIN to remove copies, you probably wanted `EXISTS`.
+
+<details class="more"><summary>📖 More detail: when to use which</summary>
 
 | You want | Use |
 |---|---|
@@ -423,148 +445,102 @@ When to use which:
 | Columns from the other table | `JOIN` |
 | A long query in readable steps | a CTE with `WITH` |
 
-<details><summary>Go deeper (optional): when Postgres inlines a CTE, and when it keeps it</summary>
+</details>
 
-Since PostgreSQL 12 (released in 2019), a CTE can be **inlined**. That means Postgres pastes the step into the main query and plans everything together. The docs say this happens by default when the CTE:
+## 7. A CTE is a list of named steps
 
-- is not recursive,
-- has no side effects (a plain `SELECT` with no volatile functions like `random()`),
-- is used only **once** in the query.
+A long query with brackets inside brackets is hard to read. A **CTE** gives each step a name, and you read it top to bottom, like a recipe.
 
-If it is used two or more times, Postgres works it out once and keeps the rows. That is called **materialized**. You can choose yourself with `WITH x AS MATERIALIZED (...)` or `WITH x AS NOT MATERIALIZED (...)`.
-
-Real plans from the practice database:
+```mermaid
+graph TB
+    S1["paid: PAID total per store"] -->|feeds| S2["big: totals of 60 or more"]
+    S2 -->|feeds| S3["Final SELECT adds the name"]
+    S3 --> R["Citra 100"]
+```
 
 ```sql
-WITH paid AS (SELECT * FROM orders WHERE status = 'PAID')
-SELECT * FROM paid WHERE store_id = 42;
+WITH paid AS (
+  SELECT store_id,
+    sum(total) AS paid_total
+  FROM mini_orders
+  WHERE status = 'PAID'
+  GROUP BY store_id
+),
+big AS (
+  SELECT store_id, paid_total
+  FROM paid
+  WHERE paid_total >= 60
+)
+SELECT s.name, big.paid_total
+FROM big
+JOIN mini_stores s
+  ON s.id = big.store_id;
 ```
 
-```
--- default: inlined, both filters in one scan
-Seq Scan on orders
-  Filter: ((status = 'PAID'::text) AND (store_id = 42))
+<details class="guess"><summary>🤔 Guess: which store is returned? Press to check.</summary>
 
--- with AS MATERIALIZED: all PAID orders first, then the store filter
-CTE Scan on paid
-  Filter: (store_id = 42)
-  CTE paid
-    ->  Seq Scan on orders
-          Filter: (status = 'PAID'::text)
+```
+ name  | paid_total
+-------+------------
+ Citra |        100
+(1 row)
 ```
 
-Why this matters: with an index on `store_id`, the inlined version can use it. The materialized version cannot, because it first builds the full list of PAID orders.
-
-Before Postgres 12, every CTE was materialized. People called it an "optimization fence". Old blog posts say "CTEs are slow in Postgres". That is no longer true by default. An interviewer may ask this to see if your knowledge is current.
+Step `paid` gives Ana 50 and Citra 100. Step `big` keeps totals of 60 or more, so Ana (50) is dropped.
 
 </details>
 
-<details><summary>Go deeper (optional): a recursive CTE walks the referral tree</summary>
+> **Remember:** `WITH name AS (...)` makes a named step. Later steps read it like a table.
 
-`WITH RECURSIVE` has two parts joined by `UNION ALL`:
+<details class="more"><summary>📖 More detail: since Postgres 12, a CTE is usually pasted in</summary>
 
-1. A **starting row**.
-2. A **step** that joins the table to the rows found so far.
-
-Postgres repeats the step until it finds no new rows.
-
-```sql
-WITH RECURSIVE tree AS (
-  SELECT id, name, 1 AS depth FROM mini_stores WHERE id = 1      -- start: Ana
-  UNION ALL
-  SELECT s.id, s.name, tree.depth + 1
-  FROM mini_stores s JOIN tree ON s.referred_by = tree.id         -- step: who did they bring in?
-)
-SELECT id, name, depth FROM tree ORDER BY depth, id;
-```
-
-```
- id | name  | depth
-----+-------+-------
-  1 | Ana   |     1
-  2 | Budi  |     2
-  3 | Citra |     2
-  4 | Dewi  |     3
-```
-
-Round 1 finds Ana. Round 2 finds who Ana brought in: Budi and Citra. Round 3 finds who they brought in: Dewi. Round 4 finds nobody, so it stops.
-
-On the practice database, the seed makes store `g` referred by store `g / 2`. Walking **up** from store 1000 gives this chain:
-
-```sql
-WITH RECURSIVE chain AS (
-  SELECT id, referred_by, 1 AS step FROM stores WHERE id = 1000
-  UNION ALL
-  SELECT s.id, s.referred_by, c.step + 1 FROM stores s JOIN chain c ON s.id = c.referred_by
-)
-SELECT string_agg(id::text, ' -> ' ORDER BY step) AS path FROM chain;
-```
-
-```
-1000 -> 500 -> 250 -> 125 -> 62 -> 31 -> 15 -> 7 -> 3 -> 1
-```
-
-If the data has a loop (A brought B, B brought A), the query never ends. Guard it with a depth limit like `WHERE depth < 20` in the step, or with the `CYCLE` clause (Postgres 14 and later).
+Postgres can paste a CTE into the main query and plan everything together. This is called **inlining**. By default it happens when the CTE is used only once. If it is used twice or more, Postgres works it out once and keeps the rows. Before Postgres 12, every CTE was kept, so old blog posts say "CTEs are slow in Postgres". That is no longer true by default. The Go deeper card at the end has the real plans, and a recursive CTE.
 
 </details>
 
-## 7. Common mistakes
+## 8. Watch it run, step by step
 
-**Wrong:** NOT IN on a column that can be NULL.
+Five small programs: a plain subquery, a correlated one, EXISTS stopping early, the NOT IN trap, and NOT EXISTS. Counters show how often the inner query ran and how many rows it read.
 
-```sql
-SELECT name FROM mini_stores WHERE id NOT IN (SELECT referred_by FROM mini_stores) ORDER BY id;
--- (0 rows). No error. It looks like "no such stores".
-```
+**Step through it yourself:** [open the subqueries and EXISTS stepper](visuals/04-subqueries-ctes-and-exists.html).
 
-**Right:**
+<details class="more"><summary>📖 More detail: the EXISTS query, one store at a time</summary>
 
-```sql
-SELECT s.name FROM mini_stores s
-WHERE NOT EXISTS (SELECT 1 FROM mini_stores k WHERE k.referred_by = s.id)
-ORDER BY s.id;
--- Citra, Dewi
-```
+The query: "stores with at least one PAID order". Postgres takes the store rows one by one. For each one, it reads orders until it finds a match. This is the simple model. On big tables Postgres often finds a faster way to get the same answer (see Go deeper at the end).
 
-**Why:** one NULL in the list makes every NOT IN check unknown or false (picture 2d). NOT EXISTS only asks "is there a matching row?". Adding `WHERE referred_by IS NOT NULL` inside the NOT IN also works, but you must remember it every time.
+| Step | Outer row | What Postgres does | Orders read | EXISTS | Result so far |
+|---|---|---|---|---|---|
+| 1 | Ana, id 1 | Plugs 1 into `o.store_id = s.id`. Reads 101: store 1 and PAID. A match. Stops. | 101 | true | Ana |
+| 2 | Budi, id 2 | Reads 101, 102: other store. 103: store 2 but CANCELLED. 104, 105: other store. No match. | all 5 | false | Ana |
+| 3 | Citra, id 3 | Reads 101, 102, 103: other stores. 104: store 3 and PAID. Stops. 105 is skipped. | 4 | true | Ana, Citra |
+| 4 | Dewi, id 4 | Reads all 5 orders. None is store 4. | all 5 | false | Ana, Citra |
+| 5 | (done) | Returns the kept rows. | 15 in total | | **Ana, Citra** |
 
-**Wrong:** JOIN when you only want "has one".
+Notice two things:
 
-```sql
-SELECT s.name FROM mini_stores s
-JOIN mini_orders o ON o.store_id = s.id WHERE o.status = 'PAID'
-ORDER BY s.id;
--- Ana, Citra, Citra   (Citra twice, because she has two PAID orders)
-```
+- A store **with** a match is cheap. Postgres stops early.
+- A store **without** a match is the expensive one. Postgres must read everything to be sure. That is also true for NOT EXISTS.
 
-**Right:**
+**On the big practice tables** (100,000 orders), EXISTS for one store at a time:
 
-```sql
-SELECT s.name FROM mini_stores s
-WHERE EXISTS (SELECT 1 FROM mini_orders o WHERE o.store_id = s.id AND o.status = 'PAID')
-ORDER BY s.id;
--- Ana, Citra
-```
+| Store | Has a PAID order? | Order rows Postgres read |
+|---|---|---|
+| 1 | yes | a few hundred, then it stopped (random seed, so your number differs) |
+| 950 (has no orders) | no | all 100,000 |
 
-**Why:** a JOIN makes one row per matching pair. EXISTS keeps each store once. If you catch yourself adding `DISTINCT` after a JOIN, you probably wanted EXISTS.
+</details>
 
-**Wrong:** `=` with a subquery that can return many rows.
+## 9. Why it matters and what it costs
 
-```sql
-SELECT name FROM mini_stores WHERE id = (SELECT store_id FROM mini_orders WHERE status = 'PAID');
--- ERROR: more than one row returned by a subquery used as an expression
-```
+- **Without it,** you make two trips with copied numbers, "has none" questions are hard to write, and long queries fill up with nested brackets.
+- **With it,** a subquery answers the small question in the same trip. EXISTS asks "is there a matching row?", always yes or no. A CTE names each step.
+- **The cost:**
+  - A correlated subquery in `SELECT` runs once per outer row. Without an index, that is slow (card 4).
+  - A subquery used as one value must return one row. Two rows is an error (card 2).
+  - `NOT IN` gives wrong answers when the list holds a NULL (card 5).
+  - A CTE used twice is worked out once and kept, so the outer `WHERE` cannot help inside it (Go deeper).
 
-**Right:** use `IN` for a list.
-
-```sql
-SELECT name FROM mini_stores WHERE id IN (SELECT store_id FROM mini_orders WHERE status = 'PAID') ORDER BY id;
--- Ana, Citra
-```
-
-**Why:** `=` needs one value. Three PAID orders give three values.
-
-## 8. Watch and play
+## 10. Watch and play
 
 Links checked on 2026-10-16: each page was opened, and each video's title, channel and length came from YouTube. The videos were not watched.
 
@@ -573,7 +549,7 @@ Links checked on 2026-10-16: each page was opened, and each video's title, chann
 - **Play with it:** [The subqueries and EXISTS stepper](visuals/04-subqueries-ctes-and-exists.html) in this folder. Guess first, then watch the "rows read" counter.
 - **Play with it:** [PostgreSQL Exercises: members with their recommender, using no joins](https://pgexercises.com/questions/joins/sub.html). Run real SQL in the browser. It needs a correlated subquery.
 - **Play with it:** [PostgreSQL Exercises: recursive queries](https://pgexercises.com/questions/recursive/). Members recommend members, like `referred_by`. Try it after the recursive Go deeper box.
-- **Play with it:** [explain.dalibo.com](https://explain.dalibo.com/). Paste the plan from section 5 and see `SubPlan` and its loops as a diagram.
+- **Play with it:** [explain.dalibo.com](https://explain.dalibo.com/). Paste the plan from card 4 and see `SubPlan` and its loops as a diagram.
 - **Read:** [PostgreSQL docs: Subquery Expressions](https://www.postgresql.org/docs/current/functions-subquery.html). In the NOT IN part, find the words "null, not true".
 
 <details><summary>More links (optional)</summary>
@@ -587,7 +563,7 @@ Links checked on 2026-10-16: each page was opened, and each video's title, chann
 
 </details>
 
-## 9. Practice
+## 11. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -716,7 +692,7 @@ SELECT name, depth FROM tree WHERE depth > 0 ORDER BY depth, id;
 
 </details>
 
-## 10. Interview question
+## 12. Interview question
 
 **Q:** "Find all customers who have never placed an order. Show me two ways. Which one would you use, and why? What happens with NOT IN?"
 
@@ -738,9 +714,9 @@ SELECT name, depth FROM tree WHERE depth > 0 ORDER BY depth, id;
 
 </details>
 
-## 11. Explain it back
+## 13. Explain it back
 
-Close this file. Press the **Record my explanation** button under this heading and explain this lesson out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "subquery", "correlated", "EXISTS" and "unknown". Try to draw picture 2d while you talk. Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check subqueries` or ask the `explain-coach` agent to review it.
+Close this file. Press the **Record my explanation** button under this heading and explain this lesson out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "subquery", "correlated", "EXISTS" and "unknown". Try to draw the picture from card 5 while you talk. Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check subqueries` or ask the `explain-coach` agent to review it.
 
 ### My explanation
 
@@ -750,19 +726,139 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 14. Review questions (day 1, 3, 7, 21)
 
 1. What is the difference between a normal subquery and a correlated one? How many times does each run?
 2. Why does EXISTS often finish fast for a store that has orders, but read everything for a store that has none?
 3. The list from a subquery is `5, NULL`. Why does `WHERE id NOT IN (that list)` return no rows? What do you write instead?
-4. Draw picture 2d from memory: the NOT IN list with a NULL, the four checks for Citra, and why the answer is unknown.
+4. Draw the picture from card 5 from memory: the NOT IN list with a NULL, the four checks for Citra, and why the answer is unknown.
 
 <details><summary>Answers</summary>
 
-1. A normal subquery does not use the outer row, so Postgres works it out once and uses the answer for every row. A correlated subquery uses a value from the outer row, like `s.id`, so in the simple model it runs once per outer row. In `SELECT`, it really does run once per row (`loops=200` in section 5).
+1. A normal subquery does not use the outer row, so Postgres works it out once and uses the answer for every row. A correlated subquery uses a value from the outer row, like `s.id`, so in the simple model it runs once per outer row. In `SELECT`, it really does run once per row (`loops=200` in card 4).
 2. EXISTS stops at the first matching row. A store with orders gives a match early. A store with no orders never matches, so Postgres must check every row to be sure.
 3. NOT IN means "different from every value". `id <> NULL` is unknown, never true. So the whole NOT IN is unknown or false for every row, and WHERE keeps only true. Write `NOT EXISTS (SELECT 1 FROM ... WHERE x = outer.id)` instead.
 4. The list is NULL, 1, 1, 2. For id 3: against NULL is unknown, against 1 is true, against 1 is true, against 2 is true. NOT IN needs all true. One is unknown, so the answer is unknown, and WHERE drops Citra. The same happens to every store, so 0 rows.
+
+</details>
+
+## 15. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Postgres often does not loop</summary>
+
+The tables above are the simple model. It is the promise Postgres makes: the docs say an EXISTS subquery is "generally only executed long enough to determine whether at least one row is returned".
+
+When EXISTS or NOT EXISTS sits in `WHERE`, Postgres usually rewrites it into a join that does all rows at once. Two interview words for these:
+
+- **Semi join:** keep a row from the left table if it has at least one match. This is EXISTS (and IN).
+- **Anti join:** keep a row only if it has no match. This is NOT EXISTS.
+
+On the practice database, the plans look like this:
+
+```
+-- EXISTS (... status = 'PAID')            -- NOT EXISTS (...)
+Hash Join                                   Hash Right Anti Join
+  Hash Cond: (o.store_id = s.id)              Hash Cond: (o.store_id = s.id)
+  ->  HashAggregate                           ->  Seq Scan on orders o
+        Group Key: o.store_id                 ->  Hash
+        ->  Seq Scan on orders o                    ->  Seq Scan on stores s
+              Filter: (status = 'PAID'::text)
+  ->  Hash
+        ->  Seq Scan on stores s
+```
+
+Postgres read orders once, not once per store. That is why EXISTS and IN are usually just as fast in modern Postgres.
+
+`NOT IN (subquery)` cannot become an anti join, because of the NULL rule. Postgres runs it as a `hashed SubPlan` instead. The PostgreSQL wiki page "Don't Do This" warns that this can get very slow when the list is too big for memory.
+
+The correlated subquery in the `SELECT` list stays a loop (`SubPlan` with `loops=200`). That is why it needs an index.
+
+</details>
+
+<details><summary>When Postgres inlines a CTE, and when it keeps it</summary>
+
+Since PostgreSQL 12 (released in 2019), a CTE can be **inlined**. That means Postgres pastes the step into the main query and plans everything together. The docs say this happens by default when the CTE:
+
+- is not recursive,
+- has no side effects (a plain `SELECT` with no volatile functions like `random()`),
+- is used only **once** in the query.
+
+If it is used two or more times, Postgres works it out once and keeps the rows. That is called **materialized**. You can choose yourself with `WITH x AS MATERIALIZED (...)` or `WITH x AS NOT MATERIALIZED (...)`.
+
+Real plans from the practice database:
+
+```sql
+WITH paid AS (SELECT * FROM orders WHERE status = 'PAID')
+SELECT * FROM paid WHERE store_id = 42;
+```
+
+```
+-- default: inlined, both filters in one scan
+Seq Scan on orders
+  Filter: ((status = 'PAID'::text) AND (store_id = 42))
+
+-- with AS MATERIALIZED: all PAID orders first, then the store filter
+CTE Scan on paid
+  Filter: (store_id = 42)
+  CTE paid
+    ->  Seq Scan on orders
+          Filter: (status = 'PAID'::text)
+```
+
+Why this matters: with an index on `store_id`, the inlined version can use it. The materialized version cannot, because it first builds the full list of PAID orders.
+
+Before Postgres 12, every CTE was materialized. People called it an "optimization fence". Old blog posts say "CTEs are slow in Postgres". That is no longer true by default. An interviewer may ask this to see if your knowledge is current.
+
+</details>
+
+<details><summary>A recursive CTE walks the referral tree</summary>
+
+`WITH RECURSIVE` has two parts joined by `UNION ALL`:
+
+1. A **starting row**.
+2. A **step** that joins the table to the rows found so far.
+
+Postgres repeats the step until it finds no new rows.
+
+```sql
+WITH RECURSIVE tree AS (
+  SELECT id, name, 1 AS depth FROM mini_stores WHERE id = 1      -- start: Ana
+  UNION ALL
+  SELECT s.id, s.name, tree.depth + 1
+  FROM mini_stores s JOIN tree ON s.referred_by = tree.id         -- step: who did they bring in?
+)
+SELECT id, name, depth FROM tree ORDER BY depth, id;
+```
+
+```
+ id | name  | depth
+----+-------+-------
+  1 | Ana   |     1
+  2 | Budi  |     2
+  3 | Citra |     2
+  4 | Dewi  |     3
+```
+
+Round 1 finds Ana. Round 2 finds who Ana brought in: Budi and Citra. Round 3 finds who they brought in: Dewi. Round 4 finds nobody, so it stops.
+
+On the practice database, the seed makes store `g` referred by store `g / 2`. Walking **up** from store 1000 gives this chain:
+
+```sql
+WITH RECURSIVE chain AS (
+  SELECT id, referred_by, 1 AS step FROM stores WHERE id = 1000
+  UNION ALL
+  SELECT s.id, s.referred_by, c.step + 1 FROM stores s JOIN chain c ON s.id = c.referred_by
+)
+SELECT string_agg(id::text, ' -> ' ORDER BY step) AS path FROM chain;
+```
+
+```
+1000 -> 500 -> 250 -> 125 -> 62 -> 31 -> 15 -> 7 -> 3 -> 1
+```
+
+If the data has a loop (A brought B, B brought A), the query never ends. Guard it with a depth limit like `WHERE depth < 20` in the step, or with the `CYCLE` clause (Postgres 14 and later).
 
 </details>
 
