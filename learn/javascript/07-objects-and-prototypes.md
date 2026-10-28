@@ -1,175 +1,51 @@
 # 07. Objects and prototypes
 
-> **Subject:** JavaScript · **Lesson:** 07 · **Made:** 2026-10-15 · **Status:** ready
+> **Subject:** JavaScript · **Lesson:** 07 · **Made:** 2026-10-15 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** draw the chain of hidden links behind an object, say where JavaScript finds a property the object does not have, and explain why writing a property never changes the object above it.
+>
 > **Before this:** [this, call, apply and bind](06-this-call-apply-and-bind.md) · **Next:** [Classes](08-classes.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: the stapler in the office
 
-When you ask an object for a property it does not have, JavaScript follows a hidden link to another object and asks there.
+You sit at a desk and need a stapler. You look in **your own drawer** first. Not there? You walk to the **team cupboard**. Not there? The **supply room** for the whole building. Not there? Nobody has one.
 
-A **property** is a named value inside an object, like `name` in `{ name: "Rex" }`. Every object has one **hidden link** to one other object, or to `null`. You do not see the link in your code. (Interview word: `[[Prototype]]`.)
+```mermaid
+graph TB
+    R["rex<br/>owns name"] -->|hidden link| D["dog<br/>owns bark"]
+    D -->|hidden link| A["animal<br/>owns eats"]
+    A -->|hidden link| O["Object.prototype<br/>owns toString"]
+    O -->|hidden link| N["null: the end"]
+```
 
-New words:
+Notice: `rex` owns only `name`. It finds `bark` and `eats` by walking up. Every object has one **hidden link** to one other object (or to `null`).
+
+<details class="guess"><summary>🤔 Guess: `rex` does not own `eats`. What does `rex.eats` do? Press to check.</summary>
+
+JavaScript asks one object at a time and stops at the first yes. `rex`: no. `dog`: no. `animal`: yes, `true`. It never asks `Object.prototype`.
+
+</details>
+
+> **Remember:** reading a property walks up the chain and stops at the first object that owns it. If it reaches `null`, the answer is `undefined`.
+
+<details class="more"><summary>📖 More detail: the four words, and where the office picture stops</summary>
+
+A **property** is a named value inside an object, like `name` in `{ name: "Rex" }`. The hidden link is not in your code. (Interview word: `[[Prototype]]`.)
 
 - **Own property:** a property stored on the object itself. `rex.name = "Rex"` puts an own property on `rex`.
 - **Inherited:** a property the object does not own. It finds it by walking up the hidden links.
 - **Chain:** the line of hidden links, from the object up to `null`. The object at the other end of a hidden link is that object's **prototype**. (Interview word: *prototype chain*.)
 - **Constructor:** a normal function that you call with `new` to make objects, like `new Dog("Rex")`.
 
-The rule to remember: **reading a property walks up the chain and stops at the first object that owns it. If it reaches `null`, the answer is `undefined`. Writing a property never walks up. It always changes the object you wrote it on.**
-
-## 2. The pictures
-
-### 2a. The big picture
-
-Three objects and their hidden links. Notice that `rex` owns only `name`. It finds `bark` and `eats` by walking up.
-
-```mermaid
-graph LR
-    R["rex owns name"] -->|hidden link| D["dog owns bark"]
-    D -->|hidden link| A["animal owns eats"]
-    A -->|hidden link| O["Object.prototype owns toString"]
-    O -->|hidden link| N["null is the end"]
-```
-
 `Object.prototype` is an object that JavaScript makes for you. Almost every chain ends there, then at `null`.
 
-### 2b. The problem, drawn
+Where the picture stops: in an office you could skip the cupboard and go straight to the supply room. JavaScript never skips. It always asks in the same order and stops at the first owner.
 
-You make 1000 dog objects. Every dog needs a `bark` function. (A function stored in an object is called a **method**.) Without a shared place, each dog carries its own copy. Notice the identical functions.
+</details>
 
-```mermaid
-graph TB
-    R["rex"] --> F1["bark function copy 1"]
-    F["fido"] --> F2["bark function copy 2"]
-    M["max"] --> F3["bark function copy 3"]
-    F1 --> P["Same code again and again. 1000 dogs means 1000 copies. A fix must touch every copy."]
-    F2 --> P
-    F3 --> P
-```
-
-With the chain, the function lives in one place, a shared object called `Dog.prototype`. Picture 2d shows where it comes from. Notice that every dog links to the same object.
-
-```mermaid
-graph TB
-    R["rex owns name"] -->|hidden link| DP["Dog.prototype owns bark"]
-    F["fido owns name"] -->|hidden link| DP
-    M["max owns name"] -->|hidden link| DP
-    DP --> S["One bark function for every dog"]
-```
-
-### 2c. How it works over time
-
-What JavaScript does for `rex.eats`. Notice that it asks one object at a time, and stops at the first yes.
-
-```mermaid
-sequenceDiagram
-    participant C as Your code
-    participant R as rex
-    participant D as dog
-    participant A as animal
-    C->>R: do you own eats?
-    R-->>C: no
-    Note over C,R: JavaScript follows the hidden link of rex
-    C->>D: do you own eats?
-    D-->>C: no
-    Note over C,D: JavaScript follows the hidden link of dog
-    C->>A: do you own eats?
-    A-->>C: yes and the value is true
-    Note over C,A: JavaScript stops. It never asks Object.prototype.
-```
-
-And for `rex.fly`, which nobody owns. Notice that the end is `undefined`, not an error.
-
-```mermaid
-graph LR
-    R["rex says no"] --> D["dog says no"]
-    D --> A["animal says no"]
-    A --> O["Object.prototype says no"]
-    O --> N["null so the answer is undefined"]
-```
-
-### 2d. What is in memory right now
-
-A snapshot after this code has run:
-
-```js
-function Dog(name) { this.name = name; }
-Dog.prototype.bark = function () { return this.name + " says woof"; };
-const rex = new Dog("Rex");
-const fido = new Dog("Fido");
-```
-
-Notice the two kinds of arrows. The function has a normal property called `prototype`. The dogs have hidden links.
-
-```mermaid
-graph TB
-    DOG["Dog the function"] -->|prototype property| DP["Dog.prototype owns constructor and bark"]
-    DP -->|constructor property| DOG
-    R["rex owns name Rex"] -->|hidden link| DP
-    F["fido owns name Fido"] -->|hidden link| DP
-    DP -->|hidden link| OP["Object.prototype"]
-    OP -->|hidden link| N["null"]
-```
-
-This is the most confusing name in JavaScript:
-
-- `Dog.prototype` is a **normal property** on the function `Dog`. It is not Dog's own hidden link.
-- `new Dog()` reads it and makes it the target of the new object's hidden link.
-- So `rex.prototype` is `undefined`, but `Object.getPrototypeOf(rex) === Dog.prototype` is `true`.
-
-### 2e. Right against wrong
-
-**Wrong picture:** "writing walks up and changes the object above."
-
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["rex.eats = false"]
-    B --> C["changes eats on animal"]
-    C --> D["every object linked to animal now sees false"]
-```
-
-**Right picture:** writing makes a new own property, on the object you wrote on.
-
-```mermaid
-graph LR
-    A["Right picture"] --> B["rex.eats = false"]
-    B --> C["JavaScript puts a new own eats on rex"]
-    C --> D["animal still owns eats true"]
-    D --> E["rex.eats now stops at rex and hides the one above"]
-```
-
-The value above is only hidden, not changed. (Interview word: it is *shadowed*.) `delete rex.eats` removes the own one, and `true` shows again.
-
-### 2f. Where map and toString come from
-
-You never wrote `map`, yet every array has it. Notice that your array owns only its items and `length`.
-
-```mermaid
-graph LR
-    ARR["your array 10 20 30"] -->|hidden link| AP["Array.prototype owns map filter push"]
-    AP -->|hidden link| OP["Object.prototype owns toString hasOwnProperty"]
-    OP -->|hidden link| N["null"]
-```
-
-## 3. Real life analogy
-
-You sit at a desk in an office and need a stapler.
-
-- You look in **your own drawer** first. (Own property.)
-- Not there? You walk to the **team cupboard**. (The hidden link.)
-- Not there? You walk to the **supply room** for the whole building. (`Object.prototype`.)
-- Not there? Nobody has one. (`null`, so `undefined`.)
-- If you put your own stapler in your drawer, the cupboard does not change. Next time you stop at your drawer. (Writing makes an own property.)
-- One team cupboard serves 20 desks. Nobody needs 20 staplers. (Shared methods.)
-
-Where the analogy stops:
-
-- In an office you could skip the cupboard and go straight to the supply room. JavaScript never skips. It always asks in the same order and stops at the first owner.
-- If you **change** something you found in the cupboard, like adding a page to a shared notebook, everyone sees it. That part is true in JavaScript too (practice B).
-
-## 4. The smallest code that shows it
+## 2. Walk the chain in code
 
 `Object.create(x)` makes a new empty object whose hidden link points at `x`.
 
@@ -184,23 +60,24 @@ console.log(rex.name);
 console.log(rex.bark());
 console.log(rex.eats);
 console.log(rex.fly);
-rex.eats = false;
-console.log(rex.eats, animal.eats);
 ```
 
-**Output:**
+<details class="guess"><summary>🤔 Guess: what are the four lines of output? Press to check.</summary>
 
 ```
 Rex
 woof
 true
 undefined
-false true
 ```
 
-Look at the last line. `rex` changed. `animal` did not.
+`rex.name`: `rex` owns it, so it stops at once. `rex.bark`: `rex` says no, `dog` owns it. `rex.eats`: `rex` no, `dog` no, `animal` yes. `rex.fly`: nobody owns it. The chain ends at `null`, so the answer is `undefined`. **No error.**
 
-## 5. What really happens, step by step
+</details>
+
+> **Remember:** a missing property is quiet. A typo like `user.nmae` gives `undefined`, not an error.
+
+<details class="more"><summary>📖 More detail: the code, step by step</summary>
 
 | Step | Line | What JavaScript does | Objects asked | Result |
 |---|---|---|---|---|
@@ -216,112 +93,243 @@ Look at the last line. `rex` changed. `animal` did not.
 | 10 | 11 | **Writes** `rex.eats = false`. It does not walk up. It puts a new own `eats` on `rex`. | none | rex owns `eats: false` |
 | 11 | 12 | Reads `rex.eats`. `rex` owns it now, so it stops at `rex`. Reads `animal.eats`. `animal` owns it, still `true`. | rex, then animal | `false true` |
 
-Code checked on 2026-10-15 with Node 24.15.0.
-
-**Step through it yourself:** [open the objects and prototypes stepper](visuals/07-objects-and-prototypes.html). The right side shows each object, its own properties and its hidden link. Each object lights up when JavaScript asks it. It has five programs:
-
-1. **"1. Look up a property"**: the same three objects as section 4. Its `animal` also has an `eat` method. Pick a property on `rex` (`name`, `bark`, `eat`, `eats`, `toString`, `hasOwnProperty`, `fly`, or your own). Guess the level first, then watch the walk.
-2. **"2. Reading and writing"**: write, read, then `delete`. Watch `animal` stay the same.
-3. **"3. A method copied into every object"**: the problem from picture 2b. Watch the counter of `bark` functions grow.
-4. **"4. One shared method"**: the fix. The counter stays at 1.
-5. **"5. What new does"**: the four things `new` does, one per step.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** every object would carry its own copy of every function. 1000 objects means 1000 copies of the same code (picture 2b). Every array would need its own `map`.
-- **How it solves it:**
-  - Each object keeps only its own data, plus one hidden link.
-  - Shared functions live once, on the object at the other end of the link.
-  - Reading walks up and finds them. A fix in that one place reaches every object.
-- **Cost:**
-  - **Shared changes reach everyone.** An array stored on a prototype is shared. `a.tags.push(x)` first reads the shared array, then changes it for every object (practice B).
-  - **"Does it have x?" needs care.** `"x" in obj` says `true` for inherited properties. `for...in` also loops over them. Use `Object.hasOwn(obj, "x")` to ask about own properties only.
-  - **A missing property is quiet.** JavaScript gives `undefined`, not an error. A typo like `user.nmae` will not warn you.
-  - **Changing built-in prototypes is risky.** `Array.prototype` is shared by every array in the app and in every library (section 7).
-
-Simple rule: put **data** on each object. Put **functions** on the prototype.
-
-<details><summary>Go deeper (optional)</summary>
-
-- **Two exceptions to "writing never walks up".** If an object up the chain has a setter (a `set x()` function) for that name, the write calls the setter instead. If the property up the chain is read only (for example on a frozen object), the write is ignored, or throws a `TypeError` in strict mode. MDN states the setter exception on its "Inheritance and the prototype chain" page.
-- **`__proto__`.** Old code reads the hidden link with `obj.__proto__`. MDN marks that form as not standard and deprecated (old, do not use in new code). Use `Object.getPrototypeOf(obj)`. The object literal form `{ __proto__: x }` is different: it is standard, and it sets the link when the object is made.
-- **Speed.** MDN notes that reading a property far up the chain takes longer, and that a missing property always walks the full chain. In normal app code this is very small, because engines remember where they found a property.
-- **`Object.create(null)`** makes an object with no hidden link at all. It has no `toString` and no `hasOwnProperty`. People use it as a plain dictionary, so a key like `"constructor"` cannot clash with an inherited one.
-- **Classes are built on this.** `class Dog { bark() {} }` puts `bark` on `Dog.prototype`, the same as picture 2d. Lesson 08 shows this.
-- **What `new` does, in four things** (the stepper, program 5): make a blank object, set its hidden link to `Dog.prototype`, run `Dog` with `this` set to that object, and return it. If the function returns a different object, `new` returns that one instead.
+Checked on 2026-10-28 with Node 26.12.1.
 
 </details>
 
-## 7. Common mistakes
+## 3. Writing never walks up
 
-**Wrong:** thinking `obj.prototype` is the hidden link.
+Now write to a property that lives up the chain.
+
+```js
+rex.eats = false;
+console.log(rex.eats, animal.eats);
+```
+
+```mermaid
+graph TB
+    R["rex<br/>now owns eats: false"] --> D["dog"]
+    D --> A["animal<br/>still owns eats: true"]
+```
+
+<details class="guess"><summary>🤔 Guess: what does the line print? Press to check.</summary>
+
+`false true`. Writing makes a **new own property** on the object you wrote on: `rex`. `animal` did not change. Now `rex.eats` stops at `rex` and hides the one above.
+
+`delete rex.eats` removes the own one, and `true` shows again.
+
+</details>
+
+> **Remember:** writing never walks up. It always changes the object you wrote it on.
+
+<details class="more"><summary>📖 More detail: shadowed, and two exceptions</summary>
+
+The value above is only hidden, not changed. (Interview word: it is *shadowed*.) The Go deeper card has two exceptions: a setter up the chain, and a read only property.
+
+In the office picture: if you put your own stapler in your drawer, the cupboard does not change. Next time you stop at your drawer. But if you **change** something you found in the cupboard, like adding a page to a shared notebook, everyone sees it (practice B).
+
+</details>
+
+## 4. One shared method
+
+You make 1000 dog objects. Every dog needs a `bark` function. Without a shared place, each dog carries its own copy. With the chain, the function lives in one place: `Dog.prototype`.
+
+```mermaid
+graph LR
+    R["rex"] --> DP["Dog.prototype<br/>owns bark"]
+    F["fido"] --> DP
+    M["max"] --> DP
+```
+
+```js
+function Dog(name) { this.name = name; }
+Dog.prototype.bark = function () {
+  return this.name + " says woof";
+};
+const rex = new Dog("Rex");
+const fido = new Dog("Fido");
+console.log(rex.bark === fido.bark);
+```
+
+<details class="guess"><summary>🤔 Guess: do `rex` and `fido` each have their own `bark`? Press to check.</summary>
+
+No. `rex.bark === fido.bark` is `true`. They share **one** function. Each dog keeps only its own data (`name`), plus one hidden link. A fix in that one place reaches every dog.
+
+</details>
+
+> **Remember:** put **data** on each object. Put **functions** on the prototype.
+
+<details class="more"><summary>📖 More detail: the confusing name `prototype`</summary>
+
+Two kinds of arrows here. The function has a normal property called `prototype`. The dogs have hidden links.
+
+- `Dog.prototype` is a **normal property** on the function `Dog`. It is not Dog's own hidden link.
+- `new Dog()` reads it and makes it the target of the new object's hidden link.
+- So `rex.prototype` is `undefined`, but `Object.getPrototypeOf(rex) === Dog.prototype` is `true`.
+
+`new` does four things: make a blank object, set its hidden link to `Dog.prototype`, run `Dog` with `this` set to that object, and return it.
+
+</details>
+
+## 5. Where `map` and `toString` come from
+
+You never wrote `map`, yet every array has it.
+
+```mermaid
+graph TB
+    ARR["your array<br/>owns items, length"] -->|hidden link| AP["Array.prototype<br/>owns map, filter, push"]
+    AP -->|hidden link| OP["Object.prototype<br/>owns toString"]
+    OP --> N["null"]
+```
+
+```js
+console.log(Object.hasOwn([1, 2], "map"));
+console.log(Object.hasOwn([1, 2], "length"));
+```
+
+<details class="guess"><summary>🤔 Guess: does the array own `map`? And `length`? Press to check.</summary>
+
+```
+false
+true
+```
+
+`map` lives once on `Array.prototype`, shared by every array. The array owns only its items and `length`.
+
+</details>
+
+> **Remember:** every array shares one `map`. Every object can reach `toString` through `Object.prototype`.
+
+<details class="more"><summary>📖 More detail: classes are built on this</summary>
+
+`class Dog { bark() {} }` puts `bark` on `Dog.prototype`, the same as card 4. Lesson 08 shows this.
+
+</details>
+
+## 6. Mistake 1: `obj.prototype` is not the hidden link
 
 ```js
 function Dog(name) { this.name = name; }
 const rex = new Dog("Rex");
-console.log(rex.prototype);   // many people expect Dog.prototype
+console.log(rex.prototype);
+console.log(Object.getPrototypeOf(rex) === Dog.prototype);
 ```
 
-**Right:** ask for the hidden link with `Object.getPrototypeOf`.
+<details class="guess"><summary>🤔 Guess: what do the two lines print? Press to check.</summary>
 
-```js
-console.log(rex.prototype);                                // undefined
-console.log(Object.getPrototypeOf(rex) === Dog.prototype); // true
+```
+undefined
+true
 ```
 
-**Why:** only functions get a `prototype` property. It is a normal property that `new` reads. The hidden link of `rex` is something else (picture 2d).
+Only functions get a `prototype` property. It is a normal property that `new` reads. The hidden link of `rex` is something else. Ask for it with `Object.getPrototypeOf(rex)`.
 
-**Wrong:** using `in` to check if an object has its own value.
+</details>
+
+> **Remember:** `rex.prototype` is `undefined`. Use `Object.getPrototypeOf(rex)`.
+
+<details class="more"><summary>📖 More detail: `__proto__`</summary>
+
+Old code reads the hidden link with `obj.__proto__`. MDN marks that form as not standard and deprecated (old, do not use in new code). The object literal form `{ __proto__: x }` is different: it is standard, and it sets the link when the object is made.
+
+</details>
+
+## 7. Mistake 2: `in` walks up, `Object.hasOwn` does not
 
 ```js
 const user = { name: "Ana" };
-console.log("toString" in user);   // true. user did not write toString.
+console.log("toString" in user);
+console.log(Object.hasOwn(user, "toString"));
+console.log(Object.hasOwn(user, "name"));
 ```
 
-**Right:**
+<details class="guess"><summary>🤔 Guess: `user` never wrote `toString`. What do the three lines print? Press to check.</summary>
+
+```
+true
+false
+true
+```
+
+`in` walks up the chain, so it finds the inherited `toString`. `Object.hasOwn` looks only at the object itself. `for...in` also loops over inherited properties.
+
+</details>
+
+> **Remember:** to ask "does this object own x?", use `Object.hasOwn(obj, "x")`.
+
+<details class="more"><summary>📖 More detail: the cost of sharing</summary>
+
+**Shared changes reach everyone.** An array stored on a prototype is shared. `a.tags.push(x)` first reads the shared array, then changes it for every object (practice B).
+
+</details>
+
+## 8. Mistake 3: adding a method to a built-in prototype
 
 ```js
-console.log(Object.hasOwn(user, "toString"));   // false
-console.log(Object.hasOwn(user, "name"));       // true
+Array.prototype.last = function () {
+  return this[this.length - 1];
+};
 ```
 
-**Why:** `in` walks up the chain. `Object.hasOwn` looks only at the object itself.
+<details class="guess"><summary>🤔 Guess: it works. Why is it still a bad idea? Press to check.</summary>
 
-**Wrong:** adding your own method to a built-in prototype.
+Every array in the app, and in every library, shares `Array.prototype`. A library or a future version of JavaScript may add a `last` that works differently. MDN says the only good reason to change a built-in prototype is to add a newer standard feature to an older engine.
 
-```js
-Array.prototype.last = function () { return this[this.length - 1]; };
-```
-
-**Right:** write a normal function.
+Fix: write a normal function.
 
 ```js
 const last = (arr) => arr[arr.length - 1];
 ```
 
-**Why:** every array in the app, and in every library, shares `Array.prototype`. A library or a future version of JavaScript may add a `last` that works differently. MDN says the only good reason to change a built-in prototype is to add a newer standard feature to an older engine.
+</details>
 
-## 8. Watch and play
+> **Remember:** do not change built-in prototypes. Write a normal function.
+
+<details class="more"><summary>📖 More detail: why it is risky</summary>
+
+A change to `Array.prototype` is visible to every array in your whole program, including code you did not write. You cannot know what else depends on the old shape.
+
+</details>
+
+## 9. Watch it run, step by step
+
+The right side shows each object, its own properties and its hidden link. Each object lights up when JavaScript asks it. It has five programs: "1. Look up a property", "2. Reading and writing", "3. A method copied into every object" (watch the counter of `bark` functions grow), "4. One shared method" (the counter stays at 1) and "5. What new does".
+
+**Step through it yourself:** [open the objects and prototypes stepper](visuals/07-objects-and-prototypes.html).
+
+## 10. Why it matters and what it costs
+
+- **Without it,** every object would carry its own copy of every function. 1000 objects means 1000 copies of the same code. Every array would need its own `map`.
+- **With it,** each object keeps only its own data, plus one hidden link. Shared functions live once, on the object at the other end of the link. A fix in that one place reaches every object.
+- **The cost:**
+  - **Shared changes reach everyone.** An array stored on a prototype is shared.
+  - **"Does it have x?" needs care.** `"x" in obj` says `true` for inherited properties. Use `Object.hasOwn(obj, "x")`.
+  - **A missing property is quiet.** JavaScript gives `undefined`, not an error.
+  - **Changing built-in prototypes is risky** (card 8).
+
+Simple rule: put **data** on each object. Put **functions** on the prototype.
+
+## 11. Watch and play
 
 Links checked on 2026-10-15. Each page opened and matched the topic. For each video, the title, channel and length came from YouTube itself. I did not watch the videos.
 
 - **Video:** [Visually Understanding JavaScript Prototypes](https://www.youtube.com/watch?v=01jVgCK-HX4) by Steve Griffith, about 15 minutes. A visual walk through prototypes. Watch it after the stepper.
 - **Video:** [Prototype and Prototypal Inheritance in Javascript | Frontend Interview Question](https://www.youtube.com/watch?v=wstwjQ1yqWQ) by Akshay Saini, about 20 minutes. The topic as a frontend interview question.
 - **Play with it:** [The objects and prototypes stepper](visuals/07-objects-and-prototypes.html) in this folder. Guess first, then press Next.
-- **Play with it:** your browser console. Open DevTools, paste section 4, then type `rex` and open the `[[Prototype]]` rows one by one. MDN's [Object prototypes](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Advanced_JavaScript_objects/Object_prototypes) page walks you through the same thing ("The prototype chain" and "Shadowing properties").
+- **Play with it:** your browser console. Open DevTools, paste the code from card 2, then type `rex` and open the `[[Prototype]]` rows one by one. MDN's [Object prototypes](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Advanced_JavaScript_objects/Object_prototypes) page walks you through the same thing ("The prototype chain" and "Shadowing properties").
 - **Play with it:** [Object Playground](https://www.objectplayground.com/) by James Shore. Type code, and it draws every object and its links. It is an older page (2013). If the drawing does not load, use the console instead.
 - **Read:** [Prototypal inheritance](https://javascript.info/prototype-inheritance) on javascript.info. Clear diagrams. Read "Writing doesn't use prototype", then try the task "Where does it write?".
 - **Read:** [JavaScript Visualized: Prototypal Inheritance](https://dev.to/lydiahallie/javascript-visualized-prototypal-inheritance-47co) by Lydia Hallie. Animated pictures of a `Dog` with `bark` moved onto `Dog.prototype`.
 
 <details><summary>More links (optional)</summary>
 
-- **Read:** [F.prototype](https://javascript.info/function-prototype) on javascript.info. Only about the name trap from picture 2d: the `prototype` property is used only when `new` runs.
+- **Read:** [F.prototype](https://javascript.info/function-prototype) on javascript.info. Only about the name trap from card 4: the `prototype` property is used only when `new` runs.
 - **Read:** [Inheritance and the prototype chain](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Inheritance_and_the_prototype_chain) on MDN. The full guide. See the "Performance" part and the warning about changing built-in prototypes.
 - **Video (long):** [The Definitive Guide to Object-Oriented JavaScript](https://www.youtube.com/watch?v=PMfcsYzj-9M) by James Shore, about 27 minutes. The talk that goes with Object Playground. It is from 2013, so it uses older code style.
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -453,7 +461,7 @@ Why `Object.hasOwn` in `findOwner`: a check like `current[key] !== undefined` wo
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "What is the prototype chain? What is the difference between `prototype` and the hidden link? What does this print?"
 
@@ -498,7 +506,7 @@ Say out loud which line makes the hidden link.
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain the prototype chain out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "own property", "hidden link" and "chain". Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check prototypes` or ask the `explain-coach` agent to review it.
 
@@ -510,12 +518,12 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. `rex` does not own `eats`. What does JavaScript do when you read `rex.eats`? When does it stop?
 2. After `rex.eats = false`, what is `animal.eats`, and why?
 3. What is the difference between `Dog.prototype` and the hidden link of `rex`? How do you read the hidden link?
-4. Draw the picture from section 2d from memory: the function, `Dog.prototype`, two dogs, and all the arrows.
+4. Draw the picture from card 4 from memory: the function, `Dog.prototype`, two dogs, and all the arrows.
 
 <details><summary>Answers</summary>
 
@@ -526,10 +534,25 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 </details>
 
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>More</summary>
+
+- **Two exceptions to "writing never walks up".** If an object up the chain has a setter (a `set x()` function) for that name, the write calls the setter instead. If the property up the chain is read only (for example on a frozen object), the write is ignored, or throws a `TypeError` in strict mode. MDN states the setter exception on its "Inheritance and the prototype chain" page.
+- **`__proto__`.** Old code reads the hidden link with `obj.__proto__`. MDN marks that form as not standard and deprecated (old, do not use in new code). Use `Object.getPrototypeOf(obj)`. The object literal form `{ __proto__: x }` is different: it is standard, and it sets the link when the object is made.
+- **Speed.** MDN notes that reading a property far up the chain takes longer, and that a missing property always walks the full chain. In normal app code this is very small, because engines remember where they found a property.
+- **`Object.create(null)`** makes an object with no hidden link at all. It has no `toString` and no `hasOwnProperty`. People use it as a plain dictionary, so a key like `"constructor"` cannot clash with an inherited one.
+- **Classes are built on this.** `class Dog { bark() {} }` puts `bark` on `Dog.prototype`, the same as card 4. Lesson 08 shows this.
+- **What `new` does, in four things** (the stepper, program 5): make a blank object, set its hidden link to `Dog.prototype`, run `Dog` with `this` set to that object, and return it. If the function returns a different object, `new` returns that one instead.
+
+</details>
+
 ## Connected lessons
 
 - [Reference vs copy](03-reference-vs-copy.md): a hidden link points at an object, it does not copy it. That is why a change to a shared array shows up everywhere.
 - [this, call, apply and bind](06-this-call-apply-and-bind.md): the lesson before. A method found far up the chain still runs with `this` set to the object before the dot.
 - [Classes](08-classes.md): the next lesson. A `class` builds the same picture as 2d, with shorter code.
-- [Arrays and higher order functions](09-arrays-and-higher-order-functions.md): `map`, `filter` and `reduce` live on `Array.prototype` (picture 2f).
+- [Arrays and higher order functions](09-arrays-and-higher-order-functions.md): `map`, `filter` and `reduce` live on `Array.prototype` (card 5).
 - [Closures](05-closures.md): another way to share functions and hide data. A closure hides data in a scope box. A prototype shares functions through a hidden link.
