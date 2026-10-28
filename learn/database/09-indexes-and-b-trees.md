@@ -1,75 +1,178 @@
 # 09. Indexes and B-trees
 
-> **Subject:** Database · **Lesson:** 09 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** Database · **Lesson:** 09 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** draw a B-tree, walk a search from the top page down to the row, and say what every index costs when you write.
+>
 > **Before this:** [Constraints and data types](08-constraints-and-data-types.md) · **Next:** [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The numbers come from the practice database (100,000 orders), so yours will differ a little. About 25 minutes for the cards.
+>
+> Lessons 24 to 26 go deeper into the same topic (how the pages really look, and what an index costs). Read this one first.
 
-## 1. The idea in one sentence
+## 1. The idea: the index at the back of a book
 
-An index is a sorted list of one column, where every entry says where its row lives, so Postgres can jump to a few rows instead of reading the whole table.
-
-New words, at most 4:
-
-- **Page:** a block of 8 kB on disk. Postgres always reads and writes whole pages, never one row alone. (interview word: page or block)
-- **Index:** a separate, sorted list of the values of one column. Each entry holds a value and the address of its row. (interview word: index)
-- **B-tree:** the shape of that list. It is a few levels of sorted pages. The one page at the top is the **root**. The pages at the bottom are the **leaves**. Pages in between are **inner pages**. (interview word: B-tree)
-- **Row address:** where a row sits in the table: a page number and a slot number, written like `(3,2)`. (interview word: TID or ctid. The table itself is called the **heap**.)
-
-The rule to remember: **a search through an index reads one page per level of the tree, then only the table pages that hold your rows. Every write pays for this: each INSERT must also add an entry to every index on the table.**
-
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that Postgres reads only one page per level, then jumps straight to the right table page.
+You want the page about "closures". Reading the whole book takes hours. The index at the back lists words from A to Z, each with a page number. You jump to C, find "closures, page 212", and open page 212.
 
 ```mermaid
-graph LR
+graph TB
     Q["WHERE store_id = 42"] -->|read 1 page| R["Root page"]
     R -->|go down| I["Inner page"]
-    I -->|go down| L["Leaf page with 42 and its row addresses"]
-    L -->|follow the address| T["Table page that holds the row"]
-    T --> A["The rows of store 42"]
+    I -->|go down| L["Leaf page: 42 and its row addresses"]
+    L -->|follow the address| T["Table page with the row"]
 ```
 
-### 2b. The problem, drawn
+Notice: Postgres reads **one page per level**, then jumps straight to the right table page.
 
-Without an index, Postgres has no idea where store 42's orders are. Notice that it must open every page and check every row.
+<details class="guess"><summary>🤔 Guess: 100,000 orders sit in 834 table pages. You look up one order through an index. About how many pages does Postgres read: 4 or 400? Press to check.</summary>
+
+About **4**: the root, an inner page, a leaf, and one table page. (On a real 200,000 row table with a 3-level index, a lookup read exactly 4 pages. The table has 1,869 pages.)
+
+</details>
+
+> **Remember:** an index is a sorted list of one column. Each entry says where its row lives. A search reads one page per level, then only the table pages that hold your rows.
+
+<details class="more"><summary>📖 More detail: the four words, and where the book picture stops</summary>
+
+- **Page:** a block of 8 kB on disk. Postgres always reads and writes whole pages, never one row alone. (Interview word: page or block.)
+- **Index:** a separate, sorted list of the values of one column. Each entry holds a value and the address of its row.
+- **B-tree:** the shape of that list. It is a few levels of sorted pages. The one page at the top is the **root**. The pages at the bottom are the **leaves**. Pages in between are **inner pages**.
+- **Row address:** where a row sits in the table: a page number and a slot number, written like `(3,2)`. (Interview word: TID or ctid. The table itself is called the **heap**.)
+
+A thick dictionary even has **letter tabs** on the edge. You grab the C tab first. That is the root of the tree.
+
+Where the picture stops:
+
+- A book is printed once. A table changes every second. Postgres must fix the index on **every** insert, update and delete (card 6). A book never pays that cost.
+- A book index lists many words. A Postgres index usually lists the values of one or a few columns.
+
+</details>
+
+## 2. Without an index: read everything
+
+Without an index, Postgres has no idea where store 42's orders are. It must open every page and check every row.
 
 ```mermaid
-graph LR
-    Q["WHERE store_id = 42"] --> P0["Page 0 check 120 rows"]
-    P0 --> P1["Page 1 check 120 rows"]
-    P1 --> PM["830 more pages"]
-    PM --> PL["Page 833 check the last rows"]
-    PL --> R["100000 rows checked. 139 kept. 99861 thrown away"]
+graph TB
+    Q["WHERE store_id = 42"] --> P["Open all 834 pages"]
+    P --> C["Check 100000 rows"]
+    C --> R["Keep 139, throw away 99861"]
 ```
 
-### 2c. How it works over time
+```sql
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
+SELECT * FROM orders
+WHERE store_id = 42;
+```
 
-A search for store 63 in a small tree. Notice the order: down the tree first, then one jump into the table.
+<details class="guess"><summary>🤔 Guess: how many pages does Postgres read to find the 139 rows? Press to check.</summary>
+
+```
+Seq Scan on orders (actual time=0.281..10.240 rows=139.00 loops=1)
+  Filter: (store_id = 42)
+  Rows Removed by Filter: 99861
+  Buffers: shared hit=834
+Execution Time: 10.451 ms
+```
+
+**834 pages**: the whole table. `Seq Scan` means Postgres read the table from the first page to the last. `Rows Removed by Filter: 99861` is the wasted work: it checked 100,000 rows to keep 139. About 10 ms.
+
+</details>
+
+> **Remember:** without an index, the work grows with the table, even when you want 1 row.
+
+<details class="more"><summary>📖 More detail: how to read the plan</summary>
+
+- **Seq Scan** means Postgres read the table from the first page to the last.
+- **Rows Removed by Filter: 99861** is the wasted work.
+- **Buffers: 834** is 834 pages read. That is the whole table.
+
+[Lesson 11](11-reading-explain.md) goes further. Your numbers will differ a little, because the seed uses `random()`. The shape stays the same.
+
+</details>
+
+## 3. With an index: read only what you need
+
+Make the index, and ask the same question again:
+
+```sql
+CREATE INDEX orders_store_id_idx
+  ON orders (store_id);
+
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
+SELECT * FROM orders
+WHERE store_id = 42;
+```
+
+<details class="guess"><summary>🤔 Guess: how many pages now, and how long does it take? Press to check.</summary>
+
+```
+Bitmap Heap Scan on orders (actual time=0.484..0.796 rows=139.00 loops=1)
+  Recheck Cond: (store_id = 42)
+  Heap Blocks: exact=127
+  Buffers: shared hit=127 read=3
+  ->  Bitmap Index Scan on orders_store_id_idx (actual time=0.174..0.175 rows=139.00 loops=1)
+        Index Cond: (store_id = 42)
+        Index Searches: 1
+        Buffers: shared read=3
+Execution Time: 1.037 ms
+```
+
+The index read **3 pages**. `Heap Blocks: 127` is 127 table pages. Total 130 pages, not 834. Time went from about 10 ms to about 1 ms.
+
+</details>
+
+> **Remember:** an index turns "read the whole table" into "read a few pages".
+
+<details class="more"><summary>📖 More detail: the bitmap, and how big the index is</summary>
+
+"Bitmap" is one way to use an index. Postgres first collects all 139 row addresses, sorts them by page, then opens each table page once.
+
+The index is a real file:
+
+```sql
+SELECT pg_size_pretty(
+    pg_relation_size('orders')
+  ) AS table_size,
+  pg_size_pretty(
+    pg_relation_size('orders_store_id_idx')
+  ) AS index_size;
+```
+
+```
+ table_size | index_size
+------------+------------
+ 6672 kB    | 720 kB
+```
+
+Checked on 2026-10-16 with PostgreSQL 18.3 (PGlite), on the practice seed.
+
+</details>
+
+## 4. Walking down the tree
+
+Look for store 63 in a small tree. Each page holds a few keys that say where to go next.
 
 ```mermaid
-sequenceDiagram
-    participant Q as Your query
-    participant R as Root page
-    participant I as Inner page
-    participant L as Leaf page
-    participant T as Table page 3
-    Q->>R: where is 63?
-    R-->>Q: 63 is between 42 and 70 so go to the middle inner page
-    Q->>I: where is 63?
-    I-->>Q: 63 is 58 or more so go to the leaf that starts at 58
-    Q->>L: where is 63?
-    L-->>Q: 63 lives at row address 3 slot 2
-    Q->>T: give me slot 2
-    T-->>Q: order id 11 for store 63
-    Note over Q,T: 4 page reads. A full scan reads all 9 table pages.
+graph TB
+    R["Root: 42 . 70"] -->|63 is between| I["Inner: 47 . 58"]
+    I -->|63 is 58 or more| L["Leaf: 58 63 67"]
+    L -->|63 is at address 3,2| T["Table page 3, slot 2"]
 ```
 
-### 2d. What is on disk right now
+Notice: 4 page reads. A full scan would read all 9 table pages of this small table.
 
-This is the small tree from the stepper. It indexes `store_id` for 27 orders. A real page holds hundreds of entries. Here each page holds 3, so the tree fits on screen. Notice that the leaves hold every value in sorted order, and each leaf links to the next one.
+<details class="guess"><summary>🤔 Guess: the root says "42 . 70". Which way does 63 go? Press to check.</summary>
+
+63 is **between 42 and 70**, so it goes to the middle inner page ("47 . 58"). There 63 is 58 or more, so it goes to the leaf that starts at 58. The leaf says 63 lives at row address (3,2): table page 3, slot 2.
+
+</details>
+
+> **Remember:** each page tells Postgres which page to read next. The leaves hold every value in sorted order, and each leaf links to the next leaf.
+
+<details class="more"><summary>📖 More detail: the whole small tree, and how tall a real tree gets</summary>
+
+This is the small tree from the stepper. It indexes `store_id` for 27 orders. A real page holds hundreds of entries. Here each page holds 3, so the tree fits on screen.
 
 ```mermaid
 graph TB
@@ -105,126 +208,15 @@ Inside one leaf and its table pages. The leaf is sorted. The table is not.
 
 These row addresses are real. They come from `SELECT ctid, id, store_id` on the small table used by the stepper.
 
-### 2e. Right against wrong
+**A real tree is short.** Each page points to a few hundred pages below it. With about 300 entries per page:
 
-**Wrong:** "indexes make things fast, so index every column."
+| Levels | Rows it can reach |
+|---|---|
+| 2 | about 90,000 |
+| 3 | about 27 million |
+| 4 | about 8 billion |
 
-```mermaid
-graph LR
-    W["Index on every column"] --> I1["Each INSERT updates 5 indexes"]
-    W --> I2["5 indexes take 8032 kB. The table is 6672 kB"]
-    W --> I3["Many are never used. A status index is skipped for PAID"]
-```
-
-**Right:** index the columns that your WHERE, JOIN and ORDER BY use often, and that pick out a small part of the table.
-
-```mermaid
-graph LR
-    G["Index store_id and created_at"] --> A["Find one store's orders fast"]
-    G --> B["Newest orders first without sorting"]
-    G --> C["Each INSERT updates only 3 indexes including the primary key"]
-```
-
-### 2f. One INSERT, many writes
-
-Notice that one new row means one write in the table plus one in every index.
-
-```mermaid
-graph LR
-    N["INSERT one order"] --> T["Table page gets the row"]
-    N --> P["Primary key index gets the id"]
-    N --> S["store_id index gets 42"]
-    N --> C["created_at index gets the time"]
-    N --> X["status index gets PENDING"]
-```
-
-## 3. Real life analogy
-
-An index is like **the index at the back of a book**.
-
-- You want the page about "closures". Reading the whole book would take hours.
-- The index at the back lists words from A to Z, each with a page number.
-- Because the list is sorted, you jump to C, find "closures, page 212", and open page 212.
-- A thick dictionary even has **letter tabs** on the edge. You grab the C tab first. That is the root of the tree.
-
-Where the analogy stops:
-
-- A book is printed once. A table changes every second. Postgres must fix the index on **every** insert, update and delete. A book never pays that cost.
-- A book index lists many words. A Postgres index usually lists the values of one or a few columns.
-
-## 4. The smallest code that shows it
-
-Run this in the practice database. `EXPLAIN ANALYZE` runs the query and shows how Postgres did it. `BUFFERS` adds how many pages it read.
-
-```sql
-EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
-SELECT * FROM orders WHERE store_id = 42;
-
-CREATE INDEX orders_store_id_idx ON orders (store_id);
-
-EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
-SELECT * FROM orders WHERE store_id = 42;
-
-SELECT pg_size_pretty(pg_relation_size('orders')) AS table_size,
-       pg_size_pretty(pg_relation_size('orders_store_id_idx')) AS index_size;
-```
-
-**Output, before the index:**
-
-```
-Seq Scan on orders (actual time=0.281..10.240 rows=139.00 loops=1)
-  Filter: (store_id = 42)
-  Rows Removed by Filter: 99861
-  Buffers: shared hit=834
-Execution Time: 10.451 ms
-```
-
-**Output, after the index:**
-
-```
-Bitmap Heap Scan on orders (actual time=0.484..0.796 rows=139.00 loops=1)
-  Recheck Cond: (store_id = 42)
-  Heap Blocks: exact=127
-  Buffers: shared hit=127 read=3
-  ->  Bitmap Index Scan on orders_store_id_idx (actual time=0.174..0.175 rows=139.00 loops=1)
-        Index Cond: (store_id = 42)
-        Index Searches: 1
-        Buffers: shared read=3
-Execution Time: 1.037 ms
-```
-
-```
- table_size | index_size
-------------+------------
- 6672 kB    | 720 kB
-```
-
-How to read it (lesson 11 goes further):
-
-- **Seq Scan** means Postgres read the table from the first page to the last.
-- **Rows Removed by Filter: 99861** is the wasted work. It checked 100,000 rows to keep 139.
-- **Buffers: 834** is 834 pages read. That is the whole table.
-- After the index, the **Bitmap Index Scan** read **3 index pages**. **Heap Blocks: 127** is 127 table pages. Total 130 pages, not 834.
-- Time went from about 10 ms to about 1 ms.
-- "Bitmap" is one way to use an index. Postgres first collects all 139 row addresses, sorts them by page, then opens each table page once.
-
-Your numbers will differ a little, because the seed uses `random()`. The shape stays the same.
-
-## 5. What really happens, step by step
-
-The query `SELECT * FROM orders WHERE store_id = 42`, after `CREATE INDEX`. The page numbers come from looking inside the real index.
-
-| Step | What Postgres does | Pages read so far | State after |
-|---|---|---|---|
-| 1 | Plans the query. Its statistics say about 110 of 100,000 rows match. Few rows, so the index is cheaper than reading 834 pages. | 0 | Plan: use `orders_store_id_idx` |
-| 2 | Reads the **root** page of the index. It holds 88 entries, one per leaf: "from store 21, go to leaf 4", "from store 32, go to leaf 5", "from the middle of store 42, go to leaf 6". | 1 | Postgres knows the first 42 is in leaf 5 |
-| 3 | Reads **leaf 5**. It is sorted, so Postgres jumps to the entry for 42. Postgres stores 42 once, with a list of 132 row addresses. | 2 | 132 addresses collected |
-| 4 | Leaf 5 ends, but the 42s may go on. Postgres follows the **next leaf** link to leaf 6. It finds 7 more addresses. The next entry is 43, which is bigger, so it stops. | 3 | 139 addresses collected. Index part done. |
-| 5 | Sorts the 139 addresses by table page. Some pages hold two orders of store 42. | 3 | 127 different table pages to visit |
-| 6 | Opens each of the 127 table pages and takes the matching rows. It checks `store_id = 42` again on each row (the "Recheck Cond" line). | 130 | 139 rows found |
-| 7 | Returns the 139 rows. | 130 | Done in about 1 ms, against 834 pages and 10 ms before |
-
-For 100,000 orders this tree has only **2 levels**: the root, then 88 leaves. A bigger index grows one more level. `point_transactions` has 200,000 rows, and its index on `reference` has **3 levels**. A lookup there reads 4 pages: root, inner, leaf and one table page.
+For 100,000 orders the `store_id` index has only **2 levels**: the root, then 88 leaves. The table `point_transactions` has 200,000 rows, and its index on `reference` has **3 levels**. A lookup there reads 4 pages: root, inner, leaf and one table page.
 
 ```
 Index Scan using point_transactions_reference_key on point_transactions (actual time=0.273..0.275 rows=1.00 loops=1)
@@ -235,51 +227,70 @@ Index Scan using point_transactions_reference_key on point_transactions (actual 
 
 The table has 1,869 pages. The index read 4.
 
-Checked on 2026-10-16 with PostgreSQL 18.3 (PGlite), on the practice seed.
+</details>
 
-**Step through it yourself:** [open the indexes and B-trees stepper](visuals/09-indexes-and-b-trees.html). It draws the small tree from picture 2d, the table pages under it, and a page counter. It has four programs:
+## 5. A free gift: sorted order and ranges
 
-1. **"1. Find one store"**: root, inner page, leaf, then the row. 4 page reads.
-2. **"2. Range search"**: `BETWEEN 40 AND 52`. Watch Postgres walk along the leaves.
-3. **"3. Insert a row"**: the table gets a row, and every index gets an entry. The second insert finds a full leaf, so Postgres splits it in two.
-4. **"4. Full scan"**: no index. Count the rows checked.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** Postgres reads every page and checks every row (picture 2b). The work grows with the table, even when you want 1 row.
-- **How it solves it:**
-  - The values are kept **sorted**, so Postgres can jump to the right place.
-  - The tree is **short**. Each page points to a few hundred pages below it. With about 300 entries per page, 2 levels reach about 90,000 rows. 3 levels reach about 27 million. 4 levels reach about 8 billion.
-  - So a lookup reads only a few index pages, even in a huge table.
-
-**A free gift of sorting: ORDER BY and ranges.** The leaves are already in order and linked. So Postgres can read them in order and stop early.
+The leaves are already in order, and linked. So Postgres can read them in order and stop early.
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
-SELECT * FROM orders ORDER BY created_at DESC LIMIT 10;
+SELECT * FROM orders
+ORDER BY created_at DESC
+LIMIT 10;
 ```
+
+<details class="guess"><summary>🤔 Guess: with an index on `created_at`, how many pages does "the 10 newest orders" read? Press to check.</summary>
 
 | | Plan | Pages | Time |
 |---|---|---|---|
 | No index on `created_at` | Seq Scan of all 100,000 rows, then Sort | 837 | 50.6 ms |
 | With `CREATE INDEX orders_created_at_idx ON orders (created_at)` | Index Scan Backward, no Sort | 12 | 0.06 ms |
 
-"Backward" means Postgres walked the leaves from the end. A range like `created_at BETWEEN now() - interval '2 days' AND now() - interval '1 day'` works the same way. Postgres finds the first match, then walks right until the values are too big. It found 273 rows after reading 3 index pages.
+**12 pages.** "Backward" means Postgres walked the leaves from the end. It reads 10 rows and stops. No sort needed.
 
-**Cost 1: every write gets slower.** The same insert of 100,000 rows into a copy of `orders`. Times change from run to run, so look at the gap, not the exact numbers:
+</details>
+
+> **Remember:** a B-tree keeps values sorted, so it helps `ORDER BY`, `<`, `>` and `BETWEEN`, not only `=`.
+
+<details class="more"><summary>📖 More detail: a range search</summary>
+
+A range like `created_at BETWEEN now() - interval '2 days' AND now() - interval '1 day'` works the same way. Postgres finds the first match, then walks right along the leaves until the values are too big. It found 273 rows after reading 3 index pages.
+
+</details>
+
+## 6. The cost: every write, and disk space
+
+An index is not free. One new row means one write in the table **plus one write in every index**.
+
+```mermaid
+graph TB
+    N["INSERT one order"] --> W["1 write in the table<br/>+ 1 write per index"]
+    W --> X["5 indexes = 6 writes"]
+```
+
+Insert 100,000 rows into a copy of `orders`, with and without 4 indexes (id, store_id, created_at, status):
+
+<details class="guess"><summary>🤔 Guess: how many times slower is the insert with 4 indexes? Press to check.</summary>
 
 | Indexes on the copy | Time | Changes written to the log |
 |---|---|---|
 | none | 146 ms | 100,000 |
-| 4 (id, store_id, created_at, status) | 708 ms | 503,868 |
+| 4 | 708 ms | 503,868 |
 
-A second run on 2026-10-22 gave 75 ms with no indexes and 633 ms with 4. The gap is 5 to 8 times.
+About **5 to 8 times slower** (a second run on 2026-10-22 gave 75 ms and 633 ms). Times change from run to run, so look at the gap, not the exact numbers.
 
-- Each INSERT adds one entry to **every** index (picture 2f).
+</details>
+
+> **Remember:** every index slows every INSERT and takes disk space. Index only what your real slow queries use.
+
+<details class="more"><summary>📖 More detail: updates, deletes, and disk size</summary>
+
+- Each INSERT adds one entry to **every** index.
 - An UPDATE usually adds new index entries too (Go deeper has the exception).
 - A DELETE leaves old index entries behind. The cleaner (interview word: VACUUM, lesson 16, not written yet) removes them from every index later.
 
-**Cost 2: disk space.** Indexes are real files.
+**Disk space.** Indexes are real files:
 
 | Name | Size |
 |---|---|
@@ -291,19 +302,61 @@ A second run on 2026-10-22 gave 75 ms with no indexes and 633 ms with 4. The gap
 
 Four indexes take 5,832 kB. That is almost as big as the table. They also compete with the table for memory.
 
-**Cost 3: an index helps only when the filter is picky.** How picky a filter is has an interview name: **selectivity**. About 3 in 7 orders are PAID.
+**The wrong way and the right way.** Do not add an index for every column "to be safe". Index what your real slow queries filter, join or sort by, then check that the plan uses it:
+
+```sql
+CREATE INDEX ON orders (store_id);
+-- every store page filters by this
+CREATE INDEX ON orders (created_at);
+-- "newest first" lists sort by this
+```
+
+An index on `status` with 5 values is often skipped anyway (card 7).
+
+</details>
+
+## 7. A picky filter, or Postgres ignores the index
+
+An index helps only when the filter is **picky**. How picky a filter is has an interview name: **selectivity**. About 3 in 7 orders are PAID. Say you have an index on `status`:
+
+```sql
+SELECT * FROM orders
+WHERE status IN ('PAID', 'SHIPPED');
+```
+
+<details class="guess"><summary>🤔 Guess: about 57,000 of 100,000 rows match. Does Postgres use the index? Press to check.</summary>
 
 | Query (with an index on `status`) | Matches | Plan | Pages |
 |---|---|---|---|
 | `status = 'PAID'` | 42,983 | Bitmap scan, but `Heap Blocks: exact=834` | 872 |
 | `status IN ('PAID', 'SHIPPED')` | 57,431 | **Seq Scan**. The index is not used. | 834 |
 
-- For PAID, Postgres used the index, yet still opened **all 834 table pages**. It read more pages than a full scan. It was only a few milliseconds faster (19 ms against 23 ms).
-- Add SHIPPED and Postgres gives up on the index. When most pages hold a match, reading the table in order is cheaper.
+No. Postgres gives up on the index. When most pages hold a match, reading the table in order is cheaper. Even for PAID alone, Postgres used the index, yet still opened **all 834 table pages**, and was only a few milliseconds faster (19 ms against 23 ms).
 
-**Foreign keys do not get an index by themselves.** `orders.store_id REFERENCES stores(id)` only adds a check. `stores.id` has an index, because it is the primary key. `orders.store_id` has none until you make one. The Postgres docs say so directly.
+</details>
 
-It hurts on delete. When you delete a store, Postgres must check that no order still points to it. Deleting 100 stores that have no orders:
+> **Remember:** "I made an index, so Postgres must use it" is wrong. Run `EXPLAIN`. If the filter matches a big part of the table, a Seq Scan is the correct, faster choice.
+
+<details class="more"><summary>📖 More detail: why Postgres chooses</summary>
+
+Postgres guesses the cost of both ways and picks the cheaper one. [Lesson 10](10-composite-partial-and-covering-indexes.md) lists more reasons an index is not used, like wrapping the column in a function.
+
+</details>
+
+## 8. Mistake: a foreign key does not make an index
+
+`orders.store_id REFERENCES stores(id)` only adds a **check**. `stores.id` has an index, because it is the primary key. `orders.store_id` has none until you make one.
+
+```sql
+CREATE TABLE orders (
+  id       bigserial PRIMARY KEY,
+  store_id int NOT NULL
+    REFERENCES stores(id)
+  -- no index on store_id here
+);
+```
+
+<details class="guess"><summary>🤔 Guess: you delete 100 stores that have no orders. Postgres must check that no order points to each one. How long does it take without an index? Press to check.</summary>
 
 ```
 -- no index on orders.store_id or point_transactions.store_id
@@ -317,93 +370,75 @@ Trigger for constraint point_transactions_store_id_fkey: time=2.565 calls=100
 Execution Time: 6.191 ms
 ```
 
-Without the index, each check was a full scan of the child table. 200 full scans took 2.5 seconds.
+**2.5 seconds** without the index, **6 ms** with it. Each check was a full scan of the child table. 200 full scans took 2.5 seconds.
 
-**More index kinds, in lesson 10:**
+Fix:
+
+```sql
+CREATE INDEX orders_store_id_idx
+  ON orders (store_id);
+```
+
+</details>
+
+> **Remember:** Postgres indexes the primary key and UNIQUE columns. It does not index the column that points to another table. Add that index yourself.
+
+<details class="more"><summary>📖 More detail: Prisma, and more index kinds</summary>
+
+In a Prisma schema you write `@@index([storeId])` on the model. Check your migration SQL for the `CREATE INDEX` line.
+
+More index kinds, in [lesson 10](10-composite-partial-and-covering-indexes.md):
 
 - **Composite:** one index on two columns, like `(store_id, created_at)`. Column order matters.
 - **Partial:** an index on only some rows, like `WHERE status = 'PENDING'`.
 - **Covering:** an index that holds every column the query needs, so Postgres skips the table.
 
-<details><summary>Go deeper (optional)</summary>
+</details>
 
-- **Postgres 16 against 18.** These outputs come from Postgres 18. On your Docker playground (Postgres 16):
-  - Row counts have no decimals: `rows=139`, not `rows=139.00`.
-  - The line `Index Searches: 1` does not exist. Postgres 18 added it.
-  - `EXPLAIN ANALYZE` shows `Buffers` lines only when you write `BUFFERS`. Postgres 18 adds them by default. This lesson always writes `BUFFERS`, so you see them on both.
-  - Postgres 18 can sometimes use a two-column index without a filter on its first column ("skip scan"). Lesson 10 covers this.
-  - Plan shapes and page counts are the same.
-- **Bitmap scan against Index Scan.** An Index Scan reads one index entry, then its table page, then the next entry. A Bitmap scan first collects all addresses, sorts them, then visits each table page once. Postgres picks bitmap when many rows match, so it does not open the same page twice. Lesson 11 shows all the plan shapes.
-- **Duplicates stored once.** Since Postgres 13, a leaf stores a repeated value once with a list of row addresses (deduplication). That is why `orders_store_id_idx` (900 different values) is 720 kB, while `orders_pkey` (100,000 different values) is 2208 kB.
-- **Free room and splits.** `CREATE INDEX` fills leaf pages to 90% (fillfactor 90). The free room takes new entries. When a leaf is full, Postgres splits it into two pages and adds a pointer in the page above. When the root splits, the tree gets one level taller. The stepper shows a split in program 3.
-- **The update exception (HOT).** If an UPDATE changes no indexed column, and the table page has free room, Postgres adds no new index entries. More indexes mean fewer updates can use this shortcut.
-- **Building an index blocks writes.** A normal `CREATE INDEX` lets reads run but makes INSERT, UPDATE and DELETE wait until it finishes. On a live table use `CREATE INDEX CONCURRENTLY`. It is slower but does not block writes. Lesson 19 (not written yet) covers this.
-- **Look inside a tree yourself.** `CREATE EXTENSION pageinspect;` then `SELECT level FROM bt_metap('orders_store_id_idx');`. Level 1 means 2 levels: root and leaves.
-- **B-tree or B+ tree?** In Postgres, row addresses sit in the leaves and the leaves are linked. Textbooks call that shape a B+ tree. Postgres just calls it B-tree.
-- **Other index types**, one line each (from the Postgres docs on index types):
-  - **B-tree:** the default. Equality, ranges and sorting.
-  - **Hash:** equality only (`=`).
-  - **GIN:** values that hold many parts, like arrays, JSONB and full text search.
-  - **GiST:** shapes, locations and "nearest first" searches.
-  - **SP-GiST:** special trees, like tries, for some data types.
-  - **BRIN:** a tiny summary per block of pages. Good for huge tables where the column grows with the insert order, like `created_at` in a log.
+## 9. Watch it run, step by step
+
+The stepper draws the small tree from card 4, the table pages under it, and a page counter. It has four programs:
+
+1. **"1. Find one store":** root, inner page, leaf, then the row. 4 page reads.
+2. **"2. Range search":** `BETWEEN 40 AND 52`. Watch Postgres walk along the leaves.
+3. **"3. Insert a row":** the table gets a row, and every index gets an entry. The second insert finds a full leaf, so Postgres splits it in two.
+4. **"4. Full scan":** no index. Count the rows checked.
+
+**Step through it yourself:** [open the indexes and B-trees stepper](visuals/09-indexes-and-b-trees.html).
+
+<details class="more"><summary>📖 More detail: the query from card 3, step by step</summary>
+
+The query `SELECT * FROM orders WHERE store_id = 42`, after `CREATE INDEX`. The page numbers come from looking inside the real index.
+
+| Step | What Postgres does | Pages read so far | State after |
+|---|---|---|---|
+| 1 | Plans the query. Its statistics say about 110 of 100,000 rows match. Few rows, so the index is cheaper than reading 834 pages. | 0 | Plan: use `orders_store_id_idx` |
+| 2 | Reads the **root** page of the index. It holds 88 entries, one per leaf: "from store 21, go to leaf 4", "from store 32, go to leaf 5", "from the middle of store 42, go to leaf 6". | 1 | Postgres knows the first 42 is in leaf 5 |
+| 3 | Reads **leaf 5**. It is sorted, so Postgres jumps to the entry for 42. Postgres stores 42 once, with a list of 132 row addresses. | 2 | 132 addresses collected |
+| 4 | Leaf 5 ends, but the 42s may go on. Postgres follows the **next leaf** link to leaf 6. It finds 7 more addresses. The next entry is 43, which is bigger, so it stops. | 3 | 139 addresses collected. Index part done. |
+| 5 | Sorts the 139 addresses by table page. Some pages hold two orders of store 42. | 3 | 127 different table pages to visit |
+| 6 | Opens each of the 127 table pages and takes the matching rows. It checks `store_id = 42` again on each row (the "Recheck Cond" line). | 130 | 139 rows found |
+| 7 | Returns the 139 rows. | 130 | Done in about 1 ms, against 834 pages and 10 ms before |
 
 </details>
 
-## 7. Common mistakes
+## 10. Why it matters and what it costs
 
-**Wrong:** thinking the foreign key already made an index.
+- **Without it,** Postgres reads every page and checks every row. The work grows with the table, even when you want 1 row.
+- **With it,** the values are kept **sorted**, so Postgres can jump to the right place. The tree is **short**, so a lookup reads only a few index pages, even in a huge table.
+- **The cost:** every write is slower, indexes take disk space, and a filter that is not picky enough makes Postgres ignore the index anyway.
 
-```sql
-CREATE TABLE orders (
-  id       bigserial PRIMARY KEY,
-  store_id int NOT NULL REFERENCES stores(id)   -- no index here
-);
-```
-
-**Right:** add it yourself.
-
-```sql
-CREATE INDEX orders_store_id_idx ON orders (store_id);
-```
-
-**Why:** Postgres indexes the primary key and UNIQUE columns. It does not index the column that points to another table. In a Prisma schema you write `@@index([storeId])` on the model. Check your migration SQL for the `CREATE INDEX` line.
-
-**Wrong:** adding an index for every column "to be safe".
-
-```sql
-CREATE INDEX ON orders (status);
-CREATE INDEX ON orders (total_cents);
-CREATE INDEX ON orders (store_id);
-CREATE INDEX ON orders (created_at);
-```
-
-**Right:** index what your real slow queries filter, join or sort by. Then check that the plan uses it.
-
-```sql
-CREATE INDEX ON orders (store_id);     -- every store page filters by this
-CREATE INDEX ON orders (created_at);   -- "newest first" lists sort by this
-```
-
-**Why:** every index slows every INSERT and takes disk. An index on `status` with 5 values is often skipped anyway.
-
-**Wrong:** "I made an index, so Postgres must use it."
-
-**Right:** run `EXPLAIN` and read the first line. If the filter matches a big part of the table, a Seq Scan is the correct, faster choice.
-
-**Why:** Postgres guesses the cost of both ways and picks the cheaper one. Lesson 10 lists more reasons an index is not used, like wrapping the column in a function.
-
-## 8. Watch and play
+## 11. Watch and play
 
 Links checked on 2026-10-16. Each page was opened and matched the topic. For each video, the title, channel and length came from YouTube itself. The videos were not watched in full.
 
-- **Video:** [Database Indexing Explained (with PostgreSQL)](https://www.youtube.com/watch?v=-qNSXK7s7_w) by Hussein Nasser, about 18 minutes. He builds a big table, then compares plans before and after an index. Watch it after section 4.
+- **Video:** [Database Indexing Explained (with PostgreSQL)](https://www.youtube.com/watch?v=-qNSXK7s7_w) by Hussein Nasser, about 18 minutes. He builds a big table, then compares plans before and after an index. Watch it after card 3.
 - **Video:** [How do B-Tree Indexes work? | Systems Design Interview](https://www.youtube.com/watch?v=Z2OaqmxiH20) by Jordan has no life, about 9 minutes. The tree, reads and writes, as an interview topic.
 - **Play with it:** [the indexes and B-trees stepper](visuals/09-indexes-and-b-trees.html) in this folder. Predict the page count first, then press Next.
 - **Play with it:** [B+ Tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BPlusTree.html) from the University of San Francisco. Set Max. Degree to 4, insert 20 numbers, then use Find. Watch the splits.
-- **Play with it:** [explain.dalibo.com](https://explain.dalibo.com/). Paste the before and after plans from section 4 and compare the pictures.
-- **Read:** [The Balanced Search Tree (B-Tree)](https://use-the-index-luke.com/sql/anatomy/the-tree) on Use The Index, Luke. Figure 1.2 is a tree with root, branch and leaf nodes, like picture 2d.
-- **Read:** [Slow Indexes, Part I](https://use-the-index-luke.com/sql/anatomy/slow-indexes) on Use The Index, Luke. The three steps of a lookup: walk the tree, follow the leaves, read the table. Steps 2 to 6 of section 5.
+- **Play with it:** [explain.dalibo.com](https://explain.dalibo.com/). Paste the before and after plans from cards 2 and 3 and compare the pictures.
+- **Read:** [The Balanced Search Tree (B-Tree)](https://use-the-index-luke.com/sql/anatomy/the-tree) on Use The Index, Luke. Figure 1.2 is a tree with root, branch and leaf nodes, like the tree in card 4.
+- **Read:** [Slow Indexes, Part I](https://use-the-index-luke.com/sql/anatomy/slow-indexes) on Use The Index, Luke. The three steps of a lookup: walk the tree, follow the leaves, read the table. Steps 2 to 6 of the step table in card 9.
 
 <details><summary>More links (optional)</summary>
 
@@ -419,7 +454,7 @@ Links checked on 2026-10-16. Each page was opened and matched the topic. For eac
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the plan** (write your answer before opening)
 
@@ -511,7 +546,7 @@ EXPLAIN (COSTS OFF) SELECT * FROM l09_orders WHERE status IN ('PAID', 'SHIPPED')
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "How does a database index work inside? Why not put an index on every column?"
 
@@ -524,9 +559,9 @@ EXPLAIN (COSTS OFF) SELECT * FROM l09_orders WHERE status IN ('PAID', 'SHIPPED')
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
-Close this file. Press the **Record my explanation** button under this heading. Explain indexes out loud like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "page", "root", "leaf" and "row address". Draw the tree from picture 2d while you talk. Then save the transcript into `my-learning/recordings/`, or write your best version below. Run `/explain-check indexes` or ask the `explain-coach` agent to review it.
+Close this file. Press the **Record my explanation** button under this heading. Explain indexes out loud like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "page", "root", "leaf" and "row address". Draw the tree from card 4 while you talk. Then save the transcript into `my-learning/recordings/`, or write your best version below. Run `/explain-check indexes` or ask the `explain-coach` agent to review it.
 
 ### My explanation
 
@@ -536,18 +571,47 @@ Close this file. Press the **Record my explanation** button under this heading. 
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. Without an index, what does Postgres do for `WHERE store_id = 42`? What line in EXPLAIN shows the waste?
-2. Walk a search for store 63 through the tree in picture 2d. Which pages are read, in order?
+2. Walk a search for store 63 through the tree in card 4. Which pages are read, in order?
 3. Name two costs of an index. Why might Postgres ignore an index on `status`?
-4. Draw the picture from section 2d from memory: root, inner pages, leaves with the next-leaf links, and one arrow from a leaf entry to a table page.
+4. Draw the tree from card 4 from memory: root, inner pages, leaves with the next-leaf links, and one arrow from a leaf entry to a table page.
 
 <details><summary>Answers</summary>
 
 1. It reads every page of the table and checks every row (a Seq Scan). `Rows Removed by Filter: 99861` shows how many rows it checked and threw away.
 2. The root (63 is between 42 and 70, so the middle inner page). The inner page (63 is 58 or more, so the leaf `58 63 67`). The leaf (63 is at row address (3,2)). Then table page 3, slot 2. 4 page reads in total.
 3. Writes get slower, because every INSERT adds an entry to every index. Indexes take disk and memory. A status like PAID matches a big part of the table, so almost every table page has a match. Reading the whole table in order is then cheaper than jumping around through the index.
+
+</details>
+
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>More</summary>
+
+- **Postgres 16 against 18.** These outputs come from Postgres 18. On your Docker playground (Postgres 16):
+  - Row counts have no decimals: `rows=139`, not `rows=139.00`.
+  - The line `Index Searches: 1` does not exist. Postgres 18 added it.
+  - `EXPLAIN ANALYZE` shows `Buffers` lines only when you write `BUFFERS`. Postgres 18 adds them by default. This lesson always writes `BUFFERS`, so you see them on both.
+  - Postgres 18 can sometimes use a two-column index without a filter on its first column ("skip scan"). Lesson 10 covers this.
+  - Plan shapes and page counts are the same.
+- **Bitmap scan against Index Scan.** An Index Scan reads one index entry, then its table page, then the next entry. A Bitmap scan first collects all addresses, sorts them, then visits each table page once. Postgres picks bitmap when many rows match, so it does not open the same page twice. Lesson 11 shows all the plan shapes.
+- **Duplicates stored once.** Since Postgres 13, a leaf stores a repeated value once with a list of row addresses (deduplication). That is why `orders_store_id_idx` (900 different values) is 720 kB, while `orders_pkey` (100,000 different values) is 2208 kB.
+- **Free room and splits.** `CREATE INDEX` fills leaf pages to 90% (fillfactor 90). The free room takes new entries. When a leaf is full, Postgres splits it into two pages and adds a pointer in the page above. When the root splits, the tree gets one level taller. The stepper shows a split in program 3.
+- **The update exception (HOT).** If an UPDATE changes no indexed column, and the table page has free room, Postgres adds no new index entries. More indexes mean fewer updates can use this shortcut.
+- **Building an index blocks writes.** A normal `CREATE INDEX` lets reads run but makes INSERT, UPDATE and DELETE wait until it finishes. On a live table use `CREATE INDEX CONCURRENTLY`. It is slower but does not block writes. Lesson 19 (not written yet) covers this.
+- **Look inside a tree yourself.** `CREATE EXTENSION pageinspect;` then `SELECT level FROM bt_metap('orders_store_id_idx');`. Level 1 means 2 levels: root and leaves.
+- **B-tree or B+ tree?** In Postgres, row addresses sit in the leaves and the leaves are linked. Textbooks call that shape a B+ tree. Postgres just calls it B-tree.
+- **Other index types**, one line each (from the Postgres docs on index types):
+  - **B-tree:** the default. Equality, ranges and sorting.
+  - **Hash:** equality only (`=`).
+  - **GIN:** values that hold many parts, like arrays, JSONB and full text search.
+  - **GiST:** shapes, locations and "nearest first" searches.
+  - **SP-GiST:** special trees, like tries, for some data types.
+  - **BRIN:** a tiny summary per block of pages. Good for huge tables where the column grows with the insert order, like `created_at` in a log.
 
 </details>
 
