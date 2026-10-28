@@ -1,16 +1,34 @@
 # 08. Classes
 
-> **Subject:** JavaScript · **Lesson:** 08 · **Made:** 2026-10-15 · **Status:** ready
+> **Subject:** JavaScript · **Lesson:** 08 · **Made:** 2026-10-15 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** draw the objects that one `class` line makes, say why `super()` must run before `this` in a child class, and explain why a `#` field is really private.
+>
 > **Before this:** [Objects and prototypes](07-objects-and-prototypes.md) · **Next:** [Arrays and higher order functions](09-arrays-and-higher-order-functions.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a chain of shops
 
-A `class` builds two things for you: a function that makes objects, and one shared object that holds their methods.
+Think of a chain of shops. Each shop keeps its own stock. The how-to steps sit in **one** manual at head office. Shops phone head office for a step.
 
-In lesson 07 you built these two by hand. So a class is not a new kind of thing. It is a shorter way to write prototypes, plus a few safety rules.
+```mermaid
+graph TB
+    A["class Dog with a method bark"] -->|JavaScript makes| B["function Dog<br/>and Dog.prototype holding bark"]
+    B -->|new Dog with Rex| C["rex: owns name,<br/>hidden link to Dog.prototype"]
+```
 
-New words:
+Notice: `bark` is stored **once**, on `Dog.prototype`. Every instance has an arrow to it. In lesson 07 you built these two things by hand. A class is a shorter way, plus a few safety rules.
+
+<details class="guess"><summary>🤔 Guess: you make 1000 dogs with `new Dog`. How many copies of `bark` exist? Press to check.</summary>
+
+**One.** It sits on `Dog.prototype`. Each dog keeps only its own data (`name`) and one hidden link.
+
+</details>
+
+> **Remember:** a class is a function. Its methods sit on one shared prototype object. Every instance has an arrow to that object.
+
+<details class="more"><summary>📖 More detail: the four words, and where the shop picture stops</summary>
 
 - **Instance:** an object made from a class with `new`. In `const rex = new Dog("Rex")`, `rex` is an instance of `Dog`.
 - **Parent class and child class:** in `class Dog extends Animal`, `Animal` is the parent class and `Dog` is the child class. (Interview words: *base class* or *superclass*, and *derived class* or *subclass*.)
@@ -19,139 +37,15 @@ New words:
 
 Words from earlier lessons: the **hidden link** leads to the next object JavaScript asks (lesson 07). An **own property** is stored on the object itself. **Strict mode** is the safer setting from lesson 06, and class code always uses it.
 
-The rule to remember: **a class is a function. Its methods sit on one shared prototype object. Every instance has an arrow to that object. `extends` adds two more arrows. In a child class, `super()` must run before `this` is unlocked, because the parent class builds the object.**
+The picture: a sub-brand (a child class) has its own manual. For anything missing, it asks the parent brand's manual. The parent company must open a sub-brand shop first (`super()`). Only then can the shop fill its shelves (`this`). Each shop has a safe (a private slot).
 
-## 2. The pictures
+Where the picture stops: real manuals get copied. In JavaScript there is truly one prototype object. Change it, and every instance sees the change. And a child class **cannot** open the parent's `#` safe.
 
-### 2a. The big picture
+</details>
 
-One class line makes two things. Notice that `bark` is stored once, on `Dog.prototype`. Every instance has an arrow to it.
+## 2. `extends` and `super()`
 
-```mermaid
-graph LR
-    C["class Dog with a constructor and bark"] -->|JavaScript makes| F["Dog, a function"]
-    C -->|JavaScript makes| P["Dog.prototype holding bark"]
-    F -->|prototype| P
-    P -->|constructor| F
-    N["new Dog with Rex"] -->|makes| R["rex holding name"]
-    R -->|hidden link| P
-```
-
-### 2b. The problem, drawn
-
-**Problem 1.** Before classes, you wired a child type by hand. Notice how many steps there are, and what breaks quietly if you forget one.
-
-```mermaid
-graph TB
-    S1["Step 1 write function Animal and put speak on Animal.prototype"] --> S2["Step 2 write function Dog and call Animal.call inside it"]
-    S2 --> S3["Step 3 link Dog.prototype to Animal.prototype with Object.create"]
-    S3 --> S4["Step 4 put constructor back on Dog.prototype"]
-    S4 --> S5["Step 5 put bark on Dog.prototype"]
-    S2 -->|if you forget it| B1["speak says undefined makes a sound"]
-    S3 -->|if you forget it| B2["TypeError rex.speak is not a function"]
-    S4 -->|if you forget it| B3["rex.constructor says Animal"]
-```
-
-**Problem 2.** People wrote `_balance` to mean "please do not touch". Notice that nothing stops outside code.
-
-```mermaid
-graph LR
-    O["any outside code"] -->|reads and changes| A["account with _balance = 50"]
-    A --> R["The underscore is only a polite sign"]
-```
-
-### 2c. How it works over time
-
-This is `new Dog("Rex")` when `Dog extends Animal`. Notice that the **parent** constructor makes the object, and `this` is locked until then.
-
-```mermaid
-sequenceDiagram
-    participant Y as Your code
-    participant D as Dog constructor
-    participant A as Animal constructor
-    participant M as Memory
-    Y->>D: new Dog with Rex
-    Note over D: this is locked. No object exists yet.
-    D->>A: super with name
-    A->>M: make an empty object linked to Dog.prototype
-    A->>M: write name = Rex on it
-    A-->>D: hand back the object
-    Note over D: this is unlocked now
-    D->>M: write tricks = 0 on it
-    D-->>Y: new gives back the object and rex holds it
-```
-
-### 2d. What is in memory right now
-
-A snapshot after `const rex = new Dog("Rex")` in section 4. Notice the two chains. The top one is how `rex` finds methods. The bottom one is the second arrow that `extends` makes, from class to class.
-
-```mermaid
-graph LR
-    R["rex with name and tricks"] -->|hidden link| DP["Dog.prototype with speak"]
-    DP -->|hidden link| AP["Animal.prototype with speak"]
-    AP -->|hidden link| OP["Object.prototype with toString"]
-    D["Dog, a function"] -->|prototype| DP
-    A["Animal, a function"] -->|prototype| AP
-    D -->|hidden link of the class| A
-```
-
-### 2e. Right against wrong
-
-**Wrong:** touching `this` before `super()` in a child class.
-
-```mermaid
-graph LR
-    W1["Dog constructor starts and this is locked"] -->|this.tricks = 0| W2["ReferenceError and no object is made"]
-```
-
-**Right:** call `super()` first. The parent makes the object, then `this` works.
-
-```mermaid
-graph LR
-    R1["Dog constructor starts and this is locked"] -->|super with name| R2["Animal makes the object"]
-    R2 -->|this is unlocked| R3["this.tricks = 0 works"]
-```
-
-### 2f. A property against a private slot
-
-Notice who can reach each one. Outside code has no name for the `#` slot, so it has no way in.
-
-```mermaid
-graph LR
-    O["outside code"] -->|can read and change| P1["property _balance = 50"]
-    M["methods written inside the class"] -->|can read and change| P2["private slot #balance = 50"]
-    K["Object.keys and JSON.stringify"] -->|see only| P1
-```
-
-### 2g. The lost this
-
-A method lives on the prototype, not inside the object. Notice what happens when you copy it out.
-
-```mermaid
-graph LR
-    A["const f = c.inc"] -->|f gets| B["only the function"]
-    B -->|f is called with no dot| C["this is undefined in strict mode"]
-    C -->|this.count| D["TypeError"]
-```
-
-## 3. Real life analogy
-
-Think of a chain of shops.
-
-- Each shop (an instance) keeps its own stock (own properties).
-- The how-to steps sit in **one** manual at head office (the prototype). Shops phone head office for a step.
-- A sub-brand (a child class) has its own manual. For anything missing, it asks the parent brand's manual.
-- The parent company must open a sub-brand shop first (`super()`). Only then can the shop fill its shelves (`this`).
-- Each shop has a safe (a private slot). Only staff of that brand can open it.
-
-Where the analogy stops:
-
-- Real manuals get copied. In JavaScript there is truly one prototype object. Change it, and every instance sees the change.
-- In JavaScript a child class **cannot** open the parent's `#` safe.
-
-## 4. The smallest code that shows it
-
-This is tab 2 of the stepper.
+`extends` makes a child class. `super(name)` runs the parent constructor. `super.speak()` runs the parent method.
 
 ```js
 class Animal {
@@ -159,7 +53,10 @@ class Animal {
   speak() { return this.name + " makes a sound"; }
 }
 class Dog extends Animal {
-  constructor(name) { super(name); this.tricks = 0; }
+  constructor(name) {
+    super(name);
+    this.tricks = 0;
+  }
   speak() { return super.speak() + ", woof"; }
 }
 const rex = new Dog("Rex");
@@ -167,37 +64,27 @@ console.log(rex.speak());
 console.log(rex instanceof Animal);
 ```
 
-**Output:**
+```mermaid
+graph TB
+    R["rex<br/>name, tricks"] --> DP["Dog.prototype<br/>speak"]
+    DP --> AP["Animal.prototype<br/>speak"]
+    AP --> OP["Object.prototype"]
+```
+
+<details class="guess"><summary>🤔 Guess: what are the two lines of output? Press to check.</summary>
 
 ```
 Rex makes a sound, woof
 true
 ```
 
-And the private slot, tab 5 of the stepper. A **getter** (`get balance()`) is a method that runs when you read a property, with no brackets.
+`rex.speak()` finds Dog's `speak` first. `super.speak()` starts the search **one step up**, at `Animal.prototype`. `rex instanceof Animal` walks rex's chain: `Dog.prototype`? No. `Animal.prototype`? Yes.
 
-```js
-class Account {
-  #balance = 0;
-  deposit(n) { this.#balance += n; }
-  get balance() { return this.#balance; }
-}
-const a = new Account();
-a.deposit(50);
-console.log(a.balance);
-console.log(a["#balance"], Object.keys(a).length);
-```
+</details>
 
-**Output:**
+> **Remember:** `extends` links the prototypes. `super.method()` runs the parent's version.
 
-```
-50
-undefined 0
-```
-
-## 5. What really happens, step by step
-
-The first program from section 4.
+<details class="more"><summary>📖 More detail: `new Dog("Rex")`, step by step</summary>
 
 | Step | Line | What JavaScript does | Call stack | Memory after | Prints |
 |---|---|---|---|---|---|
@@ -215,74 +102,53 @@ The first program from section 4.
 | 12 | 3, 7 | Animal's `speak` returns `"Rex makes a sound"`. Dog's `speak` adds `", woof"`. | main | same | Rex makes a sound, woof |
 | 13 | 11 | `rex instanceof Animal` walks rex's chain. `Dog.prototype`? No. `Animal.prototype`? Yes. | main | same | true |
 
-**Step through it yourself:** [open the classes stepper](visuals/08-classes.html). It shows your code, the names, the call stack, and the objects in memory with their arrows. It has six programs:
-
-1. "A class is a function"
-2. "extends and super()" (the program above)
-3. "super() forgotten"
-4. "Lost this and arrow fields"
-5. "Private field #"
-6. "instanceof walks the chain"
-
-Type your guess in the box first, then press Next.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** you wire prototypes by hand in five steps. A forgotten step gives a quiet bug (picture 2b). And `_balance` hides nothing.
-- **How it solves it:**
-  - One `class` line makes the function, the prototype object and the links.
-  - `extends` makes the two links. `super()` runs the parent constructor. `super.speak()` runs the parent method.
-  - A `#` field is really private.
-  - Free safety rules: you must use `new`, the code is strict, and methods are hidden from `Object.keys` and `for...in` (interview word: *not enumerable*).
-- **Cost:**
-  - It is still prototypes underneath, so prototype bugs still happen.
-  - **Lost `this`.** A shared method has no fixed `this`. An arrow field fixes it, but makes one function per instance.
-  - **Long `extends` chains are hard to change.** A change in a parent can break every child. React now recommends function components over class components.
-  - A `#` slot is hard to check in tests. A child class cannot read it either.
-
-Simple rule: use a class when you make **many objects of one kind** that **keep their own data** and **share many methods**.
-
-<details><summary>Go deeper (optional)</summary>
-
-- **The second arrow, from class to class.** A method written with `static` is stored on the class itself, not on the prototype. For example, `static create() {}` is called as `Dog.create()`. Because `Dog` links to `Animal`, `Dog` also finds Animal's static methods. Built-in classes have them too, like `Array.from`.
-- **When fields run.** In a parent class, fields run when the object is made, before the constructor body. In a child class, they run right after `super()` returns. That is one more reason `super()` comes first.
-- **No constructor written?** A child class gets `constructor(...args) { super(...args); }` for free (stepper tab 6). A parent class gets an empty one.
-- **The safety rules in detail.** `Dog("Rex")` without `new` throws `TypeError: Class constructor Dog cannot be invoked without 'new'`. The class name is locked until the class line runs, like `let` (lesson 01), so `new Late()` above `class Late {}` throws a `ReferenceError`. Methods written by hand on a prototype (lesson 07) do show up in `for...in`. Class methods do not.
-- **Checking for a private slot.** Inside the class, `#balance in obj` gives `true` if `obj` has that slot. This is a safe check that does not throw.
-- **instanceof only walks the chain.** It does not ask which constructor ran. If you change an object's hidden link with `Object.setPrototypeOf`, the answer changes (stepper tab 6).
-- **`super` is fixed where the method is written.** Copying a method to another object does not change where `super` starts its search. `this` does change.
-
-Checked on 2026-10-15 with Node 24.15.0. Every output and error name in this lesson came from a real run.
+`extends` also adds a second arrow from class to class (`Dog` to `Animal`), so a child class finds the parent's `static` methods too. Checked on 2026-10-28 with Node 26.12.1.
 
 </details>
 
-## 7. Common mistakes
+## 3. Mistake 1: `this` before `super()`
 
-**Wrong:** using `this` before `super()`.
-
-```js
-class Dog extends Animal {
-  constructor(name) {
-    this.tricks = 0;   // ReferenceError
-    super(name);
-  }
-}
-```
-
-**Right:**
+In a child class, the **parent** constructor makes the object. Until it does, `this` is locked.
 
 ```js
 class Dog extends Animal {
   constructor(name) {
-    super(name);
     this.tricks = 0;
+    super(name);
   }
 }
 ```
 
-**Why:** in a child class the parent constructor makes the object. Before `super()` returns, there is no object for `this` to be.
+```mermaid
+graph TB
+    A["Dog constructor starts.<br/>this is locked."] -->|this.tricks = 0| B["ReferenceError.<br/>No object yet."]
+```
 
-**Wrong:** passing a method around on its own.
+<details class="guess"><summary>🤔 Guess: what happens with `new Dog("Rex")`? Press to check.</summary>
+
+```
+ReferenceError: Must call super constructor in derived class before accessing 'this' or returning from derived constructor
+```
+
+Before `super()` returns, there is no object for `this` to be.
+
+Fix: call `super(name)` first, then `this.tricks = 0`.
+
+</details>
+
+> **Remember:** in a child class, call `super()` first. Then `this` works.
+
+<details class="more"><summary>📖 More detail: why the parent builds the object</summary>
+
+When you call `new Dog`, a child class does **not** make the object. Dog's constructor starts with `this` locked. `super(name)` runs Animal's constructor. Animal has no `extends`, so **it** makes the empty object, and its hidden link goes to `Dog.prototype` (because `new` was called on `Dog`). Then `this` is unlocked.
+
+If you write no constructor in a child class, it gets `constructor(...args) { super(...args); }` for free.
+
+</details>
+
+## 4. Mistake 2: passing a method around on its own
+
+A method lives on the prototype, not inside the object. Copy it out, and the object stays behind.
 
 ```js
 class Counter {
@@ -291,29 +157,89 @@ class Counter {
 }
 const c = new Counter();
 const inc = c.inc;
-inc();   // TypeError: Cannot read properties of undefined (reading 'count')
+inc();
 ```
 
-**Right:** keep the object with the call. Pick one:
+<details class="guess"><summary>🤔 Guess: what happens when you call `inc()`? Press to check.</summary>
+
+```
+TypeError: Cannot read properties of undefined (reading 'count')
+```
+
+`c.inc` gives only the function. With no dot at the call, `this` is `undefined`, because class code is strict.
+
+Fix: keep the object with the call. Pick one:
 
 ```js
-const inc1 = () => c.inc();     // an arrow wrapper
-const inc2 = c.inc.bind(c);     // bind, from lesson 06
-// or write the method as an arrow field: inc = () => { this.count++; };
+const inc1 = () => c.inc();
+const inc2 = c.inc.bind(c);
 ```
 
-**Why:** `c.inc` gives only the function. With no dot at the call, `this` is `undefined`, because class code is strict. The arrow field works because each instance gets its own arrow function, which keeps `this`. That costs one function per instance.
+Both work (`count` becomes 2 after calling both).
 
-**Wrong:** a child class reading the parent's private slot.
+</details>
+
+> **Remember:** a class method is the same as any method: pass it with an arrow wrapper or `bind`.
+
+<details class="more"><summary>📖 More detail: arrow fields</summary>
+
+You can also write the method as an arrow field: `inc = () => { this.count++; };`. It works because each instance gets its own arrow function, which keeps `this`. That costs one function per instance. See [lesson 06](06-this-call-apply-and-bind.md).
+
+</details>
+
+## 5. A private slot with `#`
+
+People wrote `_balance` to mean "please do not touch". But it is a normal property. Outside code can read and change it. A name that starts with `#` is a **private slot**.
+
+```js
+class Account {
+  #balance = 0;
+  deposit(n) { this.#balance += n; }
+  get balance() { return this.#balance; }
+}
+const a = new Account();
+a.deposit(50);
+console.log(a.balance);
+console.log(a["#balance"], Object.keys(a).length);
+```
+
+<details class="guess"><summary>🤔 Guess: what do the two `console.log` lines print? Press to check.</summary>
+
+```
+50
+undefined 0
+```
+
+A **getter** (`get balance()`) is a method that runs when you read a property, with no brackets. Outside code has no name for the `#` slot, so it has no way in. `Object.keys` does not see it either.
+
+</details>
+
+> **Remember:** `_balance` is only a polite sign. `#balance` is really private.
+
+<details class="more"><summary>📖 More detail: checking for a private slot</summary>
+
+Inside the class, `#balance in obj` gives `true` if `obj` has that slot. This is a safe check that does not throw. `JSON.stringify` and `Object.keys` see only normal properties, never `#` slots.
+
+</details>
+
+## 6. Mistake 3: a child class reading the parent's `#` slot
 
 ```js
 class Account { #balance = 0; }
 class Savings extends Account {
-  read() { return this.#balance; }   // SyntaxError, the file does not even start
+  read() { return this.#balance; }
 }
 ```
 
-**Right:** the parent offers a getter, and the child uses it.
+<details class="guess"><summary>🤔 Guess: what happens? Press to check.</summary>
+
+```
+SyntaxError: Private field '#balance' must be declared in an enclosing class
+```
+
+The file does not even start. A `#` name belongs only to the class body where it is written. It is not on the chain, so the child class does not get it.
+
+Fix: the parent offers a getter, and the child uses it.
 
 ```js
 class Account {
@@ -325,22 +251,44 @@ class Savings extends Account {
 }
 ```
 
-**Why:** a `#` name belongs only to the class body where it is written. It is not on the chain, so the child class does not get it.
+</details>
 
-**Wrong:** thinking `_balance` is private. It is a normal property. `Object.keys`, `JSON.stringify` and any outside code can see it and change it.
+> **Remember:** a child class cannot read the parent's `#` slot. Offer a getter.
 
-**Right:** use `#balance` when the data must stay inside.
+<details class="more"><summary>📖 More detail: the cost of `#` slots</summary>
 
-## 8. Watch and play
+A `#` slot is hard to check in tests. A child class cannot read it either. Use `#balance` when the data must stay inside.
+
+</details>
+
+## 7. Watch it run, step by step
+
+The stepper shows your code, the names, the call stack, and the objects in memory with their arrows. It has six programs: "A class is a function", "extends and super()", "super() forgotten", "Lost this and arrow fields", "Private field #", and "instanceof walks the chain". Type your guess in the box first, then press Next.
+
+**Step through it yourself:** [open the classes stepper](visuals/08-classes.html).
+
+## 8. Why it matters and what it costs
+
+- **Without it,** you wire prototypes by hand in five steps. A forgotten step gives a quiet bug. And `_balance` hides nothing.
+- **With it,** one `class` line makes the function, the prototype object and the links. A `#` field is really private. Free safety rules: you must use `new`, the code is strict, and methods are hidden from `Object.keys` and `for...in` (interview word: *not enumerable*).
+- **The cost:**
+  - It is still prototypes underneath, so prototype bugs still happen.
+  - **Lost `this`.** A shared method has no fixed `this`. An arrow field fixes it, but makes one function per instance.
+  - **Long `extends` chains are hard to change.** A change in a parent can break every child. React now recommends function components over class components.
+  - A `#` slot is hard to check in tests. A child class cannot read it either.
+
+Simple rule: use a class when you make **many objects of one kind** that **keep their own data** and **share many methods**.
+
+## 9. Watch and play
 
 Links checked on 2026-10-15. Each page opened. For each video, the title and channel matched, and the length came from the YouTube page. I did not watch the videos.
 
 - **Video:** [The JavaScript SUPER keyword is super!](https://www.youtube.com/watch?v=Cto38GpvJgg) by Bro Code, about 9 minutes. Watch it after tab 2 of the stepper.
 - **Video:** [ES2022: Class Private Fields and Methods](https://www.youtube.com/watch?v=dwfUJRbGXX0) by All Things JavaScript, about 10 minutes. Watch it after tab 5.
 - **Play with it:** [The classes stepper](visuals/08-classes.html) in this folder. Guess first, then press Next.
-- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the first program from section 4. Its [guide](https://pythontutor.com/articles/javascript-visualizer.html) says it draws classes, but runs only ES6 code, so fields like `count = 0` and `#balance` fail there.
-- **Read:** [Class basic syntax](https://javascript.info/class) on javascript.info. The picture in "What is a class?" is picture 2a.
-- **Read:** [Class inheritance](https://javascript.info/class-inheritance) on javascript.info. The picture in "The extends keyword" is picture 2d.
+- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the program from card 2. Its [guide](https://pythontutor.com/articles/javascript-visualizer.html) says it draws classes, but runs only ES6 code, so fields like `count = 0` and `#balance` fail there.
+- **Read:** [Class basic syntax](https://javascript.info/class) on javascript.info. The picture in "What is a class?" is like the picture in card 1.
+- **Read:** [Class inheritance](https://javascript.info/class-inheritance) on javascript.info. The picture in "The extends keyword" is like the picture in card 2.
 - **Read:** [Private elements on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Private_properties). Read the first two sections.
 
 <details><summary>More links (optional)</summary>
@@ -353,7 +301,7 @@ Links checked on 2026-10-15. Each page opened. For each video, the title and cha
 
 </details>
 
-## 9. Practice
+## 10. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -480,7 +428,7 @@ Why `LimitedWallet` cannot read `#balance`: the `#` name belongs to the body of 
 
 </details>
 
-## 10. Interview question
+## 11. Interview question
 
 **Q:** "Are classes in JavaScript just syntax sugar? What does a class really make, and what do `extends` and `super` do?"
 
@@ -500,7 +448,7 @@ Why `LimitedWallet` cannot read `#balance`: the `#` name belongs to the body of 
 
 </details>
 
-## 11. Explain it back
+## 12. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain classes out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "prototype object", "hidden link", "instance" and "super". Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check classes` or ask the `explain-coach` agent to review it.
 
@@ -512,12 +460,12 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 13. Review questions (day 1, 3, 7, 21)
 
 1. What two objects does `class Dog { bark() {} }` make? Where does `bark` live?
 2. In a child class, why must `super()` run before you use `this`?
 3. What is the difference between `_balance` and `#balance`?
-4. Draw the picture from section 2d from memory: `rex`, the two prototypes, the two classes, and every arrow.
+4. Draw the picture from card 2 from memory: `rex`, the two prototypes, the two classes, and every arrow.
 
 <details><summary>Answers</summary>
 
@@ -525,6 +473,24 @@ Close this file. Press the **Record my explanation** button under this heading a
 2. In a child class, `new` does not make the object. The parent constructor makes it when `super()` runs. Before that, `this` is locked, and using it throws a `ReferenceError`.
 3. `_balance` is a normal property. Anyone can read it and change it, and `Object.keys` lists it. `#balance` is a private slot. Only code inside the class body can reach it. Outside code that writes `obj.#balance` is a `SyntaxError`.
 4. `rex` links to `Dog.prototype`, which links to `Animal.prototype`, which links to `Object.prototype`. `Dog` points to `Dog.prototype` and `Animal` points to `Animal.prototype`. `Dog` also has a hidden link to `Animal`.
+
+</details>
+
+## 14. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>More</summary>
+
+- **The second arrow, from class to class.** A method written with `static` is stored on the class itself, not on the prototype. For example, `static create() {}` is called as `Dog.create()`. Because `Dog` links to `Animal`, `Dog` also finds Animal's static methods. Built-in classes have them too, like `Array.from`.
+- **When fields run.** In a parent class, fields run when the object is made, before the constructor body. In a child class, they run right after `super()` returns. That is one more reason `super()` comes first.
+- **No constructor written?** A child class gets `constructor(...args) { super(...args); }` for free (stepper tab 6). A parent class gets an empty one.
+- **The safety rules in detail.** `Dog("Rex")` without `new` throws `TypeError: Class constructor Dog cannot be invoked without 'new'`. The class name is locked until the class line runs, like `let` (lesson 01), so `new Late()` above `class Late {}` throws a `ReferenceError`. Methods written by hand on a prototype (lesson 07) do show up in `for...in`. Class methods do not.
+- **Checking for a private slot.** Inside the class, `#balance in obj` gives `true` if `obj` has that slot. This is a safe check that does not throw.
+- **instanceof only walks the chain.** It does not ask which constructor ran. If you change an object's hidden link with `Object.setPrototypeOf`, the answer changes (stepper tab 6).
+- **`super` is fixed where the method is written.** Copying a method to another object does not change where `super` starts its search. `this` does change.
+
+Checked on 2026-10-15 with Node 24.15.0. Every output and error name in this lesson came from a real run.
 
 </details>
 
