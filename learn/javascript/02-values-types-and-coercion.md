@@ -1,46 +1,55 @@
 # 02. Values, types and coercion
 
-> **Subject:** JavaScript · **Lesson:** 02 · **Made:** 2026-10-15 · **Status:** ready
+> **Subject:** JavaScript · **Lesson:** 02 · **Made:** 2026-10-15 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** say the difference between a simple value and an object, walk `[] == false` round by round, and list the 8 values that count as false.
+>
 > **Before this:** [Variables, scope and hoisting](01-variables-scope-and-hoisting.md) · **Next:** [Reference vs copy](03-reference-vs-copy.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a money changer
 
-Every value in JavaScript has a **type**, and some signs, like `==`, `+` and `if`, quietly change a value into another type before they use it.
+You compare a price in dollars with a price in baht. The strict check `===` says: "Different money. Not equal." It never converts. The loose check `==` converts one price into the other money with a fixed list of rules, then compares.
+
+A form field always gives you **text**, even when the shopper types a number.
+
+```mermaid
+graph TB
+    U["Shopper types 2"] --> F["Form field gives the text 2"]
+    F --> A["qty == 2 is true<br/>looks fine"]
+    A --> B["qty + 1 joins two texts<br/>the cart shows 21 items"]
+```
+
+Notice: `==` says everything is fine, and then `+` breaks it.
+
+<details class="guess"><summary>🤔 Guess: `qty` is the text `"2"`. What is `qty + 1`? Press to check.</summary>
+
+`"21"`. `+` joins when either side is text. JavaScript turned the number `1` into the text `"1"` and joined them. No error.
+
+</details>
+
+> **Remember:** `===` never changes a type. `==` and `+` sometimes do. An `if` only asks: "is this one of the 8 values that count as false?"
+
+<details class="more"><summary>📖 More detail: the four words, and where the money changer stops</summary>
 
 A **type** is the kind of value: a number, some text, `true` or `false`, and so on. `typeof` tells you the type name.
-
-New words:
 
 - **Simple value:** one plain value like `5`, `"2"` or `true`. It has no parts, and you cannot change it. (Interview word: *primitive*.)
 - **Changing the type:** JavaScript turns a value into another type on its own. For example, the text `"2"` becomes the number `2`. (Interview word: *coercion*.)
 - **Loose check and strict check:** `==` may change types before it compares. `===` never changes a type. (Interview words: *loose equality* and *strict equality*.)
 - **Counts as true, counts as false:** what an `if` decides about a value that is not `true` or `false`. (Interview words: *truthy* and *falsy*.)
 
-The rule to remember: **`===` never changes a type. `==` and `+` sometimes do. An `if` only asks: "is this one of the 8 values that count as false?"**
+Where the picture stops:
 
-## 2. The pictures
+- A real money changer picks a sensible rate. JavaScript's rules are fixed and sometimes surprising. An empty array becomes empty text, and then `0`.
+- JavaScript almost always converts toward a **number**, not toward whatever makes sense.
 
-### 2a. The big picture
+</details>
 
-Every value is either a simple value or an object. Notice that arrays and functions are objects too.
+## 2. Every value has a type
 
-```mermaid
-graph TB
-    V["Every value in JavaScript"] --> P["Simple values, 7 kinds"]
-    V --> O["Objects, values with parts"]
-    P --> P1["number like 5 or 3.5"]
-    P --> P2["string, which is text like hi"]
-    P --> P3["boolean, which is true or false"]
-    P --> P4["undefined, no value given yet"]
-    P --> P5["null, empty on purpose"]
-    P --> P6["bigint and symbol, rare"]
-    O --> O1["plain object like a: 1"]
-    O --> O2["array like 1, 2, 3"]
-    O --> O3["function"]
-```
-
-`typeof` gives you the type name. It has two surprises, marked in bold.
+Every value is either a simple value or an object. Arrays and functions are objects too. `typeof` gives you the type name, with two surprises.
 
 | Code | `typeof` gives |
 |---|---|
@@ -48,174 +57,253 @@ graph TB
 | `typeof "hi"` | `"string"` |
 | `typeof true` | `"boolean"` |
 | `typeof undefined` | `"undefined"` |
-| `typeof null` | **`"object"`** (an old mistake that was never fixed) |
-| `typeof {}` | `"object"` |
-| `typeof []` | **`"object"`** (use `Array.isArray` to check for an array) |
+| `typeof null` | **`"object"`** |
+| `typeof []` | **`"object"`** |
 | `typeof function () {}` | `"function"` |
 
-### 2b. The problem, drawn
+<details class="guess"><summary>🤔 Guess: `typeof null` and `typeof []`. What do they give? Press to check.</summary>
 
-A form field always gives you **text**, even when the shopper types a number. Notice that `==` says everything is fine, and then `+` breaks it.
+Both give `"object"`. `typeof null` is an old mistake that was never fixed. For an array, use `Array.isArray(x)` to check.
 
-```mermaid
-sequenceDiagram
-    participant U as Shopper
-    participant F as Form field
-    participant C as Your code
-    U->>F: types 2
-    F->>C: gives the text "2"
-    C->>C: qty == 2 is true, so it looks fine
-    C->>C: qty + 1 joins two texts and gives "21"
-    C-->>U: the cart shows 21 items
-```
+</details>
 
-### 2c. How it works over time
+> **Remember:** `typeof null` is `"object"`, and so is `typeof []`. They are the two surprises.
 
-This is the checklist `==` walks, top to bottom. Notice that after it changes one side, it starts again at rule 1.
+<details class="more"><summary>📖 More detail: the kinds of values</summary>
 
-```mermaid
-graph TB
-    S["a == b"] --> R1{"Rule 1. Same type?"}
-    R1 -->|yes| E["Compare like ==="]
-    R1 -->|no| R2{"Rule 2. null or undefined on one side?"}
-    R2 -->|yes| N["true only if the other side is null or undefined too"]
-    R2 -->|no| R3{"Rule 3. A string and a number?"}
-    R3 -->|yes| C3["Turn the string into a number"]
-    R3 -->|no| R4{"Rule 4. true or false on one side?"}
-    R4 -->|yes| C4["Turn it into a number. true is 1 and false is 0"]
-    R4 -->|no| R5{"Rule 5. An object on one side?"}
-    R5 -->|yes| C5["Turn the object into a simple value"]
-    R5 -->|no| F["Rule 6. Nothing matched so false"]
-    C3 -->|start again at the top| R1
-    C4 -->|start again at the top| R1
-    C5 -->|start again at the top| R1
-```
+- **Simple values, 7 kinds:** number (`5`, `3.5`), string (text like `"hi"`), boolean (`true` or `false`), `undefined` (no value given yet), `null` (empty on purpose), `bigint` and `symbol` (rare).
+- **Objects, values with parts:** a plain object like `{ a: 1 }`, an array like `[1, 2, 3]`, and a function.
 
-Here is `[] == false` going through it. Notice that every round changes only **one** side.
+Checked on 2026-10-28 with Node 26.12.1.
 
-```mermaid
-graph LR
-    A["[] == false"] -->|false becomes 0| B["[] == 0"]
-    B -->|the array becomes empty text| C["empty text == 0"]
-    C -->|empty text becomes 0| D["0 == 0"]
-    D -->|same type now| E["true"]
-```
+</details>
 
-### 2d. What is in memory right now
+## 3. `+` joins, `-` converts
 
-A snapshot after these three lines:
+`+` and `-` do different things with text.
 
 ```js
 const qty = "2";
-const a = [1];
-const b = [1];
-```
-
-Notice that the simple value sits **inside** its slot. Each array is its own object, and the slot only points at it.
-
-```mermaid
-graph LR
-    subgraph GS ["Global scope"]
-        Q["qty holds the text 2"]
-        A["a"]
-        B["b"]
-    end
-    A -->|points at| X["Array object 1 holding 1"]
-    B -->|points at| Y["Array object 2 holding 1"]
-```
-
-So `a == b` is `false`. Both are objects, so rule 1 matches. For objects, JavaScript does not look inside. It asks: is this the **same** object? It is not. [Lesson 03](03-reference-vs-copy.md) goes deep into this.
-
-### 2e. Right against wrong
-
-A free item has a price of `0`. Notice that the wrong check treats `0` like a missing price.
-
-**Wrong:** `if (!price)` throws away every value that counts as false. (`!` means "not".)
-
-```mermaid
-graph LR
-    A["price is 0"] --> B["if not price"]
-    B -->|0 counts as false| C["shows Price missing"]
-    C --> D["Bug. The item is free, not missing"]
-```
-
-**Right:** `if (price == null)` only catches `null` and `undefined`.
-
-```mermaid
-graph LR
-    A["price is 0"] --> B["if price == null"]
-    B -->|0 is not null or undefined| C["shows the price 0"]
-    A2["price is null"] --> B
-    B -->|null matches| C2["shows Price missing"]
-```
-
-### 2f. The 8 values that count as false
-
-An `if` does not use the `==` checklist. It only looks at this short list. Notice what is **not** on it.
-
-Two values on the list are new. `NaN` means "not a number". JavaScript gives it when it cannot make a number, like `Number("abc")`. `0n` is zero as a `bigint`, a rare type for very big whole numbers.
-
-```mermaid
-graph LR
-    subgraph F ["Counts as false, only these 8"]
-        F1["false"]
-        F2["0 and -0"]
-        F3["0n"]
-        F4["empty text"]
-        F5["null"]
-        F6["undefined"]
-        F7["NaN"]
-    end
-    subgraph T ["Counts as true, everything else"]
-        T1["the text 0"]
-        T2["the text false"]
-        T3["empty array"]
-        T4["empty object"]
-    end
-```
-
-## 3. Real life analogy
-
-You compare two prices, one in dollars and one in baht.
-
-- **The strict check `===`** says: "Different money. Not equal." It never converts.
-- **The loose check `==`** converts one price into the other money with a fixed list of rules, then compares.
-
-Where the analogy stops:
-
-- A real money changer picks a sensible rate. JavaScript's rules are fixed and sometimes surprising. An empty array becomes empty text, and then `0`.
-- JavaScript almost always converts toward a **number**, not toward whatever makes sense.
-
-## 4. The smallest code that shows it
-
-```js
-const qty = "2";            // a form field always gives you text
 console.log(typeof qty);
 console.log(qty + 1);
 console.log(qty - 1);
-console.log(qty == 2);
-console.log(qty === 2);
-console.log(null == 0);
-console.log([] == false);
-console.log(Boolean([]));
 ```
 
-**Output:**
+<details class="guess"><summary>🤔 Guess: what are the three lines of output? Press to check.</summary>
 
 ```
 string
 21
 1
+```
+
+`+` joined the text (`"2"` and `"1"`). But `-` only works on numbers, so it turned `"2"` into `2` and gave `1`.
+
+</details>
+
+> **Remember:** if either side of `+` is text, it joins. `-`, `*` and `/` always turn both sides into numbers.
+
+<details class="more"><summary>📖 More detail: why JavaScript does this</summary>
+
+JavaScript was made for small scripts in web pages. Almost everything from a page arrives as text. Changing types on its own let short scripts work without extra code. `"3" * 2` just gives `6`. The cost: the changes are hidden, so bugs are hidden too. `"2" + 1` gives `"21"` with no error.
+
+</details>
+
+## 4. `==` against `===`
+
+```js
+const qty = "2";
+console.log(qty == 2);
+console.log(qty === 2);
+console.log(null == 0);
+```
+
+<details class="guess"><summary>🤔 Guess: what are the three answers? Press to check.</summary>
+
+```
 true
 false
 false
+```
+
+- `qty == 2`: a string and a number, so `==` turns `"2"` into `2`. Then `2 == 2`.
+- `qty === 2`: two different types. `===` stops at once and never changes them.
+- `null == 0`: `null` only equals `null` or `undefined`. `0` is neither.
+
+</details>
+
+> **Remember:** use `===` everywhere. Change types yourself, with `Number(qty)` or `String(id)`.
+
+<details class="more"><summary>📖 More detail: the checklist that `==` walks</summary>
+
+`==` walks this list from the top. After it changes one side, it starts again at rule 1.
+
+| Rule | If | Then |
+|---|---|---|
+| 1 | Both sides have the same type | Compare like `===`. |
+| 2 | `null` or `undefined` on one side | `true` only if the other side is `null` or `undefined` too. |
+| 3 | A string and a number | Turn the string into a number. |
+| 4 | `true` or `false` on one side | Turn it into a number. `true` is 1 and `false` is 0. |
+| 5 | An object on one side | Turn the object into a simple value. |
+| 6 | Nothing matched | `false`. |
+
+One exception to "use `===`": `value == null` catches `null` and `undefined` together.
+
+</details>
+
+## 5. `[] == false`, round by round
+
+The famous one. Every round changes only **one** side.
+
+```mermaid
+graph TB
+    A["[] == false"] -->|false becomes 0| B["[] == 0"]
+    B -->|array becomes empty text| C["empty text == 0"]
+    C -->|empty text becomes 0| D["0 == 0"]
+    D --> E["true"]
+```
+
+```js
+console.log([] == false);
+console.log(Boolean([]));
+```
+
+<details class="guess"><summary>🤔 Guess: the same empty array is `== false`. Does `Boolean([])` say false too? Press to check.</summary>
+
+```
 true
 true
 ```
 
-Look at lines 2 and 3 of the output. `+` joined the text, but `-` turned the text into a number. Look at the last two lines. The same empty array is `== false`, and also counts as true.
+`[] == false` is `true` (the rounds above). But `Boolean([])` is also `true`: an empty array is **not** on the "counts as false" list. `==` and `if` use different rules.
 
-## 5. What really happens, step by step
+</details>
+
+> **Remember:** `==` and `if` do not use the same rules. An empty array is `== false`, and it also counts as true.
+
+<details class="more"><summary>📖 More detail: why the array becomes empty text</summary>
+
+An object becomes a simple value: JavaScript first calls `valueOf()`. For arrays and plain objects that gives back the object itself, which is not simple. So JavaScript calls `toString()`. `[]` gives `""`. `[1, 2]` gives `"1,2"`. Then rule 3 turns `""` into `0`.
+
+Memory check. After these lines, `a` and `b` point at two different array objects:
+
+```js
+const a = [1];
+const b = [1];
+console.log(a == b);
+```
+
+That prints `false`. Two arrays are two objects, even when both hold `[1]`. For objects, JavaScript does not look inside. It asks: is this the **same** object? ([Lesson 03](03-reference-vs-copy.md) goes deep into this.)
+
+</details>
+
+## 6. The 8 values that count as false
+
+An `if` does not use the `==` checklist. It only looks at a short list. Notice what is **not** on it.
+
+| Counts as false (only these 8) | Counts as true (everything else) |
+|---|---|
+| `false` | the text `"0"` |
+| `0` and `-0` | the text `"false"` |
+| `0n` | an empty array `[]` |
+| empty text `""` | an empty object `{}` |
+| `null` | |
+| `undefined` | |
+| `NaN` | |
+
+<details class="guess"><summary>🤔 Guess: does the text `"0"` count as false? Press to check.</summary>
+
+No. `Boolean("0")` is `true`. Only the real number `0` is on the list. A text with something in it is always true, even `"false"`.
+
+</details>
+
+> **Remember:** 8 values count as false. Everything else counts as true.
+
+<details class="more"><summary>📖 More detail: NaN and 0n</summary>
+
+`NaN` means "not a number". JavaScript gives it when it cannot make a number, like `Number("abc")`. `0n` is zero as a `bigint`, a rare type for very big whole numbers.
+
+`NaN` is the one value that is not equal to itself, so `n === NaN` is `false`, always. Check with `Number.isNaN(n)`:
+
+```js
+const n = Number("abc");
+console.log(n === NaN);
+console.log(Number.isNaN(n));
+```
+
+That prints `false` and then `true`.
+
+</details>
+
+## 7. Mistake 1: `if (!price)` for a missing value
+
+A free item has a price of `0`.
+
+```js
+function priceLabel(price) {
+  if (!price) return "Price missing";
+  return "$" + price;
+}
+console.log(priceLabel(0));
+```
+
+<details class="guess"><summary>🤔 Guess: what does `priceLabel(0)` give? Press to check.</summary>
+
+`"Price missing"`, but the item is free, not missing. `0` is on the "counts as false" list, but it is a real price.
+
+Fix: catch only `null` and `undefined`.
+
+```js
+if (price == null) return "Price missing";
+```
+
+Now `priceLabel(0)` is `"$0"`, and `null` or `undefined` still gives `"Price missing"`.
+
+</details>
+
+> **Remember:** when `0` or empty text is a real value, do not use `if (value)`. Use `value == null`.
+
+<details class="more"><summary>📖 More detail: `??` against `||`</summary>
+
+`count || 10` gives `10` when `count` is `0`, because `0` counts as false. `count ?? 10` only replaces `null` and `undefined`, so it keeps `0`.
+
+</details>
+
+## 8. Mistake 2: a number on the left of `&&` in React
+
+*This is an idea about your stack, not a fact about your code.*
+
+```jsx
+{messageCount && <p>New messages</p>}
+```
+
+<details class="guess"><summary>🤔 Guess: `messageCount` is `0`. What does the screen show? Press to check.</summary>
+
+It shows a **0** on the screen. `&&` gives back the left value when it counts as false. That value is `0`, and React draws numbers. The React docs warn about this exact case.
+
+Fix: make the left side a real `true` or `false`.
+
+```jsx
+{messageCount > 0 && <p>New messages</p>}
+```
+
+</details>
+
+> **Remember:** make the left side of `&&` a real boolean, like `count > 0`.
+
+<details class="more"><summary>📖 More detail: the React docs</summary>
+
+The pitfall is called "Don't put numbers on the left side of &&" in [Conditional Rendering](https://react.dev/learn/conditional-rendering).
+
+</details>
+
+## 9. Watch it run, step by step
+
+On the left, the checklist lights up the rule that matches in each round. On the right, you watch the two values and their types change. It has six small programs. Type your guess first, then press Next.
+
+**Step through it yourself:** [open the == stepper](visuals/02-values-types-and-coercion.html).
+
+<details class="more"><summary>📖 More detail: the code from cards 3 to 5, line by line</summary>
 
 | Step | Line | What JavaScript does | The two sides now | Prints |
 |---|---|---|---|---|
@@ -233,19 +321,15 @@ Look at lines 2 and 3 of the output. `+` joined the text, but `-` turned the tex
 | 12 | 8 | Round 4. Same type. `0` is `0`. | `0 == 0` | `true` |
 | 13 | 9 | `Boolean([])` asks the short list. `[]` is not on it, so it counts as true. | | `true` |
 
-**Step through it yourself:** [open the == stepper](visuals/02-values-types-and-coercion.html). On the left, the checklist lights up the rule that matches in each round. On the right, you watch the two values and their types change. It has six small programs. Type your guess first, then press Next.
+Checked on 2026-10-28 with Node 26.12.1.
 
-Checked on 2026-10-15 with Node 24.
+</details>
 
-## 6. Why it exists and what it costs
+## 10. Why it matters and what it costs
 
-- **Problem without it:** JavaScript was made for small scripts in web pages. Almost everything from a page arrives as text. Changing types on its own let short scripts work without extra code. `"3" * 2` just gives `6`.
-- **How it works:** a few signs change types for you.
-  - `==` walks the checklist (picture 2c).
-  - `+` joins if either side is text. Otherwise it adds numbers.
-  - `-`, `*` and `/` always turn both sides into numbers.
-  - `if`, `!`, `&&` and `||` use the "counts as false" list (picture 2f).
-- **Cost:** the changes are hidden, so bugs are hidden too. `"2" + 1` gives `"21"` with no error.
+- **Without it,** you cannot explain why `"2" + 1` is `"21"`, or why `[] == false` is true.
+- **With it,** you know a few signs change types for you: `==` walks the checklist, `+` joins if either side is text, `-` `*` `/` turn both sides into numbers, and `if` `!` `&&` `||` use the "counts as false" list.
+- **The cost:** the changes are hidden, so bugs are hidden too. `"2" + 1` gives `"21"` with no error.
 
 Simple rules for your own code:
 
@@ -253,94 +337,7 @@ Simple rules for your own code:
 - One exception: `value == null` catches `null` and `undefined` together.
 - When `0` or empty text is a real value, do not use `if (value)`.
 
-<details><summary>Go deeper (optional)</summary>
-
-**The full checklist.** The language rules (the ECMAScript spec, section "IsLooselyEqual") have 14 steps. The extra steps handle `bigint` and one old browser object, `document.all`. The order is: same type, null and undefined, string and number, bigint and string, boolean, object, bigint and number, then false. MDN's summary puts "object" before "boolean". Both orders give the same answers.
-
-**How an object becomes a simple value.** JavaScript first calls the object's `valueOf()`. For arrays and plain objects that gives back the object itself, which is not simple. So JavaScript then calls `toString()`. `[]` gives `""`. `[1, 2]` gives `"1,2"`. `{}` gives `"[object Object]"`. So `{} == "[object Object]"` is `true`.
-
-**Why `typeof null` is `"object"`.** In the first version of JavaScript, every value had a small type tag. The tag for objects was 0. `null` was stored as all zeros, so it looked like an object. A fix was proposed later, but it was rejected.
-
-**Simple values cannot change.** `let s = "hi"; s[0] = "H";` leaves `s` as `"hi"`. Methods like `s.toUpperCase()` give you a **new** string. The interview word for "cannot change" is *immutable*.
-
-**`NaN` and `-0`.** `NaN === NaN` is `false`. Use `Number.isNaN(x)`. `0 === -0` is `true`. `Object.is(a, b)` is like `===`, except `Object.is(NaN, NaN)` is `true` and `Object.is(0, -0)` is `false`.
-
-**`<` and `>` use different rules from `==`.** `null == 0` is `false`, but `null >= 0` is `true`. The size checks turn `null` into `0`. `==` does not.
-
-**`??` against `||`.** `count || 10` gives `10` when `count` is `0`, because `0` counts as false. `count ?? 10` only replaces `null` and `undefined`, so it keeps `0`.
-
-**Finding a plain object.** `typeof value === "object"` is also true for `null` and for arrays. Write `value !== null && typeof value === "object" && !Array.isArray(value)`.
-
-**`==` is not even consistent with itself.** `0 == ""` is `true` and `0 == "0"` is `true`, but `"" == "0"` is `false`. Both sides are strings there, so no type changes.
-
-</details>
-
-## 7. Common mistakes
-
-**Wrong:** adding text from a form.
-
-```js
-const qty = "2";            // from an input field
-console.log(qty + 1);       // "21"
-```
-
-**Right:** turn it into a number yourself, once, where the value comes in.
-
-```js
-const qty = Number("2");
-console.log(qty + 1);       // 3
-```
-
-**Why:** `+` joins when either side is text. `Number()` makes the type change visible.
-
-**Wrong:** `if (!price)` for a missing value.
-
-```js
-function priceLabel(price) {
-  if (!price) return "Price missing";
-  return "$" + price;
-}
-priceLabel(0);   // "Price missing", but the item is free
-```
-
-**Right:** catch only `null` and `undefined`.
-
-```js
-if (price == null) return "Price missing";   // priceLabel(0) is now "$0"
-```
-
-**Why:** `0` is on the "counts as false" list, but it is a real price.
-
-**Wrong:** a number on the left of `&&` in React. *This is an idea about your stack, not a fact about your code.*
-
-```jsx
-{messageCount && <p>New messages</p>}   // shows 0 on the screen when messageCount is 0
-```
-
-**Right:** make the left side a real `true` or `false`.
-
-```jsx
-{messageCount > 0 && <p>New messages</p>}
-```
-
-**Why:** `&&` gives back the left value when it counts as false. That value is `0`, and React draws numbers. The React docs warn about this exact case (section 8).
-
-**Wrong:** checking for `NaN` with `===`.
-
-```js
-const n = Number("abc");    // NaN, "not a number"
-console.log(n === NaN);     // false, always
-```
-
-**Right:**
-
-```js
-console.log(Number.isNaN(n));   // true
-```
-
-**Why:** `NaN` is the one value that is not equal to itself.
-
-## 8. Watch and play
+## 11. Watch and play
 
 Links checked on 2026-10-15. Each page opened. For each video, the title and channel matched. The video lengths were not checked.
 
@@ -348,7 +345,7 @@ Links checked on 2026-10-15. Each page opened. For each video, the title and cha
 - **Video:** [Falsy and Truthy in JavaScript](https://www.youtube.com/watch?v=J3CTnNtsi_w) by Lucas Paganini. A walk through the "counts as false" list.
 - **Play with it:** [The == stepper](visuals/02-values-types-and-coercion.html) in this folder. Guess first, then press Next.
 - **Play with it:** [JS Comparison Table](https://dorey.github.io/JavaScript-Equality-Table/). Many value pairs side by side. Compare the `==` section with the `===` section and the `if()` section.
-- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the code from section 2d. Its guide says it shows when two names point at the same array, so check that `a` and `b` point at two different arrays.
+- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the code from card 5 (More detail). Its guide says it shows when two names point at the same array, so check that `a` and `b` point at two different arrays.
 - **Read:** [Type Conversions](https://javascript.info/type-conversions) on javascript.info. Two short tables: what becomes which number, and what becomes `false`.
 - **Read:** [Comparisons](https://javascript.info/comparison) on javascript.info. Read "Strict equality" and "Comparison with null and undefined".
 
@@ -365,7 +362,7 @@ Links checked on 2026-10-15. Each page opened. For each video, the title and cha
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -471,7 +468,7 @@ For `s6`: `"" == "0"` is `false` because both sides are strings. Rule 1 matches,
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "What is the difference between `==` and `===`? What does `[] == false` give, and why? Which values are falsy?"
 
@@ -488,7 +485,7 @@ For `s6`: `"" == "0"` is `false` because both sides are strings. Rule 1 matches,
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain this lesson out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Walk `[] == false` round by round, and name the 8 values that count as false. Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check coercion` or ask the `explain-coach` agent to review it.
 
@@ -500,12 +497,12 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. What is the difference between a simple value and an object? What does `typeof null` give, and what does `typeof []` give?
 2. Walk `true == "1"` round by round. Which rule matches in each round?
 3. Name the 8 values that count as false. Does `if ("0")` run? Does `if ([])` run?
-4. Draw the `==` checklist from picture 2c from memory.
+4. Draw the `[] == false` rounds from card 5 from memory, and write the `==` checklist from card 4.
 
 <details><summary>Answers</summary>
 
@@ -513,6 +510,30 @@ Close this file. Press the **Record my explanation** button under this heading a
 2. Round 1: rule 4, `true` becomes `1`, so `1 == "1"`. Round 2: rule 3, `"1"` becomes `1`, so `1 == 1`. Round 3: rule 1, same type, `true`.
 3. `false`, `0`, `-0`, `0n`, `""`, `null`, `undefined`, `NaN`. Yes, `if ("0")` runs, because the text is not empty. Yes, `if ([])` runs, because every object counts as true.
 4. Same type? Compare like `===`. null or undefined? True only if both are. String and number? String becomes a number. Boolean? It becomes a number. Object? It becomes a simple value. Nothing matched? False. After a change, start again at the top.
+
+</details>
+
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>More</summary>
+
+**The full checklist.** The language rules (the ECMAScript spec, section "IsLooselyEqual") have 14 steps. The extra steps handle `bigint` and one old browser object, `document.all`. The order is: same type, null and undefined, string and number, bigint and string, boolean, object, bigint and number, then false. MDN's summary puts "object" before "boolean". Both orders give the same answers.
+
+**Why `typeof null` is `"object"`.** In the first version of JavaScript, every value had a small type tag. The tag for objects was 0. `null` was stored as all zeros, so it looked like an object. A fix was proposed later, but it was rejected.
+
+**Simple values cannot change.** `let s = "hi"; s[0] = "H";` leaves `s` as `"hi"`. Methods like `s.toUpperCase()` give you a **new** string. The interview word for "cannot change" is *immutable*.
+
+**`NaN` and `-0`.** `NaN === NaN` is `false`. Use `Number.isNaN(x)`. `0 === -0` is `true`. `Object.is(a, b)` is like `===`, except `Object.is(NaN, NaN)` is `true` and `Object.is(0, -0)` is `false`.
+
+**`<` and `>` use different rules from `==`.** `null == 0` is `false`, but `null >= 0` is `true`. The size checks turn `null` into `0`. `==` does not.
+
+**`??` against `||`.** `count || 10` gives `10` when `count` is `0`, because `0` counts as false. `count ?? 10` only replaces `null` and `undefined`, so it keeps `0`.
+
+**Finding a plain object.** `typeof value === "object"` is also true for `null` and for arrays. Write `value !== null && typeof value === "object" && !Array.isArray(value)`.
+
+**`==` is not even consistent with itself.** `0 == ""` is `true` and `0 == "0"` is `true`, but `"" == "0"` is `false`. Both sides are strings there, so no type changes.
 
 </details>
 
