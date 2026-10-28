@@ -1,153 +1,89 @@
 # 07. Normalization
 
-> **Subject:** Database · **Lesson:** 07 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** Database · **Lesson:** 07 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** show the three problems that duplicate data causes, split a messy table so each fact lives in one place, say 1NF, 2NF and 3NF in one plain sentence each, and explain when a senior engineer copies data on purpose and what that costs.
+>
 > **Before this:** [Keys and relationships](06-keys-and-relationships.md) · **Next:** [Constraints and data types](08-constraints-and-data-types.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a phone number on every card
 
-Save each fact in one place, so that changing, adding or deleting one thing can never break another thing.
-
-A **fact** here is one small true thing, like "Toko Maju is in Jakarta".
-
-New words, at most 4:
-
-- **Duplicate:** the same fact saved in more than one row. (Interview word: *redundancy*.)
-- **Anomaly:** a wrong result that a duplicate causes when you change, add or delete rows. There are three kinds: *update*, *insert* and *delete anomaly*.
-- **Normalize:** split a table so that each fact lives in one place, and point at it with an id. (Interview word: *normalization*. Its rules are called *normal forms*: 1NF, 2NF, 3NF.)
-- **Denormalize:** copy a fact on purpose, to freeze it in time or to read it faster. (Interview word: *denormalization*.)
-
-The rule to remember: **one fact, one place. Copy only on purpose, and decide who keeps the copy right.**
-
-## 2. The pictures
-
-All pictures use one tiny example. Four orders, two stores.
-
-| orders_flat | order_id | store_name | store_city | total_cents |
-|---|---|---|---|---|
-| | 1 | Toko Maju | Jakarta | 50000 |
-| | 2 | Toko Maju | Jakarta | 20000 |
-| | 3 | Toko Maju | Jakarta | 30000 |
-| | 4 | Toko Sari | Bandung | 15000 |
-
-Spot the duplicate: "Toko Maju is in Jakarta" is saved three times.
-
-### 2a. The big picture
-
-Notice that after the split, the city is saved once, and each order only points at its store.
+You write your friend's phone number on **every birthday card** you send. When the number changes, you must find every card. You will miss one.
 
 ```mermaid
-graph LR
-    F["orders_flat repeats store name and city on every order"] -->|split| S["stores has one row per store with name and city"]
-    F -->|split| O["orders keeps only store_id and the total"]
+graph TB
+    F["orders_flat<br/>store name and city<br/>on every order"] -->|split| S["stores<br/>one row per store"]
+    F -->|split| O["orders<br/>store_id and total"]
     O -->|store_id points at| S
 ```
 
-### 2b. The problem, drawn
+Notice: after the split, the city is saved **once**. Each order only points at its store, like a card that only says the friend's name.
 
-Notice that all three problems come from the same cause: a store only exists inside order rows.
+Our tiny example has 4 orders and 2 stores. "Toko Maju is in Jakarta" is saved **three times**.
 
-```mermaid
-graph TB
-    T["One big table where the store lives inside every order row"] --> U["Change the city in order 1 only"]
-    T --> I["Add a new store with no orders"]
-    T --> D["Delete order 4 which is the only Toko Sari order"]
-    U --> U2["Toko Maju is now in Jakarta and in Surabaya"]
-    I --> I2["Postgres refuses because a row must be an order"]
-    D --> D2["Toko Sari and its city are gone forever"]
-```
-
-### 2c. How it works over time
-
-After the split, Toko Maju moves to Surabaya. Notice that Postgres changes one row, and every order sees the new city.
-
-```mermaid
-sequenceDiagram
-    participant App as Admin app
-    participant PG as Postgres
-    participant S as stores
-    participant O as orders
-    App->>PG: UPDATE stores SET city Surabaya WHERE id 1
-    PG->>S: change one cell in one row
-    PG-->>App: UPDATE 1
-    App->>PG: show every order with its city
-    PG->>O: read orders 1 2 3 4
-    PG->>S: follow store_id to read the city
-    PG-->>App: orders 1 2 3 say Surabaya
-    Note over PG,S: There is only one place to read the city from
-```
-
-### 2d. What is on disk right now
-
-The split tables after the fix in section 5 (steps 8 to 13). Notice the arrows: three orders point at one store row. Toko Baru has no orders and still exists.
-
-```mermaid
-graph LR
-    O1["order 1 total 50000"] -->|store_id 1| S1["store 1 Toko Maju Surabaya"]
-    O2["order 2 total 20000"] -->|store_id 1| S1
-    O3["order 3 total 30000"] -->|store_id 1| S1
-    S2["store 2 Toko Sari Bandung"]
-    S3["store 3 Toko Baru Medan"]
-```
-
-| stores | id | name | city |
+| order_id | store_name | store_city | total_cents |
 |---|---|---|---|
-| | 1 | Toko Maju | Surabaya |
-| | 2 | Toko Sari | Bandung |
-| | 3 | Toko Baru | Medan |
+| 1 | Toko Maju | Jakarta | 50000 |
+| 2 | Toko Maju | Jakarta | 20000 |
+| 3 | Toko Maju | Jakarta | 30000 |
+| 4 | Toko Sari | Bandung | 15000 |
 
-| orders | id | store_id | total_cents |
-|---|---|---|---|
-| | 1 | 1 | 50000 |
-| | 2 | 1 | 20000 |
-| | 3 | 1 | 30000 |
+<details class="guess"><summary>🤔 Guess: Toko Maju moves to Surabaya, but you change only order 1. What does the table say now? Press to check.</summary>
 
-### 2e. Right against wrong
+Order 1 says Surabaya. Orders 2 and 3 still say Jakarta. The same store is in two cities, and nothing warns you.
 
-**Wrong:** the order carries facts about the store.
+</details>
 
-```mermaid
-graph LR
-    A["order row"] --> B["store_name"]
-    A --> C["store_city"]
-    C --> D["the city is a fact about the store not about the order"]
+> **Remember:** one fact, one place. Copy only on purpose, and decide who keeps the copy right.
+
+<details class="more"><summary>📖 More detail: the four words, and where the phone book picture stops</summary>
+
+A **fact** here is one small true thing, like "Toko Maju is in Jakarta".
+
+- **Duplicate:** the same fact saved in more than one row. (Interview word: *redundancy*.)
+- **Anomaly:** a wrong result that a duplicate causes when you change, add or delete rows. There are three kinds: *update*, *insert* and *delete anomaly* (cards 2 and 3).
+- **Normalize:** split a table so that each fact lives in one place, and point at it with an id. (Interview word: *normalization*. Its rules are called *normal forms*: 1NF, 2NF, 3NF.)
+- **Denormalize:** copy a fact on purpose, to freeze it in time or to read it faster. (Interview word: *denormalization*.)
+
+The phone book is better than the cards: you write the number once. Where the picture stops: a database can check the links for you. A foreign key stops an order from pointing at a store that does not exist. A phone book cannot stop a card with a wrong name.
+
+</details>
+
+## 2. Problem 1: the update problem
+
+You change the city in order 1 only, then ask which (store, city) pairs exist.
+
+```sql
+UPDATE orders_flat
+SET store_city = 'Surabaya'
+WHERE order_id = 1;
+
+SELECT DISTINCT store_name, store_city
+FROM orders_flat
+ORDER BY store_name, store_city;
 ```
 
-**Right:** the order carries only the store's id. The store row carries the city.
+<details class="guess"><summary>🤔 Guess: how many different (store, city) pairs come back? Press to check.</summary>
 
-```mermaid
-graph LR
-    A["order row"] -->|store_id| B["store row"]
-    B --> C["name and city saved once"]
+```
+UPDATE 1
+ store_name | store_city
+------------+------------
+ Toko Maju  | Jakarta
+ Toko Maju  | Surabaya
+ Toko Sari  | Bandung
+(3 rows)
 ```
 
-### 2f. When to copy on purpose
+Three pairs, but there are only two stores. Toko Maju has **two cities**. Postgres did exactly what it was told.
 
-Notice the first question. A price on an old order is not a duplicate at all. It is a different fact.
+</details>
 
-```mermaid
-graph TB
-    Q1["You want to save a fact twice"] --> Q2["Is it a fact about that moment like the price paid that day"]
-    Q2 -->|yes| A1["Save it on the row. It must never change."]
-    Q2 -->|no| Q3["Is a read slow and did you measure it"]
-    Q3 -->|no| A2["Keep one place. Join it and add an index."]
-    Q3 -->|yes| A3["Copy it and pick who keeps it right"]
-    A3 --> K1["a trigger in the database"]
-    A3 --> K2["app code in the same transaction"]
-    A3 --> K3["a materialized view you refresh"]
-```
+> **Remember:** a fact saved many times will one day disagree with itself.
 
-## 3. Real life analogy
-
-You keep a friend's phone number in two ways.
-
-- **Wrong way:** you write it on every birthday card you send. When the number changes, you must find every card. You will miss one. (Update problem.)
-- **Right way:** you write it once in your phone book. The cards just say the friend's name. (Normalize.)
-- **Copy on purpose:** a shop receipt prints the price you paid. When the price goes up, nobody wants old receipts to change. (Price at the time of the order.)
-
-Where the analogy stops: a database can check the links for you. A foreign key stops an order from pointing at a store that does not exist. A phone book cannot stop a card with a wrong name.
-
-## 4. The smallest code that shows it
+<details class="more"><summary>📖 More detail: make the table yourself</summary>
 
 These lines make a separate box (a *schema*) called `l07`, so the lesson tables never touch your practice tables. Run them in the Docker playground or in the [PGlite REPL](https://pglite.dev/repl/).
 
@@ -161,75 +97,161 @@ CREATE TABLE orders_flat (
   total_cents int NOT NULL
 );
 INSERT INTO orders_flat VALUES
-  (1, 'Toko Maju', 'Jakarta', 50000), (2, 'Toko Maju', 'Jakarta', 20000),
-  (3, 'Toko Maju', 'Jakarta', 30000), (4, 'Toko Sari', 'Bandung', 15000);
-UPDATE orders_flat SET store_city = 'Surabaya' WHERE order_id = 1;
-SELECT DISTINCT store_name, store_city FROM orders_flat ORDER BY store_name, store_city;
+  (1, 'Toko Maju', 'Jakarta', 50000),
+  (2, 'Toko Maju', 'Jakarta', 20000),
+  (3, 'Toko Maju', 'Jakarta', 30000),
+  (4, 'Toko Sari', 'Bandung', 15000);
 ```
 
-**Output:**
+Checked on 2026-10-28 with PostgreSQL 17.5 (PGlite). Earlier checks on PostgreSQL 18.3 gave the same results. Postgres 16 in the Docker playground gives the same rows and messages.
+
+</details>
+
+## 3. Problems 2 and 3: insert and delete
+
+The store only exists **inside** order rows. That causes two more problems.
+
+```mermaid
+graph TB
+    I["Add a store with no orders"] --> I2["Refused: a row must be an order"]
+    I2 ~~~ D["Delete the only Toko Sari order"]
+    D --> D2["Toko Sari is gone forever"]
+```
+
+```sql
+-- add a new store with no orders
+INSERT INTO orders_flat
+  (store_name, store_city)
+VALUES ('Toko Baru', 'Medan');
+
+-- delete order 4
+DELETE FROM orders_flat
+WHERE order_id = 4;
+```
+
+<details class="guess"><summary>🤔 Guess: what happens to each statement? Press to check.</summary>
+
+The insert is refused. `order_id` is empty, and it must not be:
 
 ```
-UPDATE 1
- store_name | store_city
-------------+------------
- Toko Maju  | Jakarta
- Toko Maju  | Surabaya
- Toko Sari  | Bandung
-(3 rows)
+ERROR:  null value in column "order_id" of relation "orders_flat" violates not-null constraint
 ```
 
-Look at the first two rows. One store, two cities. Postgres did exactly what it was told.
+The delete works (`DELETE 1`), but it removes the whole row: the order, the store name and the city. Now:
 
-## 5. What really happens, step by step
+```sql
+SELECT * FROM orders_flat
+WHERE store_name = 'Toko Sari';
+```
 
-Steps 1 to 7 are the messy table. Steps 8 to 13 are the fix.
+gives `(0 rows)`. Toko Sari is gone forever.
 
-| Step | SQL | What Postgres does | Rows after | Output |
-|---|---|---|---|---|
-| 1 | `CREATE TABLE orders_flat` + `INSERT` 4 rows | Saves 4 rows. Jakarta is saved 3 times. | 4 orders, 2 stores hidden inside them | `INSERT 0 4` |
-| 2 | `UPDATE orders_flat SET store_city = 'Surabaya' WHERE order_id = 1` | Finds the row with id 1. Changes its city. Leaves rows 2 and 3 alone. | Row 1 says Surabaya. Rows 2 and 3 say Jakarta. | `UPDATE 1` |
-| 3 | `SELECT DISTINCT store_name, store_city ...` | Reads all rows. Keeps each different pair once. | no change | Toko Maju Jakarta, Toko Maju Surabaya, Toko Sari Bandung. **Update problem.** |
-| 4 | `INSERT INTO orders_flat (store_name, store_city) VALUES ('Toko Baru', 'Medan')` | Checks the rules. `order_id` is empty, and it must not be. Refuses the row. | no change | `ERROR: null value in column "order_id" of relation "orders_flat" violates not-null constraint`. **Insert problem.** |
-| 5 | `DELETE FROM orders_flat WHERE order_id = 4` | Removes the whole row: the order, the store name and the city. | 3 rows, all Toko Maju | `DELETE 1` |
-| 6 | `SELECT * FROM orders_flat WHERE store_name = 'Toko Sari'` | Looks for Toko Sari. Finds nothing. | no change | `(0 rows)`. **Delete problem.** |
-| 7 | | You decide to split the table. | | |
-| 8 | `CREATE TABLE stores (id, name, city)` and `CREATE TABLE orders (id, store_id REFERENCES stores, total_cents)`, then insert 2 stores and 4 orders | Saves each store once. Each order saves only a store id. | stores: 2 rows. orders: 4 rows. | `INSERT 0 2`, `INSERT 0 4` |
-| 9 | `UPDATE stores SET city = 'Surabaya' WHERE id = 1` | Changes one cell in one store row. | Toko Maju says Surabaya, once. | `UPDATE 1` |
-| 10 | `SELECT o.id, s.name, s.city FROM orders o JOIN stores s ON s.id = o.store_id` | For each order, follows `store_id` to the store row and reads the city there. | no change | Orders 1, 2 and 3 say Surabaya. Order 4 says Bandung. |
-| 11 | `INSERT INTO stores VALUES (3, 'Toko Baru', 'Medan')` | Saves a store with no orders. Nothing refuses it. | stores: 3 rows | `INSERT 0 1` |
-| 12 | `DELETE FROM orders WHERE id = 4` | Removes one order row. Does not touch `stores`. | orders: 3 rows | `DELETE 1` |
-| 13 | `SELECT * FROM stores ORDER BY id` | Reads the stores. | no change | Toko Maju Surabaya, Toko Sari Bandung, Toko Baru Medan. All three problems are gone. |
+</details>
 
-A **join** (lesson 02) glues each order row to the store row it points at. A **foreign key** (`REFERENCES`, lesson 06) is the rule that `store_id` must point at a real store. Postgres also uses it to refuse `DELETE FROM stores WHERE id = 1` while orders still point there.
+> **Remember:** a table with the store inside the order cannot hold a store with no orders, and deleting the last order deletes the store.
 
-Checked on 2026-10-16 with PostgreSQL 18.3 (PGlite). Postgres 16 in the Docker playground gives the same rows and messages.
+<details class="more"><summary>📖 More detail: the three problems have one cause</summary>
 
-**Step through it yourself:** [open the normalization stepper](visuals/07-normalization.html). It has six programs: the three problems, the fix, and two copies on purpose (a price, and a points balance). Each program asks you to predict first. Orange cells show the duplicate. The rows change as you press Next.
+- **Update problem:** a fact saved many times will one day disagree with itself.
+- **Insert problem:** you cannot save a thing until an unrelated thing exists.
+- **Delete problem:** deleting one thing deletes another.
 
-## 6. Why it exists and what it costs
+All three come from the same cause: two kinds of facts (about the order, about the store) live in the same row.
 
-- **Problem without it:** a fact saved many times will one day disagree with itself (update problem). You cannot save a thing until an unrelated thing exists (insert problem). Deleting one thing deletes another (delete problem).
-- **How it solves it:** each fact gets one home. Other rows point at it with an id. A join puts them back together when you read.
-- **Cost:** reads need joins. A page that shows orders with store names now reads two tables. With an index on the id, that join is usually fast (lesson 09).
+</details>
 
-### 6a. The three rules, one sentence each
+## 4. The fix: one table for each kind of fact
 
-The rules are called normal forms. Each one builds on the one before.
+Split the table. Each store gets one row. Each order keeps only the store's id.
 
 ```mermaid
 graph LR
-    A["1NF one value per cell"] --> B["2NF every column needs the whole key"]
-    B --> C["3NF every column is about the key and nothing else"]
+    O1["orders 1 2 3"] --> S1["Toko Maju"]
+    O4["order 4"] --> S2["Toko Sari"]
+    N["no orders"] -.-> S3["Toko Baru"]
 ```
 
-Notice that each step moves one more kind of duplicate into its own table.
+```sql
+CREATE TABLE stores (
+  id int PRIMARY KEY,
+  name text NOT NULL,
+  city text NOT NULL);
+CREATE TABLE orders (
+  id int PRIMARY KEY,
+  store_id int NOT NULL
+    REFERENCES stores(id),
+  total_cents int NOT NULL);
+```
+
+Then Toko Maju moves. You change **one** cell:
+
+```sql
+UPDATE stores
+SET city = 'Surabaya'
+WHERE id = 1;
+
+SELECT o.id, s.name, s.city
+FROM orders o
+JOIN stores s ON s.id = o.store_id
+ORDER BY o.id;
+```
+
+<details class="guess"><summary>🤔 Guess: what do orders 1, 2 and 3 say about the city? Press to check.</summary>
+
+```
+ id |   name    |   city
+----+-----------+----------
+  1 | Toko Maju | Surabaya
+  2 | Toko Maju | Surabaya
+  3 | Toko Maju | Surabaya
+  4 | Toko Sari | Bandung
+(4 rows)
+```
+
+All say Surabaya. There is only one place to read the city from.
+
+The other two problems are gone too. You can insert Toko Baru (a store with no orders) and nothing refuses it. You can delete order 4, and Toko Sari stays in `stores`.
+
+</details>
+
+> **Remember:** split by kind of fact. Other rows point at the fact with an id, and a join puts them back together when you read.
+
+<details class="more"><summary>📖 More detail: what a foreign key adds</summary>
+
+A **join** ([lesson 02](02-joins.md)) glues each order row to the store row it points at. A **foreign key** (`REFERENCES`, lesson 06) is the rule that `store_id` must point at a real store. Postgres also uses it to refuse a delete of a store while orders still point there:
+
+```
+DELETE FROM stores WHERE id = 1;
+ERROR:  update or delete on table "stores" violates foreign key constraint "orders_store_id_fkey" on table "orders"
+```
+
+</details>
+
+## 5. The three rules: 1NF, 2NF, 3NF
+
+The rules for "one fact, one place" have names, called **normal forms**. Each one builds on the one before.
+
+```mermaid
+graph TB
+    A["1NF: one value per cell"] --> B["2NF: every column needs the whole key"]
+    B --> C["3NF: every column is about the key and nothing else"]
+```
 
 | Rule | Plain sentence | Breaks it | Fix |
 |---|---|---|---|
 | **1NF** | One value per cell, no lists. | `orders.products = 'Kopi, Teh'` | `order_lines` table, one row per product |
 | **2NF** | When the key is two columns, every other column must need both of them. | `order_lines (order_id, product_id, qty, product_name)`. `product_name` needs only `product_id`. | Move `product_name` to `products` |
 | **3NF** | Every column is a fact about this row's key, not about another column. | `orders (id, store_id, store_city)`. The city is about the store, not the order. | Move the city to `stores` |
+
+<details class="guess"><summary>🤔 Guess: `orders (id, store_id, store_city)`. Which rule does it break? Press to check.</summary>
+
+**3NF.** The city is a fact about the store, not about the order. The fix is the split from card 4.
+
+</details>
+
+> **Remember:** 1NF no lists. 2NF no half of a key. 3NF no facts about another column.
+
+<details class="more"><summary>📖 More detail: why a list in a cell is a problem</summary>
 
 A **key** is the column, or columns, that name one row, like `id`. Lesson 06 explains keys.
 
@@ -251,31 +273,31 @@ SELECT * FROM orders_list WHERE products LIKE '%Teh%';
 
 You asked for orders with Teh. Postgres also gave you Teh Botol, a different product. With one row per product, `WHERE product_name = 'Teh'` is exact.
 
-<details><summary>Go deeper (optional): the formal words</summary>
-
-- **Functional dependency:** "A decides B" means one value of A always gives the same B. `store_id` decides `store_city`.
-- **1NF:** every column holds one value (it is *atomic*), and every row can be told apart by a key.
-- **2NF:** 1NF, and no column depends on only part of a key made of several columns (no *partial dependency*). A table with a one-column key is always in 2NF.
-- **3NF:** 2NF, and no non-key column depends on another non-key column (no *transitive dependency*). In `orders (id, store_id, store_city)`, `id` decides `store_id`, and `store_id` decides `store_city`.
-- The classic line: every column depends on "the key, the whole key, and nothing but the key".
-- **BCNF, 4NF, 5NF** are stricter forms. They matter in rare shapes. Most app databases aim for 3NF. Wikipedia's "Database normalization" page walks one book table through every form.
-- **Arrays and JSONB:** Postgres can save a list in one column (`text[]` or `jsonb`). That breaks the strict 1NF idea. It is fine for data you always read as one piece, like a list of photo URLs. Use a real table for anything you search, join or count. Lesson 08 compares JSONB with normal columns.
-
 </details>
 
-### 6b. The senior part: copy on purpose
+## 6. Copy on purpose, case 1: the price paid
 
-Normalizing is the default. Sometimes you copy a fact on purpose. Three common cases, all shaped like DBO tables. The SQL runs are real. Where they touch DBO, each case says what is fact and what is an idea.
+Normalizing is the default. Sometimes a copy is **not a duplicate at all**. It is a different fact.
 
-**Case 1: the price on the order line.** The store paid 10000 per Kopi. Later Kopi costs 12000.
+| Question | What to do |
+|---|---|
+| Is it a fact about that moment, like the price paid that day? | Save it on the row. It must never change. |
+| Is a read slow, and did you measure it? No. | Keep one place. Join it and add an index. |
+| Is a read slow, and did you measure it? Yes. | Copy it, and pick who keeps it right (card 7). |
+
+The store paid 10000 per Kopi. Later Kopi costs 12000.
 
 ```sql
-INSERT INTO order_lines VALUES (1, 1, 2, 10000);   -- order 1, Kopi, qty 2, price that day
-UPDATE products SET price_cents = 12000 WHERE id = 1;
-SELECT l.qty * l.unit_price_cents AS paid_then,
-       l.qty * p.price_cents      AS price_today
-FROM order_lines l JOIN products p ON p.id = l.product_id;
+SELECT l.qty * l.unit_price_cents
+    AS paid_then,
+  l.qty * p.price_cents
+    AS price_today
+FROM order_lines l
+JOIN products p
+  ON p.id = l.product_id;
 ```
+
+<details class="guess"><summary>🤔 Guess: order 1 has 2 Kopi. What did the store pay, and what would "today's price" say? Press to check.</summary>
 
 ```
  paid_then | price_today
@@ -284,20 +306,59 @@ FROM order_lines l JOIN products p ON p.id = l.product_id;
 (1 row)
 ```
 
-`paid_then` is the truth. If you read the price from `products`, every old order changes when the price changes. So the line price is not a bad duplicate. It is a different fact: the price on that day. It must never be updated. (This is an idea for a DBO-like shop, not a fact about DBO.)
+`paid_then` is the truth. If you read the price from `products`, every old order changes when the price changes. So the price on the line is not a bad duplicate. It is a different fact: the price on that day. It must never be updated.
 
-**Case 2: a saved total, like a points balance or an order count.** Adding up a long history on every page view is slow. So you save the total on the store row. The history stays the truth, and the total is a copy. Here one code path forgets to update the copy:
+</details>
+
+> **Remember:** a price paid is a fact about a moment. Save it on the order line and never update it.
+
+<details class="more"><summary>📖 More detail: the tables for this case</summary>
+
+This is an idea for a DBO-like shop, not a fact about DBO.
 
 ```sql
-ALTER TABLE stores ADD COLUMN points_balance int NOT NULL DEFAULT 0;
-CREATE TABLE point_transactions (id serial PRIMARY KEY, store_id int NOT NULL REFERENCES stores(id), amount int NOT NULL);
-INSERT INTO point_transactions (store_id, amount) VALUES (1, 100);
-UPDATE stores SET points_balance = points_balance + 100 WHERE id = 1;
-INSERT INTO point_transactions (store_id, amount) VALUES (1, -30);   -- this code forgot the balance
-SELECT s.id, s.points_balance AS saved_copy,
-       (SELECT sum(amount) FROM point_transactions t WHERE t.store_id = s.id) AS real_sum
-FROM stores s WHERE s.id = 1;
+CREATE TABLE products (
+  id int PRIMARY KEY,
+  name text NOT NULL,
+  price_cents int NOT NULL);
+INSERT INTO products
+  VALUES (1, 'Kopi', 10000);
+CREATE TABLE order_lines (
+  order_id int NOT NULL
+    REFERENCES orders(id),
+  product_id int NOT NULL
+    REFERENCES products(id),
+  qty int NOT NULL,
+  unit_price_cents int NOT NULL,
+  PRIMARY KEY (order_id, product_id));
+-- order 1, Kopi, qty 2, price that day
+INSERT INTO order_lines
+  VALUES (1, 1, 2, 10000);
+UPDATE products
+SET price_cents = 12000 WHERE id = 1;
 ```
+
+</details>
+
+## 7. Copy on purpose, case 2: a saved total
+
+Adding up a long history on every page view is slow. So you save the total on the store row. The history stays the truth, and the total is a **copy**.
+
+Here one code path forgets to update the copy:
+
+```sql
+-- history row, and the saved total
+INSERT INTO point_transactions
+  (store_id, amount) VALUES (1, 100);
+UPDATE stores
+SET points_balance = points_balance + 100
+WHERE id = 1;
+-- this code forgot the balance
+INSERT INTO point_transactions
+  (store_id, amount) VALUES (1, -30);
+```
+
+<details class="guess"><summary>🤔 Guess: the saved copy against the real sum of the history? Press to check.</summary>
 
 ```
  id | saved_copy | real_sum
@@ -306,115 +367,109 @@ FROM stores s WHERE s.id = 1;
 (1 row)
 ```
 
-No error. The store just sees the wrong number. That is the cost of every copy.
+No error. The store just sees the wrong number: 100 instead of 70. That is the cost of every copy.
 
-**Case 3: read-heavy reports.** An admin dashboard shows sales per store. You can save the report's answer and refresh it on a schedule.
+</details>
 
-```mermaid
-sequenceDiagram
-    participant Job as Nightly job
-    participant MV as store_sales
-    participant O as orders
-    Note over MV: saved answer says 3 orders and 100000
-    O->>O: a new order of 40000 is added
-    Note over MV: still says 3 orders and 100000
-    Job->>MV: REFRESH MATERIALIZED VIEW store_sales
-    MV->>O: run the query again
-    Note over MV: now says 4 orders and 140000
-```
+> **Remember:** every copy needs an owner, and a check that compares the copy with the truth.
 
-Notice the gap between the new order and the refresh. The report is old during that gap. Those numbers come from a real run.
+<details class="more"><summary>📖 More detail: who keeps a copy right</summary>
 
-**Who keeps a copy right?** Pick one, and write it down.
+Pick one, and write it down.
 
 - **Trigger:** a small function that Postgres runs by itself after each insert, update or delete. It never forgets, but every write does extra work, and the logic is hidden from app code.
 - **App code in the same transaction:** your Prisma code writes the history row and the total together, so both save or neither does. It is easy to read, but a second code path, or a manual SQL fix, can forget it.
 - **Materialized view:** Postgres saves the result of a query, and you refresh it. It is simple and always correct after a refresh. It is old between refreshes.
 
-Before you copy anything, try an index first (lesson 09). Measure the slow read (lesson 11). Copy only if the read is still too slow.
-
-<details><summary>Go deeper (optional): the trigger, refresh without blocking, and a check query</summary>
-
-**The trigger** (real run). After this, the app only inserts history rows, and Postgres updates the balance.
+The setup for this case:
 
 ```sql
-CREATE FUNCTION add_to_balance() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  UPDATE stores SET points_balance = points_balance + NEW.amount WHERE id = NEW.store_id;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER keep_points_balance AFTER INSERT ON point_transactions
-  FOR EACH ROW EXECUTE FUNCTION add_to_balance();
-UPDATE stores SET points_balance = (SELECT sum(amount) FROM point_transactions WHERE store_id = 1) WHERE id = 1;  -- fix the old drift once
-INSERT INTO point_transactions (store_id, amount) VALUES (1, 50);
-SELECT id, points_balance FROM stores WHERE id = 1;   -- 120, and the real sum is 100 - 30 + 50 = 120
+ALTER TABLE stores ADD COLUMN
+  points_balance int NOT NULL DEFAULT 0;
+CREATE TABLE point_transactions (
+  id serial PRIMARY KEY,
+  store_id int NOT NULL
+    REFERENCES stores(id),
+  amount int NOT NULL);
 ```
 
-- This trigger handles inserts only. That is enough if history rows are never changed or deleted (an *append-only ledger*). If you allow updates or deletes, the trigger must handle them too. The PostgreSQL docs page "Trigger Functions" has a full example that keeps a summary table right on insert, update and delete.
-- The trigger runs inside the same transaction as the insert. If the trigger fails, the insert is undone too. Lesson 13 (transactions, not written yet) explains this.
-- Two inserts for the same store at the same moment both update the same store row. Postgres makes the second one wait for the first. Lesson 15 (locks, not written yet) shows this.
-
-**Refresh without blocking readers.** A plain `REFRESH MATERIALIZED VIEW` can block other sessions that read the view while it runs. `REFRESH MATERIALIZED VIEW CONCURRENTLY` lets readers keep reading. It needs a unique index on the view that covers all rows, for example `CREATE UNIQUE INDEX ON store_sales (store_id)`. (PostgreSQL docs, "REFRESH MATERIALIZED VIEW".) Postgres has no built-in automatic refresh. You run it from a cron job or a queue job.
-
-**A check query for any saved total.** Run it every night, and alert if it returns rows:
-
-```sql
-SELECT s.id, s.points_balance, coalesce(sum(t.amount), 0) AS real_sum
-FROM stores s LEFT JOIN point_transactions t ON t.store_id = s.id
-GROUP BY s.id, s.points_balance
-HAVING s.points_balance <> coalesce(sum(t.amount), 0);
-```
-
-**Postgres 16 against 18.** Nothing in this lesson behaves differently. psql on both versions prints the same rows, the same `UPDATE 1` tags and the same not-null error text.
+The Go deeper card at the end has a trigger that keeps the balance right, and a check query to run every night.
 
 </details>
 
-## 7. Common mistakes
+## 8. Copy on purpose, case 3: a saved report
 
-**Wrong:** copying the store name onto every order "because the order page shows it".
+An admin dashboard shows sales per store. You can save the report's answer (a *materialized view*) and refresh it on a schedule.
 
-```sql
-CREATE TABLE orders (id int PRIMARY KEY, store_id int, store_name text, total_cents int);
+```mermaid
+graph TB
+    A["Saved answer:<br/>3 orders and 100000"] --> B["A new order of 40000<br/>is added"]
+    B --> C["Saved answer still says<br/>3 orders and 100000"]
+    C -->|REFRESH| D["Now it says<br/>4 orders and 140000"]
 ```
 
-**Right:** save the id only, and join when you read.
+Notice the gap between the new order and the refresh. The report is old during that gap. Those numbers come from a real run.
 
-```sql
-CREATE TABLE orders (id int PRIMARY KEY, store_id int NOT NULL REFERENCES stores(id), total_cents int NOT NULL);
-SELECT o.id, s.name FROM orders o JOIN stores s ON s.id = o.store_id;
-```
+<details class="guess"><summary>🤔 Guess: of the three owners (trigger, app code in one transaction, materialized view), which one is old between refreshes? Press to check.</summary>
 
-**Why:** when the store changes its name, every old copy is wrong. The join reads the one true name.
+The **materialized view**. It is simple and always correct after a refresh, but old between refreshes. A trigger never forgets, but every write does extra work. App code in the same transaction is easy to read, but a second code path or a manual SQL fix can forget it.
 
-**Wrong:** reading the current product price for an old order.
+</details>
 
-```sql
-SELECT sum(l.qty * p.price_cents) FROM order_lines l JOIN products p ON p.id = l.product_id WHERE l.order_id = 1;
-```
+> **Remember:** before you copy anything, try an index first (lesson 09). Measure the slow read (lesson 11). Copy only if the read is still too slow.
 
-**Right:** read the price that was saved on the line.
+<details class="more"><summary>📖 More detail: refreshing without blocking</summary>
 
-```sql
-SELECT sum(l.qty * l.unit_price_cents) FROM order_lines l WHERE l.order_id = 1;
-```
+A plain `REFRESH MATERIALIZED VIEW` can block other sessions that read the view while it runs. `REFRESH MATERIALIZED VIEW CONCURRENTLY` lets readers keep reading. It needs a unique index on the view that covers all rows. Postgres has no built-in automatic refresh. You run it from a cron job or a queue job. More in the Go deeper card.
 
-**Why:** the price on that day is its own fact. The product price is today's price.
+</details>
 
-**Wrong:** "I will save the total for speed" with no plan for who updates it.
+## 9. Watch it run, step by step
 
-**Right:** name the owner: a trigger, app code in one transaction, or a materialized view. Add a check query that compares the copy with the truth.
+The stepper has six programs: the three problems, the fix, and two copies on purpose (a price, and a points balance). Each program asks you to predict first. Orange cells show the duplicate. The rows change as you press Next.
 
-**Why:** a copy with no owner drifts quietly, like the 100 against 70 in section 6b.
+**Step through it yourself:** [open the normalization stepper](visuals/07-normalization.html).
 
-## 8. Watch and play
+<details class="more"><summary>📖 More detail: all 13 steps, from the mess to the fix</summary>
+
+Steps 1 to 7 are the messy table. Steps 8 to 13 are the fix.
+
+| Step | SQL | What Postgres does | Rows after | Output |
+|---|---|---|---|---|
+| 1 | `CREATE TABLE orders_flat` + `INSERT` 4 rows | Saves 4 rows. Jakarta is saved 3 times. | 4 orders, 2 stores hidden inside them | `INSERT 0 4` |
+| 2 | `UPDATE orders_flat SET store_city = 'Surabaya' WHERE order_id = 1` | Finds the row with id 1. Changes its city. Leaves rows 2 and 3 alone. | Row 1 says Surabaya. Rows 2 and 3 say Jakarta. | `UPDATE 1` |
+| 3 | `SELECT DISTINCT store_name, store_city ...` | Reads all rows. Keeps each different pair once. | no change | Toko Maju Jakarta, Toko Maju Surabaya, Toko Sari Bandung. **Update problem.** |
+| 4 | `INSERT INTO orders_flat (store_name, store_city) VALUES ('Toko Baru', 'Medan')` | Checks the rules. `order_id` is empty, and it must not be. Refuses the row. | no change | `ERROR: null value in column "order_id" of relation "orders_flat" violates not-null constraint`. **Insert problem.** |
+| 5 | `DELETE FROM orders_flat WHERE order_id = 4` | Removes the whole row: the order, the store name and the city. | 3 rows, all Toko Maju | `DELETE 1` |
+| 6 | `SELECT * FROM orders_flat WHERE store_name = 'Toko Sari'` | Looks for Toko Sari. Finds nothing. | no change | `(0 rows)`. **Delete problem.** |
+| 7 | | You decide to split the table. | | |
+| 8 | `CREATE TABLE stores (id, name, city)` and `CREATE TABLE orders (id, store_id REFERENCES stores, total_cents)`, then insert 2 stores and 4 orders | Saves each store once. Each order saves only a store id. | stores: 2 rows. orders: 4 rows. | `INSERT 0 2`, `INSERT 0 4` |
+| 9 | `UPDATE stores SET city = 'Surabaya' WHERE id = 1` | Changes one cell in one store row. | Toko Maju says Surabaya, once. | `UPDATE 1` |
+| 10 | `SELECT o.id, s.name, s.city FROM orders o JOIN stores s ON s.id = o.store_id` | For each order, follows `store_id` to the store row and reads the city there. | no change | Orders 1, 2 and 3 say Surabaya. Order 4 says Bandung. |
+| 11 | `INSERT INTO stores VALUES (3, 'Toko Baru', 'Medan')` | Saves a store with no orders. Nothing refuses it. | stores: 3 rows | `INSERT 0 1` |
+| 12 | `DELETE FROM orders WHERE id = 4` | Removes one order row. Does not touch `stores`. | orders: 3 rows | `DELETE 1` |
+| 13 | `SELECT * FROM stores ORDER BY id` | Reads the stores. | no change | Toko Maju Surabaya, Toko Sari Bandung, Toko Baru Medan. All three problems are gone. |
+
+A **join** (lesson 02) glues each order row to the store row it points at. A **foreign key** (`REFERENCES`, lesson 06) is the rule that `store_id` must point at a real store. Postgres also uses it to refuse `DELETE FROM stores WHERE id = 1` while orders still point there.
+
+</details>
+
+## 10. Why it matters and what it costs
+
+- **Without it,** a fact saved many times will one day disagree with itself (update problem). You cannot save a thing until an unrelated thing exists (insert problem). Deleting one thing deletes another (delete problem).
+- **With it,** each fact gets one home. Other rows point at it with an id. A join puts them back together when you read.
+- **The cost:** reads need joins. A page that shows orders with store names now reads two tables. With an index on the id, that join is usually fast (lesson 09).
+- **Copying on purpose** (cards 6 to 8) is a trade: faster reads, but a copy that can drift. Name the owner of every copy.
+
+## 11. Watch and play
 
 Links checked on 2026-10-16. Each page was opened and matched the topic. For videos, the title, channel and length came from YouTube itself (the page and its oEmbed data). The videos were not watched in full.
 
 - **Video:** [Basic Concept of Database Normalization](https://www.youtube.com/watch?v=xoTyrdT9SZI) by Studytonight with Abhishek, about 8 minutes. The update, insert and delete problems on a student table. Watch it first.
 - **Video:** [1st, 2nd and 3rd Normal Form](https://www.youtube.com/watch?v=J-drts33N8g) by Learn Learn Scratch Tutorials, about 12 minutes. The three rules on one worked example.
-- **Video:** [Learn Database Denormalization](https://www.youtube.com/watch?v=4bTq0GdSeQs) by Decomplexify, about 19 minutes. When copying on purpose is right. Good for section 6b.
+- **Video:** [Learn Database Denormalization](https://www.youtube.com/watch?v=4bTq0GdSeQs) by Decomplexify, about 19 minutes. When copying on purpose is right. Good for cards 6 to 8.
 - **Play with it:** [The normalization stepper](visuals/07-normalization.html) in this folder. Predict first, then press Next.
-- **Play with it:** [PGlite REPL](https://pglite.dev/repl/). Real Postgres in your browser, no Docker. Paste section 4, then the fix from section 5, and run them.
+- **Play with it:** [PGlite REPL](https://pglite.dev/repl/). Real Postgres in your browser, no Docker. Paste the setup from card 2, then the fix from card 4, and run them.
 - **Play with it:** [dbdiagram.io](https://dbdiagram.io/). Type the tables and it draws the boxes and arrows. Draw `orders_flat`, then draw `stores` and `orders` with the arrow.
 - **Read:** [Database normalization](https://en.wikipedia.org/wiki/Database_normalization) on Wikipedia. Open the "Example" part: one book table, fixed step by step, with a table at each step.
 
@@ -430,11 +485,11 @@ Links checked on 2026-10-16. Each page was opened and matched the topic. For vid
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
-Start from the four rows of `orders_flat` in section 2.
+Start from the four rows of `orders_flat` in card 1.
 
 ```sql
 UPDATE orders_flat SET store_city = 'Surabaya' WHERE order_id IN (1, 2);
@@ -594,7 +649,7 @@ Every expected result in the practice file was checked against these answers on 
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "What is normalization? Why would you ever denormalize? Give an example."
 
@@ -607,7 +662,7 @@ Every expected result in the practice file was checked against these answers on 
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Explain normalization out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "duplicate", "one place", "update problem" and "copy on purpose". Then write your best version below, and run `/explain-check normalization` or ask the `explain-coach` agent to review it.
 
@@ -619,12 +674,12 @@ Close this file. Explain normalization out loud, like to a new junior, in 4 part
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. Name the three problems that a duplicate causes, with one Toko example each.
 2. Is the unit price on an order line a bad duplicate? Why or why not?
 3. You save `order_count` on the store row. Name three ways to keep it right, and one cost of each.
-4. Draw the picture from section 2a from memory: the big table, the split, and the arrow.
+4. Draw the picture from card 1 from memory: the big table, the split, and the arrow.
 
 <details><summary>Answers</summary>
 
@@ -632,6 +687,58 @@ Close this file. Explain normalization out loud, like to a new junior, in 4 part
 2. No. It is a different fact: the price the store paid on that day. The product price is today's price. If old orders read today's price, history changes every time the price changes.
 3. **Trigger:** never forgets, but every write does extra work and the logic is hidden from app code. **App code in the same transaction:** easy to read, but another code path or a manual SQL fix can forget it. **Materialized view:** simple, but old between refreshes, and a plain refresh can block readers.
 4. `orders_flat` on the left, with the store name and city on every row. Two arrows labelled "split" go to `stores` (one row per store, name and city) and `orders` (store_id and total). An arrow from `orders` to `stores` says "store_id points at".
+
+</details>
+
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>The formal words</summary>
+
+- **Functional dependency:** "A decides B" means one value of A always gives the same B. `store_id` decides `store_city`.
+- **1NF:** every column holds one value (it is *atomic*), and every row can be told apart by a key.
+- **2NF:** 1NF, and no column depends on only part of a key made of several columns (no *partial dependency*). A table with a one-column key is always in 2NF.
+- **3NF:** 2NF, and no non-key column depends on another non-key column (no *transitive dependency*). In `orders (id, store_id, store_city)`, `id` decides `store_id`, and `store_id` decides `store_city`.
+- The classic line: every column depends on "the key, the whole key, and nothing but the key".
+- **BCNF, 4NF, 5NF** are stricter forms. They matter in rare shapes. Most app databases aim for 3NF. Wikipedia's "Database normalization" page walks one book table through every form.
+- **Arrays and JSONB:** Postgres can save a list in one column (`text[]` or `jsonb`). That breaks the strict 1NF idea. It is fine for data you always read as one piece, like a list of photo URLs. Use a real table for anything you search, join or count. Lesson 08 compares JSONB with normal columns.
+
+</details>
+
+<details><summary>The trigger, refresh without blocking, and a check query</summary>
+
+**The trigger** (real run). After this, the app only inserts history rows, and Postgres updates the balance.
+
+```sql
+CREATE FUNCTION add_to_balance() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE stores SET points_balance = points_balance + NEW.amount WHERE id = NEW.store_id;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER keep_points_balance AFTER INSERT ON point_transactions
+  FOR EACH ROW EXECUTE FUNCTION add_to_balance();
+UPDATE stores SET points_balance = (SELECT sum(amount) FROM point_transactions WHERE store_id = 1) WHERE id = 1;  -- fix the old drift once
+INSERT INTO point_transactions (store_id, amount) VALUES (1, 50);
+SELECT id, points_balance FROM stores WHERE id = 1;   -- 120, and the real sum is 100 - 30 + 50 = 120
+```
+
+- This trigger handles inserts only. That is enough if history rows are never changed or deleted (an *append-only ledger*). If you allow updates or deletes, the trigger must handle them too. The PostgreSQL docs page "Trigger Functions" has a full example that keeps a summary table right on insert, update and delete.
+- The trigger runs inside the same transaction as the insert. If the trigger fails, the insert is undone too. Lesson 13 (transactions, not written yet) explains this.
+- Two inserts for the same store at the same moment both update the same store row. Postgres makes the second one wait for the first. Lesson 15 (locks, not written yet) shows this.
+
+**Refresh without blocking readers.** A plain `REFRESH MATERIALIZED VIEW` can block other sessions that read the view while it runs. `REFRESH MATERIALIZED VIEW CONCURRENTLY` lets readers keep reading. It needs a unique index on the view that covers all rows, for example `CREATE UNIQUE INDEX ON store_sales (store_id)`. (PostgreSQL docs, "REFRESH MATERIALIZED VIEW".) Postgres has no built-in automatic refresh. You run it from a cron job or a queue job.
+
+**A check query for any saved total.** Run it every night, and alert if it returns rows:
+
+```sql
+SELECT s.id, s.points_balance, coalesce(sum(t.amount), 0) AS real_sum
+FROM stores s LEFT JOIN point_transactions t ON t.store_id = s.id
+GROUP BY s.id, s.points_balance
+HAVING s.points_balance <> coalesce(sum(t.amount), 0);
+```
+
+**Postgres 16 against 18.** Nothing in this lesson behaves differently. psql on both versions prints the same rows, the same `UPDATE 1` tags and the same not-null error text.
 
 </details>
 
