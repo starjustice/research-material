@@ -49,11 +49,13 @@ Never rely on memory alone for anything that changes over time. Search the web f
 
 ### Lesson mode
 
-Read `templates/lesson-template.md` and fill every section. Rules:
+Read `templates/lesson-template.md` and write the lesson in the **short-card shape** (the owner chose it on 2026-10-27; `learn/database/24-one-query-start-to-finish.md` is the model to copy). The viewer turns every H2 into a card, so one H2 is one idea. Rules:
 
-- **Section 2, the pictures, come before any long text, and there are at least five** (big picture, the problem drawn, how it works over time, what is in memory now, right against wrong). Never fewer, because this user learns from pictures. Mermaid only, never ASCII art. Use `graph LR` or `graph TB` (never `flowchart`) and `sequenceDiagram` for things over time. Edge labels only `-->|label|`, with no colons and no commas inside. No parentheses in node labels. No `<-->`. Add a one line caption saying what to notice.
-- **Section 5, the step by step trace,** is the most important part for this user. Use a table: one row per step, with what the engine does and the state after (memory, call stack, queues, values). This is what turns a memorized definition into understanding.
-- **Interactive visual:** when the concept runs inside an engine (event loop, scope and closures, promises, a database query, a network request), also write a self-contained page `learn/<subject>/visuals/<NN>-<slug>.html` with Next, Back and Reset buttons that shows each part changing (code with the current line, call stack, queues, memory, output). Build the steps from the real behavior and check them against what the code prints when run. Link it from section 5 of the lesson. Give the page the site look: run `node scripts/calm-apply.js page-step <the file>` (it adds the `calm.css` link and the body classes), then `node --test tests/*.test.js`. That test fails for a page without the look.
+- **A concept card** has, in this order: a picture or an analogy first, at most about 100 words of text outside the bars, an orange guess bar (`<details class="guess"><summary>🤔 Guess: ...? Press to check.</summary>`), one `> **Remember:** ...` line, and a blue bar (`<details class="more"><summary>📖 More detail: ...</summary>`) that holds the longer explanation (real names, why, versions, a real example). The cards must make sense without opening any blue bar.
+- **5 to 8 concept cards.** If the idea needs 12, split it into two lessons. Problem before solution. Common mistakes are cards of their own (problem, guess, fix), not one list at the end.
+- **Pictures come first and every concept card has one** (a diagram, a table or a two line analogy). Mermaid only, never ASCII art. Use `graph TB` (a left-to-right picture is too wide on a phone; to stack two flows in one picture join them with `~~~`) and `sequenceDiagram` for things over time. Never `flowchart`. Edge labels only `-->|label|`, with no colons and no commas inside. No parentheses in node labels. No `<-->`. Keep labels short, and use a small table when a picture would be wider than 340px. Add a one line "Notice:" saying what to look at. Keep code lines near 36 characters and put comments on their own line above the code.
+- **The step by step trace** is the most important part for this user. Put it in a blue bar as a table: one row per step, with what the engine does and the state after (memory, call stack, queues, values). This is what turns a memorized definition into understanding.
+- **Interactive visual:** when the concept runs inside an engine (event loop, scope and closures, promises, a database query, a network request), also write a self-contained page `learn/<subject>/visuals/<NN>-<slug>.html` with Next, Back and Reset buttons that shows each part changing (code with the current line, call stack, queues, memory, output). Build the steps from the real behavior and check them against what the code prints when run. Link it from the step by step bar of the lesson, and again in "Watch and play". Give the page the site look: run `node scripts/calm-apply.js page-step <the file>` (it adds the `calm.css` link and the body classes), then `node --test tests/*.test.js`. That test fails for a page without the look.
 - **Code** is the smallest example that shows the idea, under 15 lines, with the exact output. Run it with `node` through Bash to confirm the output is right before you write it down.
 - **Practice:** a predict-the-output, a fix-the-bug, and a write-it-yourself task. Answers go inside `<details>` so the user tries first. For JavaScript and TypeScript lessons, also create a runnable exercise in `learn/<subject>/practice/<NN>-<concept-slug>.js` with a `node:test` test file next to it, and run the tests to confirm they fail on the stub and pass on your solution (do not leave the solution in the stub).
 - **Interview question:** the four part answer (problem, how it works, tradeoff, my example). The "my example" part uses only true facts from the learner profile (DBO, Unloan, ZWS, Skyworx). If no real link exists, say how they could use it, and label it as an idea, not a fact.
@@ -73,7 +75,7 @@ The full rules are in the "Simple wording" section of `my-learning/learner-profi
 - Everyday words first. Give the interview word after the plain one, once.
 - At most 4 new words per lesson. Never use a technical word that was not explained earlier in the file.
 - One idea per sentence, about 12 words. Name who does the work ("JavaScript puts 0 in the box").
-- Keep the main path to about 1,500 words of prose. Put engine details, versions, rare edge cases and extra links in a `<details>` "Go deeper (optional)" box.
+- Keep the text outside the blue bars short: about 100 words per card, about 600 to 800 words for the whole lesson. Put the longer explanation in the card's blue "More detail" bar, and engine details, versions, rare edge cases and extra links in the last "Go deeper (optional)" card.
 - No work diary in the explanation ("I ran this on Node 24..."). One "checked on <date>" line is enough.
 - One everyday analogy per big idea, and say where the analogy stops being true.
 - Problem, then solution, then why it matters. Never start from the solution.
@@ -82,11 +84,11 @@ The full rules are in the "Simple wording" section of `my-learning/learner-profi
 
 ## Step 5: check before you finish
 
-- Every section of the template is filled. No placeholder text left.
+- Every card has a picture first, a guess bar, a Remember line and a blue More detail bar. No placeholder text left.
 - Every code output was run. Every practice test passes on a correct solution.
 - Every link was opened and confirmed.
-- Mermaid follows the rules above.
-- A beginner could follow the picture and the trace without reading anything else.
+- Mermaid follows the rules above. Open the lesson in `viewer.html` at phone width (375px): every picture renders and nothing scrolls sideways.
+- A beginner could follow the cards without opening a single blue bar.
 
 ## Step 6: report back
 

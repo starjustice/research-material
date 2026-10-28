@@ -43,7 +43,7 @@ Ask: "Now explain **<concept>** to me like to a new junior, in four parts: probl
 
 ## Save (at the end)
 
-1. **Lesson file.** If it did not exist, write `learn/<subject>/<NN>-<concept-slug>.md` from `templates/lesson-template.md`, using what you taught, and only links you confirmed. Put their final explanation in "My explanation" and your feedback in "Coach feedback".
+1. **Lesson file.** If it did not exist, write `learn/<subject>/<NN>-<concept-slug>.md` from `templates/lesson-template.md` (short cards: a picture first, an orange guess bar, a Remember line and a blue More detail bar on every concept card; `learn/database/24-one-query-start-to-finish.md` is the model), using what you taught, and only links you confirmed. Put their final explanation in "My explanation" and your feedback in "Coach feedback".
 2. **README status.** In the subject README, make the row a link and set the status to `can explain` if all five checks passed, otherwise `learning`.
 3. **Gaps.** One row per real gap in `my-learning/review-list.md`, as a question, next review tomorrow.
 4. **Good explanation.** Append it to `my-learning/my-explanations.md` with the topic and date.
