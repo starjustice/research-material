@@ -1,198 +1,84 @@
 # 05. Closures
 
-> **Subject:** JavaScript · **Lesson:** 05 · **Made:** 2026-10-12 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
+> **Subject:** JavaScript · **Lesson:** 05 · **Made:** 2026-10-12 · **Rewritten in simpler words:** 2026-10-15 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** say what a closure is in one sentence, draw the box that stays alive after `makeCounter` is done, and explain why two counters do not share `count`.
+>
 > **Before this:** [Functions](04-functions.md) · **Next:** [this, call, apply and bind](06-this-call-apply-and-bind.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a locker and a key
 
-A **closure** is a function that remembers the variables around the place where you wrote it. It still remembers them after the outer function has finished.
+A school gives every new student **their own locker** and **a key** to it. The locker holds a number, `count`. The school day ends and the office closes, but the lockers stay, because students still have keys.
 
-New words:
+```mermaid
+graph TB
+    A["makeCounter() makes<br/>a box with count = 0"] --> B["It returns a function<br/>that keeps a link to the box"]
+    B --> C["makeCounter ends.<br/>The box stays alive."]
+```
+
+Notice: when `makeCounter` finishes, it leaves the call stack. Its box does **not** disappear, because the inner function still points at it.
+
+<details class="guess"><summary>🤔 Guess: `makeCounter` has finished. Is its `count` gone? Press to check.</summary>
+
+No. The inner function carries a link to the box, and the link keeps the box alive. The function can still read and change `count`. That function is a **closure**.
+
+</details>
+
+> **Remember:** a function carries a link to the box where it was made. A box stays alive as long as something points at it.
+
+<details class="more"><summary>📖 More detail: the four words, and where the locker picture stops</summary>
 
 - **Scope box:** the place in memory where the variables of one function call live. Every call makes a **new** box. (Interview word: *environment*. Lesson 01 called it a "room".)
 - **Link:** every function carries a link to the box where it was made. Every box also links to the box around it.
 - **Call stack:** the list of calls that are running right now. A call leaves the list when it finishes.
 - **Cleaner:** the part of JavaScript that frees memory when nothing points at it any more. (Interview word: *garbage collector*.)
 
-The rule to remember: **a function carries a link to the box where it was made. A box stays alive as long as something points at it.**
+In the locker picture: student A opens locker A and adds one. Student B has a different key, so B cannot touch locker A. When the last key to a locker is thrown away, the cleaner can remove the locker.
 
-## 2. The pictures
+Where the picture stops: a real key only opens the locker. In JavaScript the link points at the **live** box, so the function always sees the newest value. And several functions can hold keys to the **same** box (the bank account in the stepper: `deposit` and `read` share one box).
 
-### 2a. The big picture
+</details>
 
-When `makeCounter` finishes, it leaves the call stack. Notice that its box does **not** disappear, because the inner function still points at it.
+## 2. The problem: how can a function remember?
 
-```mermaid
-graph LR
-    A["makeCounter is called"] -->|makes| B["Box holding count"]
-    A -->|makes and returns| C["Inner function"]
-    C -->|keeps a link to| B
-    C -->|saved in| D["Variable a"]
-    A -->|finishes| E["Call stack is empty again"]
-    D -->|every call to a uses| B
+A function that must remember something has two bad choices.
+
+| Choice | What happens |
+|---|---|
+| A local variable | It dies when the call ends, so the function forgets. |
+| A global variable | It stays, but everyone shares it and anyone can change it. |
+
+```js
+function next() {
+  let count = 0;
+  count = count + 1;
+  return count;
+}
+console.log(next(), next());
 ```
 
-### 2b. The problem, drawn
+<details class="guess"><summary>🤔 Guess: what does this print? Press to check.</summary>
 
-A function that must remember something has two bad choices. Notice what each one breaks.
+`1 1`. Each call makes a new `count` as 0, and it is gone when the call ends. The function forgot.
 
-**Choice 1: a local variable.** It dies when the call ends, so the function forgets.
+A global `count` would remember, but the cart counter and the likes counter would share one number. A closure gives each counter its own private box.
 
-```mermaid
-sequenceDiagram
-    participant C as Caller
-    participant F as The function call
-    C->>F: call it
-    Note over F: local count is made as 0
-    F-->>C: returns 1
-    Note over F: the call ends and count is gone
-    C->>F: call it again
-    Note over F: a new count is made as 0
-    F-->>C: returns 1 again, it forgot
-```
+</details>
 
-**Choice 2: a global variable.** It stays, but everyone shares it and anyone can change it.
+> **Remember:** a local variable forgets. A global variable is shared. A closure remembers, privately.
 
-```mermaid
-graph TB
-    G["Global variable count"]
-    A["counter for the cart"] -->|changes| G
-    B["counter for the likes"] -->|changes| G
-    C["any other code"] -->|can also change| G
-    G --> R["One shared number. Two counters cannot be separate."]
-```
+<details class="more"><summary>📖 More detail: what a closure gives you</summary>
 
-### 2c. How it works over time
+- **Memory between calls** (a counter, `once`, `memoize`).
+- **Private data** (the bank account in the stepper: nobody can read `balance` except through `read`).
+- **Callbacks that remember** (timers, click handlers, promise callbacks). Without a closure, a callback that runs later would have no way to use the data around it.
+- **Function makers** (`multiplyBy(2)` gives back a new function that doubles).
 
-This is the program from section 4. Notice the note in the middle: the stack is empty, but box 1 is still alive.
+</details>
 
-```mermaid
-sequenceDiagram
-    participant S as Call stack
-    participant B as Scope boxes
-    participant G as Global
-    participant C as Console
-    S->>B: call makeCounter, make box 1 with count 0
-    S->>G: makeCounter returns, a gets a function linked to box 1
-    Note over S,B: The stack is empty again. Box 1 is still alive because a points at it.
-    S->>B: call makeCounter again, make box 2 with count 0
-    S->>G: b gets a function linked to box 2
-    S->>B: call a, count in box 1 becomes 1
-    B-->>C: 1
-    S->>B: call a, count in box 1 becomes 2
-    B-->>C: 2
-    S->>B: call b, count in box 2 becomes 1
-    B-->>C: 1
-    S->>B: call a, count in box 1 becomes 3
-    B-->>C: 3
-```
-
-### 2d. What is in memory right now
-
-A snapshot after line 9, `const b = makeCounter();`. The call stack holds only the script itself. Notice that **two** boxes are alive, and each function points at its own box.
-
-```mermaid
-graph LR
-    subgraph GS ["Global scope"]
-        M["makeCounter is a function"]
-        A["a is a function"]
-        B["b is a function"]
-    end
-    A -->|link| S1["Box 1 with count = 0"]
-    B -->|link| S2["Box 2 with count = 0"]
-    S1 -->|outer| GS
-    S2 -->|outer| GS
-```
-
-### 2e. Right against wrong
-
-Two wrong pictures are common, and interviewers like to test both.
-
-**Wrong picture 1:** "A function reads names from the place that calls it."
-
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["show is called inside run"]
-    B --> C["so show reads names from run"]
-```
-
-**Right picture 1:** only the place where the function was **written** matters. The interview word for this is **lexical scope**.
-
-```mermaid
-graph LR
-    A["Right picture"] --> B["show was written in the global scope"]
-    B --> C["so show reads names from the global scope"]
-    C --> D["It does not matter who calls it"]
-```
-
-**Wrong picture 2:** "A closure copies the value when it is made."
-
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["the function copies x when it is made"]
-    B --> C["later changes to x are not seen"]
-```
-
-**Right picture 2:** it keeps a link to the **box**, not a copy of the value.
-
-```mermaid
-graph LR
-    A["Right picture"] --> B["the function keeps a link to the box"]
-    B --> C["it reads x from the box every time it runs"]
-    C --> D["it sees the latest value"]
-```
-
-### 2f. The loop callbacks are closures
-
-Lesson 01 promised this picture. With `var` there is one box. With `let` every pass of the loop gets its own box. Notice which box each callback points at.
-
-```mermaid
-graph TB
-    VB["ONE box with i, which ends as 3"]
-    V1["callback 1"] -->|link| VB
-    V2["callback 2"] -->|link| VB
-    V3["callback 3"] -->|link| VB
-    VB --> VR["prints 3 3 3"]
-```
-
-```mermaid
-graph TB
-    B1["Box for pass 1 with i = 0"]
-    B2["Box for pass 2 with i = 1"]
-    B3["Box for pass 3 with i = 2"]
-    C1["callback 1"] -->|link| B1
-    C2["callback 2"] -->|link| B2
-    C3["callback 3"] -->|link| B3
-    B3 --> R["prints 0 1 2"]
-```
-
-### 2g. How JavaScript finds a name
-
-When `a()` runs and needs `count`, it follows the links. Notice that it never looks at the box that **called** `a`.
-
-```mermaid
-graph TB
-    A["Box of this call of a. No count here."] -->|outer link| B["Box 1. count is here."]
-    B -->|only if not found| C["Global scope"]
-    C -->|only if not found| D["ReferenceError"]
-```
-
-## 3. Real life analogy
-
-A school gives every new student **their own locker** and **a key** to it. The locker holds a number, `count`. Student A and student B each have their own locker.
-
-- The school day ends and the office closes. (The outer function finishes.)
-- The lockers stay, because students still have keys.
-- Student A opens locker A and adds one. Student B has a different key, so B cannot touch locker A.
-- When the last key to a locker is thrown away, the cleaner can remove the locker.
-
-Where the analogy stops:
-
-- A real key only opens the locker. In JavaScript the link points at the **live** box, so the function always sees the newest value.
-- Several functions can hold keys to the **same** box. In the bank account example in the stepper, `deposit` and `read` share one box.
-
-## 4. The smallest code that shows it
+## 3. Two counters, two boxes
 
 ```js
 function makeCounter() {
@@ -210,7 +96,13 @@ console.log(b());
 console.log(a());
 ```
 
-**Output:**
+```mermaid
+graph LR
+    A["a"] --> S1["Box 1<br/>count"]
+    B["b"] --> S2["Box 2<br/>count"]
+```
+
+<details class="guess"><summary>🤔 Guess: what are the four lines of output? Press to check.</summary>
 
 ```
 1
@@ -219,9 +111,13 @@ console.log(a());
 3
 ```
 
-Look at the third line of output. `b()` printed `1`, not `3`. The second counter has its own `count`.
+`b()` printed `1`, not `3`. Every call of `makeCounter` makes a **new** box, so the second counter has its own `count`. `a` only ever touches box 1.
 
-## 5. What really happens, step by step
+</details>
+
+> **Remember:** every call of the outer function makes a new box. Two counters do not share `count`.
+
+<details class="more"><summary>📖 More detail: the code, step by step</summary>
 
 | Step | Line | What happens | Call stack | Boxes alive | Prints |
 |---|---|---|---|---|---|
@@ -239,35 +135,11 @@ Look at the third line of output. `b()` printed `1`, not `3`. The second counter
 | 12 | 12 | `b()`. Its link is **S2**. S2 holds 0, so it becomes 1. S1 is not touched. | main | S1 (2), S2 (1) | 1 2 1 |
 | 13 | 13 | `a()`. S1 holds 2, so it becomes 3. | main | S1 (3), S2 (1) | 1 2 1 3 |
 
-**Step through it yourself:** [open the closures stepper](visuals/05-closures.html). It has two panels: the **call stack** and the **scope boxes**. You can watch `makeCounter` leave the stack while S1 stays. It has six programs: "Written, not called", "Two counters", "Private state", "Loop with let", "Stale closure" (a small model of the React idea), and "The memory cost". Write your guess first, then press Next.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** a local variable dies when its call ends, so a function cannot remember anything between calls (picture 2b). A global variable remembers, but anyone can change it, and two counters would share it. Also, a callback that runs later, like a timer or a click, would have no way to use the data around it.
-- **How it solves it:** every function carries a link to the box where it was made. The link keeps the box alive. Only functions that carry the link can reach the box, so its data is private. This gives you:
-  - **Memory between calls** (a counter, `once`, `memoize`).
-  - **Private data** (the bank account in the stepper: nobody can read `balance` except through `read`).
-  - **Callbacks that remember** (timers, click handlers, promise callbacks).
-  - **Function makers** (`multiplyBy(2)` gives back a new function that doubles).
-- **Cost:**
-  - **Memory.** A box stays alive as long as any function links to it. Everything in the box stays too. The usual leak is a long-living function that holds a big box. Examples: a listener you never remove, a timer you never clear, a global cache.
-  - **Stale closures** cause real bugs in React (section 7).
-  - **Hidden data is harder to debug.** The values are not on any object. The Scope pane in Chrome DevTools shows them (section 8).
-  - **Extra functions cost time and memory.** Do not make functions inside functions if you do not need a closure. Each call makes a new function.
-
-Simple rule: use a closure when a function must **remember** something or **hide** something.
-
-<details><summary>Go deeper (optional): what V8 does with the boxes</summary>
-
-In V8 (the engine in Chrome and Node), the functions made in one call **share one box**. So if one of them uses `big`, a second function that does **not** use `big` still keeps it alive. If no function uses `big`, V8 drops it.
-
-I checked this on Node 24.15.0 on 2026-10-12, with `WeakRef` and a forced clean-up. It is an engine detail, so it can change. What to remember: small boxes are cheap, but a big box can hide inside a closure.
+Checked on 2026-10-28 with Node 26.12.1.
 
 </details>
 
-## 7. Common mistakes
-
-**Wrong:** thinking the closure copies the value.
+## 4. Mistake 1: thinking a closure copies the value
 
 ```js
 function make() {
@@ -276,99 +148,183 @@ function make() {
   x = 2;
   return read;
 }
-console.log(make()());   // many people expect 1
+console.log(make()());
 ```
 
-**Right:** the output is `2`. The function reads `x` from its box every time it runs.
+<details class="guess"><summary>🤔 Guess: does it print 1 or 2? Press to check.</summary>
 
-**Why:** it holds a link to the box, not a copy of the value.
+**2.** The function reads `x` from its box every time it runs. It holds a link to the box, not a copy of the value, so it sees the latest value.
 
-**Wrong:** thinking a function reads names from the place that calls it.
+</details>
+
+> **Remember:** a closure keeps a link to the box, not a copy of the value.
+
+<details class="more"><summary>📖 More detail: a function reads names from where it was written</summary>
+
+The link is made when the function is made, and it never changes. When `a()` runs and needs `count`, it follows the links: its own small box, then box 1, then the global scope, then `ReferenceError`. It never looks at the box that **called** `a`.
+
+</details>
+
+## 5. Mistake 2: thinking a function reads names from its caller
 
 ```js
 const name = "global";
-function show() { console.log(name); }
+function show() {
+  console.log(name);
+}
 function run() {
   const name = "inside run";
   show();
 }
-run();   // many people expect "inside run"
+run();
 ```
 
-**Right:** the output is `global`. `show` was written in the global scope, so its link points there. It does not matter that `run` calls it.
+<details class="guess"><summary>🤔 Guess: does `show` print `global` or `inside run`? Press to check.</summary>
 
-**Why:** the link is made when the function is made, and it never changes. (This is lexical scope.)
+`global`. `show` was written in the global scope, so its link points there. It does not matter that `run` calls it. Only the place where the function was **written** matters. The interview word for this is **lexical scope**.
 
-**Wrong:** the loop callbacks (the closure behind lesson 01).
+</details>
+
+> **Remember:** only where a function was written matters, not who calls it.
+
+<details class="more"><summary>📖 More detail: why this is a closure idea</summary>
+
+The link a function carries is made once, at the place it was written. A function you pass to another function still reads the names around its own writing place. This is why a callback works the same wherever it is called from.
+
+</details>
+
+## 6. Mistake 3: the loop callbacks
+
+Lesson 01 promised this picture. With `var` there is one box. With `let` every pass of the loop gets its own box.
 
 ```js
 for (var i = 0; i < 3; i++) {
   setTimeout(() => console.log(i), 0);
 }
-// prints 3 3 3
 ```
 
-**Right:** use `let`. Every pass gets its own box, and each callback links to its own box.
+```mermaid
+graph LR
+    V1["callback 1"] --> VB["ONE box<br/>i ends as 3"]
+    V2["callback 2"] --> VB
+    V3["callback 3"] --> VB
+```
+
+<details class="guess"><summary>🤔 Guess: what does it print, and what changes with `let`? Press to check.</summary>
+
+With `var`: `3 3 3`. With `let`: `0 1 2`.
 
 ```js
 for (let i = 0; i < 3; i++) {
   setTimeout(() => console.log(i), 0);
 }
-// prints 0 1 2
 ```
 
-**Why:** with `var` there is one box and three links to it. With `let` there are three boxes. The callbacks run later (see [the event loop](11-the-event-loop.md)), but the boxes are still alive because the callbacks point at them.
+```mermaid
+graph LR
+    C1["callback 1"] --> B1["box i = 0"]
+    C2["callback 2"] --> B2["box i = 1"]
+    C3["callback 3"] --> B3["box i = 2"]
+```
 
-**Wrong:** an old value in React. *This is an idea about your stack, not a fact about your code.*
+With `var` there is one box and three links to it. With `let` there are three boxes. The callbacks run later (see [the event loop](11-the-event-loop.md)), but the boxes are still alive because the callbacks point at them.
+
+</details>
+
+> **Remember:** `var` in a loop is one shared box. `let` gives each pass its own box.
+
+<details class="more"><summary>📖 More detail: the closure behind lesson 01</summary>
+
+Each callback is a closure. It keeps a link to the box of the pass it was made in. That is why `let` fixes the bug: the "box of the pass" is a different box each time.
+
+</details>
+
+## 7. Mistake 4: an old value in React
+
+*This is an idea about your stack, not a fact about your code.*
 
 ```jsx
 useEffect(() => {
-  const id = setInterval(() => setCount(count + 1), 1000);
-  return () => clearInterval(id);
-}, []);   // the effect runs once, in render 1, where count is 0
-```
-
-**Right:** ask React for the latest value instead of reading the old one.
-
-```jsx
-useEffect(() => {
-  const id = setInterval(() => setCount(c => c + 1), 1000);
+  const id = setInterval(
+    () => setCount(count + 1), 1000);
   return () => clearInterval(id);
 }, []);
 ```
 
-**Why:** every render is a new call of your component, so it is a new box with its own `count`. The effect with `[]` runs only once, after render 1. Its timer callback keeps the box of render 1, so it always reads `count = 0` and sets 1 again and again. A function that keeps reading an old box like this is called a **stale closure**.
+<details class="guess"><summary>🤔 Guess: the effect runs once (the list is empty). What does the counter show over time? Press to check.</summary>
 
-I ran both versions in real React 19.3.0 on 2026-10-12. The first stays at 1. The second counts 1, 2, 3. Another fix is to put `count` in the dependency list, but then React makes a new timer after every tick. The React docs show this in the challenge "Fix a resetting interval" (section 8).
+It stays at **1**. Every render is a new call of your component, so it is a new box with its own `count`. The effect with `[]` runs only once, after render 1. Its timer callback keeps the box of render 1, so it always reads `count = 0` and sets 1 again and again. A function that keeps reading an old box like this is called a **stale closure**.
 
-**Wrong:** a timer that is never cleared.
+Fix: ask React for the latest value instead of reading the old one.
+
+```jsx
+setCount(c => c + 1)
+```
+
+Now it counts 1, 2, 3. (I ran both versions in real React 19.3.0 on 2026-10-12.)
+
+</details>
+
+> **Remember:** a function that keeps reading an old box is a stale closure. Use `setCount(c => c + 1)`.
+
+<details class="more"><summary>📖 More detail: another fix</summary>
+
+Another fix is to put `count` in the dependency list, but then React makes a new timer after every tick. The React docs show this in the challenge "Fix a resetting interval" (see "Watch and play").
+
+</details>
+
+## 8. Mistake 5: a timer that is never cleared
+
+A box stays alive as long as any function links to it. Everything in the box stays too.
 
 ```js
 function startLogging() {
   const big = new Array(1_000_000).fill(0);
-  return setInterval(() => console.log(big.length), 1000);
+  return setInterval(
+    () => console.log(big.length), 1000);
 }
 const id = startLogging();
-// the timer keeps the callback, the callback keeps the box, the box keeps big
 ```
 
-**Right:** clear the timer when you are done. Remove event listeners the same way.
+<details class="guess"><summary>🤔 Guess: `startLogging` is done. Is `big` freed? Press to check.</summary>
 
-```js
-clearInterval(id);   // now nothing points at the box, and big can be freed
-```
+No. The timer keeps the callback, the callback keeps the box, the box keeps `big`. I tested this: `big` stayed alive while the timer ran, and was freed after `clearInterval(id)`. Remove event listeners the same way. In React, the `return () => clearInterval(id)` in an effect does exactly this.
 
-**Why:** a timer is a long-living function. I tested this: `big` stayed alive while the timer ran, and was freed after `clearInterval`. In React, the `return () => clearInterval(id)` in the effect above does exactly this.
+</details>
 
-## 8. Watch and play
+> **Remember:** a timer or a listener is a long-living function. Clear it when you are done.
+
+<details class="more"><summary>📖 More detail: the cost of closures</summary>
+
+- **Memory.** The usual leak is a long-living function that holds a big box. Examples: a listener you never remove, a timer you never clear, a global cache.
+- **Hidden data is harder to debug.** The values are not on any object. The Scope pane in Chrome DevTools shows them.
+- **Extra functions cost time and memory.** Do not make functions inside functions if you do not need a closure. Each call makes a new function.
+
+</details>
+
+## 9. Watch it run, step by step
+
+The stepper has two panels: the **call stack** and the **scope boxes**. You can watch `makeCounter` leave the stack while S1 stays. It has six programs: "Written, not called", "Two counters", "Private state", "Loop with let", "Stale closure" (a small model of the React idea), and "The memory cost". Write your guess first, then press Next.
+
+**Step through it yourself:** [open the closures stepper](visuals/05-closures.html).
+
+## 10. Why it matters and what it costs
+
+- **Without it,** a local variable dies when its call ends, and a global variable is shared by everyone.
+- **With it,** every function carries a link to the box where it was made. The link keeps the box alive. Only functions that carry the link can reach the box, so its data is private.
+- **The cost:** memory (a box stays alive as long as any function links to it), stale closures in React, and data that is harder to debug.
+
+Simple rule: use a closure when a function must **remember** something or **hide** something.
+
+## 11. Watch and play
 
 Links checked on 2026-10-12. Each page opened. For each video, the title and channel matched. I did not watch the videos, so their lengths are not checked.
 
 - **Video:** [Closures Explained in 100 Seconds // Tricky JavaScript Interview Prep](https://www.youtube.com/watch?v=vKJpN5FAeF4) by Fireship. A fast recap. Watch it after the stepper.
 - **Video:** [Learn Closures In 7 Minutes](https://www.youtube.com/watch?v=3a0I8ICR1Vg) by Web Dev Simplified. A calm walk through the counter example.
 - **Play with it:** [The closures stepper](visuals/05-closures.html) in this folder. Guess first, then press Next.
-- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the code from section 4 and step through it. Its [guide](https://pythontutor.com/articles/javascript-visualizer.html) says it supports closures. I did not run it myself, so compare how it draws the function with the stepper.
-- **Play with it:** [Chrome DevTools, the Scope pane](https://developer.chrome.com/docs/devtools/javascript/reference). The page says the Scope pane shows the local, closure and global scopes while you are paused. To try it: open DevTools, go to Sources, make a new snippet, paste section 4, click the line number of `count = count + 1`, run the snippet, and look in the Scope pane for the closure that holds `count`.
+- **Play with it:** [Python Tutor for JavaScript](https://pythontutor.com/javascript.html). Paste the code from card 3 and step through it. Its [guide](https://pythontutor.com/articles/javascript-visualizer.html) says it supports closures. I did not run it myself, so compare how it draws the function with the stepper.
+- **Play with it:** [Chrome DevTools, the Scope pane](https://developer.chrome.com/docs/devtools/javascript/reference). The page says the Scope pane shows the local, closure and global scopes while you are paused. To try it: open DevTools, go to Sources, make a new snippet, paste the code from card 3, click the line number of `count = count + 1`, run the snippet, and look in the Scope pane for the closure that holds `count`.
 - **Read:** [Variable scope, closure](https://javascript.info/closure) on javascript.info. Many diagrams of the `makeCounter` boxes.
 - **Read:** [Closures on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Closures). Look at "Emulating private methods with closures" and "Creating closures in loops: A common mistake".
 - **Read (React idea):** [State as a Snapshot](https://react.dev/learn/state-as-a-snapshot). Its `setTimeout` example shows a handler that keeps the state of the render it was made in.
@@ -381,7 +337,7 @@ Links checked on 2026-10-12. Each page opened. For each video, the title and cha
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -500,7 +456,7 @@ Why a flag in `once`: if `fn` returns `undefined`, a check like `result === unde
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "What is a closure? Give an example, say what it is used for, and say what this prints."
 
@@ -563,7 +519,7 @@ For each one, say out loud: which variable lives in the box, and which function 
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain closures out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "scope box" and "link". Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check closures` or ask the `explain-coach` agent to review it.
 
@@ -575,12 +531,12 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. What is a closure, in one sentence? After `makeCounter` has finished, why is `count` still there?
 2. Why do two counters made by `makeCounter` not share `count`?
 3. How can a closure cause a memory leak, and what is a stale closure?
-4. Draw the picture from section 2d from memory: two functions, two boxes, and the links.
+4. Draw the picture from card 3 from memory: two functions, two boxes, and the links.
 
 <details><summary>Answers</summary>
 
@@ -588,6 +544,18 @@ Close this file. Press the **Record my explanation** button under this heading a
 2. Every call of `makeCounter` makes a **new** scope box with its own `count`. Each returned function links to the box of its own call.
 3. A function keeps its whole box alive. If the function lives a long time (a timer never cleared, a listener never removed), the big data in its box lives just as long. A stale closure is a function that keeps reading an old box. For example, a timer made in render 1 keeps reading the `count` of render 1.
 4. The global scope holds `a` and `b`. `a` has a link to box 1, with `count`. `b` has a link to box 2, with its own `count`. Both boxes have an outer link to the global scope. The call stack holds only the script.
+
+</details>
+
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>What V8 does with the boxes</summary>
+
+In V8 (the engine in Chrome and Node), the functions made in one call **share one box**. So if one of them uses `big`, a second function that does **not** use `big` still keeps it alive. If no function uses `big`, V8 drops it.
+
+I checked this on Node 24.15.0 on 2026-10-12, with `WeakRef` and a forced clean-up. It is an engine detail, so it can change. What to remember: small boxes are cheap, but a big box can hide inside a closure.
 
 </details>
 
