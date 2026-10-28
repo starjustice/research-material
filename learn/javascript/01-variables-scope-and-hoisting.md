@@ -1,75 +1,166 @@
 # 01. Variables, scope and hoisting
 
-> **Subject:** JavaScript · **Lesson:** 01 · **Made:** 2026-10-11 · **Rewritten in simpler words:** 2026-10-15 · **Status:** ready
+> **Subject:** JavaScript · **Lesson:** 01 · **Made:** 2026-10-11 · **Rewritten in simpler words:** 2026-10-15 · **Remade in short cards:** 2026-10-28 · **Status:** ready
+>
 > **You will be able to:** say what JavaScript does with `var`, `let` and `const` before line 1 runs, and explain why `var` gives `undefined` while `let` gives an error.
+>
 > **Before this:** this is the first lesson · **Next:** [Values, types and coercion](02-values-types-and-coercion.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 20 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: the roll sheet
 
-Before JavaScript runs your first line, it reads the whole scope and **makes a slot in memory for every name**. A `var` slot starts as `undefined`. A `let` or `const` slot starts **locked**. A function declaration slot starts with the **whole function** inside. This early setup is called **hoisting**.
+A teacher writes the **roll sheet** before the class starts. Every student's name is on the sheet from the beginning.
 
-New words:
+```mermaid
+graph TB
+    A["Step 1: setup<br/>make a slot for every name"] --> B["Step 2: run the code<br/>line by line"]
+```
+
+Notice: JavaScript works in **two steps**. Step 1 happens before any line runs. Each kind of name starts in a different state.
+
+| Written with | Slot starts as |
+|---|---|
+| `var a = 5` | `undefined` |
+| `let b = 5` | locked |
+| `const c = 5` | locked |
+| `function hello() {}` | the whole function |
+
+<details class="guess"><summary>🤔 Guess: line 1 reads `a`, and `var a = 5` is on line 2. What does line 1 print? Press to check.</summary>
+
+`undefined`. The slot for `a` was made before line 1, and it started as `undefined`. Nothing crashes.
+
+</details>
+
+> **Remember:** before line 1 runs, JavaScript makes a slot for every name. This early setup is called **hoisting**. Your code does **not** move.
+
+<details class="more"><summary>📖 More detail: the four words, and where the roll sheet stops</summary>
 
 - **Scope:** the part of the code where a name can be seen. Think of a room. A name made inside a room cannot be seen outside it.
 - **Slot:** a named place in memory that holds one value.
 - **Hoisting:** making the slots early, before the code runs. Your code does **not** move. Only the slots are made early.
 - **Locked slot:** a slot you may not read yet. It stays locked until JavaScript reaches the line that makes it. (Interview word: *temporal dead zone*, or *TDZ*.)
 
-Two small words you will see in the pictures: a **declaration** makes the name (`let b`). An **assignment** gives it a value (`= 5`).
+Two small words: a **declaration** makes the name (`let b`). An **assignment** gives it a value (`= 5`).
 
-## 2. The pictures
+In the roll sheet picture: a `var` student has an empty seat ("nobody yet", `undefined`). A `let` or `const` student has a red stamp: "do not call this name yet". A function declaration is a student who is already in the seat.
 
-### 2a. The big picture
+The most common wrong picture is "hoisting moves my code to the top". It does not. The code stays where it is. Where the picture stops: JavaScript does not write on paper or move students. It only makes a slot in memory for each name.
 
-JavaScript works in **two steps**. Notice that step 1 happens before any line runs, and that each kind of name starts in a different state.
+</details>
 
-```mermaid
-graph LR
-    A["Your file"] -->|step 1 setup| B["JavaScript reads every scope and makes slots"]
-    B -->|var| C["slot starts as undefined"]
-    B -->|let and const| D["slot starts locked"]
-    B -->|function declaration| E["slot starts with the whole function"]
-    C --> F["Step 2 runs line by line"]
-    D --> F
-    E --> F
+## 2. `var`: a quiet undefined
+
+Snippet A. Run it in its own file.
+
+```js
+console.log(a);   // slot exists already
+var a = 5;
+console.log(a);
 ```
-
-### 2b. The problem, drawn
-
-This is the bug that made old JavaScript famous. A `var` inside a loop is **one shared variable**, so every callback reads the same value later. Notice that all three callbacks point to the same box.
 
 ```mermaid
 graph TB
-    A["for var i from 0 to 2"] --> B["ONE variable i for the whole function"]
-    B --> C["callback 1 reads i"]
-    B --> D["callback 2 reads i"]
-    B --> E["callback 3 reads i"]
-    C --> F["they run later when i is already 3"]
-    D --> F
-    E --> F
-    F --> G["prints 3 3 3"]
+    S["setup: slot a = undefined"] --> L1["line 1: read a, gives undefined"]
+    L1 --> L2["line 2: write a = 5"]
+    L2 --> L3["line 3: read a, gives 5"]
 ```
 
-### 2c. How it works over time
+<details class="guess"><summary>🤔 Guess: what does the console print? Press to check.</summary>
 
-This is snippet A from section 4. Notice that `undefined` shows up **before** the line `var a = 5` has run.
-
-```mermaid
-sequenceDiagram
-    participant E as JavaScript
-    participant M as Memory
-    participant C as Console
-    E->>M: setup, make slot a holding undefined
-    E->>M: line 1, read a
-    M-->>C: undefined
-    E->>M: line 2, write a = 5
-    E->>M: line 3, read a
-    M-->>C: 5
+```
+undefined
+5
 ```
 
-### 2d. What is in memory right now
+`undefined` shows up **before** the line `var a = 5` has run, because the slot was made in step 1.
 
-A snapshot **after setup and before line 1**. Notice the last column. This one table explains almost every hoisting question.
+</details>
+
+> **Remember:** a `var` slot starts as `undefined`, so reading it too early gives a quiet `undefined`. The bug hides.
+
+<details class="more"><summary>📖 More detail: snippet A, step by step</summary>
+
+| Step | Line | What happens | Memory after | Console |
+|---|---|---|---|---|
+| 1 | setup | JavaScript reads the scope and sees `var a`. It makes slot `a` holding `undefined`. | a: undefined | |
+| 2 | 1 | Reads `a`. The slot exists, so it gives `undefined`. | a: undefined | undefined |
+| 3 | 2 | Runs the assignment. Now `a` holds 5. | a: 5 | undefined |
+| 4 | 3 | Reads `a`. | a: 5 | undefined 5 |
+
+Checked on 2026-10-28 with Node 26.12.1.
+
+</details>
+
+## 3. `let` and `const`: a locked slot
+
+Snippet B. Same shape, with `let`.
+
+```js
+console.log(b);   // slot exists, locked
+let b = 5;
+console.log(b);
+```
+
+<details class="guess"><summary>🤔 Guess: what does this print? Press to check.</summary>
+
+```
+ReferenceError: Cannot access 'b' before initialization
+```
+
+The slot for `b` exists, but it is **locked** until line 2 runs. Reading it throws a loud error that points at the line. Nobody catches it, so the program stops. Lines 2 and 3 never run.
+
+</details>
+
+> **Remember:** a `let` or `const` slot starts locked. Reading it early gives a `ReferenceError`, not a quiet `undefined`.
+
+<details class="more"><summary>📖 More detail: snippet B, step by step</summary>
+
+| Step | Line | What happens | Memory after | Console |
+|---|---|---|---|---|
+| 1 | setup | JavaScript reads the scope and sees `let b`. It makes slot `b` and **locks** it. | b: locked | |
+| 2 | 1 | Reads `b`. It is locked, so JavaScript throws an error. | b: locked | ReferenceError |
+| 3 | stop | Nobody catches the error, so the program stops. Lines 2 and 3 never run. | | |
+
+The exact words of the error change between browsers and Node. Chrome and Node use the words above. The type, `ReferenceError`, is the same everywhere.
+
+</details>
+
+## 4. Functions: a declaration against an expression
+
+A function **declaration** is already in the seat before class starts. A function **expression** stored in a `var` is only a name that starts as `undefined`.
+
+```js
+// Snippet C
+greet();
+var greet = function () {
+  console.log("hi");
+};
+```
+
+```js
+// Snippet D
+hello();
+function hello() {
+  console.log("hello works");
+}
+```
+
+<details class="guess"><summary>🤔 Guess: what happens in snippet C? And in snippet D? Press to check.</summary>
+
+C: `TypeError: greet is not a function`. Only the name `greet` was made early, as `undefined`. Calling `undefined` is a `TypeError`.
+
+D: prints `hello works`. The whole function was in the slot, so it works anywhere in the scope.
+
+Fix for C: call it after its line, or write a function declaration instead.
+
+</details>
+
+> **Remember:** a function declaration works before its line. A function expression in a `var` does not.
+
+<details class="more"><summary>📖 More detail: the memory table before line 1</summary>
+
+A snapshot **after setup and before line 1**. This one table explains almost every hoisting question.
 
 | Name | Written with | Value before line 1 | What happens if you read it |
 |---|---|---|---|
@@ -79,159 +170,135 @@ A snapshot **after setup and before line 1**. Notice the last column. This one t
 | `hello` | `function hello() {}` | the whole function | works, you can call it |
 | `greet` | `var greet = function () {}` | `undefined` | reading works, but **calling** gives `TypeError` |
 
-### 2e. Right against wrong
+</details>
 
-The most common wrong picture is "hoisting moves my code to the top". It does not. The code stays where it is.
+## 5. Where JavaScript looks for a name
 
-```mermaid
-graph LR
-    A["Wrong picture: hoisting"] --> B["JavaScript moves my lines to the top"]
-```
-
-```mermaid
-graph LR
-    A["Right picture: hoisting"] --> B["my lines stay in place"]
-    A --> C["JavaScript makes the slots first"]
-    C --> D["each slot gets its starting state"]
-```
-
-### 2f. Where JavaScript looks for a name
-
-When your code uses a name, JavaScript searches from the inside out. Notice that it stops at the first room that has the name.
+When your code uses a name, JavaScript searches from the inside out. It stops at the first room that has the name.
 
 ```mermaid
 graph TB
-    A["Block scope inside curly braces"] -->|not found here| B["Function scope"]
-    B -->|not found here| C["Global scope"]
-    C -->|not found here| D["ReferenceError x is not defined"]
+    A["Block: inside curly braces"] -->|not found| B["Function"]
+    B -->|not found| C["Global"]
+    C -->|not found| D["ReferenceError"]
 ```
 
-`var` belongs to the **function** room, so it ignores the curly braces of `if` and `for`. `let` and `const` belong to the **block** room, which is the nearest pair of curly braces.
-
-## 3. Real life analogy
-
-A teacher writes the **roll sheet** before the class starts. Every student's name is on the sheet from the beginning.
-
-- A `var` student is on the sheet with an empty seat. If you ask "who sits there?", the answer is "nobody yet" (`undefined`).
-- A `let` or `const` student is on the sheet with a red stamp: "do not call this name yet". If you call it anyway, the teacher stops the class (`ReferenceError`).
-- A function declaration is a student who is already in the seat before class starts. You can call them at once.
-
-Where the analogy stops: JavaScript does not write on paper or move students. It only makes a slot in memory for each name.
-
-## 4. The smallest code that shows it
-
-Run each snippet in its own file. Snippet B crashes, so it would stop the file.
+`var` belongs to the **function** room, so it ignores the curly braces of `if` and `for`. `let` and `const` belong to the **block** room, the nearest pair of curly braces.
 
 ```js
-// Snippet A
-console.log(a);   // the slot for a exists already
-var a = 5;
-console.log(a);
-
-// Snippet B
-console.log(b);   // the slot for b exists, but it is locked
-let b = 5;
-console.log(b);
+if (true) {
+  var x = 1;
+  let y = 2;
+}
+console.log(x);
+console.log(y);
 ```
 
-**Output of A:**
+<details class="guess"><summary>🤔 Guess: what do the two `console.log` lines give? Press to check.</summary>
 
 ```
-undefined
-5
+1
+ReferenceError: y is not defined
 ```
 
-**Output of B:**
+`x` leaked out of the `if`. `y` stayed inside its block.
+
+</details>
+
+> **Remember:** `var` leaks out of `if` and `for`. `let` and `const` stay inside the nearest curly braces.
+
+<details class="more"><summary>📖 More detail: the block room</summary>
+
+Before 2015 JavaScript only had `var`. Because a `var` ignores curly braces, it leaks out of `if` and `for`. `let` and `const` (added in ES2015) live inside the nearest curly braces, so each loop pass can have its own variable (card 6).
+
+</details>
+
+## 6. Mistake 1: the loop bug
+
+This is the bug that made old JavaScript famous. Three timers each print `i`.
+
+```js
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0);
+}
+```
+
+```mermaid
+graph TB
+    A["for var i"] --> B["ONE variable i<br/>for the whole function"]
+    B --> C["3 callbacks read i later,<br/>when i is already 3"]
+```
+
+<details class="guess"><summary>🤔 Guess: what does it print, and what changes with `let i`? Press to check.</summary>
+
+With `var`: `3 3 3`. With `let`: `0 1 2`.
+
+```js
+for (let i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0);
+}
+```
+
+The timer callbacks run later, after the loop is done (see [the event loop](11-the-event-loop.md)). With `var` they all read the one shared `i`, which is 3 by then. With `let`, each pass gets its own `i`.
+
+</details>
+
+> **Remember:** `var` in a loop is one shared variable. `let` gives each pass its own.
+
+<details class="more"><summary>📖 More detail: where this goes next</summary>
+
+This is a closure ([lesson 05](05-closures.md)): each callback remembers the variable it was made next to. With `let`, "the variable" is a different one on every pass.
+
+</details>
+
+## 7. Mistake 2: `const` does not freeze an object
+
+You write `const user = { name: "Ana" }`. Is the object now unchangeable?
+
+```js
+const user = { name: "Ana" };
+user.name = "Budi";
+user = {};
+```
+
+<details class="guess"><summary>🤔 Guess: which of the last two lines throw an error? Press to check.</summary>
+
+Only the last one:
 
 ```
-ReferenceError: Cannot access 'b' before initialization
+TypeError: Assignment to constant variable.
 ```
 
-The exact words of the error change between browsers and Node. Chrome and Node use the words above. The type, `ReferenceError`, is the same everywhere.
+`user.name = "Budi"` is allowed. The name `user` holds an arrow to the object, and `const` protects the **arrow**, not the **inside** of the object.
 
-## 5. What really happens, step by step
+</details>
 
-Snippet A:
+> **Remember:** `const` locks the name, not the inside of the object.
 
-| Step | Line | What happens | Memory after | Console |
-|---|---|---|---|---|
-| 1 | setup | JavaScript reads the scope and sees `var a`. It makes slot `a` holding `undefined`. | a: undefined | |
-| 2 | 1 | Reads `a`. The slot exists, so it gives `undefined`. | a: undefined | undefined |
-| 3 | 2 | Runs the assignment. Now `a` holds 5. | a: 5 | undefined |
-| 4 | 3 | Reads `a`. | a: 5 | undefined 5 |
+<details class="more"><summary>📖 More detail: how to really stop changes</summary>
 
-Snippet B:
+To stop changes inside, use `Object.freeze(user)`. That is a separate tool, and it only works one level deep.
 
-| Step | Line | What happens | Memory after | Console |
-|---|---|---|---|---|
-| 1 | setup | JavaScript reads the scope and sees `let b`. It makes slot `b` and **locks** it. | b: locked | |
-| 2 | 1 | Reads `b`. It is locked, so JavaScript throws an error. | b: locked | ReferenceError |
-| 3 | stop | Nobody catches the error, so the program stops. Lines 2 and 3 never run. | | |
+</details>
 
-**Step through it yourself:** [open the scope and hoisting stepper](visuals/01-scope-and-hoisting.html). It has six small programs: `var`, `let`, functions, block scope, and the loop bug with `var` and with `let`. Write your guess first, then press Next.
+## 8. Watch it run, step by step
 
-## 6. Why it exists and what it costs
+The stepper has six small programs: `var`, `let`, functions, block scope, and the loop bug with `var` and with `let`. Write your guess first, then press Next.
 
-- **Problem without it:** before 2015 JavaScript only had `var`. A `var` ignores curly braces, so it leaks out of `if` and `for`. Reading it too early gives a quiet `undefined`, so the bug hides. The loop in picture 2b is the famous case.
-- **How it solves it:** `let` and `const` (added in ES2015) live inside the nearest curly braces. So each loop pass can have its own variable. The locked state turns the quiet `undefined` into a loud `ReferenceError` that points at the line.
-- **Cost:**
+**Step through it yourself:** [open the scope and hoisting stepper](visuals/01-scope-and-hoisting.html).
+
+## 9. Why it matters and what it costs
+
+- **Without it,** `var` ignores curly braces and leaks out of `if` and `for`. Reading it too early gives a quiet `undefined`, so the bug hides.
+- **With it,** `let` and `const` live inside the nearest curly braces. The locked state turns the quiet `undefined` into a loud `ReferenceError` that points at the line.
+- **The cost:**
   - `var` is still everywhere in old code, so you must be able to read it.
   - Hoisting of **function declarations** is useful: you can put helpers at the bottom of a file. But it also makes a file harder to read from top to bottom.
   - `const` does **not** freeze the value. It only stops you from pointing the name at something else.
 
 Simple rule for new code: use `const` by default, use `let` when the value must change, and do not use `var`.
 
-## 7. Common mistakes
-
-**Wrong:** thinking `const` makes an object unchangeable.
-
-```js
-const user = { name: "Ana" };
-user.name = "Budi";   // allowed
-user = {};            // TypeError: Assignment to constant variable.
-```
-
-**Right:** `const` locks the **name**, not the **inside** of the object. To stop changes inside, use `Object.freeze(user)`. That is a separate tool, and it only works one level deep.
-
-**Why:** the name holds an arrow to the object. `const` protects the arrow.
-
-**Wrong:** calling a function expression before its line.
-
-```js
-greet();                         // TypeError: greet is not a function
-var greet = function () { console.log("hi"); };
-```
-
-**Right:** call it after its line, or write a function declaration instead.
-
-```js
-function greet() { console.log("hi"); }
-greet();   // works anywhere in the scope
-```
-
-**Why:** only the name `greet` is made early, as `undefined`. Calling `undefined` is a `TypeError`.
-
-**Wrong:** the loop bug.
-
-```js
-for (var i = 0; i < 3; i++) {
-  setTimeout(() => console.log(i), 0);
-}
-// prints 3 3 3
-```
-
-**Right:** use `let`. Each pass gets its own `i`.
-
-```js
-for (let i = 0; i < 3; i++) {
-  setTimeout(() => console.log(i), 0);
-}
-// prints 0 1 2
-```
-
-**Why:** the timer callbacks run later, after the loop is done (see [the event loop](11-the-event-loop.md)). With `var` they all read the one shared `i`, which is 3 by then.
-
-## 8. Watch and play
+## 10. Watch and play
 
 Links checked on 2026-10-11. Each page opened. For each video, the title and channel matched. I did not watch the videos, so their lengths are not checked.
 
@@ -243,7 +310,7 @@ Links checked on 2026-10-11. Each page opened. For each video, the title and cha
 - **Read:** [let on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let). Look for the section called "Temporal dead zone (TDZ)".
 - **Read:** [Hoisting on MDN](https://developer.mozilla.org/en-US/docs/Glossary/Hoisting). A short page on what happens to `var`, `let`, `const` and functions.
 
-## 9. Practice
+## 11. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -325,7 +392,7 @@ const predictions = {
 
 </details>
 
-## 10. Interview question
+## 12. Interview question
 
 **Q:** "What is hoisting? What is the difference between `var`, `let` and `const`? What does this print?"
 
@@ -347,7 +414,7 @@ for (var i = 0; i < 3; i++) setTimeout(() => console.log(i), 0);
 
 </details>
 
-## 11. Explain it back
+## 13. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain hoisting out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Then save the transcript file into `my-learning/recordings/`, or write your best version below. Run `/explain-check hoisting` or ask the `explain-coach` agent to review it.
 
@@ -359,12 +426,12 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 14. Review questions (day 1, 3, 7, 21)
 
 1. What does JavaScript do with `var a = 5` **before** line 1 runs, and what do you get if you read `a` first?
 2. Why does reading a `let` variable early give an error, when `var` gives `undefined`?
 3. What does `for (var i = 0; i < 3; i++) setTimeout(() => console.log(i), 0)` print, and why?
-4. Draw the picture from section 2d from memory: five names and what each looks like before line 1.
+4. Draw the table from card 1 and card 4 from memory: five names and what each looks like before line 1.
 
 <details><summary>Answers</summary>
 
