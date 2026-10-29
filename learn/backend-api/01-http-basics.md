@@ -1,20 +1,43 @@
 # 01. HTTP basics
 
-> **Subject:** Backend and API · **Lesson:** 01 · **Made:** 2026-10-22 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 01 · **Made:** 2026-10-22 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** read a request and a response line by line, pick the right status code, and say why 401 and 403 are different.
+>
 > **Before this:** [Backend and API lessons](README.md) · **Next:** [REST API design](02-rest-api-design.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a paper slip at a counter
 
-Your app sends the server a short text message that says what it wants, and the server sends back a short text message that starts with a number saying how it went.
+At a warehouse counter you write a slip. The top line says what you want: "get product 41". Below it are small lines, like your member card. The clerk answers with a slip too. Its top line is a number that says how it went. HTTP is the same, only as text.
 
-Why you need it:
+```mermaid
+graph TB
+    A["Request<br/>1 first line: GET /products/41<br/>2 headers<br/>3 empty line<br/>4 body"] -->|travels as text| B["Response<br/>1 status line: 200 OK<br/>2 headers<br/>3 empty line<br/>4 body"]
+```
+
+Notice: both messages have the same four parts. Only the first line is different.
+
+<details class="guess"><summary>🤔 Guess: Ana's app gets the answer back. What should it read first, the status line or the body? Press to check.</summary>
+
+The status line. It says how it went. Read the number first, then decide what to do with the body.
+
+</details>
+
+> **Remember:** a request and an answer both have four parts: a first line, headers, an empty line, a body.
+
+<details class="more"><summary>📖 More detail: the real text, four new words, and where the slip picture stops</summary>
+
+**Why you need it.**
 
 - Ana opens product 41 in the shop app.
 - Her phone and your server are two different machines. They may run different languages.
 - They need one shared way to say "give me product 41" and "here it is".
 - They also need a way to say "that went wrong", and how it went wrong.
 - HTTP is that shared way. It is plain text with a fixed shape.
+
+**The exact text, both ways.**
 
 This is the exact text Ana's app sends:
 
@@ -37,7 +60,7 @@ Content-Type: application/json
 
 Both have the same four parts: a first line, some `Name: value` lines, an empty line, then the data.
 
-New words (four):
+**Four new words.**
 
 - **Method:** the first word of the request. It says what you want to do, like `GET` (read) or `DELETE` (remove). (Interview word: HTTP method, sometimes "verb".)
 - **Status code:** the 3 digit number in the first line of the answer. It says how it went. `200` means it worked.
@@ -46,37 +69,16 @@ New words (four):
 
 The first line has a name too. In a request it is the request line. In an answer it is the status line.
 
-### Methods: what you ask for
+**What each part holds.**
 
-| Method | Asks the server to | Example | Has a body? | Safe to repeat? |
-|---|---|---|---|---|
-| `GET` | read something | `GET /products/41` | no | yes |
-| `POST` | make something new, or do an action | `POST /orders` | yes | no |
-| `PUT` | replace the whole thing | `PUT /products/41` with the full product | yes | yes |
-| `PATCH` | change some fields | `PATCH /products/41` with `{"price":60000}` | yes | not promised |
-| `DELETE` | remove it | `DELETE /products/41` | usually no | yes |
+| Part | In the request | In the response | Who reads it |
+|---|---|---|---|
+| First line | method, path, version | version, status code, a short label | the other side, first |
+| Headers | `Host`, `Accept`, `Authorization` | `Content-Type`, `Cache-Control` | the other side and every tool in the middle |
+| Empty line | "headers over" | "headers over" | the reader, to know where the body starts |
+| Body | the new data for `POST`, `PUT`, `PATCH` | the data or the error details | your code |
 
-"Safe to repeat" means sending it twice leaves the server the same as sending it once. Two `POST /orders` make two orders. That matters when an app tries again after a timeout. [Idempotency and retries](../system-design/13-idempotency-and-retries.md) covers it fully.
-
-### Status codes: five families
-
-The first digit tells you the family. Learn the families first. Then single codes are easy.
-
-| Family | Means | You see it when |
-|---|---|---|
-| 1xx | wait, more is coming | rarely, you can skip it |
-| 2xx | it worked | most of the time |
-| 3xx | look somewhere else | a page moved, or "your saved copy is still good" |
-| 4xx | your request is wrong | no token, not allowed, not found, bad data |
-| 5xx | the server broke | a bug, or a server behind it is down |
-
-The most useful split is 4xx against 5xx. 4xx says "change your request". 5xx says "not your fault, maybe try later".
-
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that only text travels. The app and the server never share memory.
+**The big picture.** Only text travels. The app and the server never share memory.
 
 ```mermaid
 graph LR
@@ -87,26 +89,7 @@ graph LR
     ANS -->|travels back| APP
 ```
 
-### 2b. The problem, drawn: every answer is 200
-
-Notice that four very different results look the same to the app.
-
-```mermaid
-graph LR
-    A["Product found"] -->|200| APP["Ana app sees 200<br/>so it thinks it worked"]
-    B["Product not found"] -->|200 with an error inside| APP
-    C["Token too old"] -->|200 with an error inside| APP
-    D["Database is down"] -->|200 with an error inside| APP
-    APP --> X["Shows undefined<br/>never asks Ana to log in<br/>never tries again"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class X bad
-```
-
-Without real status codes, the app must open every body and guess. Tools in the middle only read the status line. A cache would keep the error. Retry code would never retry the crash.
-
-### 2c. How it works over time
-
-Notice the order on both sides: first line, then headers, then body. The app reads the status before the body.
+**The same request over time.** The app reads the status before the body.
 
 ```mermaid
 sequenceDiagram
@@ -129,56 +112,144 @@ sequenceDiagram
 
 The first note hides three steps: find the address, open a connection, make it secret (DNS, TCP and TLS). [From URL to page, step by step](../networking/networking-url-to-page-step-by-step.md) shows them.
 
-### 2d. What is inside one request and one response
+**Headers worth knowing.**
 
-Notice that both messages have the same four parts. Only the first line is different.
+| Header | Sent by | What it says |
+|---|---|---|
+| `Content-Type` | both | the format of the body, like `application/json` |
+| `Accept` | app | the format the app wants back |
+| `Authorization` | app | who you are, usually `Bearer <token>` |
+| `Set-Cookie` and `Cookie` | server, then browser | the server sets a small value. The browser sends it back on every request |
+| `Cache-Control` | mostly server | how long a copy may be kept, like `max-age=60` ([lesson 04](../system-design/04-caching.md)) |
+| `Retry-After` | server | with 429 or 503: how many seconds to wait |
+| `Location` | server | with 201 or 3xx: where the new thing or new address is |
+
+**Where the slip picture stops.**
+
+Ordering with a paper slip at a warehouse counter.
+
+- You write a slip. The top line says "GET product 41". That is the method and the path.
+- Below it you stamp small lines: "Member card: Ana 7", "Reply in: English". Those are headers.
+- Then a gap. Then the order details, if there are any. That is the body.
+- The clerk answers with a slip. Its top line has a number. 200 here it is. 404 no such item. 401 show your card. 403 your card does not allow this. 500 our machine broke.
+- The clerk forgets you when you walk away. So every slip needs your card.
+
+Where it stops being true: a real clerk could remember your face, but a server forgets on purpose. That way any of many server copies can take your next slip. And a clerk can ask you a question. A server cannot, so the slip must be complete.
+
+</details>
+
+## 2. Methods: what you ask for
+
+The first word of a request says what you want to do. Learn these five.
+
+| Method | Asks the server to | Body? | Safe to repeat? |
+|---|---|---|---|
+| `GET` | read something | no | yes |
+| `POST` | make something new | yes | no |
+| `PUT` | replace the whole thing | yes | yes |
+| `PATCH` | change some fields | yes | not promised |
+| `DELETE` | remove it | usually no | yes |
+
+"Safe to repeat" means that sending it twice leaves the server the same as sending it once.
+
+<details class="guess"><summary>🤔 Guess: the phone loses signal right after `POST /orders`. The app sends it again. How many orders does Ana have? Press to check.</summary>
+
+Two. `POST` makes something new every time. A `DELETE` sent twice is fine, because the product is gone after the first one.
+
+</details>
+
+> **Remember:** `GET` reads. `POST` makes. A repeated `POST` makes a second thing.
+
+<details class="more"><summary>📖 More detail: the shop examples, and the retry problem</summary>
+
+- `GET /products/41` reads a product.
+- `POST /orders` makes an order.
+- `PUT /products/41` with the full product replaces it.
+- `PATCH /products/41` with `{"price":60000}` changes one field.
+- `DELETE /products/41` removes it.
+
+"Safe to repeat" means sending it twice leaves the server the same as sending it once. Two `POST /orders` make two orders. That matters when an app tries again after a timeout. [Idempotency and retries](../system-design/13-idempotency-and-retries.md) covers it fully.
+
+</details>
+
+## 3. Status codes: five families
+
+The first digit tells you the family. Learn the families first. Then single codes are easy.
+
+| Family | Means |
+|---|---|
+| 1xx | wait, more is coming |
+| 2xx | it worked |
+| 3xx | look somewhere else |
+| 4xx | your request is wrong |
+| 5xx | the server broke |
+
+<details class="guess"><summary>🤔 Guess: the app gets a 503. Should it change its request, or try again later? Press to check.</summary>
+
+Try again later. A 5xx says the server has the problem. A 4xx says to change your request, because trying the same request again gets the same answer.
+
+</details>
+
+> **Remember:** 4xx means "change your request". 5xx means "not your fault, maybe try later".
+
+<details class="more"><summary>📖 More detail: when you see each family, and the codes worth knowing</summary>
+
+| Family | Means | You see it when |
+|---|---|---|
+| 1xx | wait, more is coming | rarely, you can skip it |
+| 2xx | it worked | most of the time |
+| 3xx | look somewhere else | a page moved, or "your saved copy is still good" |
+| 4xx | your request is wrong | no token, not allowed, not found, bad data |
+| 5xx | the server broke | a bug, or a server behind it is down |
+
+The most useful split is 4xx against 5xx. 4xx says "change your request". 5xx says "not your fault, maybe try later".
+
+**The status codes worth knowing.**
+
+A gateway below means a server in front of yours, like nginx or a load balancer.
+
+| Code | Name | Send it when | In the shop |
+|---|---|---|---|
+| 200 | OK | it worked and there is a body | `GET /products/41` |
+| 201 | Created | a new thing was made. Add a `Location` header with its path | `POST /orders` |
+| 204 | No Content | it worked and there is nothing to send | `DELETE /products/41` |
+| 301 / 302 | Moved Permanently / Found | the thing lives at another address, for good or for now | an old link to `/item/41` |
+| 304 | Not Modified | "your saved copy is still good", no body | the app asks again for an image it has |
+| 400 | Bad Request | I cannot read your request | broken JSON |
+| 401 | Unauthorized | I do not know who you are | no token, or a token that is too old |
+| 403 | Forbidden | I know you, and you may not | a buyer tries to delete a product |
+| 404 | Not Found | the thing is not there | `GET /products/999` |
+| 409 | Conflict | it clashes with what is already there | sign up with a taken email |
+| 422 | Unprocessable Content | I can read it, but it breaks a rule | a price below 0 |
+| 429 | Too Many Requests | slow down. Add `Retry-After` | 100 logins in a minute ([lesson 09](../system-design/09-design-a-rate-limiter.md)) |
+| 500 | Internal Server Error | my code broke | an uncaught error in a route |
+| 502 | Bad Gateway | the gateway got a broken answer from your server | your Node app crashed mid answer |
+| 503 | Service Unavailable | down for now, on purpose or overloaded | a deploy or maintenance |
+| 504 | Gateway Timeout | the gateway waited too long for your server | a slow database query |
+
+</details>
+
+## 4. 401 against 403: two questions, in order
+
+The server asks two questions, always in this order. 401 means the first one failed. 403 means the first passed and the second failed.
 
 ```mermaid
 graph TB
-    subgraph REQ["Request"]
-        Q1["Request line<br/>GET /products/41 HTTP/1.1"] --> Q2["Headers<br/>Host is shop.example.com<br/>Accept is application/json<br/>Authorization is Bearer tok_ana"]
-        Q2 --> Q3["Empty line<br/>the headers are over"]
-        Q3 --> Q4["Body<br/>nothing for a GET"]
-    end
-    subgraph RES["Response"]
-        R1["Status line<br/>HTTP/1.1 200 OK"] --> R2["Headers<br/>Content-Type is application/json"]
-        R2 --> R3["Empty line<br/>the headers are over"]
-        R3 --> R4["Body<br/>the product as JSON"]
-    end
+    Q1["1 Who are you?<br/>fails: 401"] -->|passes| Q2["2 May you do this?<br/>fails: 403"]
+    Q2 -->|passes| RUN["Run the route"]
 ```
 
-In the real text each header has a colon: `Host: shop.example.com`.
+<details class="guess"><summary>🤔 Guess: Ana is logged in as a buyer. She calls `DELETE /products/41`, and only admins may delete. What does she get? And what if she sends no token? Press to check.</summary>
 
-| Part | In the request | In the response | Who reads it |
-|---|---|---|---|
-| First line | method, path, version | version, status code, a short label | the other side, first |
-| Headers | `Host`, `Accept`, `Authorization` | `Content-Type`, `Cache-Control` | the other side and every tool in the middle |
-| Empty line | "headers over" | "headers over" | the reader, to know where the body starts |
-| Body | the new data for `POST`, `PUT`, `PATCH` | the data or the error details | your code |
+Logged in as a buyer: **403**. The server knows her, but she may not do it. With no token: **401**, because the server does not know who she is. Logging in again does not fix a 403.
 
-### 2e. Right against wrong: an error inside a 200
+</details>
 
-Notice that on the left the app trusts the status and shows `undefined`.
+> **Remember:** 401 is "who are you". 403 is "I know you, and no".
 
-```mermaid
-graph LR
-    subgraph W["Wrong - 200 with an error inside"]
-        W1["GET /products/999"] --> W2["200 OK<br/>body says not found"]
-        W2 --> W3["res.ok is true<br/>so the app shows the product"]
-        W3 --> WX["Screen shows undefined"]
-    end
-    subgraph R["Right - a real 404"]
-        R1["GET /products/999"] --> R2["404 Not Found<br/>body says not found"]
-        R2 --> R3["res.ok is false<br/>so the app shows an error"]
-        R3 --> RX["Screen shows<br/>Product not found"]
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class WX bad
-```
+<details class="more"><summary>📖 More detail: the full picture, why the name is confusing, and the mistake in code</summary>
 
-### 2f. 401 against 403: two questions, in order
-
-Notice that 403 can only happen after question 1 passed.
+**The two questions drawn with Ana.** Notice that 403 can only happen after question 1 passed.
 
 ```mermaid
 graph TB
@@ -192,28 +263,45 @@ graph TB
 - **401** fails question 1. The label says "Unauthorized", but it really means "not logged in". The fix is to log in, or get a new token.
 - **403** passes question 1 and fails question 2. Logging in again does not help. The same token will get the same 403.
 
-### 2g. The server does not remember you
+**The mistake in code.**
 
-Notice that server copy 2 never met Ana. Only the token tells it who she is.
+**Wrong:** send 403 when there is no token, or 401 when the user is known but not allowed.
 
-```mermaid
-sequenceDiagram
-    participant A as Ana app
-    participant S1 as Server copy 1
-    participant S2 as Server copy 2
-    A->>S1: POST /login with her password
-    S1-->>A: 200 and the token tok_ana
-    Note over S1: forgets Ana right away
-    A->>S2: GET /orders with Authorization Bearer tok_ana
-    Note over S2: never met Ana but the token says who she is
-    S2-->>A: 200 and her orders
-    A->>S1: GET /orders with no token
-    S1-->>A: 401
+**Right:**
+
+```js
+// sketch, not run here (Express, after a middleware that sets req.user from the token)
+if (!req.user) return res.status(401).json({ error: "log in first" });
+if (req.user.role !== "admin") return res.status(403).json({ error: "only admins can delete products" });
 ```
 
-HTTP keeps no memory between two requests (interview word: stateless). So "who you are" must ride along every time. It goes in the `Authorization` header, or in a `Cookie` header that the browser adds by itself. The good side: any server copy can answer any request.
+**Why:** on 401 the app logs in again. On 403 logging in again does not help, so it should show "you cannot do this".
 
-### 2h. Which status code do I send?
+</details>
+
+## 5. Which status code do I send?
+
+Ask the questions in this order and stop at the first "yes" or "no" that gives a code.
+
+```mermaid
+graph TB
+    A["Did the server crash?<br/>500"] --> B["Too many requests?<br/>429"]
+    B --> C["Who are you?<br/>401"]
+    C --> D["May you do this?<br/>403"]
+    D --> E["Does it exist?<br/>404"]
+    E --> F["Is the data bad?<br/>400 or 422 or 409"]
+    F --> G["Success<br/>200 or 201 or 204"]
+```
+
+<details class="guess"><summary>🤔 Guess: the user is logged in and allowed, the product exists, the JSON is readable, but the price is -5. Which code? Press to check.</summary>
+
+**422**. The server can read the request, but it breaks a rule. Many teams send 400 here. That is fine, if you pick one way and use it everywhere.
+
+</details>
+
+> **Remember:** crash first, then who, then may you, then does it exist, then the data, then success.
+
+<details class="more"><summary>📖 More detail: the full decision picture</summary>
 
 Notice the order. Server problems first, then "who are you", then "what did you send", then success.
 
@@ -244,19 +332,85 @@ graph TB
 
 Many teams send 400 for both "cannot read it" and "breaks a rule". That is fine. Pick one way and use it everywhere. Practice C uses this exact order.
 
-## 3. Real life analogy
+</details>
 
-Ordering with a paper slip at a warehouse counter.
+## 6. The server does not remember you
 
-- You write a slip. The top line says "GET product 41". That is the method and the path.
-- Below it you stamp small lines: "Member card: Ana 7", "Reply in: English". Those are headers.
-- Then a gap. Then the order details, if there are any. That is the body.
-- The clerk answers with a slip. Its top line has a number. 200 here it is. 404 no such item. 401 show your card. 403 your card does not allow this. 500 our machine broke.
-- The clerk forgets you when you walk away. So every slip needs your card.
+HTTP keeps no memory between two requests (interview word: stateless). So "who you are" must ride along every time.
 
-Where it stops being true: a real clerk could remember your face, but a server forgets on purpose. That way any of many server copies can take your next slip. And a clerk can ask you a question. A server cannot, so the slip must be complete.
+```mermaid
+graph TB
+    A["Server copy 1<br/>POST /login<br/>gives token tok_ana<br/>then forgets Ana"] -->|next request| B["Server copy 2<br/>GET /orders<br/>never met Ana"]
+    B -->|reads the token| C["It knows she is Ana"]
+```
 
-## 4. The smallest code that shows it
+<details class="guess"><summary>🤔 Guess: server copy 2 never met Ana. How does it know who she is? Press to check.</summary>
+
+From the token. The app sends it in the `Authorization` header on every request, or the browser sends a `Cookie` header by itself. Any server copy can read it.
+
+</details>
+
+> **Remember:** the server forgets you on purpose. The token tells it who you are, every time.
+
+<details class="more"><summary>📖 More detail: the same story over time</summary>
+
+Notice that server copy 2 never met Ana. Only the token tells it who she is.
+
+```mermaid
+sequenceDiagram
+    participant A as Ana app
+    participant S1 as Server copy 1
+    participant S2 as Server copy 2
+    A->>S1: POST /login with her password
+    S1-->>A: 200 and the token tok_ana
+    Note over S1: forgets Ana right away
+    A->>S2: GET /orders with Authorization Bearer tok_ana
+    Note over S2: never met Ana but the token says who she is
+    S2-->>A: 200 and her orders
+    A->>S1: GET /orders with no token
+    S1-->>A: 401
+```
+
+HTTP keeps no memory between two requests (interview word: stateless). So "who you are" must ride along every time. It goes in the `Authorization` header, or in a `Cookie` header that the browser adds by itself. The good side: any server copy can answer any request.
+
+</details>
+
+## 7. The smallest code that shows it
+
+One server and one `fetch`. Run it and look at both sides.
+
+```js
+const http = require("node:http");
+const s = http.createServer((q, r) => {
+  console.log("server:", q.method, q.url);
+  r.writeHead(200, {
+    "Content-Type": "application/json" });
+  r.end('{"id":41}');
+});
+s.listen(3000, async () => {
+  const r = await fetch(
+    "http://localhost:3000/products/41");
+  console.log("app:", r.status, r.ok);
+  s.close();
+});
+```
+
+<details class="guess"><summary>🤔 Guess: what do the server and the app print? Press to check.</summary>
+
+```
+server: GET /products/41
+app: 200 true
+```
+
+The server never sees your JavaScript objects. `fetch` turned the call into text, and Node read the text back into `q.method` and `q.url`.
+
+</details>
+
+> **Remember:** the status goes out first, and the app can read it before the body.
+
+<details class="more"><summary>📖 More detail: the longer program, and every step on the wire</summary>
+
+**The longer program** (it also sends an `Accept` header).
 
 ```js
 const http = require("node:http");
@@ -275,6 +429,8 @@ server.listen(3000, async () => {
 
 **Output:**
 
+**Output:**
+
 ```
 server got: GET /products/41 accept = application/json
 app got: 200 OK application/json
@@ -285,9 +441,7 @@ Checked on 2026-10-22 with Node 24.
 
 The server never sees your JavaScript objects. `fetch` turned them into the text from section 1. Node read that text back into `req.method`, `req.url` and `req.headers`. Header names come out in lowercase, so you read `req.headers.accept`.
 
-## 5. What really happens, step by step
-
-The code from section 4, one request.
+**The same program, one request, step by step.**
 
 | Step | Who | What happens | Text on the wire | What is known now |
 |---|---|---|---|---|
@@ -304,6 +458,8 @@ The code from section 4, one request.
 | 11 | app | `await fetch` finishes as soon as the status line and headers arrive | | `res.status` is 200, `res.ok` is true |
 | 12 | app | `res.json()` reads the body and turns it into an object | | `{ id: 41, name: 'Rice 5 kg' }` |
 
+**What to see.**
+
 What to see:
 
 - Steps 5 to 7: the server always knows the method and the path before it reads a body.
@@ -312,48 +468,62 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/01-http-basics.html). It has three stories: a normal `GET`, no token against the wrong person, and `fetch` on a 404.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** every app and server would invent their own message shape. Nothing in the middle could help, because nothing could read it.
-- **How it solves it:** one fixed shape (method, path, headers, body) and one set of status codes. Browsers, caches, load balancers and retry code read the status line without knowing your app.
-- **Cost or tradeoff:** headers repeat on every request, so the token travels every time. The server must check that token every time. And a status code is rough. You still need an error body that says exactly what was wrong.
+## 8. Mistake 1: a 200 with an error inside
 
-### The status codes worth knowing
+The server cannot find product 999, but it still answers 200 and puts the error in the body.
 
-A gateway below means a server in front of yours, like nginx or a load balancer.
-
-| Code | Name | Send it when | In the shop |
-|---|---|---|---|
-| 200 | OK | it worked and there is a body | `GET /products/41` |
-| 201 | Created | a new thing was made. Add a `Location` header with its path | `POST /orders` |
-| 204 | No Content | it worked and there is nothing to send | `DELETE /products/41` |
-| 301 / 302 | Moved Permanently / Found | the thing lives at another address, for good or for now | an old link to `/item/41` |
-| 304 | Not Modified | "your saved copy is still good", no body | the app asks again for an image it has |
-| 400 | Bad Request | I cannot read your request | broken JSON |
-| 401 | Unauthorized | I do not know who you are | no token, or a token that is too old |
-| 403 | Forbidden | I know you, and you may not | a buyer tries to delete a product |
-| 404 | Not Found | the thing is not there | `GET /products/999` |
-| 409 | Conflict | it clashes with what is already there | sign up with a taken email |
-| 422 | Unprocessable Content | I can read it, but it breaks a rule | a price below 0 |
-| 429 | Too Many Requests | slow down. Add `Retry-After` | 100 logins in a minute ([lesson 09](../system-design/09-design-a-rate-limiter.md)) |
-| 500 | Internal Server Error | my code broke | an uncaught error in a route |
-| 502 | Bad Gateway | the gateway got a broken answer from your server | your Node app crashed mid answer |
-| 503 | Service Unavailable | down for now, on purpose or overloaded | a deploy or maintenance |
-| 504 | Gateway Timeout | the gateway waited too long for your server | a slow database query |
-
-### Headers worth knowing
-
-| Header | Sent by | What it says |
+| | Wrong | Right |
 |---|---|---|
-| `Content-Type` | both | the format of the body, like `application/json` |
-| `Accept` | app | the format the app wants back |
-| `Authorization` | app | who you are, usually `Bearer <token>` |
-| `Set-Cookie` and `Cookie` | server, then browser | the server sets a small value. The browser sends it back on every request |
-| `Cache-Control` | mostly server | how long a copy may be kept, like `max-age=60` ([lesson 04](../system-design/04-caching.md)) |
-| `Retry-After` | server | with 429 or 503: how many seconds to wait |
-| `Location` | server | with 201 or 3xx: where the new thing or new address is |
+| Server sends | `200` and `{"error":"not found"}` | `404` and `{"error":"not found"}` |
+| The app reads `res.ok` | `true` | `false` |
+| The screen shows | `undefined` | Product not found |
 
-## 7. Common mistakes
+<details class="guess"><summary>🤔 Guess: why does the screen show `undefined` on the wrong side? Press to check.</summary>
+
+The app checks the status first. 200 says "it worked", so the app reads `name` from the body. The body is the error object, which has no `name`. A cache would also keep the error, and retry code would never retry the crash.
+
+</details>
+
+> **Remember:** choose the status from what happened. Never send 200 for an error.
+
+<details class="more"><summary>📖 More detail: the problem drawn, and the code fix</summary>
+
+**The problem, drawn.** Four different results look the same to the app.
+
+```mermaid
+graph LR
+    A["Product found"] -->|200| APP["Ana app sees 200<br/>so it thinks it worked"]
+    B["Product not found"] -->|200 with an error inside| APP
+    C["Token too old"] -->|200 with an error inside| APP
+    D["Database is down"] -->|200 with an error inside| APP
+    APP --> X["Shows undefined<br/>never asks Ana to log in<br/>never tries again"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class X bad
+```
+
+Without real status codes, the app must open every body and guess. Tools in the middle only read the status line. A cache would keep the error. Retry code would never retry the crash.
+
+**Right against wrong.**
+
+```mermaid
+graph LR
+    subgraph W["Wrong - 200 with an error inside"]
+        W1["GET /products/999"] --> W2["200 OK<br/>body says not found"]
+        W2 --> W3["res.ok is true<br/>so the app shows the product"]
+        W3 --> WX["Screen shows undefined"]
+    end
+    subgraph R["Right - a real 404"]
+        R1["GET /products/999"] --> R2["404 Not Found<br/>body says not found"]
+        R2 --> R3["res.ok is false<br/>so the app shows an error"]
+        R3 --> RX["Screen shows<br/>Product not found"]
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class WX bad
+```
+
+**The mistake in code.**
 
 **Wrong:** send 200 with an error inside.
 
@@ -370,17 +540,81 @@ res.status(404).json({ error: "product not found" });
 
 **Why:** the app and every tool in the middle read the status first. Practice B shows the bug running.
 
-**Wrong:** send 403 when there is no token, or 401 when the user is known but not allowed.
+</details>
+
+## 9. Mistake 2: `fetch` does not throw on a 404
+
+You expect a 404 or a 500 to jump into your `catch`. It does not.
+
+```js
+const res = await fetch(url);
+console.log(res.status, res.ok);
+const p = await res.json();
+console.log(p.name);
+```
+
+With a server that answers 404 and `{"error":"no product 999"}`, this prints:
+
+```
+404 false
+undefined
+```
+
+<details class="guess"><summary>🤔 Guess: does a `catch` block around this ever run? Press to check.</summary>
+
+No. `fetch` throws only when no answer comes back at all, like a dropped network. A 404 is a real answer, so `fetch` hands it to you. Check `res.ok`, which is true only for 200 to 299.
+
+</details>
+
+> **Remember:** after every `fetch`, check `res.ok` before you read the body.
+
+<details class="more"><summary>📖 More detail: the wrong code and the right code</summary>
+
+**Wrong:** expect `fetch` to throw on 404 or 500.
+
+```js
+try {
+  const product = await (await fetch("/products/999")).json();   // a 404 does not throw
+  show(product.name);                                             // shows undefined
+} catch (e) { showError(e.message); }                             // never runs
+```
 
 **Right:**
 
 ```js
-// sketch, not run here (Express, after a middleware that sets req.user from the token)
-if (!req.user) return res.status(401).json({ error: "log in first" });
-if (req.user.role !== "admin") return res.status(403).json({ error: "only admins can delete products" });
+const res = await fetch("/products/999");
+if (!res.ok) throw new Error("HTTP " + res.status);   // res.ok is true only for 200 to 299
+const product = await res.json();
 ```
 
-**Why:** on 401 the app logs in again. On 403 logging in again does not help, so it should show "you cannot do this".
+**Why:** `fetch` throws only when no answer comes back at all, like a dropped network. A 404 is a real answer. Practice A shows it running.
+
+Practice A and B below run this for real.
+
+</details>
+
+## 10. Mistake 3: JSON without a Content-Type
+
+`fetch` labels a text body as plain text. The server then does not know it is JSON.
+
+```js
+await fetch("/products", {
+  method: "POST",
+  body: JSON.stringify({ name: "Rice" }),
+});
+```
+
+The server sees `content-type: text/plain;charset=UTF-8`. With `headers: { "Content-Type": "application/json" }` it sees `content-type: application/json`.
+
+<details class="guess"><summary>🤔 Guess: `express.json()` only reads `application/json`. What happens to the body above? Press to check.</summary>
+
+It is skipped. In Express 5, `req.body` is `undefined`, and `req.body.name` throws, so the app gets a 500. The server picks how to read the body from `Content-Type`.
+
+</details>
+
+> **Remember:** always send `Content-Type: application/json` with a JSON body.
+
+<details class="more"><summary>📖 More detail: the right code, and a body on GET</summary>
 
 **Wrong:** send JSON without saying it is JSON.
 
@@ -402,6 +636,8 @@ await fetch("/products", {
 
 **Why:** the server picks how to read the body from `Content-Type`. Checked on 2026-10-22 with Node 24 and Express 5.
 
+**Another mistake: a body with `GET`.**
+
 **Wrong:** send a body with `GET`.
 
 ```js
@@ -413,24 +649,15 @@ await fetch("/products", { method: "GET", body: JSON.stringify({ shop: 7 }) });
 
 **Why:** a `GET` body has no agreed meaning, so many servers and tools drop it. `fetch` refuses it. Checked on 2026-10-22 with Node 24.
 
-**Wrong:** expect `fetch` to throw on 404 or 500.
+</details>
 
-```js
-try {
-  const product = await (await fetch("/products/999")).json();   // a 404 does not throw
-  show(product.name);                                             // shows undefined
-} catch (e) { showError(e.message); }                             // never runs
-```
+## 11. Why it matters and what it costs
 
-**Right:**
+- **Without it:** every app and server would invent their own message shape. Nothing in the middle could help, because nothing could read it.
+- **With it:** one fixed shape (method, path, headers, body) and one set of status codes. Browsers, caches, load balancers and retry code read the status line without knowing your app.
+- **The cost:** headers repeat on every request, so the token travels every time, and the server checks it every time. A status code is also rough. You still need an error body that says exactly what was wrong.
 
-```js
-const res = await fetch("/products/999");
-if (!res.ok) throw new Error("HTTP " + res.status);   // res.ok is true only for 200 to 299
-const product = await res.json();
-```
-
-**Why:** `fetch` throws only when no answer comes back at all, like a dropped network. A 404 is a real answer. Practice A shows it running.
+<details class="more"><summary>📖 More detail: if you freeze in the interview</summary>
 
 **If you freeze:**
 
@@ -438,7 +665,9 @@ const product = await res.json();
 2. "The answer starts with a status. 2 worked, 4 your fault, 5 my fault."
 3. "401 is who are you, 403 is I know you and no. fetch does not throw on 404, so check res.ok."
 
-## 8. Watch and play
+</details>
+
+## 12. Watch and play
 
 All links checked on 2026-10-22.
 
@@ -504,7 +733,7 @@ $ curl -sv -H "Accept: application/json" -H "Authorization: Bearer abc123" http:
 
 </details>
 
-## 9. Practice
+## 13. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -651,7 +880,7 @@ Checked on 2026-10-22 with Node 24: the 20 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 14. Interview question
 
 **Q:** "Walk me through what is inside an HTTP request and response. When do you return 401, and when 403?"
 
@@ -671,7 +900,7 @@ A common follow-up: "What status code does your GraphQL API return when a query 
 
 </details>
 
-## 11. Explain it back
+## 15. Explain it back
 
 Close this file. Explain HTTP basics out loud to a new junior, in 4 parts (problem, how, tradeoff, my example). Use Ana's request for product 41, then her Delete button that gets 401 and then 403. Write it below, then run `/explain-check http basics`.
 
@@ -683,7 +912,7 @@ Close this file. Explain HTTP basics out loud to a new junior, in 4 parts (probl
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 16. Review questions (day 1, 3, 7, 21)
 
 1. Name the four parts of a request and the four parts of a response.
 2. Ana is logged in as a buyer and calls `DELETE /products/41`. Only admins may delete. Which code does she get? And with no token?
