@@ -1,14 +1,34 @@
 # 16. gRPC
 
-> **Subject:** Backend and API · **Lesson:** 16 · **Made:** 2026-10-23 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 16 · **Made:** 2026-10-23 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** say what gRPC is, show how a message turns into bytes, name the four kinds of call, explain deadlines and status codes, and say when gRPC is a good choice.
+>
 > **Before this:** [tRPC](15-trpc.md) · **Next:** [WebSockets and Server-Sent Events](17-websockets-and-server-sent-events.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a printed order form with numbered boxes
 
-You write the contract once in a `.proto` file, and then programs in any language call each other's functions by sending small binary messages over HTTP/2.
+The form says: box 1 is the customer number, box 2 is the name, box 3 is the email. Everyone in the company has the same form. When you fill it in, you write only "box 1: 1, box 2: Ana". That is why the message is short. **gRPC** works like this. You write the form once, in a `.proto` file, and programs in any language call each other's functions by sending small binary messages over HTTP/2.
 
-New words:
+```mermaid
+graph TB
+    A[".proto file<br/>the one contract"] --> B["Make code<br/>for each language"]
+    B --> C["Client and server<br/>binary messages over HTTP/2"]
+```
+
+<details class="guess"><summary>🤔 Guess: a user `{ id: 1, name: "Ana", email: "ana@example.com" }` is 47 bytes as JSON. About how many bytes as protobuf? Press to check.</summary>
+
+**24 bytes.** The field **names** are not in the bytes. Only the field **numbers** are. Checked with protobufjs on 2026-10-29.
+
+</details>
+
+> **Remember:** number every field and never reuse a number, always set a deadline, and expect gRPC status codes, not HTTP ones.
+
+<details class="more"><summary>📖 More detail: four new words, the problem, and the full picture</summary>
+
+**New words.**
 
 - **gRPC:** a way for programs to call each other's functions over the network. It sends compact binary messages, and it runs on HTTP/2 (a newer HTTP that can run many calls at the same time on one connection).
 - **Protobuf:** short for *Protocol Buffers*. The `.proto` file where you describe messages, and the binary format they are sent in.
@@ -17,11 +37,16 @@ New words:
 
 The rule to remember: **number every field and never reuse a number, always set a deadline, and expect gRPC status codes, not HTTP ones.**
 
-## 2. The pictures
+**The problem, drawn.** With many services and many languages, hand-written JSON clients drift apart.
 
-### 2a. The big picture
+```mermaid
+graph TB
+    A["10 services in 4 languages call each other with JSON"] --> B["each team writes a client for each service by hand"]
+    B --> C["the contract lives in old docs and in people's heads"]
+    C --> D["a field changes and one caller breaks in production"]
+```
 
-Notice that the `.proto` file is the one thing both sides share. Each side gets its code from it, in its own language.
+**The big picture.** The `.proto` file is the one thing both sides share. Each side gets its code from it, in its own language.
 
 ```mermaid
 graph LR
@@ -31,49 +56,39 @@ graph LR
     C -->|binary messages over HTTP/2| S
 ```
 
-### 2b. The problem, drawn
+**The order form again.**
 
-With many services and many languages, hand-written JSON clients drift apart.
+A **printed order form with numbered boxes**.
 
-```mermaid
-graph TB
-    A["10 services in 4 languages call each other with JSON"] --> B["each team writes a client for each service by hand"]
-    B --> C["the contract lives in old docs and in people's heads"]
-    C --> D["a field changes and one caller breaks in production"]
-```
+- The form says: box 1 is the customer number, box 2 is the name, box 3 is the email. Everyone in the company has the same form.
+- When you fill it in, you do not write the box names. You write only "box 1: 1, box 2: Ana, box 3: ...". That is why the message is short.
+- If someone changes what box 3 means, and somebody else still has the old form, the numbers still go in, and the data is wrong. So you never change a box. You can add box 4. You can cross out box 3 and promise never to use that number again.
 
-### 2c. How it works over time
+Where the analogy stops: a real order form must be filled in. In protobuf, a box that is empty is allowed, and the reader treats it as the default (0, an empty text, false). And a box that the reader does not know is kept, not thrown away.
 
-Three calls to the same server. Notice that a failed call and a slow call end in different ways.
+</details>
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant S as Server
-    C->>S: GetUser id 1 with metadata and a deadline
-    S-->>C: User message in bytes
-    S-->>C: status OK
-    C->>S: GetUser id 99
-    S-->>C: status NOT_FOUND with a message
-    C->>S: SlowCall with a deadline of 100 ms
-    Note over C,S: the server needs 400 ms, the client waits 100 ms
-    C-->>C: gives up with DEADLINE_EXCEEDED
-```
+## 2. What is in the bytes
 
-A **stream** is one call with many messages:
+The same message, `User { id: 1, name: "Ana", email: "ana@example.com" }`, as real protobuf bytes:
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant S as Server
-    C->>S: ListUsers limit 3
-    S-->>C: User Ana
-    S-->>C: User Budi
-    S-->>C: User Siti
-    S-->>C: end of stream and status OK
-```
+| Bytes (hex) | What they mean |
+|---|---|
+| `08` `01` | tag `08` is "field 1, a number", then the value `01` |
+| `12` `03` `41 6e 61` | tag `12` is "field 2, text", then the length 3, then `Ana` |
+| `1a` `0f` `61 6e 61 ...` | tag `1a` is "field 3, text", then the length 15, then `ana@example.com` |
 
-### 2d. What is in the bytes right now
+The tag is `(field number × 8) + kind`. That is **24 bytes** in all, against 47 for the JSON.
+
+<details class="guess"><summary>🤔 Guess: what is the tag byte of field 2, a text? Press to check.</summary>
+
+`2 × 8 + 2 = 18`, which is `0x12`. For field 1 as a number it is `1 × 8 + 0 = 0x08`. For field 3 as a text it is `3 × 8 + 2 = 26 = 0x1a`. The whole message, in hex: `08011203416e611a0f616e61406578616d706c652e636f6d`.
+
+</details>
+
+> **Remember:** the number is the field. The names are not in the bytes.
+
+<details class="more"><summary>📖 More detail: the bytes as they were first written</summary>
 
 This is a real message, made by the protobuf library (checked on 2026-10-23): `User { id: 1, name: "Ana", email: "ana@example.com" }`. Notice that the **field names are not in the bytes**. Only the field **numbers** are.
 
@@ -87,71 +102,36 @@ That is **24 bytes**. The same user as JSON is **47 bytes**: `{"id":1,"name":"An
 
 How the tag is made: `(field number × 8) + kind`. Field 1 as a number: `1 × 8 + 0 = 8 = 0x08`. Field 2 as text: `2 × 8 + 2 = 18 = 0x12`. Field 3 as text: `3 × 8 + 2 = 26 = 0x1a`.
 
-### 2e. Right against wrong
+</details>
 
-**Wrong picture 1:** "A field number is just a label. I can change it when I tidy up."
+## 3. The contract: a `.proto` file
 
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["I renumber email from 3 to 4"]
-    B --> C["an old client still sends email as field 3"]
-    C --> D["the new server reads field 3 as something else, or ignores it, with no error"]
+`service` lists the calls. `message` lists the fields. The `= 1`, `= 2`, `= 3` are the field **numbers**. The word `stream` marks a stream. (A shortened version. The whole file is in the blue bar.)
+
+```proto
+service UserService {
+  rpc GetUser (GetUserRequest)
+    returns (User);
+  rpc ListUsers (ListUsersRequest)
+    returns (stream User);
+}
+message GetUserRequest { int32 id = 1; }
+message User {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
+}
 ```
 
-**Right picture 1:** the number **is** the field. Never change it and never reuse it.
+<details class="guess"><summary>🤔 Guess: which of the two calls sends many answers, and how do you see it? Press to check.</summary>
 
-```mermaid
-graph LR
-    A["Right picture"] --> B["I delete the field and write reserved 3"]
-    B --> C["the compiler refuses any future field with number 3"]
-    C --> D["old and new programs can still talk"]
-```
+`ListUsers`. The word `stream` in `returns (stream User)` marks it: one request, many `User` answers.
 
-**Wrong picture 2:** "No deadline is fine. The server will answer sooner or later."
+</details>
 
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["the client sets no deadline"]
-    B --> C["the server hangs on a slow database"]
-    C --> D["the client waits for ever, and requests pile up behind it"]
-```
+> **Remember:** the `.proto` file is the one contract. Both sides make their code from it.
 
-**Right picture 2:** every call has a deadline, and the deadline is passed along to the next service.
-
-```mermaid
-graph LR
-    A["Right picture"] --> B["the client sets a deadline of 2 seconds"]
-    B --> C["each service passes the time that is left to the next one"]
-    C --> D["when time runs out, everyone stops working"]
-```
-
-### 2f. Which kind of call?
-
-Notice that three of the four use a stream.
-
-```mermaid
-graph TB
-    Q["Which kind of call"] --> A["Unary"]
-    Q --> B["Server streaming"]
-    Q --> C["Client streaming"]
-    Q --> D["Bidirectional streaming"]
-    A --> A1["One request, one answer. Get a user."]
-    B --> B1["One request, many answers. Live prices, a big list."]
-    C --> C1["Many requests, one answer. Upload a file in chunks."]
-    D --> D1["Both sides send many, in any order. Chat."]
-```
-
-## 3. Real life analogy
-
-A **printed order form with numbered boxes**.
-
-- The form says: box 1 is the customer number, box 2 is the name, box 3 is the email. Everyone in the company has the same form.
-- When you fill it in, you do not write the box names. You write only "box 1: 1, box 2: Ana, box 3: ...". That is why the message is short.
-- If someone changes what box 3 means, and somebody else still has the old form, the numbers still go in, and the data is wrong. So you never change a box. You can add box 4. You can cross out box 3 and promise never to use that number again.
-
-Where the analogy stops: a real order form must be filled in. In protobuf, a box that is empty is allowed, and the reader treats it as the default (0, an empty text, false). And a box that the reader does not know is kept, not thrown away.
-
-## 4. The smallest code that shows it
+<details class="more"><summary>📖 More detail: the whole file from my test run</summary>
 
 The contract. This is a real file from my test run:
 
@@ -176,7 +156,76 @@ message User {
 
 Read it like this: `service` lists the calls. `message` lists the fields. The `= 1`, `= 2`, `= 3` are the field **numbers** from section 2d. The word `stream` marks a stream.
 
-## 5. What really happens, step by step
+</details>
+
+## 4. The four kinds of call
+
+| Kind | What it is | Example |
+|---|---|---|
+| Unary | one request, one answer | get a user |
+| Server streaming | one request, many answers | live prices, a big list |
+| Client streaming | many requests, one answer | upload a file in chunks |
+| Bidirectional streaming | both sides send many, in any order | chat |
+
+<details class="guess"><summary>🤔 Guess: you upload a big file in chunks. Which kind of call? Press to check.</summary>
+
+**Client streaming**: many requests (the chunks), one answer. Three of the four kinds use a stream.
+
+</details>
+
+> **Remember:** unary is the plain call. The other three use a stream.
+
+<details class="more"><summary>📖 More detail: the picture, and a stream over time</summary>
+
+**Which kind of call?** Notice that three of the four use a stream.
+
+```mermaid
+graph TB
+    Q["Which kind of call"] --> A["Unary"]
+    Q --> B["Server streaming"]
+    Q --> C["Client streaming"]
+    Q --> D["Bidirectional streaming"]
+    A --> A1["One request, one answer. Get a user."]
+    B --> B1["One request, many answers. Live prices, a big list."]
+    C --> C1["Many requests, one answer. Upload a file in chunks."]
+    D --> D1["Both sides send many, in any order. Chat."]
+```
+
+**A stream is one call with many messages.**
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: ListUsers limit 3
+    S-->>C: User Ana
+    S-->>C: User Budi
+    S-->>C: User Siti
+    S-->>C: end of stream and status OK
+```
+
+</details>
+
+## 5. The error is in the trailers, not in the HTTP status
+
+A real Node client and server (`@grpc/grpc-js` 1.14.6), using the file above. This is what came back (checked on 2026-10-29):
+
+```
+GetUser(1)  -> {"id":1,"name":"Ana",...}
+GetUser(99) -> code 5 NOT_FOUND
+ListUsers   -> got Ana, got Budi, got Siti
+SlowCall (100 ms deadline) -> code 4 DEADLINE_EXCEEDED
+```
+
+<details class="guess"><summary>🤔 Guess: `GetUser(99)` fails with `NOT_FOUND`. What is the HTTP status of that answer? Press to check.</summary>
+
+**200.** The error is in the trailers: `grpc-status: 5` and `grpc-message: No user with that id`. So an HTTP monitor that only looks at status codes sees a healthy line. Look at `grpc-status` (your library gives it as `err.code`), and count it in your metrics.
+
+</details>
+
+> **Remember:** the HTTP status of a gRPC answer is 200 even when the call failed. Read `grpc-status`.
+
+<details class="more"><summary>📖 More detail: the first run, the calls over time, and every step</summary>
 
 A real Node client and server (`@grpc/grpc-js` 1.14.6 with `@grpc/proto-loader`), using the file above. The client calls `client.GetUser({ id: 1 }, callback)` and the server answers from a small list. This is what came back (checked on 2026-10-23):
 
@@ -187,6 +236,24 @@ ListUsers   -> got Ana, got Budi, got Siti, stream ended
 SlowCall with a deadline of 100 ms (the server needs 400 ms)
             -> code 4 DEADLINE_EXCEEDED after ~100 ms
 ```
+
+**Three calls over time.** Notice that a failed call and a slow call end in different ways.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: GetUser id 1 with metadata and a deadline
+    S-->>C: User message in bytes
+    S-->>C: status OK
+    C->>S: GetUser id 99
+    S-->>C: status NOT_FOUND with a message
+    C->>S: SlowCall with a deadline of 100 ms
+    Note over C,S: the server needs 400 ms, the client waits 100 ms
+    C-->>C: gives up with DEADLINE_EXCEEDED
+```
+
+**What travels for the first call.**
 
 What travels for the first call, from the gRPC HTTP/2 specification:
 
@@ -203,61 +270,59 @@ The last row is a surprise. For an error, the HTTP status is **still 200**. The 
 
 **Step through it yourself:** [open the gRPC stepper](visuals/16-grpc.html). It has five stories: a message turning into bytes, a unary call with metadata, errors and retries, deadlines passed between services, and streaming. Guess first, then press Next.
 
-## 6. Why it exists and what it costs
+**Mistake: watching HTTP status codes to find errors.**
 
-- **Problem without it:** many services and many languages, each with hand-written clients, and a contract that is only in documents. JSON is big and slow to read, and has no streaming.
-- **How it solves it:** one `.proto` contract makes the code on both sides. The messages are small and fast to read. HTTP/2 gives many calls on one connection, and four kinds of call with streaming. Deadlines and cancel are part of the protocol.
-- **Cost:**
-  - **A browser cannot call it directly.** You need gRPC-Web with a proxy (Envoy is the default), or a library like Connect. gRPC-Web supports unary and server streaming, but not client or two-way streaming.
-  - **It is hard to read by eye.** The bytes are binary. You need a tool such as `grpcurl` to try a call.
-  - **Load balancing is different.** One HTTP/2 connection carries all the calls of one client, so a balancer that works on connections sends them all to one server. You need a balancer that understands HTTP/2 calls, or the client must choose a server itself.
-  - **You must manage the contract.** Field numbers are forever. A careless change breaks old callers without any error.
-  - **No deadline by default.** If you forget, the client can wait for ever.
-  - **It is a poor fit for a public API.** Outside callers expect REST and JSON.
+**Wrong:** watching HTTP status codes to find errors.
 
-<details><summary>Go deeper (optional): status codes, field rules, retries, gRPC-Web and Connect</summary>
+**Right:** look at `grpc-status` in the trailers (your client library gives it as `err.code`), and count it in your metrics.
 
-**Status codes (docs checked 2026-10-23) and the usual HTTP mapping** (from Google's `code.proto`, which is used by gateways):
-
-| Code | Name | Usual HTTP |
-|---|---|---|
-| 0 | OK | 200 |
-| 1 | CANCELLED | 499 |
-| 2 | UNKNOWN | 500 |
-| 3 | INVALID_ARGUMENT | 400 |
-| 4 | DEADLINE_EXCEEDED | 504 |
-| 5 | NOT_FOUND | 404 |
-| 6 | ALREADY_EXISTS | 409 |
-| 7 | PERMISSION_DENIED | 403 |
-| 8 | RESOURCE_EXHAUSTED | 429 |
-| 9 | FAILED_PRECONDITION | 400 |
-| 10 | ABORTED | 409 |
-| 11 | OUT_OF_RANGE | 400 |
-| 12 | UNIMPLEMENTED | 501 |
-| 13 | INTERNAL | 500 |
-| 14 | UNAVAILABLE | 503 |
-| 15 | DATA_LOSS | 500 |
-| 16 | UNAUTHENTICATED | 401 |
-
-Compare with lesson 10. The meanings in the gRPC docs: `UNAVAILABLE` is "retry with backoff". `ABORTED` is a conflict, "retry at a higher level". `FAILED_PRECONDITION` means the system is not in the right state, "do not retry until it is fixed".
-
-**Field rules (proto3 guide).** A field number is from 1 to 536,870,911. The numbers 19,000 to 19,999 are reserved for the library. Numbers 1 to 15 take one byte for the tag, so give them to the fields you use most. Never reuse a number. When you delete a field, list its number with `reserved`, and the compiler stops anyone from using it again. A missing field reads as its default (0, an empty text, false). Unknown fields are kept in the binary form. Turning a message into JSON can drop them.
-
-**The number format.** A number is sent as a *varint*: 7 bits of value in each byte, and the top bit says "another byte follows". So 1 is `01`, and 150 is `96 01`. A text is sent as a tag, a length, then the UTF-8 bytes. Your exercise builds this.
-
-**Deadlines (docs).** gRPC sets no deadline by default, and the docs say you should always set a realistic one. When a server calls another service, it should pass the original deadline on. Java and Go do this by default. C++ needs it to be turned on. To avoid trouble from different clocks, gRPC sends the time that is **left**, not the time of day.
-
-**Retries (docs).** Retries are set in the *service config*, per method. A policy names the retryable status codes (the example uses `UNAVAILABLE`), `maxAttempts` (the example uses 4) and an exponential backoff with 20% of random jitter. *Hedging* sends the same call to more than one server and takes the first answer. Some retries happen without any policy ("transparent retries") when the call never reached your code.
-
-**Load balancing (gRPC blog).** A connection-level (L4) balancer sends all the calls of one client to one backend. Two ways around it: a proxy that understands HTTP/2 and spreads the calls (it adds a hop), or client-side balancing (the client knows the backends, so it needs more logic).
-
-**Browsers.** gRPC-Web uses a special proxy, and by default Envoy. Its README says it supports unary calls and server streaming, and that client and two-way streaming are not supported. **Connect** (`@connectrpc/connect` 2.2.0 on npm today) is a family of libraries that speaks its own protocol, gRPC, and gRPC-Web. Its servers accept all three by default, and it works in browsers with no Envoy. Any gRPC client can call a Connect server.
-
-**Versions.** On 2026-10-23, npm showed `@grpc/grpc-js` 1.14.6 and `@grpc/proto-loader` 0.8.1.
+**Why:** the HTTP status of a gRPC answer is `200` even when the call failed.
 
 </details>
 
-## 7. Common mistakes
+## 6. Always set a deadline
+
+gRPC has **no deadline by default**. If you forget, the client can wait for ever.
+
+```js
+// wrong: can wait for ever
+client.GetUser({ id: 1 }, cb);
+// right: stop waiting after 2 seconds
+client.GetUser({ id: 1 },
+  { deadline: Date.now() + 2000 }, cb);
+```
+
+<details class="guess"><summary>🤔 Guess: no deadline, and the server hangs on a slow database. What happens to the callers above it? Press to check.</summary>
+
+They wait for ever, and requests pile up behind them. One slow service holds every caller above it. With a deadline of 100 ms, the slow call ended with `DEADLINE_EXCEEDED` (code 4) after about 100 ms. Pass the time that is left to the next service.
+
+</details>
+
+> **Remember:** every call has a deadline, and the deadline is passed along.
+
+<details class="more"><summary>📖 More detail: wrong picture 2 and right picture 2, and the mistake as written</summary>
+
+**Wrong picture 2 and right picture 2.**
+
+**Wrong picture 2:** "No deadline is fine. The server will answer sooner or later."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["the client sets no deadline"]
+    B --> C["the server hangs on a slow database"]
+    C --> D["the client waits for ever, and requests pile up behind it"]
+```
+
+**Right picture 2:** every call has a deadline, and the deadline is passed along to the next service.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["the client sets a deadline of 2 seconds"]
+    B --> C["each service passes the time that is left to the next one"]
+    C --> D["when time runs out, everyone stops working"]
+```
+
+**The mistake.**
 
 **Wrong:** no deadline.
 
@@ -273,6 +338,54 @@ client.GetUser({ id: 1 }, { deadline: Date.now() + 2000 }, (err, user) => { ... 
 
 **Why:** gRPC has no deadline by default. One slow service then holds every caller above it.
 
+</details>
+
+## 7. Mistake 1: changing or reusing a field number
+
+```proto
+// email was field 3 and was deleted
+message User {
+  int32 id = 1; string name = 2;
+  string phone = 3;      // wrong: reused
+}
+// right: reserve it, use a new number
+message User { reserved 3;
+  int32 id = 1; string name = 2;
+  string phone = 4; }
+```
+
+<details class="guess"><summary>🤔 Guess: an old caller still sends field 3 as an email. The new server has field 3 as a phone. What happens? Press to check.</summary>
+
+The server reads the email as a **phone**, with no error. The number **is** the field. Never change it and never reuse it. `reserved 3` makes the compiler refuse any future field with that number.
+
+</details>
+
+> **Remember:** delete a field, write `reserved`, and never reuse the number.
+
+<details class="more"><summary>📖 More detail: wrong picture 1 and right picture 1, and the mistake as written</summary>
+
+**Wrong picture 1 and right picture 1.**
+
+**Wrong picture 1:** "A field number is just a label. I can change it when I tidy up."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["I renumber email from 3 to 4"]
+    B --> C["an old client still sends email as field 3"]
+    C --> D["the new server reads field 3 as something else, or ignores it, with no error"]
+```
+
+**Right picture 1:** the number **is** the field. Never change it and never reuse it.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["I delete the field and write reserved 3"]
+    B --> C["the compiler refuses any future field with number 3"]
+    C --> D["old and new programs can still talk"]
+```
+
+**The mistake.**
+
 **Wrong:** changing or reusing a field number.
 
 ```proto
@@ -287,17 +400,24 @@ message User { reserved 3; int32 id = 1; string name = 2; string phone = 4; }
 
 **Why:** an old caller that still sends field 3 as an email would now be read as a phone.
 
-**Wrong:** watching HTTP status codes to find errors.
+</details>
 
-**Right:** look at `grpc-status` in the trailers (your client library gives it as `err.code`), and count it in your metrics.
+## 8. Mistake 2: retrying every error
 
-**Why:** the HTTP status of a gRPC answer is `200` even when the call failed.
+```js
+// wrong
+if (err) return retry();
+```
 
-**Wrong:** calling a gRPC service straight from a browser, or from a plain `fetch`.
+<details class="guess"><summary>🤔 Guess: which gRPC code is safe to retry, and which is not? Press to check.</summary>
 
-**Right:** use gRPC-Web with a proxy, or Connect. Or put a REST or GraphQL layer in front for browsers.
+Retry `UNAVAILABLE`, with backoff. Do **not** retry `INVALID_ARGUMENT`, `NOT_FOUND` or `PERMISSION_DENIED`, because the next try will fail in the same way. A retry of a bad request only adds load.
 
-**Why:** gRPC-Web needs a proxy that translates between the browser's HTTP and gRPC (Envoy by default). Connect speaks gRPC-Web itself, so it needs no Envoy.
+</details>
+
+> **Remember:** retry only what a retry can fix.
+
+<details class="more"><summary>📖 More detail: the mistake as written</summary>
 
 **Wrong:** retrying every error.
 
@@ -309,13 +429,62 @@ if (err) return retry();
 
 **Why:** a retry of a bad request only adds load.
 
+</details>
+
+## 9. Mistake 3: a browser or a balancer that does not speak gRPC
+
+Two surprises with HTTP/2:
+
+| Where | What goes wrong | The fix |
+|---|---|---|
+| a browser | it cannot call gRPC directly, or with a plain `fetch` | gRPC-Web with a proxy (Envoy), or Connect. Or a REST or GraphQL layer for browsers. |
+| a connection-level load balancer | all the calls of one client share one connection, so they land on one server | a balancer that understands HTTP/2 calls, or client-side balancing |
+
+<details class="guess"><summary>🤔 Guess: a client opens one connection, and the balancer works per connection. How many of its calls reach each of your 5 servers? Press to check.</summary>
+
+All of them reach **one** server, and the other four get none. One HTTP/2 connection carries all the calls of one client.
+
+</details>
+
+> **Remember:** a browser needs gRPC-Web or Connect. A balancer must understand HTTP/2 calls.
+
+<details class="more"><summary>📖 More detail: the two mistakes as written</summary>
+
+**Wrong:** calling a gRPC service straight from a browser, or from a plain `fetch`.
+
+**Right:** use gRPC-Web with a proxy, or Connect. Or put a REST or GraphQL layer in front for browsers.
+
+**Why:** gRPC-Web needs a proxy that translates between the browser's HTTP and gRPC (Envoy by default). Connect speaks gRPC-Web itself, so it needs no Envoy.
+
 **Wrong:** a connection-level load balancer in front of many servers.
 
 **Right:** a balancer that understands HTTP/2 calls, or client-side balancing.
 
 **Why:** all the calls of one client share one connection, so they all land on one server.
 
-## 8. Watch and play
+</details>
+
+## 10. Why it matters and what it costs
+
+- **Without it:** many services and many languages, each with hand-written clients, and a contract that is only in documents. JSON is big and slow to read, and has no streaming.
+- **With it:** one `.proto` contract makes the code on both sides. The messages are small and fast to read. HTTP/2 gives many calls on one connection, and four kinds of call.
+- **The cost:** a browser cannot call it directly, it is hard to read by eye, load balancing is different, field numbers are forever, there is no deadline by default, and it is a poor fit for a public API.
+
+<details class="more"><summary>📖 More detail: the costs as they were written</summary>
+
+- **Problem without it:** many services and many languages, each with hand-written clients, and a contract that is only in documents. JSON is big and slow to read, and has no streaming.
+- **How it solves it:** one `.proto` contract makes the code on both sides. The messages are small and fast to read. HTTP/2 gives many calls on one connection, and four kinds of call with streaming. Deadlines and cancel are part of the protocol.
+- **Cost:**
+  - **A browser cannot call it directly.** You need gRPC-Web with a proxy (Envoy is the default), or a library like Connect. gRPC-Web supports unary and server streaming, but not client or two-way streaming.
+  - **It is hard to read by eye.** The bytes are binary. You need a tool such as `grpcurl` to try a call.
+  - **Load balancing is different.** One HTTP/2 connection carries all the calls of one client, so a balancer that works on connections sends them all to one server. You need a balancer that understands HTTP/2 calls, or the client must choose a server itself.
+  - **You must manage the contract.** Field numbers are forever. A careless change breaks old callers without any error.
+  - **No deadline by default.** If you forget, the client can wait for ever.
+  - **It is a poor fit for a public API.** Outside callers expect REST and JSON.
+
+</details>
+
+## 11. Watch and play
 
 Links checked on 2026-10-23. I opened every page. For the video I checked only the title and the channel, not the content.
 
@@ -339,7 +508,7 @@ Links checked on 2026-10-23. I opened every page. For the video I checked only t
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -482,7 +651,7 @@ Notice four things. `encodeVarint` uses division and `%`, not bit shifts, becaus
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "What is gRPC and how is it different from REST? When would you use it? What are deadlines, and how do you change a message without breaking callers?"
 
@@ -495,7 +664,7 @@ Notice four things. `encodeVarint` uses division and `%`, not bit shifts, becaus
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain it out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "contract", "field number" and "deadline". Then save the transcript into `my-learning/recordings/`, or write your best version below. Run `/explain-check grpc` or ask the `explain-coach` agent to review it.
 
@@ -507,7 +676,7 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. What is in the bytes of a protobuf message: the field names, or the field numbers? Why does that matter when you change a message?
 2. A gRPC call fails with `NOT_FOUND`. What is the HTTP status of the answer, and where is the real error?
@@ -520,6 +689,52 @@ Close this file. Press the **Record my explanation** button under this heading a
 2. The HTTP status is still **200**. The error is in the trailers: `grpc-status: 5` (NOT_FOUND) and `grpc-message` with the text. Your client library shows it as the error code.
 3. gRPC sets no deadline by default, so the client can wait for ever, and a slow service holds up everyone above it. Always set a realistic deadline, and let each service pass on the time that is left to the next call.
 4. `08 01`: field 1 as a number, value 1. `12 03 41 6e 61`: field 2 as text, length 3, `Ana`. `1a 0f ...`: field 3 as text, length 15, `ana@example.com`. 24 bytes in all, against 47 for the same data in JSON.
+
+</details>
+
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Status codes, field rules, retries, gRPC-Web and Connect</summary>
+
+**Status codes (docs checked 2026-10-23) and the usual HTTP mapping** (from Google's `code.proto`, which is used by gateways):
+
+| Code | Name | Usual HTTP |
+|---|---|---|
+| 0 | OK | 200 |
+| 1 | CANCELLED | 499 |
+| 2 | UNKNOWN | 500 |
+| 3 | INVALID_ARGUMENT | 400 |
+| 4 | DEADLINE_EXCEEDED | 504 |
+| 5 | NOT_FOUND | 404 |
+| 6 | ALREADY_EXISTS | 409 |
+| 7 | PERMISSION_DENIED | 403 |
+| 8 | RESOURCE_EXHAUSTED | 429 |
+| 9 | FAILED_PRECONDITION | 400 |
+| 10 | ABORTED | 409 |
+| 11 | OUT_OF_RANGE | 400 |
+| 12 | UNIMPLEMENTED | 501 |
+| 13 | INTERNAL | 500 |
+| 14 | UNAVAILABLE | 503 |
+| 15 | DATA_LOSS | 500 |
+| 16 | UNAUTHENTICATED | 401 |
+
+Compare with lesson 10. The meanings in the gRPC docs: `UNAVAILABLE` is "retry with backoff". `ABORTED` is a conflict, "retry at a higher level". `FAILED_PRECONDITION` means the system is not in the right state, "do not retry until it is fixed".
+
+**Field rules (proto3 guide).** A field number is from 1 to 536,870,911. The numbers 19,000 to 19,999 are reserved for the library. Numbers 1 to 15 take one byte for the tag, so give them to the fields you use most. Never reuse a number. When you delete a field, list its number with `reserved`, and the compiler stops anyone from using it again. A missing field reads as its default (0, an empty text, false). Unknown fields are kept in the binary form. Turning a message into JSON can drop them.
+
+**The number format.** A number is sent as a *varint*: 7 bits of value in each byte, and the top bit says "another byte follows". So 1 is `01`, and 150 is `96 01`. A text is sent as a tag, a length, then the UTF-8 bytes. Your exercise builds this.
+
+**Deadlines (docs).** gRPC sets no deadline by default, and the docs say you should always set a realistic one. When a server calls another service, it should pass the original deadline on. Java and Go do this by default. C++ needs it to be turned on. To avoid trouble from different clocks, gRPC sends the time that is **left**, not the time of day.
+
+**Retries (docs).** Retries are set in the *service config*, per method. A policy names the retryable status codes (the example uses `UNAVAILABLE`), `maxAttempts` (the example uses 4) and an exponential backoff with 20% of random jitter. *Hedging* sends the same call to more than one server and takes the first answer. Some retries happen without any policy ("transparent retries") when the call never reached your code.
+
+**Load balancing (gRPC blog).** A connection-level (L4) balancer sends all the calls of one client to one backend. Two ways around it: a proxy that understands HTTP/2 and spreads the calls (it adds a hop), or client-side balancing (the client knows the backends, so it needs more logic).
+
+**Browsers.** gRPC-Web uses a special proxy, and by default Envoy. Its README says it supports unary calls and server streaming, and that client and two-way streaming are not supported. **Connect** (`@connectrpc/connect` 2.2.0 on npm today) is a family of libraries that speaks its own protocol, gRPC, and gRPC-Web. Its servers accept all three by default, and it works in browsers with no Envoy. Any gRPC client can call a Connect server.
+
+**Versions.** On 2026-10-23, npm showed `@grpc/grpc-js` 1.14.6 and `@grpc/proto-loader` 0.8.1.
 
 </details>
 
