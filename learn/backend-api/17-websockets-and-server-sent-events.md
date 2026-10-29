@@ -1,14 +1,34 @@
 # 17. WebSockets and Server-Sent Events
 
-> **Subject:** Backend and API · **Lesson:** 17 · **Made:** 2026-10-23 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 17 · **Made:** 2026-10-23 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** explain polling, Server-Sent Events and WebSockets and choose between them, show how a WebSocket starts, read the event stream format, and say what changes when you run more than one server.
+>
 > **Before this:** [gRPC](16-grpc.md) · **Next:** [Choosing an API style](18-choosing-an-api-style.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: three ways to follow a football match
 
-When the server has news, it should be able to tell the client at once, without the client asking again and again, and you must plan for the connection to break.
+When the server has news, it should tell the client at once, without the client asking again and again. Think of three ways to follow a match.
 
-New words:
+| Way | Like | Who talks |
+|---|---|---|
+| **Polling** | phoning the stadium every minute | the client asks, again and again |
+| **SSE** (Server-Sent Events) | a **radio** | the server only |
+| **WebSocket** | a **phone call** | both sides, any time |
+
+<details class="guess"><summary>🤔 Guess: 1000 users check for new messages every 2 seconds. How many requests does the server get each second? Press to check.</summary>
+
+**500.** Almost every answer says "nothing new". The server is busy for no reason, and news can still be 2 seconds late.
+
+</details>
+
+> **Remember:** use the simplest one that works. Polling for rare news, SSE for one-way pushes, WebSocket when both sides talk. Connections drop, so plan for reconnects.
+
+<details class="more"><summary>📖 More detail: four new words, the problem, and the full picture</summary>
+
+**New words.**
 
 - **Polling:** the client asks again and again, "anything new?"
 - **Server-Sent Events (SSE):** the server keeps one HTTP answer open and pushes text events down it. It goes one way only: server to client.
@@ -17,11 +37,16 @@ New words:
 
 The rule to remember: **use the simplest one that works. Polling for rare news, SSE for one-way pushes, WebSocket when both sides talk. Connections drop, so plan for reconnects.**
 
-## 2. The pictures
+**The problem, drawn.** Polling costs a request for every "no".
 
-### 2a. The big picture
+```mermaid
+graph TB
+    U["1000 users check for new messages every 2 seconds"] --> R["500 requests every second"]
+    R --> E["almost every answer says: nothing new"]
+    E --> D["the server is busy for no reason, and news can still be 2 seconds late"]
+```
 
-Four ways to get new data. Notice that they get more powerful, and more work, from top to bottom.
+**The big picture.** Notice that they get more powerful, and more work, from top to bottom.
 
 ```mermaid
 graph TB
@@ -31,62 +56,57 @@ graph TB
     N --> D["WebSocket: one open line, and both sides send"]
 ```
 
-### 2b. The problem, drawn
-
-Polling costs a request for every "no".
+**Which one?** Notice that the question is who talks.
 
 ```mermaid
 graph TB
-    U["1000 users check for new messages every 2 seconds"] --> R["500 requests every second"]
-    R --> E["almost every answer says: nothing new"]
-    E --> D["the server is busy for no reason, and news can still be 2 seconds late"]
+    Q["What does the client need"] --> A["News now and then, a small delay is fine"]
+    Q --> B["Live updates, from the server only"]
+    Q --> C["Both sides send often"]
+    A --> A1["Polling. Simplest, and it works everywhere."]
+    B --> B1["SSE. Plain HTTP, text only, reconnects for you."]
+    C --> C1["WebSocket. Two ways, text or binary. You build the rest."]
 ```
 
-### 2c. How it works over time
+**The football match again.**
 
-**A WebSocket.** Notice that it starts as a normal HTTP request, and then the same connection changes language.
+Three ways to follow a football match.
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant S as Server
-    C->>S: GET chat with Upgrade websocket and a Sec-WebSocket-Key
-    S-->>C: 101 Switching Protocols with Sec-WebSocket-Accept
-    Note over C,S: the same connection now speaks WebSocket
-    C->>S: message hello
-    S-->>C: echo hello
-    S-->>C: a message from another user
-    C->>S: close with code 1000
-    S-->>C: close
-```
+- **Polling** is phoning the stadium every minute and asking "who is winning?" Most calls get "same as before."
+- **SSE** is a **radio**. You tune in, and the station talks. You cannot talk back. If the signal drops, the radio retunes by itself, and you can tell the station the last thing you heard, so it can catch you up.
+- **WebSocket** is a **phone call**. Both people talk, and either can hang up. But if the line goes dead without a click, nobody knows. And you must redial yourself.
 
-**Server-Sent Events.** Notice how the client resumes after a break.
+Where the analogy stops: after a hang-up, a phone call is gone. For a WebSocket you can build a "remember where we were" scheme with ids, but you must do it yourself. SSE has it built in.
 
-```mermaid
-sequenceDiagram
-    participant C as Client EventSource
-    participant S as Server
-    C->>S: GET events
-    S-->>C: 200 with content type text/event-stream
-    S-->>C: id 1 event price data 65000
-    S-->>C: id 2 event price data 65500
-    Note over C,S: the connection drops
-    C->>S: GET events with Last-Event-ID 2
-    S-->>C: id 3 event note
-```
+</details>
 
-### 2d. What is on the wire right now
+## 2. SSE: one open answer, in plain text
 
-Both are real, from a real Node server (checked on 2026-10-23). First, the **WebSocket handshake answer**. curl sent the example key from the standard (RFC 6455), and the server answered:
+With **SSE**, the server answers a normal `GET`, with `Content-Type: text/event-stream`, and **does not finish the answer**. It keeps writing events as text. A line is `name: value`. A **blank line** ends an event.
 
 ```
-HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+id: 1
+event: price
+data: 65000
+
+id: 3
+event: note
+data: line one
+data: line two
+
 ```
 
-The accept value is a computation: take the client's `Sec-WebSocket-Key`, add a fixed text from the standard (`258EAFA5-E914-47DA-95CA-C5AB0DC85B11`), make a SHA-1 hash, and write it in base64. For the example key `dGhlIHNhbXBsZSBub25jZQ==` the standard says the answer is `s3pPLMBiTxaQ9kYGzzhZRbK+xOo=`. My server gave exactly that. You build this in the exercise.
+<details class="guess"><summary>🤔 Guess: event 3 has two `data` lines. What is the data of that event? Press to check.</summary>
+
+`line one` and `line two`, joined with a newline. Two `data` lines are one event. Checked with a real Node server on 2026-10-29: the raw stream was `id: 3\nevent: note\ndata: line one\ndata: line two\n\n`.
+
+</details>
+
+> **Remember:** SSE is plain HTTP and plain text. A blank line ends an event.
+
+<details class="more"><summary>📖 More detail: the real stream, the SSE steps, and the picture</summary>
+
+**The event stream, with the `\n` shown on purpose.**
 
 Second, the **event stream**, with the `\n` shown on purpose:
 
@@ -112,7 +132,36 @@ data: line two\n
 
 It is plain text. A line is `name: value`. A **blank line** ends an event. A line that starts with `:` is a comment. Two `data` lines are joined with a newline, so event 3 is `line one` and `line two`.
 
-### 2e. Right against wrong
+**SSE, step by step.**
+
+| Step | Who | What happens |
+|---|---|---|
+| 1 | Browser | `new EventSource("/events")` makes a `GET`. |
+| 2 | Server | Answers `200` with `Content-Type: text/event-stream` and **does not finish the answer**. |
+| 3 | Server | Writes events as they happen: `id`, `event`, `data`, then a blank line. |
+| 4 | Server | Sends a comment line (`:`) every 15 seconds or so, so proxies do not close an idle connection. (The standard suggests this.) |
+| 5 | Both | The connection drops. The browser waits (a few seconds by default, or the `retry` value) and reconnects. |
+| 6 | Browser | Sends `Last-Event-ID: 2`, the last `id` it saw. |
+| 7 | Server | Sends only what came after 2. I tested it: with `Last-Event-ID: 2`, only event 3 came back. |
+
+A server can stop the reconnects by answering `204 No Content`.
+
+**SSE over time.** Notice how the client resumes after a break.
+
+```mermaid
+sequenceDiagram
+    participant C as Client EventSource
+    participant S as Server
+    C->>S: GET events
+    S-->>C: 200 with content type text/event-stream
+    S-->>C: id 1 event price data 65000
+    S-->>C: id 2 event price data 65500
+    Note over C,S: the connection drops
+    C->>S: GET events with Last-Event-ID 2
+    S-->>C: id 3 event note
+```
+
+**Wrong picture 1 and right picture 1.**
 
 **Wrong picture 1:** "WebSocket is the modern one, so I use it for everything."
 
@@ -132,67 +181,151 @@ graph LR
     C --> D["WebSocket is kept for two-way talk"]
 ```
 
-**Wrong picture 2:** "Add more servers and everything scales."
+**Mistake: WebSocket for a one-way feed.**
 
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["Ana is connected to server 1, Budi to server 2"]
-    B --> C["Budi sends a message, and server 2 only knows its own clients"]
-    C --> D["Ana never gets it"]
+**Wrong:** WebSocket for a one-way feed.
+
+```js
+const ws = new WebSocket(url);      // only ever listens, and has no reconnect code
 ```
 
-**Right picture 2:** the servers share messages through a message bus, such as Redis Pub/Sub.
+**Right:** `new EventSource(url)`. It reconnects and resumes by itself.
 
-```mermaid
-graph LR
-    A["Right picture"] --> B["Budi's message goes to server 2"]
-    B --> C["server 2 publishes it on the bus"]
-    C --> D["every server tells its own clients, so Ana gets it"]
-```
+**Why:** you get less code and plain HTTP. Keep WebSocket for two-way talk.
 
-**Wrong picture 3:** "When the connection drops, reconnect at once, in a loop."
+</details>
 
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["the server restarts"]
-    B --> C["10000 clients reconnect in the same second"]
-    C --> D["the server is hit by a wave and falls over again"]
-```
+## 3. SSE reconnects and resumes by itself
 
-**Right picture 3:** wait a little longer after each failure, and add some random time.
+When the connection drops, the browser waits a few seconds and reconnects. It sends `Last-Event-ID`, the last `id` it saw.
 
-```mermaid
-graph LR
-    A["Right picture"] --> B["each client waits a random time, up to a limit that doubles"]
-    B --> C["the reconnects spread out over many seconds"]
-    C --> D["the server comes back smoothly"]
-```
+| Step | What happens |
+|---|---|
+| 1 | The server sent events 1 and 2. The connection drops. |
+| 2 | The browser reconnects with `Last-Event-ID: 2`. |
+| 3 | The server sends only what came after 2: event 3. |
 
-### 2f. Which one?
+<details class="guess"><summary>🤔 Guess: the browser reconnects with `Last-Event-ID: 2`. Which events come back? Press to check.</summary>
 
-Notice that the question is who talks.
+Only event 3. Checked with a real Node server on 2026-10-29. This resume is built in for SSE. A WebSocket has no built-in resume, so give your events ids, and fetch what you missed over plain HTTP.
+
+</details>
+
+> **Remember:** SSE has resume built in (`id` and `Last-Event-ID`). WebSocket does not.
+
+<details class="more"><summary>📖 More detail: the mistake as written</summary>
+
+**Mistake: trusting that every message arrives.**
+
+**Wrong:** trusting that every message arrives.
+
+**Right:** give events ids. On reconnect, resume from the last id, or fetch what you missed over plain HTTP.
+
+**Why:** the connection can drop at any moment, and the message in flight is lost.
+
+</details>
+
+## 4. A WebSocket starts as HTTP
+
+A WebSocket begins as a normal HTTP request. Then the same connection **changes language**.
 
 ```mermaid
 graph TB
-    Q["What does the client need"] --> A["News now and then, a small delay is fine"]
-    Q --> B["Live updates, from the server only"]
-    Q --> C["Both sides send often"]
-    A --> A1["Polling. Simplest, and it works everywhere."]
-    B --> B1["SSE. Plain HTTP, text only, reconnects for you."]
-    C --> C1["WebSocket. Two ways, text or binary. You build the rest."]
+    A["Client sends a normal GET<br/>Upgrade: websocket<br/>and a Sec-WebSocket-Key"] --> B["Server answers<br/>101 Switching Protocols<br/>and Sec-WebSocket-Accept"]
+    B --> C["The same connection<br/>now carries frames<br/>both sides can send"]
 ```
 
-## 3. Real life analogy
+<details class="guess"><summary>🤔 Guess: which status does the server send for the handshake? Press to check.</summary>
 
-Three ways to follow a football match.
+**101 Switching Protocols.** The accept value is a computation: take the client's `Sec-WebSocket-Key`, add a fixed text from the standard, make a SHA-1 hash, and write it in base64. For the example key `dGhlIHNhbXBsZSBub25jZQ==` it is `s3pPLMBiTxaQ9kYGzzhZRbK+xOo=` (computed again on 2026-10-29).
 
-- **Polling** is phoning the stadium every minute and asking "who is winning?" Most calls get "same as before."
-- **SSE** is a **radio**. You tune in, and the station talks. You cannot talk back. If the signal drops, the radio retunes by itself, and you can tell the station the last thing you heard, so it can catch you up.
-- **WebSocket** is a **phone call**. Both people talk, and either can hang up. But if the line goes dead without a click, nobody knows. And you must redial yourself.
+</details>
 
-Where the analogy stops: after a hang-up, a phone call is gone. For a WebSocket you can build a "remember where we were" scheme with ids, but you must do it yourself. SSE has it built in.
+> **Remember:** it starts as HTTP, then the same connection speaks WebSocket.
 
-## 4. The smallest code that shows it
+<details class="more"><summary>📖 More detail: the handshake over time, the real answer, and every step</summary>
+
+**A WebSocket over time.**
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: GET chat with Upgrade websocket and a Sec-WebSocket-Key
+    S-->>C: 101 Switching Protocols with Sec-WebSocket-Accept
+    Note over C,S: the same connection now speaks WebSocket
+    C->>S: message hello
+    S-->>C: echo hello
+    S-->>C: a message from another user
+    C->>S: close with code 1000
+    S-->>C: close
+```
+
+**The real handshake answer.**
+
+Both are real, from a real Node server (checked on 2026-10-23). First, the **WebSocket handshake answer**. curl sent the example key from the standard (RFC 6455), and the server answered:
+
+```
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+```
+
+The accept value is a computation: take the client's `Sec-WebSocket-Key`, add a fixed text from the standard (`258EAFA5-E914-47DA-95CA-C5AB0DC85B11`), make a SHA-1 hash, and write it in base64. For the example key `dGhlIHNhbXBsZSBub25jZQ==` the standard says the answer is `s3pPLMBiTxaQ9kYGzzhZRbK+xOo=`. My server gave exactly that. You build this in the exercise.
+
+**A WebSocket, step by step.**
+
+**A WebSocket, step by step**
+
+| Step | Who | What happens |
+|---|---|---|
+| 1 | Client | Sends a normal HTTP `GET` with `Upgrade: websocket`, `Connection: Upgrade`, `Sec-WebSocket-Version: 13` and a random `Sec-WebSocket-Key`. |
+| 2 | Server | Makes the accept value from the key and answers `101 Switching Protocols` with `Sec-WebSocket-Accept`. |
+| 3 | Both | The same connection now carries **frames**, not HTTP. Either side can send at any time. |
+| 4 | Both | A **ping** frame is answered by a **pong** frame. This is the heartbeat. It finds a dead line, and keeps the line from being closed for being idle. |
+| 5 | Either | Sends a **close** frame with a code, and the other side answers. In my run, a client that closed with code `1000` gave `1000` on the server. |
+
+Frames from the browser to the server are **masked** (the standard requires it), and the server's frames are not. Your library does this for you.
+
+**What I saw when connections ended in different ways.**
+
+**What I saw when connections ended in different ways (real run):**
+
+| How it ended | Code the server library reported |
+|---|---|
+| The client sent a close with code `1000` | `1000` (normal closure) |
+| The client closed with no code | `1005` (no code was given) |
+| curl just dropped the line, with no close frame | `1006` (abnormal: no close frame at all) |
+
+**Step through it yourself:** [open the WebSockets and SSE stepper](visuals/17-websockets-and-server-sent-events.html). It has five stories: polling against push, the WebSocket handshake, an SSE stream that drops and resumes, many servers (wrong, then right), and a reconnect storm. Guess first, then press Next.
+
+</details>
+
+## 5. The smallest code that shows it
+
+The browser side of SSE, and the browser side of a WebSocket. Node 22 or later has `WebSocket` built in.
+
+```js
+// SSE, in the browser
+const es = new EventSource("/events");
+es.addEventListener("price",
+  (e) => console.log(e.data));
+// WebSocket, in the browser
+const ws = new WebSocket("wss://x.com/chat");
+ws.onopen = () => ws.send("hello");
+ws.onmessage = (m) => console.log(m.data);
+```
+
+<details class="guess"><summary>🤔 Guess: in Node, which one is a global: `WebSocket` or `EventSource`? Press to check.</summary>
+
+`WebSocket` is a function. `EventSource` is `undefined`, so on a Node client you need a package for SSE. Checked on Node 26.12.1 on 2026-10-29. Two real clients on a real chat server printed: Ana sent `hello`, so Ana got `echo: hello` and Budi got `from other: hello`.
+
+</details>
+
+> **Remember:** a browser has both built in. Node has `WebSocket`, not `EventSource`.
+
+<details class="more"><summary>📖 More detail: the server side of SSE, and the first run</summary>
 
 The server side of SSE, the browser side of SSE, and the browser side of a WebSocket:
 
@@ -224,45 +357,177 @@ Budi sent "hi Ana"  -> Budi got: echo: hi Ana        and  Ana got: from other: h
 
 A browser has `EventSource` built in. In Node 24.15 I checked, `WebSocket` is a global, but `EventSource` is **not** (it is `undefined`), so on a Node client you need a package for SSE.
 
-## 5. What really happens, step by step
+</details>
 
-**A WebSocket, step by step**
+## 6. Many servers need a message bus
 
-| Step | Who | What happens |
-|---|---|---|
-| 1 | Client | Sends a normal HTTP `GET` with `Upgrade: websocket`, `Connection: Upgrade`, `Sec-WebSocket-Version: 13` and a random `Sec-WebSocket-Key`. |
-| 2 | Server | Makes the accept value from the key and answers `101 Switching Protocols` with `Sec-WebSocket-Accept`. |
-| 3 | Both | The same connection now carries **frames**, not HTTP. Either side can send at any time. |
-| 4 | Both | A **ping** frame is answered by a **pong** frame. This is the heartbeat. It finds a dead line, and keeps the line from being closed for being idle. |
-| 5 | Either | Sends a **close** frame with a code, and the other side answers. In my run, a client that closed with code `1000` gave `1000` on the server. |
+Budi is connected to server 2, and Ana to server 1. Server 2 only knows its own clients.
 
-Frames from the browser to the server are **masked** (the standard requires it), and the server's frames are not. Your library does this for you.
+```mermaid
+graph TB
+    A["Budi's message<br/>goes to server 2"] --> B["Server 2 publishes it<br/>on the bus, like Redis Pub/Sub"]
+    B --> C["Every server tells<br/>its own clients<br/>so Ana gets it"]
+```
 
-**What I saw when connections ended in different ways (real run):**
+<details class="guess"><summary>🤔 Guess: with no bus, Budi sends a message. Does Ana get it? Press to check.</summary>
 
-| How it ended | Code the server library reported |
+No. Server 2 only knows its own clients, so Ana never gets it. Redis Pub/Sub is common, but it is **at-most-once**: if a server is not listening at that moment, the message is lost.
+
+</details>
+
+> **Remember:** with more than one server, publish each message on a bus.
+
+<details class="more"><summary>📖 More detail: the pictures, and the mistake as written</summary>
+
+**Wrong picture 2 and right picture 2.**
+
+**Wrong picture 2:** "Add more servers and everything scales."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["Ana is connected to server 1, Budi to server 2"]
+    B --> C["Budi sends a message, and server 2 only knows its own clients"]
+    C --> D["Ana never gets it"]
+```
+
+**Right picture 2:** the servers share messages through a message bus, such as Redis Pub/Sub.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["Budi's message goes to server 2"]
+    B --> C["server 2 publishes it on the bus"]
+    C --> D["every server tells its own clients, so Ana gets it"]
+```
+
+**The mistake.**
+
+**Wrong:** one server keeps the list of clients in its own memory, and you run three servers.
+
+```js
+const clients = new Set();           // only the clients of THIS server
+```
+
+**Right:** publish each message on a bus (Redis Pub/Sub) and let every server send it to its own clients.
+
+**Why:** a client on another server would never see the message.
+
+</details>
+
+## 7. Reconnect with backoff and jitter
+
+After a server restarts, 10,000 clients reconnect in the same second. A wave hits the server, and it falls over again. Instead, each client waits a random time:
+
+```
+wait = random(0, min(cap, base * 2^attempt))
+```
+
+Reset the attempt count after a good connection.
+
+<details class="guess"><summary>🤔 Guess: why `random` and not the same wait for everyone? Press to check.</summary>
+
+If every client waits the same time, they all come back **together**. The random part spreads the reconnects over many seconds, so the server comes back smoothly. This is capped exponential backoff with jitter.
+
+</details>
+
+> **Remember:** never reconnect at once, in a loop. Wait longer after each failure, with some random time.
+
+<details class="more"><summary>📖 More detail: wrong picture 3 and right picture 3, and the mistake as written</summary>
+
+**Wrong picture 3 and right picture 3.**
+
+**Wrong picture 3:** "When the connection drops, reconnect at once, in a loop."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["the server restarts"]
+    B --> C["10000 clients reconnect in the same second"]
+    C --> D["the server is hit by a wave and falls over again"]
+```
+
+**Right picture 3:** wait a little longer after each failure, and add some random time.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["each client waits a random time, up to a limit that doubles"]
+    B --> C["the reconnects spread out over many seconds"]
+    C --> D["the server comes back smoothly"]
+```
+
+**The mistake.**
+
+**Wrong:** reconnect at once, forever.
+
+```js
+ws.onclose = () => connect();        // a storm after every restart
+```
+
+**Right:** wait `random(0, min(cap, base * 2^attempt))`, and reset the attempt count after a good connection.
+
+**Why:** an instant retry loop turns a short outage into a long one.
+
+</details>
+
+## 8. Mistake 1: no heartbeat
+
+A dead line does not tell anyone. And proxies and load balancers close idle connections. A **heartbeat** finds both.
+
+| For | Heartbeat |
 |---|---|
-| The client sent a close with code `1000` | `1000` (normal closure) |
-| The client closed with no code | `1005` (no code was given) |
-| curl just dropped the line, with no close frame | `1006` (abnormal: no close frame at all) |
+| WebSocket | a **ping** on a timer, answered by a **pong**. Shorter than the idle timeout of your proxy or load balancer. |
+| SSE | a comment line (it starts with `:`) every 15 seconds or so |
 
-**SSE, step by step**
+<details class="guess"><summary>🤔 Guess: the proxy closes connections that are idle for 60 seconds. How often should you send a ping? Press to check.</summary>
 
-| Step | Who | What happens |
+More often than that, for example every 30 seconds. Look up the idle timeout of **your** proxy or load balancer, and use a shorter time.
+
+</details>
+
+> **Remember:** a heartbeat shorter than the idle timeout.
+
+<details class="more"><summary>📖 More detail: the mistake as written</summary>
+
+**Wrong:** no heartbeat.
+
+**Right:** a WebSocket ping on a timer that is **shorter than the idle timeout of your proxy or load balancer** (look it up for yours). For SSE, a comment line every 15 seconds or so, which is what the standard suggests.
+
+**Why:** a dead line does not tell anyone. Idle connections are closed by proxies and load balancers. A heartbeat finds both.
+
+</details>
+
+## 9. Mistake 2: the token in the WebSocket URL
+
+The browser `WebSocket` constructor takes only a URL and optional sub-protocols. You cannot set an `Authorization` header.
+
+| | Wrong | Right |
 |---|---|---|
-| 1 | Browser | `new EventSource("/events")` makes a `GET`. |
-| 2 | Server | Answers `200` with `Content-Type: text/event-stream` and **does not finish the answer**. |
-| 3 | Server | Writes events as they happen: `id`, `event`, `data`, then a blank line. |
-| 4 | Server | Sends a comment line (`:`) every 15 seconds or so, so proxies do not close an idle connection. (The standard suggests this.) |
-| 5 | Both | The connection drops. The browser waits (a few seconds by default, or the `retry` value) and reconnects. |
-| 6 | Browser | Sends `Last-Event-ID: 2`, the last `id` it saw. |
-| 7 | Server | Sends only what came after 2. I tested it: with `Last-Event-ID: 2`, only event 3 came back. |
+| The login | the token in the URL | a short-lived one-time ticket |
+| The check | none when the socket opens | check who the user is when the socket opens, and check the `Origin` header |
 
-A server can stop the reconnects by answering `204 No Content`.
+<details class="guess"><summary>🤔 Guess: why not put the token in the URL? Press to check.</summary>
 
-**Step through it yourself:** [open the WebSockets and SSE stepper](visuals/17-websockets-and-server-sent-events.html). It has five stories: polling against push, the WebSocket handshake, an SSE stream that drops and resumes, many servers (wrong, then right), and a reconnect storm. Guess first, then press Next.
+URLs end up in logs. Get a short-lived one-time ticket from a normal, login-checked call, and use that. Also look at the `Origin` header, so a page on another site cannot use your users' cookies to open a socket.
 
-## 6. Why it exists and what it costs
+</details>
+
+> **Remember:** a one-time ticket, and a check of who the user is when the socket opens.
+
+<details class="more"><summary>📖 More detail: the mistake as written</summary>
+
+**Wrong:** the token in the WebSocket URL, and no check of who is asking.
+
+**Right:** a short-lived one-time ticket (made by a normal login-checked call), and a check of who the user is when the socket opens. Also look at the `Origin` header that browsers send, so a page on another site cannot use your users' cookies to open a socket.
+
+**Why:** the constructor cannot send an `Authorization` header, and URLs end up in logs.
+
+</details>
+
+## 10. Why it matters and what it costs
+
+- **Without it:** with polling, most requests find nothing, and news arrives late. A chat, a price board, a progress bar or a notification needs the news **now**.
+- **With it:** one connection stays open, and the server writes to it when it has something. No repeated asking, and no delay.
+- **The cost:** open connections hold state. Many servers need a bus. Connections drop all the time. WebSocket has no built-in resume. Login is harder. And proxies close idle connections, so send heartbeats.
+
+<details class="more"><summary>📖 More detail: the problem, the fix and the costs, as written</summary>
 
 - **Problem without it:** with polling, most requests find nothing, and news arrives late. A chat, a price board, a progress bar or a notification needs the news **now**.
 - **How it solves it:** one connection stays open, and the server writes to it when it has something. No repeated asking, and no delay.
@@ -276,77 +541,9 @@ A server can stop the reconnects by answering `204 No Content`.
   - **SSE limits on HTTP/1.1.** A browser allows only about 6 connections per site, and open tabs share them. On HTTP/2 the limit is much higher (100 by default).
   - **Proxies and load balancers close idle connections.** Send heartbeats.
 
-<details><summary>Go deeper (optional): close codes, Socket.IO, backoff, other options</summary>
-
-**Close codes (RFC 6455).** `1000` normal closure. `1001` going away (a server shutting down, or a page closed). `1002` protocol error. `1003` data it cannot accept. `1006` is reserved: it must never be sent, and it is what you see when the connection ended with no close frame. `1008` policy violation. `1009` message too big. `1011` the server hit an unexpected problem.
-
-**Socket.IO is not a WebSocket library.** Its docs say "Socket.IO is NOT a WebSocket implementation". It has its own protocol, it can fall back to HTTP long-polling, and a plain WebSocket client cannot connect to a Socket.IO server (and the other way round). Both ends need Socket.IO. Use it when you want its extras (rooms, acknowledgements). Do not use it when you want a standard WebSocket.
-
-**Reconnect with backoff and jitter.** The AWS Architecture Blog recommends capped exponential backoff with jitter: after each failure the longest wait doubles, up to a cap, and each client picks a random time up to that limit. "Full jitter" is `random(0, min(cap, base * 2^attempt))`. You write this in the exercise. For SSE, the server can change the wait with a `retry:` line (in milliseconds).
-
-**SSE details (MDN and the HTML standard).** `data` lines are joined with `\n`. The `id` sets the "last event ID". `retry` must be a whole number. A line with no colon is a field name with an empty value. If the `id` is empty, `Last-Event-ID` is not sent.
-
-**WebSocket details.** The browser also accepts `https://` in the constructor and turns it into `wss://`. If a page has an open WebSocket, the browser may not keep it in its back/forward cache, so close the connection when the user is done. For backpressure problems, MDN points to the WebTransport API.
-
-**Subscriptions in the tools you know.** tRPC v11 subscriptions run over SSE (`httpSubscriptionLink`, the simpler way) or WebSocket (`wsLink`), with `tracked(id, data)` for resuming (lesson 15). Your Hasura guide says Hasura live queries run over WebSocket (lesson 14).
-
-**Node.** Node 24.15 has a global `WebSocket` client and no global `EventSource`. For a WebSocket server, `ws` is the usual package (8.22.0 on npm today).
-
-**Other options.** WebTransport (named by MDN as the answer to backpressure), and plain push notifications for phones. I did not test either.
-
 </details>
 
-## 7. Common mistakes
-
-**Wrong:** WebSocket for a one-way feed.
-
-```js
-const ws = new WebSocket(url);      // only ever listens, and has no reconnect code
-```
-
-**Right:** `new EventSource(url)`. It reconnects and resumes by itself.
-
-**Why:** you get less code and plain HTTP. Keep WebSocket for two-way talk.
-
-**Wrong:** one server keeps the list of clients in its own memory, and you run three servers.
-
-```js
-const clients = new Set();           // only the clients of THIS server
-```
-
-**Right:** publish each message on a bus (Redis Pub/Sub) and let every server send it to its own clients.
-
-**Why:** a client on another server would never see the message.
-
-**Wrong:** no heartbeat.
-
-**Right:** a WebSocket ping on a timer that is **shorter than the idle timeout of your proxy or load balancer** (look it up for yours). For SSE, a comment line every 15 seconds or so, which is what the standard suggests.
-
-**Why:** a dead line does not tell anyone. Idle connections are closed by proxies and load balancers. A heartbeat finds both.
-
-**Wrong:** reconnect at once, forever.
-
-```js
-ws.onclose = () => connect();        // a storm after every restart
-```
-
-**Right:** wait `random(0, min(cap, base * 2^attempt))`, and reset the attempt count after a good connection.
-
-**Why:** an instant retry loop turns a short outage into a long one.
-
-**Wrong:** trusting that every message arrives.
-
-**Right:** give events ids. On reconnect, resume from the last id, or fetch what you missed over plain HTTP.
-
-**Why:** the connection can drop at any moment, and the message in flight is lost.
-
-**Wrong:** the token in the WebSocket URL, and no check of who is asking.
-
-**Right:** a short-lived one-time ticket (made by a normal login-checked call), and a check of who the user is when the socket opens. Also look at the `Origin` header that browsers send, so a page on another site cannot use your users' cookies to open a socket.
-
-**Why:** the constructor cannot send an `Authorization` header, and URLs end up in logs.
-
-## 8. Watch and play
+## 11. Watch and play
 
 Links checked on 2026-10-23. I opened every page. For the video I checked only the title and the channel, not the content.
 
@@ -368,7 +565,7 @@ Links checked on 2026-10-23. I opened every page. For the video I checked only t
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -520,7 +717,7 @@ Notice four things. `formatSseEvent` splits `data` on every kind of newline and 
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "WebSockets, Server-Sent Events or polling? How do you scale WebSockets? How do you handle reconnects?"
 
@@ -533,7 +730,7 @@ Notice four things. `formatSseEvent` splits `data` on every kind of newline and 
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain it out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "one-way", "reconnect" and "heartbeat". Then save the transcript into `my-learning/recordings/`, or write your best version below. Run `/explain-check websockets` or ask the `explain-coach` agent to review it.
 
@@ -545,7 +742,7 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. A live price board only listens. Which one do you choose, and what does it do for you after a dropped connection?
 2. How does a WebSocket start? What does the server answer, and what changes after that?
@@ -558,6 +755,30 @@ Close this file. Press the **Record my explanation** button under this heading a
 2. It starts as a normal HTTP `GET` with `Upgrade: websocket` and a `Sec-WebSocket-Key`. The server answers `101 Switching Protocols` with `Sec-WebSocket-Accept`. After that, the same connection carries WebSocket frames, and either side can send at any time.
 3. Server 2 publishes the message on a bus (for example Redis Pub/Sub), and every server forwards it to its own clients. Redis Pub/Sub is at-most-once: a server that is not listening at that moment loses the message. For important messages, use ids and let clients fetch what they missed, or use a bus that keeps messages (Redis Streams).
 4. The client sends `GET events`. The server answers `200` with `text/event-stream` and sends `id: 1` and `id: 2`. The connection drops. After a wait, the client sends `GET events` with `Last-Event-ID: 2`. The server sends `id: 3` and what comes after.
+
+</details>
+
+## 16. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Close codes, Socket.IO, backoff, other options</summary>
+
+**Close codes (RFC 6455).** `1000` normal closure. `1001` going away (a server shutting down, or a page closed). `1002` protocol error. `1003` data it cannot accept. `1006` is reserved: it must never be sent, and it is what you see when the connection ended with no close frame. `1008` policy violation. `1009` message too big. `1011` the server hit an unexpected problem.
+
+**Socket.IO is not a WebSocket library.** Its docs say "Socket.IO is NOT a WebSocket implementation". It has its own protocol, it can fall back to HTTP long-polling, and a plain WebSocket client cannot connect to a Socket.IO server (and the other way round). Both ends need Socket.IO. Use it when you want its extras (rooms, acknowledgements). Do not use it when you want a standard WebSocket.
+
+**Reconnect with backoff and jitter.** The AWS Architecture Blog recommends capped exponential backoff with jitter: after each failure the longest wait doubles, up to a cap, and each client picks a random time up to that limit. "Full jitter" is `random(0, min(cap, base * 2^attempt))`. You write this in the exercise. For SSE, the server can change the wait with a `retry:` line (in milliseconds).
+
+**SSE details (MDN and the HTML standard).** `data` lines are joined with `\n`. The `id` sets the "last event ID". `retry` must be a whole number. A line with no colon is a field name with an empty value. If the `id` is empty, `Last-Event-ID` is not sent.
+
+**WebSocket details.** The browser also accepts `https://` in the constructor and turns it into `wss://`. If a page has an open WebSocket, the browser may not keep it in its back/forward cache, so close the connection when the user is done. For backpressure problems, MDN points to the WebTransport API.
+
+**Subscriptions in the tools you know.** tRPC v11 subscriptions run over SSE (`httpSubscriptionLink`, the simpler way) or WebSocket (`wsLink`), with `tracked(id, data)` for resuming (lesson 15). Your Hasura guide says Hasura live queries run over WebSocket (lesson 14).
+
+**Node.** Node 24.15 has a global `WebSocket` client and no global `EventSource`. For a WebSocket server, `ws` is the usual package (8.22.0 on npm today).
+
+**Other options.** WebTransport (named by MDN as the answer to backpressure), and plain push notifications for phones. I did not test either.
 
 </details>
 
