@@ -48,7 +48,7 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph W["Without batching — the N+1 problem"]
+    subgraph W["Without batching: the N+1 problem"]
         A["orders resolver<br/>SELECT * FROM orders"] --> B["order 1"]
         A --> C["order 2"]
         A --> D["order 3"]
@@ -282,7 +282,7 @@ sequenceDiagram
         G->>L: load(7)
         G->>L: load(3)
     end
-    Note over L: end of tick — batch keys [3, 7]
+    Note over L: end of tick: batch keys [3, 7]
     L->>DB: SELECT * FROM shops WHERE id IN (3, 7)
     DB-->>L: shop 3 and shop 7
     L-->>G: shop 3, shop 7, shop 3
@@ -619,7 +619,7 @@ const resolvers = {
 
 <details><summary>Answer</summary>
 
-There are two possible bugs. First, the loader is created once globally. That is a caching and data-leak risk, but it would not cause one query per order. The real problem is that `contextValue` is not being used; the code creates the loader outside the request. If `batchShops` is written correctly, a single global loader can still batch. The more likely bug in a real app is that `batchShops` is not actually batching — for example, it loops through ids and runs a query for each one:
+There are two possible bugs. First, the loader is created once globally. That is a caching and data-leak risk, but it would not cause one query per order. The real problem is that `contextValue` is not being used; the code creates the loader outside the request. If `batchShops` is written correctly, a single global loader can still batch. The more likely bug in a real app is that `batchShops` is not actually batching. For example, it loops through ids and runs a query for each one:
 
 ```js
 const batchShops = async (ids) => {
