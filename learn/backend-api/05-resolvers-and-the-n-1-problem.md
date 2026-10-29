@@ -1,14 +1,35 @@
 # 05. Resolvers and the N+1 problem
 
-> **Subject:** Backend and API · **Lesson:** 05 · **Made:** 2026-10-22 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 05 · **Made:** 2026-10-22 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** say what a resolver is, trace how GraphQL calls one for every field, show why a list of nested objects can flood the database, and explain how batching fixes it.
+>
 > **Before this:** [GraphQL basics](04-graphql-basics.md) · **Next:** [Authentication: sessions vs JWT](06-authentication-sessions-vs-jwt.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: 20 guests, 20 taxi calls
 
-Every field in a GraphQL query has its own function, and if that function hits the database once per parent item, a list of 20 items becomes 20 extra database calls.
+A hotel has 20 guests who each ask the concierge for a taxi. The concierge could phone the taxi company 20 times. That is the **N+1 problem**. In GraphQL it happens when every item in a list runs its own database query.
 
-Why you need it:
+```mermaid
+graph TB
+    Q["Query<br/>orders and each shop name"] --> O["orders function<br/>1 database query"]
+    O -->|20 orders| S["shop function<br/>runs 20 times"]
+    S --> DB["20 more SELECTs"]
+```
+
+<details class="guess"><summary>🤔 Guess: a screen shows 20 orders, and each order shows its shop. Each shop function runs one `SELECT`. How many database queries does one request make? Press to check.</summary>
+
+**21**. One for the list of orders, plus one for each of the 20 orders. That is "1 + N".
+
+</details>
+
+> **Remember:** N+1 is one query for the list, plus N queries for the related items.
+
+<details class="more"><summary>📖 More detail: the problem, four new words, and the full picture</summary>
+
+**Why you need it.**
 
 - In [lesson 04](04-graphql-basics.md), the `orders` function returned each order with the shop already glued inside.
 - Real servers do not do that. They give the `shop` field its own function, because a shop has its own table and its own rules.
@@ -16,32 +37,14 @@ Why you need it:
 - If each call runs `SELECT * FROM shops WHERE id = ?`, that is 20 database queries for one request. That is the N+1 problem: one query for the list, plus N queries for the related items.
 - The fix: collect all the `shopId`s, run one batched query like `SELECT * FROM shops WHERE id IN (?)`, then hand each order its shop.
 
-New words (four):
+**Four new words.**
 
 - **Resolver:** the function behind one field. It receives the parent object, the arguments, and the context, and it returns the field's value. (Interview word: resolver.)
 - **Parent (or source):** the object that owns the field. In `Order.shop`, the parent is the order, so the resolver can read `parent.shopId`. (Interview words: parent, source.)
 - **Context:** an object shared by every resolver for one request. It usually holds the current user, the database connection, and the batch loader. (Interview word: context.)
 - **DataLoader:** a small library that queues up requests for the same kind of object and turns them into one batched request. (Interview word: DataLoader, batching, caching.)
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that the resolver for `shop` runs once per order, but with DataLoader those calls collapse into one batched database query.
-
-```mermaid
-graph LR
-    Q["query orders shop name"] --> R["orders resolver<br/>one DB query"]
-    R -->|20 orders| S["shop resolver<br/>runs 20 times"]
-    S -->|without batching| DB1["20 SELECTs"]
-    S -->|with DataLoader| L["DataLoader<br/>collects shopIds"]
-    L -->|one SELECT WHERE id IN| DB2["1 batched query"]
-    DB2 -->|shops back| S2["shop resolver<br/>returns cached shop"]
-```
-
-### 2b. The problem, drawn
-
-Notice that the same query shape becomes many round trips to the database.
+**The problem, drawn.** The same query shape becomes many round trips to the database.
 
 ```mermaid
 graph TB
@@ -60,33 +63,46 @@ graph TB
     class S1,S2,S3 bad
 ```
 
-### 2c. How it works over time
-
-Notice how DataLoader waits until the current tick finishes, then sends one batched query.
+**The big picture.** The `shop` function runs once per order, but with DataLoader those calls collapse into one batched database query.
 
 ```mermaid
-sequenceDiagram
-    participant A as App
-    participant G as GraphQL executor
-    participant O as orders resolver
-    participant L as shop DataLoader
-    participant DB as Database
-    A->>G: { orders { id shop { name } } }
-    G->>O: resolve orders
-    O-->>G: 3 orders with shopId 3, 7, 3
-    loop one call per order
-        G->>L: load(3)
-        G->>L: load(7)
-        G->>L: load(3)
-    end
-    Note over L: end of tick — batch keys [3, 7]
-    L->>DB: SELECT * FROM shops WHERE id IN (3, 7)
-    DB-->>L: shop 3 and shop 7
-    L-->>G: shop 3, shop 7, shop 3
-    G-->>A: data with 3 orders and their shops
+graph LR
+    Q["query orders shop name"] --> R["orders resolver<br/>one DB query"]
+    R -->|20 orders| S["shop resolver<br/>runs 20 times"]
+    S -->|without batching| DB1["20 SELECTs"]
+    S -->|with DataLoader| L["DataLoader<br/>collects shopIds"]
+    L -->|one SELECT WHERE id IN| DB2["1 batched query"]
+    DB2 -->|shops back| S2["shop resolver<br/>returns cached shop"]
 ```
 
-### 2d. What the resolver holds at one moment
+**The hotel again.**
+
+A hotel has 20 guests who each ask the concierge for a taxi. The concierge could phone the taxi company 20 times, once per guest. That is the N+1 problem. Instead, the concierge writes down every destination, makes one phone call, and dispatches the taxis. That is batching. The concierge also remembers that two guests asked for the same airport, so they share one cab. That is the cache.
+
+Where it stops being true: a real concierge might wait a few minutes to collect more requests. DataLoader waits only until the end of the current JavaScript tick, so it does not delay the answer on purpose.
+
+</details>
+
+## 2. A resolver: the function behind one field
+
+Every field in a GraphQL query has its own function, called a **resolver**. It gets four things.
+
+| Argument | Value for `Order.shop` on order 42 | What it means |
+|---|---|---|
+| `parent` | `{ id: "42", shopId: "3" }` | the order that owns this field |
+| `args` | `{}` | arguments on this field (none here) |
+| `context` | `{ user, db, shopLoader }` | shared by the whole request |
+| `info` | field `shop`, parent type `Order` | facts about the query |
+
+<details class="guess"><summary>🤔 Guess: in the `Order.shop` resolver, what is `parent`, and what can it read from it? Press to check.</summary>
+
+`parent` is the **order**. So the resolver can read `parent.shopId` and use it to find the shop.
+
+</details>
+
+> **Remember:** a resolver gets `(parent, args, context, info)`. `parent` is the object that owns the field.
+
+<details class="more"><summary>📖 More detail: what the resolver holds at one moment</summary>
 
 The moment the `shop` resolver runs for order 42. Notice the four arguments.
 
@@ -97,43 +113,41 @@ The moment the `shop` resolver runs for order 42. Notice the four arguments.
 | `context` | `{ user: {...}, db: ..., shopLoader }` | shared across the whole request |
 | `info` | field name is `shop`, parent type is `Order` | metadata about the query |
 
-### 2e. Right against wrong
+</details>
 
-Notice that the naive resolver returns the shop directly; the right one returns the loader promise.
+## 3. The smallest code that shows the N+1
 
-**Wrong:** fetch inside the resolver for every item.
-
-```js
-const resolvers = {
-  Order: {
-    shop: async (parent, _args, { db }) => {
-      return db.shops.findById(parent.shopId); // runs once per order
-    },
-  },
-};
-```
-
-**Right:** ask the loader, which batches one request.
+The `shop` field gets its own resolver. It does one lookup each time it runs.
 
 ```js
-const resolvers = {
-  Order: {
-    shop: (parent, _args, { shopLoader }) => {
-      return shopLoader.load(parent.shopId);
-    },
+// inside the Order type
+shop: {
+  resolve: (parent) => {
+    calls++;
+    return shops[parent.shopId];
   },
-};
+},
 ```
 
-**Why:** the loader collects every `shopId` in the same tick and sends one query. The resolver stays small and the database load stays flat.
+With 3 orders (shops 3, 7 and 3), the full program prints:
 
-## 3. Real life analogy
+```
+  orders resolver runs
+  shop resolver runs for order 41 shopId 3
+  shop resolver runs for order 42 shopId 7
+  shop resolver runs for order 43 shopId 3
+shop resolver calls: 3
+```
 
-A hotel has 20 guests who each ask the concierge for a taxi. The concierge could phone the taxi company 20 times, once per guest. That is the N+1 problem. Instead, the concierge writes down every destination, makes one phone call, and dispatches the taxis. That is batching. The concierge also remembers that two guests asked for the same airport, so they share one cab. That is the cache.
+<details class="guess"><summary>🤔 Guess: orders 41 and 43 are both from shop 3. Does the shop resolver run once or twice for shop 3? Press to check.</summary>
 
-Where it stops being true: a real concierge might wait a few minutes to collect more requests. DataLoader waits only until the end of the current JavaScript tick, so it does not delay the answer on purpose.
+**Twice.** The resolver runs once per order, even for the same shop. With 20 orders from 2 shops, it still runs 20 times.
 
-## 4. The smallest code that shows it
+</details>
+
+> **Remember:** the resolver runs once per parent, not once per different shop.
+
+<details class="more"><summary>📖 More detail: the full program, and every step</summary>
 
 Save it as `resolvers.js` in an empty folder outside this repo. Run `npm i graphql`, then `node resolvers.js`. It builds the schema in code so each field can have its own resolver.
 
@@ -194,22 +208,22 @@ const schema = new GraphQLSchema({
 })();
 ```
 
-**Output:**
+**Output** (the `{"data": ...}` line is the answer JSON):
 
 ```
   orders resolver runs
   shop resolver runs for order 41 shopId 3
   shop resolver runs for order 42 shopId 7
   shop resolver runs for order 43 shopId 3
-{"data":{"orders":[{"id":"41","status":"PAID","shop":{"id":"3","name":"Toko Maju"}},{"id":"42","status":"NEW","shop":{"id":"7","name":"Warung Sehat"}},{"id":"43","status":"PAID","shop":{"id":"3","name":"Toko Maju"}}]}}
+{"data":{"orders":[{"id":"41","status":"PAID","shop":{"name":"Toko Maju"}},{"id":"42","status":"NEW","shop":{"name":"Warung Sehat"}},{"id":"43","status":"PAID","shop":{"name":"Toko Maju"}}]}}
 shop resolver calls: 3
 ```
 
 One database call for orders, then three resolver calls for shops. With 20 orders and two unique shops, there would still be 20 resolver calls. The next section shows how to collapse them.
 
-Checked on 2026-10-22 with Node 24.15.0 and graphql 17.0.2.
+Checked on 2026-10-29 with Node 26.12.1 and graphql 17.0.2.
 
-## 5. What really happens, step by step
+**The query, step by step.**
 
 Text: `{ orders { id status shop { name } } }`.
 
@@ -226,9 +240,86 @@ Text: `{ orders { id status shop { name } } }`.
 
 The key point: step 5 runs once per order. If the resolver talks to the database, each run is a separate query.
 
-## 6. The fix: batching with DataLoader
+</details>
 
-The same three orders, but the `shop` resolver now uses a tiny loader.
+## 4. The fix: batching with DataLoader
+
+Instead of asking the database right away, the resolver asks a **loader**. The loader waits until the end of the current tick, collects every id, and sends **one** query.
+
+| Without batching | With DataLoader |
+|---|---|
+| One query for orders | One query for orders |
+| One query per order's shop | One batched query for all shops |
+| Total: 1 + N queries | Total: 2 queries |
+| Easy to write, slow at scale | Slightly more code, flat database load |
+
+<details class="guess"><summary>🤔 Guess: the loader gets `load("3")`, `load("7")`, `load("3")`. Which ids go into the one batched query? Press to check.</summary>
+
+`['3', '7']`. The loader removes the duplicate, so shop 3 is asked once. Then it hands each order its shop.
+
+</details>
+
+> **Remember:** the resolver calls `shopLoader.load(parent.shopId)`. One batch query, not N.
+
+<details class="more"><summary>📖 More detail: how it works over time, and a tiny loader you can run</summary>
+
+**How it works over time.** DataLoader waits until the current tick finishes, then sends one batched query.
+
+Notice how DataLoader waits until the current tick finishes, then sends one batched query.
+
+```mermaid
+sequenceDiagram
+    participant A as App
+    participant G as GraphQL executor
+    participant O as orders resolver
+    participant L as shop DataLoader
+    participant DB as Database
+    A->>G: { orders { id shop { name } } }
+    G->>O: resolve orders
+    O-->>G: 3 orders with shopId 3, 7, 3
+    loop one call per order
+        G->>L: load(3)
+        G->>L: load(7)
+        G->>L: load(3)
+    end
+    Note over L: end of tick — batch keys [3, 7]
+    L->>DB: SELECT * FROM shops WHERE id IN (3, 7)
+    DB-->>L: shop 3 and shop 7
+    L-->>G: shop 3, shop 7, shop 3
+    G-->>A: data with 3 orders and their shops
+```
+
+**The right resolver against the wrong one.**
+
+Notice that the naive resolver returns the shop directly; the right one returns the loader promise.
+
+**Wrong:** fetch inside the resolver for every item.
+
+```js
+const resolvers = {
+  Order: {
+    shop: async (parent, _args, { db }) => {
+      return db.shops.findById(parent.shopId); // runs once per order
+    },
+  },
+};
+```
+
+**Right:** ask the loader, which batches one request.
+
+```js
+const resolvers = {
+  Order: {
+    shop: (parent, _args, { shopLoader }) => {
+      return shopLoader.load(parent.shopId);
+    },
+  },
+};
+```
+
+**Why:** the loader collects every `shopId` in the same tick and sends one query. The resolver stays small and the database load stays flat.
+
+**The same three orders with a tiny loader.**
 
 ```js
 function createShopLoader() {
@@ -285,29 +376,18 @@ const schema = new GraphQLSchema({
 })();
 ```
 
-**Output:**
+**Output** (the loader, then the answer JSON):
 
 ```
   batched load for ids [ '3', '7' ]
-{"data":{"orders":[{"id":"41","status":"PAID","shop":{"id":"3","name":"Toko Maju"}},{"id":"42","status":"NEW","shop":{"id":"7","name":"Warung Sehat"}},{"id":"43","status":"PAID","shop":{"id":"3","name":"Toko Maju"}}]}}
+{"data":{"orders":[{"id":"41","status":"PAID","shop":{"name":"Toko Maju"}},{"id":"42","status":"NEW","shop":{"name":"Warung Sehat"}},{"id":"43","status":"PAID","shop":{"name":"Toko Maju"}}]}}
 ```
 
 The loader collected the three `load` calls, deduplicated the ids to `[3, 7]`, and answered them from one batch. A real `DataLoader` package also caches by id for the rest of the request, so `load(3)` called twice returns the same promise.
 
-## 7. Why it exists and what it costs
+Checked on 2026-10-29 with Node 26.12.1 and graphql 17.0.2. The loader code runs on top of the imports, `shops` and `orders` from the full program in card 3.
 
-- **Problem without it:** nested fields in GraphQL look clean, but a naive resolver can turn one request into many database queries. At scale this overwhelms the database and makes response time unpredictable.
-- **How it solves it:** each field has a focused resolver, and loaders batch the same kind of lookup into one query. The schema stays expressive while the database stays efficient.
-- **Cost or tradeoff:** batching adds complexity. You must make sure the batch function preserves order, handles missing ids, and does not cache across requests (each request gets its own loaders). It also only helps when the same kind of object is fetched many times in one query.
-
-| Without batching | With DataLoader |
-|---|---|
-| One query for orders | One query for orders |
-| One query per order's shop | One batched query for all shops |
-| Total: 1 + N queries | Total: 2 queries |
-| Easy to write, slow at scale | Slightly more code, flat database load |
-
-## 8. Common mistakes
+**Mistake: the database query directly inside the nested resolver.**
 
 **Wrong:** put the database query directly inside the nested resolver.
 
@@ -323,6 +403,34 @@ shop: (parent, _args, { shopLoader }) => shopLoader.load(parent.shopId)
 
 **Why:** the first version is fine for one item, but it multiplies with every parent in a list.
 
+</details>
+
+## 5. Mistake 1: one loader for the whole app
+
+A loader remembers every answer by key. If it is global, it lives forever and every user shares it.
+
+| | Wrong | Right |
+|---|---|---|
+| Where the loader is made | once, at start-up | new for every request |
+| The cache | shared by every user | lives only for one request |
+
+```js
+// right: a new loader in each request's context
+context: () => ({
+  shopLoader: new DataLoader(batchShops),
+})
+```
+
+<details class="guess"><summary>🤔 Guess: why is a global loader dangerous? Press to check.</summary>
+
+It caches by key. User A might get data that user B had loaded earlier, which can be a **data leak**. A global loader also caches forever, so the data goes stale.
+
+</details>
+
+> **Remember:** create a new loader for every incoming request.
+
+<details class="more"><summary>📖 More detail: the wrong code and the right code</summary>
+
 **Wrong:** create one DataLoader for the whole application and reuse it across requests.
 
 ```js
@@ -336,6 +444,39 @@ context: () => ({ shopLoader: new DataLoader(batchShops) })
 ```
 
 **Why:** a loader caches by key for the request. If two users share a loader, user A might see user B's cached shop, which is a data leak. It also caches forever if it lives globally.
+
+</details>
+
+## 6. Mistake 2: results in the wrong order
+
+Your batch function gets a list of ids. It must return **one result per id, in the same order**. A database does not promise to send rows in that order.
+
+```js
+// right: same order as the keys
+const batchShops = async (ids) => {
+  const rows = await findShops(ids);
+  const byId = new Map(
+    rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id));
+};
+```
+
+With the real `dataloader` package, `load("7")` then `load("3")`, and the table returns the rows in id order (3, then 7):
+
+```
+wrong: [ 'Toko Maju', 'Warung Sehat' ]
+right: [ 'Warung Sehat', 'Toko Maju' ]
+```
+
+<details class="guess"><summary>🤔 Guess: in the "wrong" line, which shop did `load("7")` get? Press to check.</summary>
+
+**Toko Maju**, which is shop 3. Each `load(key)` promise resolves to the value at the same position as its key. If the order changes, every order gets the wrong shop. Checked with dataloader 2.2.3 on 2026-10-29.
+
+</details>
+
+> **Remember:** return one result per key, in the same order as the keys.
+
+<details class="more"><summary>📖 More detail: the wrong code and the right code</summary>
 
 **Wrong:** return the batched results in a different order than the keys.
 
@@ -358,15 +499,49 @@ const batchShops = async (ids) => {
 
 **Why:** each `load(key)` promise resolves to the value at the same position in the returned array. If the order changes, every order gets the wrong shop.
 
+</details>
+
+## 7. Mistake 3: think DataLoader fixes everything
+
+DataLoader fixes the **lookup** problem: many small queries become one. It does not fix the **shape** problem.
+
+If a query asks for 10,000 orders, DataLoader still loads 10,000 orders. You still need pagination, depth limits and cost limits.
+
+<details class="guess"><summary>🤔 Guess: a client asks for 10,000 orders with their shops. Does DataLoader save the database? Press to check.</summary>
+
+Only from the 10,000 shop queries. The orders list itself is still huge. Cap the page size, and limit how deep and how costly a query can be.
+
+</details>
+
+> **Remember:** DataLoader fixes the lookup problem. Pagination and limits fix the query shape problem.
+
+<details class="more"><summary>📖 More detail: the mistake as it was written</summary>
+
 **Wrong:** think DataLoader solves the query shape problem.
 
 **Right:** DataLoader solves the *lookup* problem. If a query asks for 10,000 orders, you still need pagination, depth limits, and cost limits.
+
+</details>
+
+## 8. Why it matters and what it costs
+
+- **Without it:** nested fields look clean, but a naive resolver can turn one request into many database queries. At scale this overwhelms the database and makes response time unpredictable.
+- **With it:** each field has a focused resolver, and loaders batch the same kind of lookup into one query. The schema stays expressive while the database stays efficient.
+- **The cost:** batching adds complexity. You must keep the result order, handle missing ids, and never share a loader across requests. It also only helps when the same kind of object is fetched many times.
+
+<details class="more"><summary>📖 More detail: the cost as it was written, and if you freeze in the interview</summary>
+
+- **Cost or tradeoff:** batching adds complexity. You must make sure the batch function preserves order, handles missing ids, and does not cache across requests (each request gets its own loaders). It also only helps when the same kind of object is fetched many times in one query.
+
+**If you freeze.**
 
 **If you freeze:**
 
 1. "A resolver is the function for one field. It gets the parent object, the args, the context, and info."
 2. "A list of nested objects can run the same resolver N times. That is N+1."
 3. "A DataLoader batches those N calls into one, and creates a fresh loader per request so caching stays safe."
+
+</details>
 
 ## 9. Watch and play
 
