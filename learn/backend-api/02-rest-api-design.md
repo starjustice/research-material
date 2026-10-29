@@ -76,6 +76,17 @@ graph LR
     A5 --> DB
 ```
 
+**The table to know.**
+
+| What the app wants | Method and path | Success answer |
+|---|---|---|
+| See the list | `GET /orders` | `200` and one page |
+| See one | `GET /orders/41` | `200` |
+| Make a new one | `POST /orders` | `201`, plus a `Location: /orders/42` header that says where it lives |
+| Replace all of it | `PUT /orders/41` | `200` |
+| Change some fields | `PATCH /orders/41` | `200` |
+| Remove it | `DELETE /orders/41` | `204`, no body |
+
 **Where the street picture stops.**
 
 **Names:** street addresses. "Orders Street, number 41" follows the same pattern in every town. The method is what you do there.
@@ -306,6 +317,13 @@ graph LR
     class R26 bad
     class R25 good
 ```
+
+**What page 2 asks, and what Postgres runs.**
+
+| Page 2 asks | Postgres runs | Rows back | Budi sees |
+|---|---|---|---|
+| `?limit=5&offset=5` | `ORDER BY id DESC LIMIT 5 OFFSET 5` | 26, 25, 24, 23, 22 | order 26 twice |
+| `?limit=5&after=26` | `WHERE id < 26 ORDER BY id DESC LIMIT 6` | 25, 24, 23, 22, 21 (and 20 as a peek) | each order once |
 
 Offset counts places. A new row moves every place. A cursor remembers an id, and ids do not move.
 
