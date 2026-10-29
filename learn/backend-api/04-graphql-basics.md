@@ -1,14 +1,35 @@
 # 04. GraphQL basics
 
-> **Subject:** Backend and API · **Lesson:** 04 · **Made:** 2026-10-22 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 04 · **Made:** 2026-10-22 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** read a schema, write a query and a mutation, say what the server does with them step by step, and explain when GraphQL beats REST and when it does not.
+>
 > **Before this:** [Express middleware](03-express-middleware.md) · **Next:** [Resolvers and the N+1 problem](05-resolvers-and-the-n-1-problem.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a menu and an order slip
 
-The app sends one text that lists exactly the fields it wants, always to the same URL, and the server answers with that shape and nothing more.
+A restaurant has a **menu** (the schema). You write an **order slip** (the query): exactly what you want, "rice, chicken, no soup". The waiter checks the slip against the menu before the kitchen starts. You get back only what you asked for. GraphQL works the same way, always through one URL.
 
-Why you need it:
+```mermaid
+graph TB
+    A["Query<br/>your order slip"] -->|POST /graphql| B["Server checks every field<br/>against the schema"]
+    B --> C["Runs the functions"]
+    C --> D["Answer<br/>same shape as the query"]
+```
+
+<details class="guess"><summary>🤔 Guess: the Budi app shows 20 orders, each with the shop name. REST `GET /orders` gives only `shopId`. A simple app asks for each shop. How many trips is that? And with GraphQL? Press to check.</summary>
+
+REST: **21 trips**, one for the list and one per order. GraphQL: **one trip**. The query asks for the orders and the shop name inside each, in the same request.
+
+</details>
+
+> **Remember:** the app lists the fields it wants. The server answers with that shape and nothing more.
+
+<details class="more"><summary>📖 More detail: the problem, four new words, and the full picture</summary>
+
+**Why you need it.**
 
 - The Budi app shows a list of orders. Each row needs three things: the order id, its status, and the shop name.
 - With the REST API from [lesson 02](02-rest-api-design.md), `GET /orders` sends every field of every order: id, status, total, note, shopId. The screen uses two.
@@ -16,33 +37,14 @@ Why you need it:
 - The admin website (CMS) needs other fields from the same orders. So the backend adds `/orders/mobile-list`, then `/orders/cms-list`, then more.
 - The fix: let the app say which fields it wants, in one request.
 
-New words (four):
+**Four new words.**
 
 - **Schema:** the menu. A written list of every type the server has and the fields on each type. (Interview words: schema, types, SDL.)
 - **Query:** a read. A text that lists the fields you want, nested like the data. (Interview words: query, selection set.)
 - **Mutation:** a write. It starts with the word `mutation`, changes data, then answers with the fields you list.
 - **Over-fetching and under-fetching:** getting fields you never show, and not getting enough so you need another trip. These are the two REST problems GraphQL is known for fixing.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that the server checks the whole query before it runs anything. A wrong field stops everything.
-
-```mermaid
-graph LR
-    APP["Budi app<br/>query text"] -->|POST /graphql| READ["1. read the text<br/>into a tree"]
-    READ --> CHECK["2. check every field<br/>against the schema"]
-    CHECK -->|all fields found| RUN["3. run the functions<br/>keep only asked fields"]
-    RUN -->|200 with data| APP2["app gets JSON<br/>shaped like the query"]
-    CHECK -->|a field is not on the menu| ERR["nothing runs"]
-    ERR -->|errors only| APP2
-    SCHEMA["schema<br/>the menu"] -.-> CHECK
-```
-
-### 2b. The problem, drawn
-
-Notice the three trips, and the fields that travel but are never shown.
+**The problem, drawn.** Notice the three trips, and the fields that travel but are never shown.
 
 ```mermaid
 graph TB
@@ -67,29 +69,66 @@ graph LR
     S -->|id status and shop name only| A
 ```
 
-### 2c. How it works over time
-
-Notice that the server talks to the data only after the check passes. One function call gets both orders.
+**The big picture.** The server checks the whole query before it runs anything.
 
 ```mermaid
-sequenceDiagram
-    participant A as Budi app
-    participant S as GraphQL server
-    participant M as Schema
-    participant D as Data
-    A->>S: POST /graphql with the query text
-    S->>S: read the text into a tree of fields
-    S->>M: is orders on Query and are id status shop on Order?
-    M-->>S: yes and name is on Shop
-    S->>D: run the orders function
-    D-->>S: 2 orders with every column
-    S->>S: keep id and status and shop name only
-    S-->>A: 200 with data in the same shape as the query
+graph LR
+    APP["Budi app<br/>query text"] -->|POST /graphql| READ["1. read the text<br/>into a tree"]
+    READ --> CHECK["2. check every field<br/>against the schema"]
+    CHECK -->|all fields found| RUN["3. run the functions<br/>keep only asked fields"]
+    RUN -->|200 with data| APP2["app gets JSON<br/>shaped like the query"]
+    CHECK -->|a field is not on the menu| ERR["nothing runs"]
+    ERR -->|errors only| APP2
+    SCHEMA["schema<br/>the menu"] -.-> CHECK
 ```
 
-### 2d. What the server holds at one moment
+**The restaurant again.**
 
-The moment before the answer is sent, for the first query. Notice that the query and the answer have the same shape. The schema has more fields than either.
+- The **menu** is the schema. It lists every dish and every side.
+- Your **order slip** is the query. You write exactly what you want: "rice, chicken, no soup".
+- REST is like **set meals**. Set A comes with soup you do not eat. The drink is at another counter, so you queue again.
+- The waiter **checks the slip against the menu** before the kitchen starts. A dish that is not on the menu? The slip comes back. Nothing is cooked.
+
+Where it stops being true: a real waiter would cook the rest of your order. GraphQL rejects the whole slip if one field is wrong. But once cooking starts, some dishes can still arrive even if one fails (practice A shows this).
+
+</details>
+
+## 2. The schema: the menu
+
+The schema lists every type and the fields on it. The server checks every query against it.
+
+```graphql
+type Shop  { id: ID!, name: String! }
+type Order { id: ID!, status: String!,
+             note: String, shop: Shop! }
+type Query { orders: [Order!]! }
+```
+
+| Text | Means |
+|---|---|
+| `id: ID!` | an id, never null |
+| `note: String` | a note, **may be null** (no `!`) |
+| `[Order!]!` | a list of orders. The list is never null, and no item in it is null |
+| `Query` | the door for every read |
+
+<details class="guess"><summary>🤔 Guess: `note: String` has no `!`. Can a note be `null`? Press to check.</summary>
+
+Yes. The `!` means "never null". Without it, `null` is allowed. `id: ID!` can never be null.
+
+</details>
+
+> **Remember:** `!` means never null. `Query` and `Mutation` are the doors in.
+
+<details class="more"><summary>📖 More detail: how to read the schema, and what the server holds</summary>
+
+**How to read the schema.**
+
+- `type Order { ... }` is one type and its fields. `String`, `Int` and `ID` are plain values.
+- `!` means "never null". `note: String` has no `!`, so a note can be `null`.
+- `[Order!]!` means a list of orders. The list is never null, and no item in it is null.
+- `Query` and `Mutation` are the doors in. Every read starts at a field on `Query`, every write at a field on `Mutation`.
+
+**What the server holds at one moment.** The query and the answer have the same shape. The schema has more fields than either.
 
 ```mermaid
 graph LR
@@ -118,63 +157,39 @@ graph LR
 | `note` | no | no |
 | `shop` | yes, with `name` inside | yes, only `name` |
 
-### 2e. Right against wrong
+</details>
 
-Notice that a GraphQL error often comes with status `200`. Only the body tells the truth.
+## 3. The smallest code that shows it
 
-```mermaid
-graph LR
-    subgraph W1["Wrong - trust the status"]
-        A1["status 200"] --> A2["res.ok is true"]
-        A2 --> A3["json.data.orders<br/>TypeError because data is missing"]
-    end
-    subgraph R1["Right - read the body"]
-        B1["status 200"] --> B2["json.errors exists?"]
-        B2 -->|yes| B3["show the error"]
-        B2 -->|no| B4["use json.data"]
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class A3 bad
+One schema, one function, one query. Run `npm i graphql` first. There is no web server here: `graphql()` is the part that reads, checks and runs.
+
+```js
+const { buildSchema, graphql } =
+  require("graphql");
+const schema = buildSchema(`
+  type Order { id: ID!, status: String!,
+                total: Int! }
+  type Query { orders: [Order!]! }`);
+const rootValue = { orders: () => [
+  { id: "41", status: "PAID", total: 250000 },
+] };
+graphql({ schema, rootValue,
+  source: "{ orders { id status } }" })
+  .then((r) => console.log(JSON.stringify(r)));
 ```
 
-Notice that an object field needs its own list of fields. There is no "give me everything".
+<details class="guess"><summary>🤔 Guess: the function returns `total: 250000` too. Is `total` in the answer? Press to check.</summary>
 
-```mermaid
-graph LR
-    subgraph W2["Wrong"]
-        C1["orders id shop"] --> C2["error<br/>shop must have a selection of subfields"]
-    end
-    subgraph R2["Right"]
-        D1["orders id shop name"] --> D2["shop name is in the answer"]
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class C2 bad
+```
+{"data":{"orders":[{"id":"41","status":"PAID"}]}}
 ```
 
-### 2f. Query against mutation
+No. The function returns more than was asked, and GraphQL cuts it down to the shape of the query.
+</details>
 
-Notice that both go to the same URL. The first word of the text decides, not the HTTP method or the path.
+> **Remember:** the function may return more. The answer has only the fields in the query.
 
-```mermaid
-graph TB
-    U["POST /graphql"] --> Q["text starts with a brace or query<br/>a read"]
-    U --> M["text starts with mutation<br/>a write"]
-    Q --> QA["runs the read functions<br/>answers with the asked fields"]
-    M --> MA["runs the write function<br/>changes the data<br/>answers with the asked fields after the change"]
-```
-
-## 3. Real life analogy
-
-A restaurant with a menu and an order slip.
-
-- The **menu** is the schema. It lists every dish and every side.
-- Your **order slip** is the query. You write exactly what you want: "rice, chicken, no soup".
-- REST is like **set meals**. Set A comes with soup you do not eat. The drink is at another counter, so you queue again.
-- The waiter **checks the slip against the menu** before the kitchen starts. A dish that is not on the menu? The slip comes back. Nothing is cooked.
-
-Where it stops being true: a real waiter would cook the rest of your order. GraphQL rejects the whole slip if one field is wrong. But once cooking starts, some dishes can still arrive even if one fails (practice A shows this).
-
-## 4. The smallest code that shows it
+<details class="more"><summary>📖 More detail: the longer program, and every step</summary>
 
 Save it as `basics.js` in an empty folder outside this repo. Run `npm i graphql`, then `node basics.js`. There is no web server here: `graphql()` is the part that reads, checks and runs. A server like GraphQL Yoga puts it behind `POST /graphql`.
 
@@ -241,7 +256,7 @@ Checked on 2026-10-22 with Node 24.15.0 and graphql 17.0.2.
 
 Three texts, three endings: data with only the asked fields, a change plus its new value, and errors with no function run.
 
-## 5. What really happens, step by step
+**Text 1, 2 and 3, step by step.**
 
 Text 1: `{ orders { id status shop { name } } }`.
 
@@ -273,6 +288,8 @@ Text 3: `{ orders { id price } }`.
 | 14 | `graphql()` | stops. Step 3, the running part, is skipped | `orders function runs` is **not** printed |
 | 15 | `graphql()` | answers with `errors` only, with the line and column of `price` | no `data` key at all |
 
+**What to see.**
+
 What to see:
 
 - Steps 2, 3 and 13: the check happens before any data work. The schema is a contract the server enforces.
@@ -282,28 +299,146 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/04-graphql-basics.html). It has the three texts above, plus a fourth story: the same screen built with REST, three trips.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** with REST, the server decides what each URL sends. Screens get fields they do not use, need extra trips for related data, and every new screen asks for a new endpoint.
-- **How it solves it:** one URL, a schema that lists everything, and a query where the client picks the fields. Related data comes nested in the same answer.
-- **Cost or tradeoff:** more moving parts. A smaller response does not automatically mean less database work. REST can also include related data or let clients choose fields.
+## 4. Check first, run second
 
-| | REST | GraphQL |
+Before it runs a single function, the server checks **every field** against the schema. One wrong field rejects the whole query.
+
+| Text | The check | Runs? | The answer |
+|---|---|---|---|
+| `{ orders { id status } }` | all fields found | yes | `data` |
+| `{ orders { id price } }` | `price` is not on `Order` | **no** | `errors` only |
+
+<details class="guess"><summary>🤔 Guess: for `{ orders { id price } }`, do you get the `id` of each order, and `price: null`? Press to check.</summary>
+
+No. You get **no `data` at all**, only this error, and the `orders` function never runs:
+
+```
+Cannot query field "price" on type "Order".
+```
+
+The wrong field stops the good fields too. Checked with graphql 17 on 2026-10-29.
+
+</details>
+
+> **Remember:** a wrong field rejects the whole query. Nothing runs.
+
+<details class="more"><summary>📖 More detail: the request over time, and the mistake</summary>
+
+**How it works over time.** The server talks to the data only after the check passes.
+
+```mermaid
+sequenceDiagram
+    participant A as Budi app
+    participant S as GraphQL server
+    participant M as Schema
+    participant D as Data
+    A->>S: POST /graphql with the query text
+    S->>S: read the text into a tree of fields
+    S->>M: is orders on Query and are id status shop on Order?
+    M-->>S: yes and name is on Shop
+    S->>D: run the orders function
+    D-->>S: 2 orders with every column
+    S->>S: keep id and status and shop name only
+    S-->>A: 200 with data in the same shape as the query
+```
+
+**Mistake: think a wrong field comes back as `null`.**
+
+**Wrong:** think a wrong field comes back as `null`.
+
+**Right:** a wrong field rejects the whole query. Nothing runs.
+
+**Why:** the check happens before any function runs (step 14). Only errors that happen *while running* give partial data.
+
+</details>
+
+## 5. Query against mutation
+
+Both go to the same URL. The **first word of the text** decides, not the HTTP method or the path.
+
+| | Query | Mutation |
 |---|---|---|
-| URLs | many, one per resource | one, usually `/graphql` |
-| Who picks the fields | the server | the client |
-| Related data | often another trip | nested in the same query |
-| Errors | the status code (404, 400, 500) | an `errors` list in the body, often with status 200 |
-| HTTP caching by URL | easy, `GET /orders/41` | hard, most requests are `POST` to the same URL |
-| A client can ask for something very heavy | only what the endpoints allow | yes, a deep nested query. You need depth and cost limits |
-| Getting started | a route and a handler | a schema, functions per field, a server library |
+| Text starts with | a brace `{`, or `query` | `mutation` |
+| It is | a read | a write |
+| The server | runs the read functions | runs the write function, changes the data |
+| The answer has | the fields you asked for | the fields you asked for, after the change |
 
-When to pick which:
+<details class="guess"><summary>🤔 Guess: `mutation { cancelOrder(id: "42") { id status } }`. What does the answer show for `status`? Press to check.</summary>
 
-- **GraphQL:** several clients (mobile app, admin website) that need different fields from the same data, or screens with lots of nested data.
-- **REST:** simple create, read, update, delete; public APIs where HTTP caching matters; file uploads; calls between your own backend services.
+```
+{"data":{"cancelOrder":{"id":"42","status":"CANCELLED"}}}
+```
 
-## 7. Common mistakes
+The function changed order 42, then returned it. The answer shows the new value, `CANCELLED`.
+
+</details>
+
+> **Remember:** one URL. `mutation` is a write. Send it with `POST`.
+
+<details class="more"><summary>📖 More detail: the picture, and a mutation with GET</summary>
+
+**Query against mutation, drawn.**
+
+Notice that both go to the same URL. The first word of the text decides, not the HTTP method or the path.
+
+```mermaid
+graph TB
+    U["POST /graphql"] --> Q["text starts with a brace or query<br/>a read"]
+    U --> M["text starts with mutation<br/>a write"]
+    Q --> QA["runs the read functions<br/>answers with the asked fields"]
+    M --> MA["runs the write function<br/>changes the data<br/>answers with the asked fields after the change"]
+```
+
+**Mistake: send a mutation with `GET`.**
+
+**Wrong:** send a mutation with `GET /graphql?query=mutation...`.
+
+**Right:** send mutations with `POST`.
+
+**Why:** `GET` is for reads only. GraphQL Yoga answers `405` with `Can only perform a mutation operation from a POST request.`
+
+</details>
+
+## 6. Mistake 1: trust the status, not the body
+
+A GraphQL error often comes with status `200`. Only the body tells the truth.
+
+| | Wrong | Right |
+|---|---|---|
+| The app checks | `res.ok` only | `json.errors` too |
+| A rejected query gives | `json.data` is missing | an error is shown |
+| The code then | `json.data.orders` throws a `TypeError` | stops with the error message |
+
+<details class="guess"><summary>🤔 Guess: the server rejects the query but still answers 200. Why does `json.data.orders` crash? Press to check.</summary>
+
+Because a rejected query has **no `data` key**, only `errors`. So `json.data` is `undefined`, and reading `.orders` from it throws a `TypeError`.
+
+</details>
+
+> **Remember:** after every GraphQL call, check `json.errors`.
+
+<details class="more"><summary>📖 More detail: the picture, and the wrong code and right code</summary>
+
+**Right against wrong.**
+
+```mermaid
+graph LR
+    subgraph W1["Wrong - trust the status"]
+        A1["status 200"] --> A2["res.ok is true"]
+        A2 --> A3["json.data.orders<br/>TypeError because data is missing"]
+    end
+    subgraph R1["Right - read the body"]
+        B1["status 200"] --> B2["json.errors exists?"]
+        B2 -->|yes| B3["show the error"]
+        B2 -->|no| B4["use json.data"]
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class A3 bad
+```
+
+**The mistake in code.**
 
 **Wrong:** check only the status.
 
@@ -323,6 +458,47 @@ return json.data.orders;
 
 **Why:** many servers send `200` even when the query was rejected. Then `json.data` is missing, and `json.data.orders` throws a `TypeError`.
 
+</details>
+
+## 7. Mistake 2: an object field needs its own fields
+
+`shop` is an object type, so you must name the fields you want inside it. There is no "give me everything".
+
+| Wrong | Right |
+|---|---|
+| `{ orders { id shop } }` | `{ orders { id shop { name } } }` |
+| error, nothing runs | `shop` name is in the answer |
+
+<details class="guess"><summary>🤔 Guess: what does the error say for `{ orders { id shop } }`? Press to check.</summary>
+
+```
+Field "shop" of type "Shop!" must have a selection of subfields. Did you mean "shop { ... }"?
+```
+
+Checked with graphql 17 on 2026-10-29. GraphQL has no `SELECT *`, so list every field the screen needs.
+
+</details>
+
+> **Remember:** name the fields inside every object. There is no wildcard.
+
+<details class="more"><summary>📖 More detail: the picture, and the wildcard question</summary>
+
+**Right against wrong.**
+
+```mermaid
+graph LR
+    subgraph W2["Wrong"]
+        C1["orders id shop"] --> C2["error<br/>shop must have a selection of subfields"]
+    end
+    subgraph R2["Right"]
+        D1["orders id shop name"] --> D2["shop name is in the answer"]
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class C2 bad
+```
+
+**The mistake in code.**
+
 **Wrong:** `{ orders { id shop } }`
 
 **Right:** `{ orders { id shop { name } } }`
@@ -335,17 +511,51 @@ return json.data.orders;
 
 **Why:** there is no wildcard. Adding a server field does not silently add it to every client's response. Before removing a field, check which clients still use it.
 
-**Wrong:** think a wrong field comes back as `null`.
+</details>
 
-**Right:** a wrong field rejects the whole query. Nothing runs.
+## 8. REST or GraphQL?
 
-**Why:** the check happens before any function runs (step 14). Only errors that happen *while running* give partial data.
+| | REST | GraphQL |
+|---|---|---|
+| URLs | many, one per resource | one, usually `/graphql` |
+| Who picks the fields | the server | the client |
+| Errors | the status code | an `errors` list, often with status 200 |
+| HTTP caching by URL | easy | hard (most requests are `POST`) |
 
-**Wrong:** send a mutation with `GET /graphql?query=mutation...`.
+<details class="guess"><summary>🤔 Guess: a public API where HTTP caching matters. REST or GraphQL? Press to check.</summary>
 
-**Right:** send mutations with `POST`.
+REST. `GET /orders/41` is easy to cache by URL. GraphQL is the better pick when several clients (a mobile app and an admin website) need different fields from the same data.
 
-**Why:** `GET` is for reads only. GraphQL Yoga answers `405` with `Can only perform a mutation operation from a POST request.`
+</details>
+
+> **Remember:** several clients with different needs, or nested data: GraphQL. Simple create, read, update, delete, or public cached APIs: REST.
+
+<details class="more"><summary>📖 More detail: the full table, and when to pick which</summary>
+
+| | REST | GraphQL |
+|---|---|---|
+| URLs | many, one per resource | one, usually `/graphql` |
+| Who picks the fields | the server | the client |
+| Related data | often another trip | nested in the same query |
+| Errors | the status code (404, 400, 500) | an `errors` list in the body, often with status 200 |
+| HTTP caching by URL | easy, `GET /orders/41` | hard, most requests are `POST` to the same URL |
+| A client can ask for something very heavy | only what the endpoints allow | yes, a deep nested query. You need depth and cost limits |
+| Getting started | a route and a handler | a schema, functions per field, a server library |
+
+When to pick which:
+
+- **GraphQL:** several clients (mobile app, admin website) that need different fields from the same data, or screens with lots of nested data.
+- **REST:** simple create, read, update, delete; public APIs where HTTP caching matters; file uploads; calls between your own backend services.
+
+</details>
+
+## 9. Why it matters and what it costs
+
+- **Without it:** with REST, the server decides what each URL sends. Screens get fields they do not use, need extra trips for related data, and every new screen asks for a new endpoint.
+- **With it:** one URL, a schema that lists everything, and a query where the client picks the fields. Related data comes nested in the same answer.
+- **The cost:** more moving parts. A smaller response does not automatically mean less database work. REST can also include related data or let clients choose fields.
+
+<details class="more"><summary>📖 More detail: if you freeze in the interview</summary>
 
 **If you freeze:**
 
@@ -355,7 +565,9 @@ return json.data.orders;
 
 Checked on 2026-10-22 with Node 24.15.0, graphql 17.0.2, GraphQL Yoga 5.24.6 and Express 5.3.0.
 
-## 8. Watch and play
+</details>
+
+## 10. Watch and play
 
 All links opened and checked on 2026-10-22.
 
@@ -404,7 +616,7 @@ The rules are moving. The [graphql.org Serving over HTTP page](https://graphql.o
 
 </details>
 
-## 9. Practice
+## 11. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -534,7 +746,7 @@ Checked on 2026-10-22 with Node 24.15.0: the 17 tests fail on the empty stub and
 
 </details>
 
-## 10. Interview question
+## 12. Interview question
 
 **Q:** "What is GraphQL, and how is it different from REST? When would you not use it?"
 
@@ -553,7 +765,7 @@ A common follow-up: "Your GraphQL call failed but the status was 200. How did th
 
 </details>
 
-## 11. Explain it back
+## 13. Explain it back
 
 Close this file. Explain GraphQL basics out loud to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the three texts from section 4: the query, the mutation, and the wrong field. Say what the server does with each one. Write it below, then run `/explain-check graphql basics`.
 
@@ -565,7 +777,7 @@ Close this file. Explain GraphQL basics out loud to a new junior, in 4 parts (pr
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 14. Review questions (day 1, 3, 7, 21)
 
 1. Name the two REST problems GraphQL is known for fixing, using the Budi orders screen as the example.
 2. A query asks for a field that is not in the schema. What runs, what comes back, and what status code might the client see?
