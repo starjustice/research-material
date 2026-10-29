@@ -1,14 +1,34 @@
 # 14. Hasura: when and when not
 
-> **Subject:** Backend and API · **Lesson:** 14 · **Made:** 2026-10-23 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 14 · **Made:** 2026-10-23 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** say what Hasura does for you, how its permission rules work, where your own code goes (Actions and event triggers), and when to choose it or not.
+>
 > **Before this:** [Webhooks and idempotency](13-webhooks-and-idempotency.md) · **Next:** [tRPC](15-trpc.md). This is the last lesson of the Senior level group. The API styles group starts there.
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a waiter who has learned the whole menu
 
-Hasura turns your PostgreSQL tables into a GraphQL API and applies your access rules inside every query. Your own code does only the parts that are not plain create, read, update and delete.
+A waiter who knows the whole menu serves any dish at once. You did not teach him dish by dish. That is **Hasura**: it sits in front of PostgreSQL, reads your tables, and gives you a GraphQL API without you writing resolvers. It carries a **card for each kind of guest** (the permission rules) and follows it on every order. For a special order, it walks to the **kitchen**: your own code.
 
-New words:
+```mermaid
+graph TB
+    A["Client app<br/>GraphQL with a token"] --> B["Hasura<br/>adds the row rules<br/>to every query"]
+    B -->|one SQL query| C["PostgreSQL"]
+```
+
+<details class="guess"><summary>🤔 Guess: a hand-written API has 20 tables and 5 operations each. How many resolvers do you write and test? And what is the risk? Press to check.</summary>
+
+**100.** Each one needs a `WHERE` owner check. One forgotten check is a data leak. Hasura makes the API from the tables, and adds the row rules to every query for you.
+
+</details>
+
+> **Remember:** let Hasura do the boring CRUD and the row filters. Keep your rules about money, other services and many steps in your own code.
+
+<details class="more"><summary>📖 More detail: four new words, the problem, and the full picture</summary>
+
+**New words.**
 
 - **Hasura:** a server that sits in front of Postgres. It reads your tables and gives you a GraphQL API without you writing resolvers.
 - **Permission rule:** for one role, one table and one action (select, insert, update or delete): a filter on the rows and a list of columns. The rule can use facts from the token, such as the user id. Hasura calls those facts *session variables*.
@@ -17,11 +37,17 @@ New words:
 
 The rule to remember: **let Hasura do the boring CRUD and the row filters. Keep your rules about money, other services and many steps in your own code.**
 
-## 2. The pictures
+**The problem, drawn.** Hand-written APIs repeat the same code, and every copy can forget the owner check.
 
-### 2a. The big picture
+```mermaid
+graph TB
+    T["20 tables"] --> O["5 operations each"]
+    O --> R["100 resolvers to write and test"]
+    R --> C["each one needs a WHERE owner check"]
+    C --> F["one forgotten check is a data leak"]
+```
 
-Notice that Hasura sits between the app and Postgres, and that your own server hangs off the side.
+**The big picture.** Hasura sits between the app and Postgres, and your own server hangs off the side.
 
 ```mermaid
 graph LR
@@ -33,53 +59,22 @@ graph LR
     N --> P
 ```
 
-### 2b. The problem, drawn
+**The waiter again.**
 
-Hand-written APIs repeat the same code, and every copy can forget the owner check.
+A **waiter who has learned the whole menu**.
 
-```mermaid
-graph TB
-    T["20 tables"] --> O["5 operations each"]
-    O --> R["100 resolvers to write and test"]
-    R --> C["each one needs a WHERE owner check"]
-    C --> F["one forgotten check is a data leak"]
-```
+- The waiter serves any dish on the menu at once (CRUD). You did not teach him dish by dish.
+- He carries a **card for each kind of guest** (the permission rules). "This guest may only see their own bill." He follows the card on every order, without being reminded.
+- For a special order ("make it without sugar, and call the supplier"), he walks to the **kitchen** (your Action). The kitchen does the careful work.
+- When a table is cleared, a bell rings in the back office (an event trigger).
 
-### 2c. How it works over time
+Where the analogy stops: a waiter can be talked into things. Hasura cannot. It puts the card's rule into the database query itself, so the guest has no way to argue with it.
 
-**Part 1: a query.** Notice that the client never writes the filter.
+</details>
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant H as Hasura
-    participant P as PostgreSQL
-    C->>H: query notes with a token
-    H->>H: read role user and user id 7 from the token
-    H->>H: find the select rule for notes and role user
-    H->>P: one SQL query with WHERE owner_id = 7
-    P-->>H: rows 5 and 9
-    H-->>C: JSON with only Ana's notes
-```
+## 2. A permission rule is one cell in a grid
 
-**Part 2: an Action.** Notice that your code does the real work, and Hasura only forwards.
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant H as Hasura
-    participant N as Your handler
-    C->>H: mutation redeemPoints
-    H->>H: check that this role may call the action
-    H->>N: POST with the action name, the input and the session variables
-    N->>N: your logic, other services, a transaction
-    N-->>H: 2xx with the result or 4xx with a message
-    H-->>C: the result in the GraphQL shape
-```
-
-### 2d. What the rules look like right now
-
-A table of rules is a grid: a role, a table and an action give one cell. Here is the grid for a `notes` table. Notice that a cell can be empty, and that an empty cell means no access.
+A role, a table and an action give one cell. Here is the grid for a `notes` table.
 
 | Role | select | insert | update | delete |
 |---|---|---|---|---|
@@ -87,6 +82,16 @@ A table of rules is a grid: a role, a table and an action give one cell. Here is
 | `user` | rows where `owner_id` = my id | only with `owner_id` = my id | my rows | my rows |
 | `viewer` | all rows, columns `id` and `title` | no rule | no rule | no rule |
 | `anonymous` | no rule | no rule | no rule | no rule |
+
+<details class="guess"><summary>🤔 Guess: a `viewer` tries to delete a note. The cell says "no rule". Allowed? Press to check.</summary>
+
+No. A cell that is empty means **no access**. The same goes for `anonymous` in this grid: every cell is empty, so it can do nothing.
+
+</details>
+
+> **Remember:** a role, a table and an action give one cell. An empty cell means no access.
+
+<details class="more"><summary>📖 More detail: what one cell looks like in the metadata files</summary>
 
 And roughly what one cell looks like in Hasura's metadata files (the select rule for `user`, then the insert rule):
 
@@ -110,70 +115,99 @@ insert_permissions:
       columns: [title]
 ```
 
-### 2e. Right against wrong
+</details>
 
-**Wrong picture 1:** "Everything is an Action."
+## 3. One query, step by step
 
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["every operation is an Action"]
-    B --> C["every call goes to your own server"]
-    C --> D["you built a custom server, with Hasura as an extra hop"]
-```
-
-**Right picture 1:** plain CRUD stays in Hasura. Only the special things are Actions.
-
-```mermaid
-graph LR
-    A["Right picture"] --> B["CRUD and row rules stay in Hasura"]
-    B --> C["money, other services and many steps go to Actions"]
-    C --> D["both parts stay small"]
-```
-
-**Wrong picture 2:** "Hasura has its own security, so I do not need to think about it."
-
-```mermaid
-graph LR
-    A["Wrong picture"] --> B["the admin secret is in the mobile app"]
-    B --> C["the console is on in production"]
-    C --> D["anyone is admin and sees every row"]
-```
-
-**Right picture 2:** the admin secret lives only on servers. The console is off in production. Every role has only the rules it needs.
-
-```mermaid
-graph LR
-    A["Right picture"] --> B["admin secret only on servers"]
-    B --> C["console off in production"]
-    C --> D["each role has the smallest rules that work"]
-```
-
-### 2f. Should I use Hasura?
-
-Notice the third answer. Most real projects are a mix.
+Ana (user 7, role `user`) sends `query { notes { id title } }`. She writes **no filter**. Hasura does the rest.
 
 ```mermaid
 graph TB
-    Q["A new backend on PostgreSQL"] --> A["Mostly CRUD with rules about which rows"]
-    Q --> B["Mostly custom rules and many steps"]
-    Q --> C["A mix of both"]
-    A --> A1["Hasura fits. Fast to build and the rules live in one place."]
-    B --> B1["Write your own API. Hasura would only forward calls to your code."]
-    C --> C1["Hybrid. Hasura for CRUD, your service for Actions and events."]
+    A["App sends the query<br/>with a token"] --> B["Hasura reads the role<br/>and the user id 7"]
+    B --> C["Finds the select rule<br/>for notes and role user"]
+    C --> D["One SQL query<br/>WHERE owner_id = 7"]
+    D --> E["Postgres returns<br/>rows 5 and 9"]
 ```
 
-## 3. Real life analogy
+<details class="guess"><summary>🤔 Guess: note 6 is Budi's. What does Ana's answer show for it, an error or nothing? Press to check.</summary>
 
-A **waiter who has learned the whole menu**.
+**Nothing.** It is simply not there, not even in an error. Hasura puts the rule into the SQL query itself, so the database never gives the row to Hasura in the first place.
 
-- The waiter serves any dish on the menu at once (CRUD). You did not teach him dish by dish.
-- He carries a **card for each kind of guest** (the permission rules). "This guest may only see their own bill." He follows the card on every order, without being reminded.
-- For a special order ("make it without sugar, and call the supplier"), he walks to the **kitchen** (your Action). The kitchen does the careful work.
-- When a table is cleared, a bell rings in the back office (an event trigger).
+</details>
 
-Where the analogy stops: a waiter can be talked into things. Hasura cannot. It puts the card's rule into the database query itself, so the guest has no way to argue with it.
+> **Remember:** the client never writes the filter. Hasura adds it to the SQL.
 
-## 4. The smallest code that shows it
+<details class="more"><summary>📖 More detail: the query over time, and every step</summary>
+
+**A query over time.** Notice that the client never writes the filter.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant H as Hasura
+    participant P as PostgreSQL
+    C->>H: query notes with a token
+    H->>H: read role user and user id 7 from the token
+    H->>H: find the select rule for notes and role user
+    H->>P: one SQL query with WHERE owner_id = 7
+    P-->>H: rows 5 and 9
+    H-->>C: JSON with only Ana's notes
+```
+
+**Every step.**
+
+One query from the app of Ana (user 7, role `user`):
+
+```graphql
+query { notes { id title } }
+```
+
+| Step | Who | What happens | Result so far |
+|---|---|---|---|
+| 1 | App | Sends the query with `Authorization: Bearer <token>`. It writes **no** filter. | the query |
+| 2 | Hasura | Checks the token. Reads the role and the user id from its claims. These become the session variables `x-hasura-role` and `x-hasura-user-id`. | role `user`, id 7 |
+| 3 | Hasura | Looks for a select rule for table `notes` and role `user`. If there is none, the answer is an error. | rule found |
+| 4 | Hasura | Puts the rule into **one** SQL query, roughly `SELECT id, title FROM notes WHERE owner_id = 7`. | one query |
+| 5 | Postgres | Runs it. Only rows 5 and 9 can come back. | 2 rows |
+| 6 | Hasura | Makes the JSON and answers. | 200, two notes |
+
+Try it for real: the folder `examples/hasura-todo/` in this repo runs Hasura and Postgres with Docker, and its README walks through a row rule. In the **API** tab, press **Analyze** to see the SQL that Hasura made. (I did not start Docker in this session, so I did not run that example today.)
+
+**Step through it yourself:** [open the Hasura stepper](visuals/14-hasura-when-and-when-not.html). It has five stories: a select with a row rule, an insert (wrong, then with a check and a preset), an Action for the logic, an event trigger that arrives twice, and a "should I use Hasura?" check on three projects. Guess first, then press Next.
+
+</details>
+
+## 4. The smallest code that shows the rule
+
+This is a tiny version of what Hasura does with one rule: take the session variable and keep only the matching rows. (Real Hasura writes it into the SQL as a `WHERE`. It does not filter in JavaScript.)
+
+```js
+const notes = [
+  { id: 5, owner_id: 7, title: "shopping list" },
+  { id: 6, owner_id: 8, title: "private diary" },
+  { id: 9, owner_id: 7, title: "ideas" },
+];
+const session = { "x-hasura-user-id": "7" };
+const rule = { owner_id: "X-Hasura-User-Id" };
+const keep = (n) => Object.entries(rule).every(
+  ([col, v]) => String(n[col]) ===
+    session[v.toLowerCase()]);
+console.log(notes.filter(keep).map((n) => n.id));
+```
+
+<details class="guess"><summary>🤔 Guess: what does the last line print? Press to check.</summary>
+
+```
+[ 5, 9 ]
+```
+
+Ana (user 7) gets notes 5 and 9. Note 6 is Budi's, so it is not there.
+
+</details>
+
+> **Remember:** the rule uses a fact from the token (the user id), so the same query gives each user their own rows.
+
+<details class="more"><summary>📖 More detail: the longer program, which handles any operator</summary>
 
 This is a tiny version of what Hasura does with one rule: take the session variable and keep only the matching rows.
 
@@ -203,66 +237,149 @@ console.log(notes.filter((n) => matches(n, rule, session)).map((n) => n.id));
 
 Ana (user 7) gets notes 5 and 9. Note 6 is Budi's, and it is not in the answer, and not in an error either. It is simply not there. Real Hasura does not filter in JavaScript. It writes the rule into the SQL as a `WHERE`, so the database never even reads the other rows. The practice file asks you to build a bigger version of this.
 
-## 5. What really happens, step by step
+</details>
 
-One query from the app of Ana (user 7, role `user`):
+## 5. Actions: your own code for the special parts
 
-```graphql
-query { notes { id title } }
+An **Action** is an operation you add to the Hasura API, and its code is your own server. Hasura checks that the role may call it, and then forwards the call. Your code does the real work.
+
+```mermaid
+graph TB
+    A["Client<br/>mutation redeemPoints"] --> B["Hasura checks<br/>the role may call it"]
+    B --> C["POST to your handler<br/>with the input"]
+    C --> D["Your logic<br/>other services, a transaction"]
+    D --> E["The result comes back<br/>in the GraphQL shape"]
 ```
 
-| Step | Who | What happens | Result so far |
-|---|---|---|---|
-| 1 | App | Sends the query with `Authorization: Bearer <token>`. It writes **no** filter. | the query |
-| 2 | Hasura | Checks the token. Reads the role and the user id from its claims. These become the session variables `x-hasura-role` and `x-hasura-user-id`. | role `user`, id 7 |
-| 3 | Hasura | Looks for a select rule for table `notes` and role `user`. If there is none, the answer is an error. | rule found |
-| 4 | Hasura | Puts the rule into **one** SQL query, roughly `SELECT id, title FROM notes WHERE owner_id = 7`. | one query |
-| 5 | Postgres | Runs it. Only rows 5 and 9 can come back. | 2 rows |
-| 6 | Hasura | Makes the JSON and answers. | 200, two notes |
+<details class="guess"><summary>🤔 Guess: should every operation be an Action? Press to check.</summary>
 
-Try it for real: the folder `examples/hasura-todo/` in this repo runs Hasura and Postgres with Docker, and its README walks through a row rule. In the **API** tab, press **Analyze** to see the SQL that Hasura made. (I did not start Docker in this session, so I did not run that example today.)
-
-**Step through it yourself:** [open the Hasura stepper](visuals/14-hasura-when-and-when-not.html). It has five stories: a select with a row rule, an insert (wrong, then with a check and a preset), an Action for the logic, an event trigger that arrives twice, and a "should I use Hasura?" check on three projects. Guess first, then press Next.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** the same list, get, create, update and delete code for every table, and an owner check in every copy. One forgotten check leaks data.
-- **How it solves it:** the API is generated from the tables. The row rules are config that the engine adds to every query. Your guide note adds that Hasura turns one GraphQL query into one SQL query, so the "one query plus N more" problem (called N+1) does not appear.
-- **Cost, and where it stops being a good fit:**
-  - **Your own rules do not fit in a filter.** Money, calls to other services and flows with many steps need real code. If you make everything an Action, you wrote a custom server with an extra hop.
-  - **The rules are config, and config needs care.** Keep the metadata in git, review it like code, and never edit a production console by hand. An empty filter (`{}`) means every row.
-  - **The free self-hosted version has no API limits.** Rate, depth, node and time limits are on the paid and Enterprise plans. On the free version, put limits in front (lesson 11) and use the allow list.
-  - **The database shape becomes the API shape.** Renaming a column changes the API that your clients use.
-  - **One more service to run.** It is Postgres-first, and you must follow its versions (see Go deeper).
-  - **Event triggers are at-least-once.** The same event can come twice (lesson 13).
-
-<details><summary>Go deeper (optional): versions, limits, Actions, events and the production list</summary>
-
-**Which Hasura? (checked 2026-10-23).** The v2 line is still released: the GitHub API shows **v2.51.2**, published today. The example in this repo pins the older `hasura/graphql-engine:v2.44.0`, so check the release notes before you move it. Hasura's newer product is **DDN** (version 3). A Hasura blog post suggests that people on v2 Cloud move to DDN, and PromptQL is built on DDN. The DDN docs say there is no built-in admin role there: a role exists only once you define it. Your own guide (2026-07-06) says self-hosters stay on v2, and that the DDN CLI and console are proprietary. I did not re-check those two claims today.
-
-**Roles and session variables.** The request names its role in `X-Hasura-Role`, or lists `X-Hasura-Allowed-Roles` and `X-Hasura-Default-Role`. Hasura only reads session variables that start with `X-Hasura-`, and the names are not case sensitive. The built-in `admin` role can do anything on any table. I did not find one sentence in the docs that says "a role with no rule gets no access" in those words. The behavior is the one in your todo example: a new role sees nothing until you give it a permission. Try it.
-
-**Where the token facts come from.** The user id and role come from a JWT (Hasura checks the signature and reads a claims block) or from an auth webhook that you write. Hasura does not do login. Your auth service does (lessons 06 and 07).
-
-**What a permission cell can hold.** Row filters for all four actions. Column lists for select, insert and update. For select: aggregation permission, a row fetch limit and root field visibility. For insert and update: column presets and "backend only" mutations. For delete: backend only.
-
-**Admin skips everything.** The admin secret makes a caller `admin`, and the admin role skips every permission and every limit. Test as the real role, never only as admin.
-
-**API limits (docs checked 2026-10-23).** Rate limits (a sliding window, with Redis for Enterprise), depth limits, node limits, time limits and batch limits. They are listed for Cloud Professional, Cloud Enterprise and Self-Hosted Enterprise.
-
-**Allow list.** A list of approved operations. Off by default. Turn it on with `HASURA_GRAPHQL_ENABLE_ALLOWLIST=true`. Admin is exempt. In the open source version, the role-based entries are ignored.
-
-**Production checklist (docs checked 2026-10-23).** `HASURA_GRAPHQL_ADMIN_SECRET` set to a long value. `HASURA_GRAPHQL_ENABLE_CONSOLE=false`. `HASURA_GRAPHQL_DEV_MODE=false` so errors do not leak internals. `HASURA_GRAPHQL_CORS_DOMAIN` to your own domains (the default allows all). `HASURA_GRAPHQL_ENABLED_APIS=graphql` turns off the metadata, pgdump and config APIs.
-
-**What an Action handler gets.** A `POST` with a body that holds `action` (with `name`), `input`, `session_variables` (names in lower case) and `request_query`. On success, answer with a `2xx` and the output type. On a refusal, answer with a `4xx` and a body with `message` and, if you like, `extensions` with a `code`.
-
-**What an event trigger sends.** A payload with `id` (a UUID for this invocation), `table`, `trigger`, `event.op` (INSERT, UPDATE, DELETE or MANUAL), `event.data.old` and `.new`, `delivery_info` (`current_retry` and `max_retries`) and `created_at`. The docs say delivery is at least once and can be out of order. Retry settings default to 0 retries, 10 seconds between tries and a 60 second timeout. A non-2xx answer is a failure, and a `Retry-After` header on it is respected. The docs call `id` "a UUID for the invocation". They do **not** say whether a retry keeps the same `id`. So do not trust it as your dedupe key until you have tested it: make your handler fail once, and compare the `id` of the two deliveries. A safer key is one you build from your own data. For an INSERT trigger, the primary key of the new row (for example the order id) can only be inserted once.
-
-**Rules that look at other tables.** A rule can reach into a related table (for example "I am a member of this company"). That adds a join or an `EXISTS` to every query. This is my reading, not a quote from the docs: index the columns that the rule uses.
+No. Then every call goes to your own server, and you built a custom server with Hasura as an extra hop. Plain CRUD stays in Hasura. Only money, other services and many-step flows go to Actions.
 
 </details>
 
-## 7. Common mistakes
+> **Remember:** plain CRUD stays in Hasura. An Action only where there is real logic.
+
+<details class="more"><summary>📖 More detail: the Action over time, the pictures, and the mistake</summary>
+
+**An Action over time.** Your code does the real work, and Hasura only forwards.
+
+**Part 2: an Action.** Notice that your code does the real work, and Hasura only forwards.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant H as Hasura
+    participant N as Your handler
+    C->>H: mutation redeemPoints
+    H->>H: check that this role may call the action
+    H->>N: POST with the action name, the input and the session variables
+    N->>N: your logic, other services, a transaction
+    N-->>H: 2xx with the result or 4xx with a message
+    H-->>C: the result in the GraphQL shape
+```
+
+**Wrong picture 1 and right picture 1.**
+
+**Wrong picture 1:** "Everything is an Action."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["every operation is an Action"]
+    B --> C["every call goes to your own server"]
+    C --> D["you built a custom server, with Hasura as an extra hop"]
+```
+
+**Right picture 1:** plain CRUD stays in Hasura. Only the special things are Actions.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["CRUD and row rules stay in Hasura"]
+    B --> C["money, other services and many steps go to Actions"]
+    C --> D["both parts stay small"]
+```
+
+**The mistake.**
+
+**Wrong:** one Action for every table.
+
+**Right:** CRUD stays in Hasura. An Action only where there is real logic.
+
+**Why:** otherwise you have a custom server plus Hasura, with the costs of both.
+
+</details>
+
+## 6. Should I use Hasura?
+
+| A new backend on PostgreSQL | Choose |
+|---|---|
+| mostly CRUD, with rules about which rows | **Hasura fits.** It is fast to build and the rules live in one place. |
+| mostly custom rules and many steps | **Write your own API.** Hasura would only forward calls to your code. |
+| a mix of both | **Hybrid.** Hasura for CRUD, your service for Actions and events. |
+
+<details class="guess"><summary>🤔 Guess: most real projects are which of the three? Press to check.</summary>
+
+The third: a **mix**. So the usual answer is a hybrid.
+
+</details>
+
+> **Remember:** Hasura for the boring CRUD. Your own service for the special parts.
+
+<details class="more"><summary>📖 More detail: the decision drawn</summary>
+
+Notice the third answer. Most real projects are a mix.
+
+```mermaid
+graph TB
+    Q["A new backend on PostgreSQL"] --> A["Mostly CRUD with rules about which rows"]
+    Q --> B["Mostly custom rules and many steps"]
+    Q --> C["A mix of both"]
+    A --> A1["Hasura fits. Fast to build and the rules live in one place."]
+    B --> B1["Write your own API. Hasura would only forward calls to your code."]
+    C --> C1["Hybrid. Hasura for CRUD, your service for Actions and events."]
+```
+
+</details>
+
+## 7. Mistake 1: the admin secret in a client
+
+```js
+// wrong: this is in the mobile app
+headers: {
+  "x-hasura-admin-secret": "myadminsecret"
+}
+```
+
+<details class="guess"><summary>🤔 Guess: who can read a secret that is in the mobile app? Press to check.</summary>
+
+Anyone who opens the app files. And the admin role **skips every rule**, so that person sees every row. The app should send the user's token. Only your servers know the admin secret. Also test every role with its own headers, not only as admin, because admin sees everything and hides a broken rule.
+
+</details>
+
+> **Remember:** the admin secret lives only on servers. Test as the real role.
+
+<details class="more"><summary>📖 More detail: the pictures, and two mistakes as written</summary>
+
+**Wrong picture 2 and right picture 2.**
+
+**Wrong picture 2:** "Hasura has its own security, so I do not need to think about it."
+
+```mermaid
+graph LR
+    A["Wrong picture"] --> B["the admin secret is in the mobile app"]
+    B --> C["the console is on in production"]
+    C --> D["anyone is admin and sees every row"]
+```
+
+**Right picture 2:** the admin secret lives only on servers. The console is off in production. Every role has only the rules it needs.
+
+```mermaid
+graph LR
+    A["Right picture"] --> B["admin secret only on servers"]
+    B --> C["console off in production"]
+    C --> D["each role has the smallest rules that work"]
+```
+
+**Mistake: the admin secret in a client.**
 
 **Wrong:** the admin secret in a client.
 
@@ -273,6 +390,36 @@ const client = new ApolloClient({ headers: { "x-hasura-admin-secret": "myadminse
 **Right:** the app sends the user's token. Only your servers know the admin secret.
 
 **Why:** the admin role skips every rule. Anyone who opens the app files can read the secret.
+
+**Mistake: testing only as admin.**
+
+**Wrong:** testing only as admin.
+
+**Right:** test every role with its own headers (the **API** tab lets you set `x-hasura-role` and `x-hasura-user-id`).
+
+**Why:** admin sees everything, so a broken rule looks fine.
+
+</details>
+
+## 8. Mistake 2: rules that are too open
+
+| Wrong | What it allows |
+|---|---|
+| `filter: {}` | **every row** |
+| `columns: "*"` | every column, even a private one you add later |
+| insert `check: {}` with `owner_id` in the columns | Ana can create notes that belong to Budi |
+
+The fix: a real filter, a list of columns and a row limit. For inserts, a `check` on the owner and a preset for it, and leave `owner_id` out of the columns.
+
+<details class="guess"><summary>🤔 Guess: what does an empty filter `{}` mean in a permission rule? Press to check.</summary>
+
+It means **every row**. An empty filter is not "no rows". Keep the metadata in git, review it like code, and never edit permissions on a production console by hand.
+
+</details>
+
+> **Remember:** a real filter, a list of columns, and a preset for the owner.
+
+<details class="more"><summary>📖 More detail: the three mistakes as written</summary>
 
 **Wrong:** an empty filter, or all columns.
 
@@ -298,11 +445,7 @@ insert_permissions:
 
 **Why:** with the wrong rule, Ana can create notes that belong to Budi.
 
-**Wrong:** testing only as admin.
-
-**Right:** test every role with its own headers (the **API** tab lets you set `x-hasura-role` and `x-hasura-user-id`).
-
-**Why:** admin sees everything, so a broken rule looks fine.
+**Mistake: editing permissions on a production console.**
 
 **Wrong:** editing permissions on a production console.
 
@@ -310,13 +453,29 @@ insert_permissions:
 
 **Why:** rules are security code. They need review, history and a way back.
 
-**Wrong:** one Action for every table.
+</details>
 
-**Right:** CRUD stays in Hasura. An Action only where there is real logic.
+## 9. Why it matters and what it costs
 
-**Why:** otherwise you have a custom server plus Hasura, with the costs of both.
+- **Without it:** the same list, get, create, update and delete code for every table, and an owner check in every copy. One forgotten check leaks data.
+- **With it:** the API is generated from the tables. The row rules are config that the engine adds to every query.
+- **The cost:** your own rules do not fit in a filter, the rules are config that needs care, the free self-hosted version has no API limits, the database shape becomes the API shape, it is one more service to run, and event triggers are at-least-once.
 
-## 8. Watch and play
+<details class="more"><summary>📖 More detail: the problem, the fix and the costs, as written</summary>
+
+- **Problem without it:** the same list, get, create, update and delete code for every table, and an owner check in every copy. One forgotten check leaks data.
+- **How it solves it:** the API is generated from the tables. The row rules are config that the engine adds to every query. Your guide note adds that Hasura turns one GraphQL query into one SQL query, so the "one query plus N more" problem (called N+1) does not appear.
+- **Cost, and where it stops being a good fit:**
+  - **Your own rules do not fit in a filter.** Money, calls to other services and flows with many steps need real code. If you make everything an Action, you wrote a custom server with an extra hop.
+  - **The rules are config, and config needs care.** Keep the metadata in git, review it like code, and never edit a production console by hand. An empty filter (`{}`) means every row.
+  - **The free self-hosted version has no API limits.** Rate, depth, node and time limits are on the paid and Enterprise plans. On the free version, put limits in front (lesson 11) and use the allow list.
+  - **The database shape becomes the API shape.** Renaming a column changes the API that your clients use.
+  - **One more service to run.** It is Postgres-first, and you must follow its versions (see Go deeper).
+  - **Event triggers are at-least-once.** The same event can come twice (lesson 13).
+
+</details>
+
+## 10. Watch and play
 
 Links checked on 2026-10-23. I opened every page. For the video I checked only the title and the channel, not the content.
 
@@ -339,7 +498,7 @@ Links checked on 2026-10-23. I opened every page. For the video I checked only t
 
 </details>
 
-## 9. Practice
+## 11. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -473,7 +632,7 @@ Notice four things. `own` uses `Object.hasOwn`, so a role called `toString` or `
 
 </details>
 
-## 10. Interview question
+## 12. Interview question
 
 **Q:** "When would you choose Hasura, and when not? How do its permissions work? Where does your business logic go?"
 
@@ -486,7 +645,7 @@ Notice four things. `own` uses `Object.hasOwn`, so a role called `toString` or `
 
 </details>
 
-## 11. Explain it back
+## 13. Explain it back
 
 Close this file. Press the **Record my explanation** button under this heading and explain it out loud, like to a new junior, in 4 parts: problem, how it works, tradeoff, my example. Use the words "permission rule", "Action" and "admin secret". Then save the transcript into `my-learning/recordings/`, or write your best version below. Run `/explain-check hasura` or ask the `explain-coach` agent to review it.
 
@@ -498,7 +657,7 @@ Close this file. Press the **Record my explanation** button under this heading a
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 14. Review questions (day 1, 3, 7, 21)
 
 1. A user sends `query { notes { id } }` with no filter. Why do they only get their own notes?
 2. What is the difference between an Action and an event trigger?
@@ -511,6 +670,36 @@ Close this file. Press the **Record my explanation** button under this heading a
 2. An **Action** is a call from a client that Hasura forwards to your handler, and the answer goes back to that client. An **event trigger** starts by itself when a row is inserted, updated or deleted, and Hasura calls your webhook. It is at-least-once, so your handler must handle repeats.
 3. No API limits (rate, depth, node and time are paid or Enterprise), so add rate limits in front. The allow list works, but its role-based entries are ignored. Production settings are yours to set: a long admin secret, the console off, dev mode off, CORS to your domains.
 4. The client sends GraphQL with a token to Hasura. Hasura sends one SQL query to Postgres. Hasura calls your Node service for an Action. A row change makes Hasura call your webhook, as an event trigger. Your service can also write to Postgres.
+
+</details>
+
+## 15. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Versions, limits, Actions, events and the production list</summary>
+
+**Which Hasura? (checked 2026-10-23).** The v2 line is still released: the GitHub API shows **v2.51.2**, published today. The example in this repo pins the older `hasura/graphql-engine:v2.44.0`, so check the release notes before you move it. Hasura's newer product is **DDN** (version 3). A Hasura blog post suggests that people on v2 Cloud move to DDN, and PromptQL is built on DDN. The DDN docs say there is no built-in admin role there: a role exists only once you define it. Your own guide (2026-07-06) says self-hosters stay on v2, and that the DDN CLI and console are proprietary. I did not re-check those two claims today.
+
+**Roles and session variables.** The request names its role in `X-Hasura-Role`, or lists `X-Hasura-Allowed-Roles` and `X-Hasura-Default-Role`. Hasura only reads session variables that start with `X-Hasura-`, and the names are not case sensitive. The built-in `admin` role can do anything on any table. I did not find one sentence in the docs that says "a role with no rule gets no access" in those words. The behavior is the one in your todo example: a new role sees nothing until you give it a permission. Try it.
+
+**Where the token facts come from.** The user id and role come from a JWT (Hasura checks the signature and reads a claims block) or from an auth webhook that you write. Hasura does not do login. Your auth service does (lessons 06 and 07).
+
+**What a permission cell can hold.** Row filters for all four actions. Column lists for select, insert and update. For select: aggregation permission, a row fetch limit and root field visibility. For insert and update: column presets and "backend only" mutations. For delete: backend only.
+
+**Admin skips everything.** The admin secret makes a caller `admin`, and the admin role skips every permission and every limit. Test as the real role, never only as admin.
+
+**API limits (docs checked 2026-10-23).** Rate limits (a sliding window, with Redis for Enterprise), depth limits, node limits, time limits and batch limits. They are listed for Cloud Professional, Cloud Enterprise and Self-Hosted Enterprise.
+
+**Allow list.** A list of approved operations. Off by default. Turn it on with `HASURA_GRAPHQL_ENABLE_ALLOWLIST=true`. Admin is exempt. In the open source version, the role-based entries are ignored.
+
+**Production checklist (docs checked 2026-10-23).** `HASURA_GRAPHQL_ADMIN_SECRET` set to a long value. `HASURA_GRAPHQL_ENABLE_CONSOLE=false`. `HASURA_GRAPHQL_DEV_MODE=false` so errors do not leak internals. `HASURA_GRAPHQL_CORS_DOMAIN` to your own domains (the default allows all). `HASURA_GRAPHQL_ENABLED_APIS=graphql` turns off the metadata, pgdump and config APIs.
+
+**What an Action handler gets.** A `POST` with a body that holds `action` (with `name`), `input`, `session_variables` (names in lower case) and `request_query`. On success, answer with a `2xx` and the output type. On a refusal, answer with a `4xx` and a body with `message` and, if you like, `extensions` with a `code`.
+
+**What an event trigger sends.** A payload with `id` (a UUID for this invocation), `table`, `trigger`, `event.op` (INSERT, UPDATE, DELETE or MANUAL), `event.data.old` and `.new`, `delivery_info` (`current_retry` and `max_retries`) and `created_at`. The docs say delivery is at least once and can be out of order. Retry settings default to 0 retries, 10 seconds between tries and a 60 second timeout. A non-2xx answer is a failure, and a `Retry-After` header on it is respected. The docs call `id` "a UUID for the invocation". They do **not** say whether a retry keeps the same `id`. So do not trust it as your dedupe key until you have tested it: make your handler fail once, and compare the `id` of the two deliveries. A safer key is one you build from your own data. For an INSERT trigger, the primary key of the new row (for example the order id) can only be inserted once.
+
+**Rules that look at other tables.** A rule can reach into a related table (for example "I am a member of this company"). That adds a join or an `EXISTS` to every query. This is my reading, not a quote from the docs: index the columns that the rule uses.
 
 </details>
 
