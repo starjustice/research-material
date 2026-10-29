@@ -1,21 +1,44 @@
 # 03. Express middleware
 
-> **Subject:** Backend and API · **Lesson:** 03 · **Made:** 2026-10-22 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 03 · **Made:** 2026-10-22 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** walk one request through an Express app, say what `next()` does, and explain how one error middleware catches errors from every route.
+>
 > **Before this:** [REST API design](02-rest-api-design.md) · **Next:** [GraphQL basics](04-graphql-basics.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: an airport line
 
-Express passes every request down a line of small functions, in the order you added them, and each one either passes it on or sends the answer.
+At an airport you walk a line: check-in, bag scan, passport desk, gate. Each desk does one job and waves you on. Express is the same. Every request walks a **line of small functions**, in the order you added them. Each function either passes the request on, or sends the answer.
 
-Why you need it:
+```mermaid
+graph TB
+    C["Client<br/>POST /orders"] --> L["logger"]
+    L -->|next| J["express.json"]
+    J -->|next| A["auth"]
+    A -->|next| R["route<br/>POST /orders"]
+    R --> D["Answer<br/>201"]
+```
+
+<details class="guess"><summary>🤔 Guess: a teammate adds route 31, `DELETE /orders/:id`, below the `auth` function. Does the route need its own token check? Press to check.</summary>
+
+No. Every request walks the line from the top, so route 31 is already behind `auth`. That is the point: write each job once, and a new route cannot forget it.
+
+</details>
+
+> **Remember:** a request walks the line from the top, in the order you added the functions.
+
+<details class="more"><summary>📖 More detail: the problem, four new words, and the full picture</summary>
+
+**Why you need it.**
 
 - Your shop API has 30 routes. Each needs the same jobs: log, read the body, check the token, catch errors.
 - So you copy those jobs into all 30 routes.
 - A teammate adds route 31, `DELETE /orders/:id`, and forgets the token check. Anyone can delete orders.
 - The fix: write each job once and put it in a line that every request walks.
 
-New words (four):
+**Four new words.**
 
 - **Middleware:** a function that runs before your route, does one job, then passes the request on. (Interview word: middleware.)
 - **The line:** all your middleware and routes, in the order you added them. Each request walks it from the top. (Interview words: middleware pipeline, or middleware chain.)
@@ -24,27 +47,7 @@ New words (four):
 
 In Express, `req` is the request as an object, and `res` is how you send the answer ([HTTP basics](01-http-basics.md)). This lesson is what happens between them.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that a normal request walks the top row, and an error jumps straight to the end.
-
-```mermaid
-graph LR
-    C["Client<br/>POST /orders"] --> L["logger<br/>gives req an id"]
-    L -->|next| J["express.json<br/>fills req.body"]
-    J -->|next| A["auth<br/>fills req.user"]
-    A -->|next| R["route<br/>POST /orders"]
-    R -->|sends 201| C2["Client gets<br/>the answer"]
-    A -->|no token so it sends 401| C2
-    R -->|next with err or throw| E["error middleware<br/>4 parameters"]
-    E -->|sends 500 safe message| C2
-```
-
-### 2b. The problem, drawn
-
-Notice that every route carries its own copy of the checks. Route 31 forgot one.
+**The problem, drawn.** Every route carries its own copy of the checks. Route 31 forgot one.
 
 ```mermaid
 graph TB
@@ -59,9 +62,132 @@ graph TB
     class R31,X bad
 ```
 
-### 2c. How it works over time
+**The big picture.** A normal request walks the top row, and an error jumps straight to the end.
 
-Notice that each function hands over by calling `next`. The route sends, and nobody calls `next` after it.
+```mermaid
+graph LR
+    C["Client<br/>POST /orders"] --> L["logger<br/>gives req an id"]
+    L -->|next| J["express.json<br/>fills req.body"]
+    J -->|next| A["auth<br/>fills req.user"]
+    A -->|next| R["route<br/>POST /orders"]
+    R -->|sends 201| C2["Client gets<br/>the answer"]
+    A -->|no token so it sends 401| C2
+    R -->|next with err or throw| E["error middleware<br/>4 parameters"]
+    E -->|sends 500 safe message| C2
+```
+
+**Where the airport picture stops.**
+
+Where it stops being true: in an airport you can see the line. In Express, the order is only the order of your code, and nothing warns you when it is wrong.
+
+</details>
+
+## 2. How a middleware can end
+
+A middleware has one job to finish: **call `next()`, or send an answer**. Pick one.
+
+| It does | Result | Allowed? |
+|---|---|---|
+| calls `next()` | the next function runs | yes |
+| sends an answer, and returns | the line stops, the client has its answer | yes |
+| calls `next(err)`, or throws | jumps to the error middleware | yes |
+| does neither | the request hangs | **bug** |
+| sends **and** calls `next()` | "Cannot set headers" error | **bug** |
+
+<details class="guess"><summary>🤔 Guess: a logger prints a line, but never calls `next()` and never sends. What happens to the request? Press to check.</summary>
+
+It hangs until the client gives up. Express waits for `next()` or a send. Neither comes, and **no error is printed**.
+
+</details>
+
+> **Remember:** every middleware calls `next()` or sends. Never neither, never both.
+
+<details class="more"><summary>📖 More detail: the picture, the airport desks, and the mistake in code</summary>
+
+**How a middleware can end, drawn.** Only the first three are allowed.
+
+```mermaid
+graph TB
+    M["A middleware runs"] --> E1["calls next"]
+    M --> E2["sends an answer<br/>and returns"]
+    M --> E3["calls next with err<br/>or throws"]
+    M --> E4["does neither"]
+    M --> E5["sends AND calls next"]
+    E1 --> O1["the next normal function runs"]
+    E2 --> O2["the line stops<br/>the client has its answer"]
+    E3 --> O3["skip to the error middleware"]
+    E4 --> O4["the request hangs<br/>until the client gives up"]
+    E5 --> O5["later code runs anyway<br/>Cannot set headers error"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class E4,O4,E5,O5 bad
+```
+
+**The airport again.**
+
+- You walk from check-in, to the bag scan, to the passport desk, to the gate. Each desk does one job.
+- A desk writes on your boarding pass and waves you on. That is `next()`.
+- The passport desk can send you home before the gate. That is a 401.
+- If something breaks, staff walk you to the help desk at the end. That is the error middleware.
+- If an officer walks away without waving you on, you stand there forever. That is a hang.
+
+**Mistake: forget `next()`.**
+
+**Wrong:** forget `next()`.
+
+```js
+app.use((req, res, next) => {
+  console.log(req.method, req.path);                   // no next(), no send
+});
+```
+
+**Right:** `console.log(...); next();`
+
+**Why:** Express waits for `next()` or a send. Neither comes, so the request hangs, and no error is printed.
+
+</details>
+
+## 3. `req` is one shared object
+
+`req` is one object. Every function in the line gets the **same one**. That is how `auth` "talks" to the route: it puts `req.user` on it, and the route reads it.
+
+| Field | Who put it there | Before that function ran |
+|---|---|---|
+| `req.method`, `req.path` | Express, from the HTTP text | (always there) |
+| `req.id` | logger | `undefined` |
+| `req.body` | `express.json()` | `undefined` |
+| `req.user` | auth | `undefined` |
+
+<details class="guess"><summary>🤔 Guess: the route reads `req.user.id`. Who put `user` on `req`: the route, or a function before it? Press to check.</summary>
+
+A function before it: `auth`. The route did none of this work. It only reads what three functions before it filled in.
+
+</details>
+
+> **Remember:** each function adds one thing to the same `req`. The route only reads.
+
+<details class="more"><summary>📖 More detail: what is on `req`, and the request over time</summary>
+
+**What is on `req` right now.**
+
+The moment the route starts, for the good request. Notice that the route did none of this work. Three functions before it filled `req`.
+
+```mermaid
+graph LR
+    subgraph REQ["req when the route starts"]
+        F1["req.method = POST<br/>req.path = /orders<br/>req.headers.authorization = Bearer t-7"]
+        F2["req.id = 1"]
+        F3["req.body = item cement"]
+        F4["req.user = id 7"]
+    end
+    EX["Express<br/>from the HTTP request"] --> F1
+    LG["logger"] --> F2
+    JS["express.json"] --> F3
+    AU["auth"] --> F4
+```
+
+`req` is one object. Every function in the line gets the same one. That is how auth "talks" to the route.
+
+**How it works over time.** Each function hands over by calling `next`. The route sends, and nobody calls `next` after it.
 
 ```mermaid
 sequenceDiagram
@@ -82,34 +208,32 @@ sequenceDiagram
     Note over L,R: the line stops here because nobody called next
 ```
 
-### 2d. What is on `req` right now
+</details>
 
-The moment the route starts, for the good request. Notice that the route did none of this work. Three functions before it filled `req`.
+## 4. The order matters
+
+The code is the same. Only the order of the lines changes. Top to bottom:
 
 ```mermaid
-graph LR
-    subgraph REQ["req when the route starts"]
-        F1["req.method = POST<br/>req.path = /orders<br/>req.headers.authorization = Bearer t-7"]
-        F2["req.id = 1"]
-        F3["req.body = item cement"]
-        F4["req.user = id 7"]
-    end
-    EX["Express<br/>from the HTTP request"] --> F1
-    LG["logger"] --> F2
-    JS["express.json"] --> F3
-    AU["auth"] --> F4
+graph TB
+    A["1 logger"] --> B["2 express.json"]
+    B --> C["3 auth"]
+    C --> D["4 routes"]
+    D --> E["5 a 404 catch-all"]
+    E --> F["6 error middleware"]
 ```
 
-| Field | Who put it there | Before that function ran |
-|---|---|---|
-| `req.method`, `req.path`, `req.headers` | Express, from the HTTP text | (always there) |
-| `req.id` | logger | `undefined` |
-| `req.body` | `express.json()` | `undefined` |
-| `req.user` | auth | `undefined` |
+<details class="guess"><summary>🤔 Guess: `app.use(express.json())` comes **after** the route that reads `req.body.item`. What does the client get? Press to check.</summary>
 
-`req` is one object. Every function in the line gets the same one. That is how auth "talks" to the route.
+A **500**. `req.body` is still `undefined`, so `req.body.item` throws `TypeError: Cannot read properties of undefined (reading 'item')`. Checked with Express 5.3.0 on 2026-10-29.
 
-### 2e. Right against wrong: the order
+</details>
+
+> **Remember:** `express.json()` goes above every route that reads `req.body`. Error middleware goes last.
+
+<details class="more"><summary>📖 More detail: right against wrong, drawn, and the mistake in code</summary>
+
+**Right against wrong: the order.**
 
 Notice that the code is the same. Only the order of the lines changed.
 
@@ -143,27 +267,112 @@ graph LR
 
 The order to remember, top to bottom: logger, `express.json()`, auth, routes, a 404 catch-all, error middleware.
 
-### 2f. How a middleware can end
+**Mistake: `express.json()` after the route.**
 
-Notice that only the first three are allowed. The last two are bugs.
+**Wrong:** `express.json()` after the route.
+
+```js
+app.post("/orders", (req, res) => res.status(201).json({ item: req.body.item }));
+app.use(express.json());
+```
+
+**Right:** `app.use(express.json())` above every route that reads `req.body`.
+
+**Why:** `req.body` is still `undefined`, so `req.body.item` throws a `TypeError`. The client gets a 500.
+
+**Mistake: error middleware at the top.**
+
+**Wrong:** error middleware at the top. **Right:** at the very bottom. **Why:** `next(err)` only looks forward.
+
+</details>
+
+## 5. Error middleware: four parameters, added last
+
+When a route throws, or calls `next(err)`, Express **skips every normal function** and jumps to a function with four parameters: `(err, req, res, next)`. One of them at the bottom gives every route the same safe answer.
 
 ```mermaid
 graph TB
-    M["A middleware runs"] --> E1["calls next"]
-    M --> E2["sends an answer<br/>and returns"]
-    M --> E3["calls next with err<br/>or throws"]
-    M --> E4["does neither"]
-    M --> E5["sends AND calls next"]
-    E1 --> O1["the next normal function runs"]
-    E2 --> O2["the line stops<br/>the client has its answer"]
-    E3 --> O3["skip to the error middleware"]
-    E4 --> O4["the request hangs<br/>until the client gives up"]
-    E5 --> O5["later code runs anyway<br/>Cannot set headers error"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class E4,O4,E5,O5 bad
+    R["route throws"] -->|jump| E["error middleware<br/>err, req, res, next"]
+    E --> S["500 with your safe message"]
 ```
 
-### 2g. Where a middleware runs
+<details class="guess"><summary>🤔 Guess: you write the error middleware with only three parameters, `(err, req, res)`. What does the client get? Press to check.</summary>
+
+The default Express error page, not your message. Express counts the parameters. With three, it is not an error middleware, so errors skip it. Checked with Express 5.3.0 on 2026-10-29.
+
+</details>
+
+> **Remember:** four parameters, even if you never use `next`.
+
+<details class="more"><summary>📖 More detail: the mistake in code</summary>
+
+**Wrong:** an error middleware with three parameters.
+
+```js
+app.use((err, req, res) => res.status(500).json({ error: "something went wrong" }));
+```
+
+**Right:** `app.use((err, req, res, next) => ...)`, even if you never use `next`.
+
+**Why:** Express counts the parameters. With three, errors skip it, and the client gets the default 500 page.
+
+</details>
+
+## 6. Errors in `async` code: Express 4 against Express 5
+
+A route is often `async`. What happens when it throws depends on the version.
+
+| | Express 4 | Express 5 (current) |
+|---|---|---|
+| `throw` in a normal function | error middleware | error middleware |
+| `next(err)` | error middleware | error middleware |
+| `throw` in an `async` route | **not caught: Node stops the server** | error middleware |
+| What you had to write | `try/catch` and `next(err)` | nothing extra |
+
+<details class="guess"><summary>🤔 Guess: in Express 4, one `async` route throws and nothing catches it. Who is affected? Press to check.</summary>
+
+Every user. Express 4 ignores the failed promise, so Node stops the whole server with exit code 1. One bad request takes it down.
+
+</details>
+
+> **Remember:** Express 5 sends a thrown `async` error to your error middleware. Express 4 did not.
+
+<details class="more"><summary>📖 More detail: the mistake in code</summary>
+
+**Wrong (Express 4 only):** an `async` route that throws, with nothing to catch it.
+
+```js
+app.get("/boom", async (req, res) => { throw new Error("database is down"); });
+```
+
+**Right in Express 4:** `try { ... } catch (err) { next(err); }`. **Right in Express 5:** the code above already works.
+
+**Why:** Express 4 ignores the failed promise, so Node stops the whole server with exit code 1. One bad request takes it down for every user.
+
+</details>
+
+## 7. Where a middleware runs
+
+You choose how wide a middleware reaches.
+
+| Code | Runs for |
+|---|---|
+| `app.use(fn)` | every request |
+| `app.use("/admin", fn)` | paths that start with `/admin` |
+| `app.get("/orders", auth, handler)` | this one route |
+| `app.use((err, req, res, next) => ...)` last | errors from anything above |
+
+<details class="guess"><summary>🤔 Guess: `app.get("/orders", auth, handler)`. Does `auth` run for `POST /orders`? Press to check.</summary>
+
+No. It runs for `GET /orders` only. Use this for a check that only some routes need.
+
+</details>
+
+> **Remember:** `app.use` is wide. A route with its own function is narrow.
+
+<details class="more"><summary>📖 More detail: where to put a middleware</summary>
+
+**Where it runs, drawn.**
 
 Notice that you choose how wide a middleware reaches.
 
@@ -174,19 +383,54 @@ graph LR
     U3["app.get with /orders and auth and handler"] -->|runs for| X3["GET /orders only"]
 ```
 
-## 3. Real life analogy
+**What to use each one for.**
 
-An airport line.
+| Code | Runs for | Use it for |
+|---|---|---|
+| `app.use(fn)` | every request | logging, request id, `express.json()` |
+| `app.use("/admin", fn)` | paths that start with `/admin` | "admins only" for a whole area |
+| `app.get("/orders", auth, handler)` | this one route | a check only some routes need |
+| `app.use((err, req, res, next) => ...)` last | errors from anything above | one safe error answer |
 
-- You walk from check-in, to the bag scan, to the passport desk, to the gate. Each desk does one job.
-- A desk writes on your boarding pass and waves you on. That is `next()`.
-- The passport desk can send you home before the gate. That is a 401.
-- If something breaks, staff walk you to the help desk at the end. That is the error middleware.
-- If an officer walks away without waving you on, you stand there forever. That is a hang.
+</details>
 
-Where it stops being true: in an airport you can see the line. In Express, the order is only the order of your code, and nothing warns you when it is wrong.
+## 8. The smallest code that shows it
 
-## 4. The smallest code that shows it
+One middleware, one route, and a tiny client in the same file. Run `npm i express` first (version 5).
+
+```js
+const app = require("express")();
+app.use((req, res, next) => {
+  console.log("1 logger", req.path);
+  next();
+});
+app.get("/hi", (req, res) => {
+  console.log("2 route");
+  res.send("hello");
+});
+const s = app.listen(0, async () => {
+  const r = await fetch(
+    `http://localhost:${s.address().port}/hi`);
+  console.log("3 answer:", await r.text());
+  s.close();
+});
+```
+
+<details class="guess"><summary>🤔 Guess: what do the three lines print, and in what order? Press to check.</summary>
+
+```
+1 logger /hi
+2 route
+3 answer: hello
+```
+
+The logger runs first because it was added first. It calls `next()`, so the route runs and sends.
+
+</details>
+
+> **Remember:** the logger passes the request on with `next()`. The route sends, and the line stops.
+
+<details class="more"><summary>📖 More detail: the longer program, and every step</summary>
 
 Save it as `middleware.js` in an empty folder outside this repo. Run `npm i express`, then `node middleware.js`.
 
@@ -254,7 +498,7 @@ Checked on 2026-10-22 with Node 24.15.0 and Express 5.3.0.
 
 Three requests, three endings: the route sent, auth stopped the line, the error middleware caught the throw.
 
-## 5. What really happens, step by step
+**The three requests, step by step.**
 
 Request 1: `POST /orders` with a good token and the body `{"item":"cement"}`.
 
@@ -285,6 +529,8 @@ Request 3: `GET /boom`, the error path.
 | 13 | `GET /boom` | | throws. The `async` function gives back a failed (rejected) promise | Express 5 calls `next(err)` for you |
 | 14 | error middleware | `err.message` | prints the real message, sends a safe `500` | none |
 
+**What to see.**
+
 What to see:
 
 - Steps 2 to 4: each function adds one thing to the same `req`. The route only reads.
@@ -294,43 +540,32 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/03-express-middleware.html). It has the three requests above, plus a fourth where the logger forgets `next()`.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** the same checks are copied into every route, and one forgotten copy is a security hole.
-- **How it solves it:** each job is written once and put in the line. A route added later is behind the same checks, because it sits lower in the line.
-- **Cost or tradeoff:** the order is hidden in setup code, and a wrong order fails quietly. A route file does not show what ran before it. Every request pays for every global middleware.
+## 9. Mistake 1: send without `return`
 
-### Where to put a middleware
-
-| Code | Runs for | Use it for |
-|---|---|---|
-| `app.use(fn)` | every request | logging, request id, `express.json()` |
-| `app.use("/admin", fn)` | paths that start with `/admin` | "admins only" for a whole area |
-| `app.get("/orders", auth, handler)` | this one route | a check only some routes need |
-| `app.use((err, req, res, next) => ...)` last | errors from anything above | one safe error answer |
-
-### Errors in `async` code: Express 4 against Express 5
-
-| | Express 4 | Express 5 (current) |
-|---|---|---|
-| `throw` in a normal function | goes to error middleware | goes to error middleware |
-| `next(err)` | goes to error middleware | goes to error middleware |
-| `throw` inside an `async` route | not caught. Node stops the whole server | goes to error middleware |
-| What you had to write | `try/catch` and `next(err)`, or a helper package | nothing extra |
-
-## 7. Common mistakes
-
-**Wrong:** forget `next()`.
+`auth` sends a 401, but the function goes on and calls `next()` anyway.
 
 ```js
 app.use((req, res, next) => {
-  console.log(req.method, req.path);                   // no next(), no send
+  if (!req.get("authorization")) {
+    res.status(401).json({ error: "log in first" });
+  }
+  next();                    // still runs
 });
 ```
 
-**Right:** `console.log(...); next();`
+The client gets `401 {"error":"log in first"}`. But the route runs anyway.
 
-**Why:** Express waits for `next()` or a send. Neither comes, so the request hangs, and no error is printed.
+<details class="guess"><summary>🤔 Guess: the route also calls `res.json(...)`. What does the server print? Press to check.</summary>
+
+`route ran`, and then `Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client`. Sending does not end your function. Checked with Express 5.3.0 on 2026-10-29.
+
+</details>
+
+> **Remember:** `return res.status(401).json(...)`. Always `return` when you send.
+
+<details class="more"><summary>📖 More detail: the wrong code and the right code</summary>
 
 **Wrong:** send without `return`.
 
@@ -346,38 +581,15 @@ next();                                                // ...and still goes on
 
 **Why:** sending does not end your function. The route still runs, then fails with `Cannot set headers after they are sent to the client`.
 
-**Wrong:** `express.json()` after the route.
+</details>
 
-```js
-app.post("/orders", (req, res) => res.status(201).json({ item: req.body.item }));
-app.use(express.json());
-```
+## 10. Why it matters and what it costs
 
-**Right:** `app.use(express.json())` above every route that reads `req.body`.
+- **Without it:** the same checks are copied into every route, and one forgotten copy is a security hole.
+- **With it:** each job is written once and put in the line. A route added later is behind the same checks, because it sits lower in the line.
+- **The cost:** the order is hidden in setup code, and a wrong order fails quietly. A route file does not show what ran before it. Every request pays for every global middleware.
 
-**Why:** `req.body` is still `undefined`, so `req.body.item` throws a `TypeError`. The client gets a 500.
-
-**Wrong:** an error middleware with three parameters.
-
-```js
-app.use((err, req, res) => res.status(500).json({ error: "something went wrong" }));
-```
-
-**Right:** `app.use((err, req, res, next) => ...)`, even if you never use `next`.
-
-**Why:** Express counts the parameters. With three, errors skip it, and the client gets the default 500 page.
-
-**Wrong:** error middleware at the top. **Right:** at the very bottom. **Why:** `next(err)` only looks forward.
-
-**Wrong (Express 4 only):** an `async` route that throws, with nothing to catch it.
-
-```js
-app.get("/boom", async (req, res) => { throw new Error("database is down"); });
-```
-
-**Right in Express 4:** `try { ... } catch (err) { next(err); }`. **Right in Express 5:** the code above already works.
-
-**Why:** Express 4 ignores the failed promise, so Node stops the whole server with exit code 1. One bad request takes it down for every user.
+<details class="more"><summary>📖 More detail: if you freeze in the interview</summary>
 
 **If you freeze:**
 
@@ -387,7 +599,9 @@ app.get("/boom", async (req, res) => { throw new Error("database is down"); });
 
 All mistakes checked on 2026-10-22 with Node 24.15.0 and Express 5.3.0. The Express 4 one with Express 4.22.3.
 
-## 8. Watch and play
+</details>
+
+## 11. Watch and play
 
 All links checked on 2026-10-22.
 
@@ -457,7 +671,7 @@ So to run code after the answer, like timing a request, use `res.on("finish", ..
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -620,7 +834,7 @@ Checked on 2026-10-22 with Node 24.15.0: the 17 tests fail on the empty stub and
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "Walk me through what happens when a request hits an Express app. How do you handle errors in one place?"
 
@@ -639,7 +853,7 @@ A common follow-up: "Your auth middleware sends a 401, but the order was still c
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Explain Express middleware out loud to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the three requests from section 4: the good one, the one with no token, and the one that throws. Write it below, then run `/explain-check express middleware`.
 
@@ -651,7 +865,7 @@ Close this file. Explain Express middleware out loud to a new junior, in 4 parts
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. A middleware must end in one of two ways. Which two, and what happens if it does neither?
 2. Why must `express.json()` come before your routes, and the error middleware after them?
