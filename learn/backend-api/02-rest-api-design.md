@@ -1,14 +1,36 @@
 # 02. REST API design
 
-> **Subject:** Backend and API · **Lesson:** 02 · **Made:** 2026-10-22 · **Status:** ready
+> **Subject:** Backend and API · **Lesson:** 02 · **Made:** 2026-10-22 · **Remade in short cards:** 2026-10-29 · **Status:** ready
+>
 > **You will be able to:** name the method, path and status for any action on a resource, and explain why cursor paging does not show an order twice when offset paging does.
+>
 > **Before this:** [HTTP basics](01-http-basics.md) · **Next:** [Express middleware](03-express-middleware.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: street addresses
 
-Name things with nouns in the URL, let the HTTP method be the verb, and send long lists in pages, so any developer can guess the next URL without asking.
+A street address looks the same in every town: "Orders Street, number 41". What you do there is the verb. REST does the same. The path is a **noun** (`/orders`, `/orders/41`). The HTTP method is the **verb**.
 
-Why you need it:
+| The app wants to | Method and path | Success |
+|---|---|---|
+| see the list | `GET /orders` | `200` |
+| see one | `GET /orders/41` | `200` |
+| make a new one | `POST /orders` | `201` |
+| change some fields | `PATCH /orders/41` | `200` |
+| remove it | `DELETE /orders/41` | `204` |
+
+<details class="guess"><summary>🤔 Guess: the app wants to remove order 41. Which method, which path and which success status? Press to check.</summary>
+
+`DELETE /orders/41`, and the server answers `204` with no body. The word "delete" is the method, so it never goes in the path.
+
+</details>
+
+> **Remember:** nouns in the path. The method is the verb.
+
+<details class="more"><summary>📖 More detail: the problem, four new words, and the full picture</summary>
+
+**Why you need it.**
 
 - Rina builds the React Native app. She calls `POST /getOrders`, `POST /createOrder`, `GET /order/delete?id=41`.
 - Now she must cancel an order. `/cancelOrder`? `/order/cancel`? She has to ask.
@@ -16,18 +38,29 @@ Why you need it:
 
 REST is a set of habits that fixes this, using the methods and status codes from [lesson 01](01-http-basics.md).
 
-New words (four):
+**Four new words.**
 
 - **Resource:** one kind of thing your API keeps, named by a plural noun. `/orders` is the list, `/orders/41` is one order. (Interview words: resource, collection.)
 - **Paging:** sending a long list in small pieces. The simple kind says how many rows to skip. (Interview words: pagination, offset.)
 - **Cursor:** a bookmark, the id of the last item the app saw. The next page starts after it. (Interview words: cursor or keyset pagination.)
 - **Version:** a name like `v1` for one shape of your answers. Old apps keep the old shape. (Interview word: API versioning.)
 
-## 2. The pictures
+**The problem, drawn.** Every call is its own guess, and even the error says 200.
 
-### 2a. The big picture
+```mermaid
+graph TB
+    R["Rina wants to<br/>work with orders"] -->|guess 1| U1["POST /getOrders"]
+    R -->|guess 2| U2["POST /createOrder"]
+    R -->|guess 3| U3["GET /order/delete?id=41"]
+    R -->|guess 4| U4["/cancelOrder or /order/cancel or ..."]
+    U4 --> D["Ask the backend team<br/>read the docs again"]
+    U3 --> E["200 OK<br/>body says not found"]
+    E --> X["The app shows Deleted<br/>but nothing was deleted"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class E,X bad
+```
 
-Notice there is one noun, `orders`, and five verbs. The verb is the method, never a word in the path.
+**The big picture.** One noun, `orders`, and five verbs.
 
 ```mermaid
 graph LR
@@ -43,25 +76,32 @@ graph LR
     A5 --> DB
 ```
 
-The table to know:
+**Where the street picture stops.**
 
-| What the app wants | Method and path | Success answer |
+**Names:** street addresses. "Orders Street, number 41" follows the same pattern in every town. The method is what you do there.
+
+</details>
+
+## 2. URL habits: right against wrong
+
+Every fix moves the verb out of the path.
+
+| Wrong | Right | The habit |
 |---|---|---|
-| See the list | `GET /orders` | `200` and one page |
-| See one | `GET /orders/41` | `200` |
-| Make a new one | `POST /orders` | `201`, plus a `Location: /orders/42` header that says where it lives |
-| Replace all of it | `PUT /orders/41` | `200` |
-| Change some fields | `PATCH /orders/41` | `200` |
-| Remove it | `DELETE /orders/41` | `204`, no body |
+| `POST /getOrders` | `GET /orders` | verb out of the path |
+| `GET /order/41` | `GET /orders/41` | plural noun |
+| `POST /deleteOrder?id=41` | `DELETE /orders/41` | id in the path |
+| `GET /stores/7/orders/41/items/3` | `GET /order-items/3` | one level at most |
 
-When it fails:
+<details class="guess"><summary>🤔 Guess: where does the filter "only paid orders" go? Press to check.</summary>
 
-| What went wrong | Status |
-|---|---|
-| Order 41 is not there | `404` |
-| The body is not valid JSON | `400` |
-| The JSON is fine but breaks a rule, like quantity `-3` | `422` (some teams use `400`; pick one and keep it) |
-| It clashes with the order's current state, like cancelling a shipped order | `409` |
+In the query string: `/orders?status=paid`. The path names the thing. The query string narrows it down.
+
+</details>
+
+> **Remember:** plural nouns, lowercase, the id in the path, one level of nesting at most.
+
+<details class="more"><summary>📖 More detail: the habits, the picture, and the mistake in code</summary>
 
 The URL habits:
 
@@ -70,81 +110,7 @@ The URL habits:
 - Nest one level at most: `/stores/7/orders`.
 - Filters go in the query string: `/orders?status=paid`.
 
-### 2b. The problem, drawn
-
-Notice that every call is its own guess, and even the error says 200.
-
-```mermaid
-graph TB
-    R["Rina wants to<br/>work with orders"] -->|guess 1| U1["POST /getOrders"]
-    R -->|guess 2| U2["POST /createOrder"]
-    R -->|guess 3| U3["GET /order/delete?id=41"]
-    R -->|guess 4| U4["/cancelOrder or /order/cancel or ..."]
-    U4 --> D["Ask the backend team<br/>read the docs again"]
-    U3 --> E["200 OK<br/>body says not found"]
-    E --> X["The app shows Deleted<br/>but nothing was deleted"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class E,X bad
-```
-
-### 2c. How paging works over time
-
-Notice that page 2 carries the bookmark `26`. A new order arrives in the middle, and nothing goes wrong. A page is 5 orders here to keep it small.
-
-```mermaid
-sequenceDiagram
-    participant A as Budi app
-    participant S as Orders API
-    participant DB as Postgres
-    participant O as Another store
-    A->>S: GET /orders
-    S->>DB: newest 6 orders
-    DB-->>S: 30 29 28 27 26 and 25
-    S-->>A: data 30 to 26 and next_cursor 26
-    Note over S: the 6th row only says there is more
-    O->>S: POST /orders
-    S->>DB: insert order 31 at the top
-    A->>S: GET /orders?after=26
-    S->>DB: newest 6 with id below 26
-    DB-->>S: 25 24 23 22 21 and 20
-    S-->>A: data 25 to 21 and next_cursor 21
-    Note over A: nothing twice and nothing missed
-```
-
-### 2d. What is in the table right now
-
-Order 31 is new. Budi already saw orders 30 to 26. Notice where each page 2 starts.
-
-```mermaid
-graph LR
-    subgraph T["orders now, newest first"]
-        direction TB
-        R31["place 1 - order 31 - new"]
-        R30["place 2 - order 30"]
-        R29["place 3 - order 29"]
-        R28["place 4 - order 28"]
-        R27["place 5 - order 27"]
-        R26["place 6 - order 26 - seen already"]
-        R25["place 7 - order 25"]
-        R22["places 8 to 11 - orders 24 to 21"]
-        R31 --- R30 --- R29 --- R28 --- R27 --- R26 --- R25 --- R22
-    end
-    OFF["offset=5<br/>skip 5 places"] -->|starts here| R26
-    CUR["after=26<br/>first id below 26"] -->|starts here| R25
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#dff3ea,stroke:#2f9e6b,color:#000
-    class R26 bad
-    class R25 good
-```
-
-| Page 2 asks | Postgres runs | Rows back | Budi sees |
-|---|---|---|---|
-| `?limit=5&offset=5` | `ORDER BY id DESC LIMIT 5 OFFSET 5` | 26, 25, 24, 23, 22 | order 26 twice |
-| `?limit=5&after=26` | `WHERE id < 26 ORDER BY id DESC LIMIT 6` | 25, 24, 23, 22, 21 (and 20 as a peek) | each order once |
-
-Offset counts places. A new row moves every place. A cursor remembers an id, and ids do not move.
-
-### 2e. Right against wrong: URLs
+**Right against wrong, drawn.**
 
 Notice that every fix moves the verb out of the path and into the method.
 
@@ -173,9 +139,50 @@ graph LR
     class W1,W2,W3,W4,W5 bad
 ```
 
-### 2f. Which method and status?
+**The mistake in code.**
 
-Notice the first question is "what does the app want?", not "which method do I like?".
+**Wrong:** verbs in the path, and every call a `POST`.
+
+```js
+// sketch, not run here
+app.post("/getOrders", listOrders);
+app.post("/deleteOrder", deleteOrder);              // the id is somewhere in the body
+```
+
+**Right:**
+
+```js
+// sketch, not run here
+app.get("/orders", listOrders);
+app.delete("/orders/:id", deleteOrder);             // the id is in the path
+```
+
+**Why:** the method already is the verb. Caches, retries and logs all read the method.
+
+</details>
+
+## 3. Status codes tell the truth
+
+An error must not hide inside a `200`. When it fails, pick the status from what went wrong.
+
+| What went wrong | Status |
+|---|---|
+| Order 41 is not there | `404` |
+| The body is not valid JSON | `400` |
+| The JSON is fine but breaks a rule, like quantity `-3` | `422` |
+| It clashes with the current state, like cancelling a shipped order | `409` |
+
+<details class="guess"><summary>🤔 Guess: the app sends `{"quantity": -3}`. The JSON is valid. Which status? Press to check.</summary>
+
+`422`. The server can read it, but it breaks a rule. Some teams use `400` here. Pick one and keep it everywhere.
+
+</details>
+
+> **Remember:** `res.ok`, retries and alerts all read the status, not your body.
+
+<details class="more"><summary>📖 More detail: which method and status, and the mistake in code</summary>
+
+**Which method and status?** The first question is "what does the app want?", not "which method do I like?".
 
 ```mermaid
 graph TB
@@ -190,24 +197,82 @@ graph TB
     P --> F
 ```
 
-### 2g. Versions: old apps keep working
+**When it fails.**
 
-Notice the old app is still on phones. You cannot force everyone to update.
+| What went wrong | Status |
+|---|---|
+| Order 41 is not there | `404` |
+| The body is not valid JSON | `400` |
+| The JSON is fine but breaks a rule, like quantity `-3` | `422` (some teams use `400`; pick one and keep it) |
+| It clashes with the order's current state, like cancelling a shipped order | `409` |
 
-```mermaid
-graph LR
-    OLD["Old app on Budi phone<br/>reads total_price"] --> V1["GET /v1/orders/41<br/>answer has total_price"]
-    NEW["New app<br/>reads total.amount"] --> V2["GET /v2/orders/41<br/>answer has total"]
-    V1 --> DB["the same orders table"]
-    V2 --> DB
-    OLD2["Old app with no version"] -->|field renamed| BAD["total_price is undefined<br/>screen shows Rp NaN"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class BAD bad
+**The mistake in code.**
+
+**Wrong:** `200` for everything.
+
+```js
+// sketch, not run here
+if (!order) return res.status(200).json({ error: "not found" });
 ```
 
-## 3. Real life analogy
+**Right:**
 
-**Names:** street addresses. "Orders Street, number 41" follows the same pattern in every town. The method is what you do there.
+```js
+// sketch, not run here
+if (!order) return res.status(404).json({ error: "order 41 not found" });
+```
+
+**Why:** `res.ok`, retries and alerts all read the status, not your body.
+
+</details>
+
+## 4. Actions that do not fit: cancel, pay, ship
+
+Not every action is a noun. "Cancel order 41" does more than change one field: it refunds money and sends an email. There are two common ways.
+
+| Way | Example | Good | Bad |
+|---|---|---|---|
+| An action path | `POST /orders/41/cancel` | one place for the rules, the refund and the email | a verb in the path |
+| Change a field | `PATCH /orders/41` with `{ "status": "cancelled" }` | pure nouns | the server must spot the change and run the same rules |
+
+<details class="guess"><summary>🤔 Guess: which way do you pick for "cancel"? And for "change the delivery note"? Press to check.</summary>
+
+Cancel: the **action path**, because it does more than change one field. Delivery note: **`PATCH`**, because it is a plain edit.
+
+</details>
+
+> **Remember:** an action path when the action does more than change one field. `PATCH` for a plain edit.
+
+<details class="more"><summary>📖 More detail: the verdict as it was written</summary>
+
+Cancel, pay, ship. Two common ways:
+
+Verdict: an action path when the action does more than change one field. `PATCH` for a plain edit.
+
+</details>
+
+## 5. Paging: offset or cursor?
+
+Budi scrolls his order history. Orders 30 to 26 are on page 1. Then a new order, 31, arrives. What does page 2 show?
+
+| Page 2 asks | Rows back | Budi sees |
+|---|---|---|
+| `?limit=5&offset=5` | 26, 25, 24, 23, 22 | order 26 **twice** |
+| `?limit=5&after=26` | 25, 24, 23, 22, 21 | each order once |
+
+Offset counts **places**. A new row moves every place. A cursor remembers an **id**, and ids do not move.
+
+<details class="guess"><summary>🤔 Guess: why is order 26 on page 2 with offset? Press to check.</summary>
+
+Order 31 took place 1, so everything moved down by one. Place 6 is now order 26. A cursor says "ids below 26", so it does not care where rows moved.
+
+</details>
+
+> **Remember:** offset counts places. A cursor remembers an id.
+
+<details class="more"><summary>📖 More detail: the notice board, the table and the story over time</summary>
+
+**The notice board.**
 
 **Paging:** a notice board with the newest note pinned on top.
 
@@ -216,7 +281,91 @@ graph LR
 
 Where it stops being true: a cursor needs a clear order with no ties, like the id. And a bookmark cannot jump to "page 9".
 
-## 4. The smallest code that shows it
+**What is in the table right now.**
+
+Order 31 is new. Budi already saw orders 30 to 26. Notice where each page 2 starts.
+
+```mermaid
+graph LR
+    subgraph T["orders now, newest first"]
+        direction TB
+        R31["place 1 - order 31 - new"]
+        R30["place 2 - order 30"]
+        R29["place 3 - order 29"]
+        R28["place 4 - order 28"]
+        R27["place 5 - order 27"]
+        R26["place 6 - order 26 - seen already"]
+        R25["place 7 - order 25"]
+        R22["places 8 to 11 - orders 24 to 21"]
+        R31 --- R30 --- R29 --- R28 --- R27 --- R26 --- R25 --- R22
+    end
+    OFF["offset=5<br/>skip 5 places"] -->|starts here| R26
+    CUR["after=26<br/>first id below 26"] -->|starts here| R25
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#dff3ea,stroke:#2f9e6b,color:#000
+    class R26 bad
+    class R25 good
+```
+
+Offset counts places. A new row moves every place. A cursor remembers an id, and ids do not move.
+
+**How paging works over time.**
+
+Notice that page 2 carries the bookmark `26`. A new order arrives in the middle, and nothing goes wrong. A page is 5 orders here to keep it small.
+
+```mermaid
+sequenceDiagram
+    participant A as Budi app
+    participant S as Orders API
+    participant DB as Postgres
+    participant O as Another store
+    A->>S: GET /orders
+    S->>DB: newest 6 orders
+    DB-->>S: 30 29 28 27 26 and 25
+    S-->>A: data 30 to 26 and next_cursor 26
+    Note over S: the 6th row only says there is more
+    O->>S: POST /orders
+    S->>DB: insert order 31 at the top
+    A->>S: GET /orders?after=26
+    S->>DB: newest 6 with id below 26
+    DB-->>S: 25 24 23 22 21 and 20
+    S-->>A: data 25 to 21 and next_cursor 21
+    Note over A: nothing twice and nothing missed
+```
+
+</details>
+
+## 6. The smallest code that shows it
+
+Ten orders, newest first. Two ways to take page 2 after a new order arrives.
+
+```js
+let o = [30, 29, 28, 27, 26, 25, 24, 23, 22, 21];
+const off = (i, n) => o.slice(i, i + n);
+const cur = (a, n) =>
+  o.filter((id) => id < a).slice(0, n);
+const c1 = cur(Infinity, 5);  // 30 to 26
+o = [31, ...o];               // a new order
+console.log("offset:", off(5, 5));
+console.log("cursor:", cur(c1.at(-1), 5));
+```
+
+<details class="guess"><summary>🤔 Guess: what do the two lines print? Press to check.</summary>
+
+```
+offset: [ 26, 25, 24, 23, 22 ]
+cursor: [ 25, 24, 23, 22, 21 ]
+```
+
+`slice` plays `LIMIT 5 OFFSET 5`. `filter((id) => id < a)` plays `WHERE id < 26`.
+
+</details>
+
+> **Remember:** a cursor page starts after an id, so a new row at the top changes nothing.
+
+<details class="more"><summary>📖 More detail: the longer program, and every request and SQL step</summary>
+
+**The longer program.**
 
 ```js
 let orders = [30, 29, 28, 27, 26, 25, 24, 23, 22, 21];        // newest first
@@ -244,9 +393,7 @@ Checked on 2026-10-22 with Node 24.
 
 `orders.slice` plays `LIMIT 5 OFFSET 5`. `filter((id) => id < after)` plays `WHERE id < 26`.
 
-## 5. What really happens, step by step
-
-Budi scrolls his order history. Cursor paging, page size 5.
+**Budi scrolls his order history. Cursor paging, page size 5.**
 
 | Step | What happens | Request | SQL the server runs | Rows back | Answer to the app |
 |---|---|---|---|---|---|
@@ -257,13 +404,15 @@ Budi scrolls his order history. Cursor paging, page size 5.
 | 5 | The app reads `has_more: false` | no request | none | none | the app shows "No more orders" |
 | 6 | Budi pulls to refresh | `GET /orders?limit=5` | same as step 1 | 31, 30, 29, 28, 27, 26 | `data` 31 to 27: the new order is on top |
 
-The same story with offset:
+**The same story with offset.**
 
 | Step | Request | SQL | Rows back | Budi sees |
 |---|---|---|---|---|
 | 1 | `GET /orders?limit=5&offset=0` | `ORDER BY id DESC LIMIT 5 OFFSET 0` | 30 to 26 | 30 to 26 |
 | 2 | order 31 arrives | `INSERT` | none | nothing changes yet |
 | 3 | `GET /orders?limit=5&offset=5` | `ORDER BY id DESC LIMIT 5 OFFSET 5` | 26, 25, 24, 23, 22 | **26 twice** |
+
+**What to see.**
 
 What to see:
 
@@ -273,13 +422,28 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/02-rest-api-design.html). Story 3 shows the other offset bug.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** every endpoint is a guess, errors hide inside `200`, and big lists are slow or wrong.
-- **How it solves it:** nouns, methods, honest status codes, pages with a bookmark.
-- **Cost:** some actions do not fit. Cursors cannot jump to page 9. Old versions are old code to keep.
+## 7. Which one do I pick?
 
-### Offset or cursor?
+Use the table. The verdict is short: cursor for anything a user scrolls. Offset is fine for a small admin table.
+
+| | Offset | Cursor |
+|---|---|---|
+| Jump to page 9 | yes | no, only next |
+| Deep pages | slower every page | the same speed |
+| A new row while scrolling | shows a row twice | fine |
+| Good for | admin tables with page numbers | feeds, order history |
+
+<details class="guess"><summary>🤔 Guess: an admin table needs a "page 9" button. Offset or cursor? Press to check.</summary>
+
+Offset. A cursor only knows "next", so it cannot jump to page 9.
+
+</details>
+
+> **Remember:** cursor for things people scroll. Offset when people need page numbers.
+
+<details class="more"><summary>📖 More detail: the full comparison</summary>
 
 | | Offset: `?page=3&limit=20` | Cursor: `?after=26&limit=20` |
 |---|---|---|
@@ -291,76 +455,29 @@ What to see:
 
 Verdict: cursor for anything a user scrolls. Offset is fine for a small admin table.
 
-Always answer with an object, never a bare array, so you can add fields later:
+</details>
+
+## 8. Mistake 1: a bare array with no limit
+
+A route that returns every row, as a bare array, breaks in two ways. One `?limit=100000` can tire out the database. And a bare array cannot grow a `next_cursor` later.
+
+Always answer with an object, and cap the limit:
 
 ```json
-{ "data": [{ "id": 30, "status": "paid" }, { "id": 29, "status": "shipped" }], "next_cursor": "29", "has_more": true }
+{ "data": [{ "id": 30 }, { "id": 29 }],
+  "next_cursor": "29",
+  "has_more": true }
 ```
 
-### Actions that do not fit
+<details class="guess"><summary>🤔 Guess: the server asks for `limit + 1` rows but sends only `limit`. Why? Press to check.</summary>
 
-Cancel, pay, ship. Two common ways:
+The extra row only answers "is there more?". If it exists, `has_more` is true. If not, `has_more` is false and `next_cursor` is `null`.
 
-| Way | Example | Good | Bad |
-|---|---|---|---|
-| An action path | `POST /orders/41/cancel` | clear intent; one place for the rules, the refund and the email | a verb in the path |
-| Change a field | `PATCH /orders/41` with `{ "status": "cancelled" }` | pure nouns | the server must spot the change and run the same rules |
+</details>
 
-Verdict: an action path when the action does more than change one field. `PATCH` for a plain edit.
+> **Remember:** cap the limit, ask for one extra row, answer with an object.
 
-### Versions
-
-Old app builds stay on phones for months.
-
-| Where the version goes | Example | Good | Bad |
-|---|---|---|---|
-| In the path | `GET /v1/orders/41` | easy to see and to try in a browser | the URL changes for the same order |
-| In a header | `Api-Version: 2024-06-01` | one URL for one order | easy to forget, harder to try by hand |
-
-The rule:
-
-- **Safe without a new version:** add a field or an endpoint. Old apps ignore what they do not know.
-- **Needs a new version:** remove a field, rename it, or change its type. That is a breaking change.
-
-### Safe to repeat
-
-`GET`, `PUT` and `DELETE` are safe to repeat. `POST` is not: two taps can make two orders. Give create `POST`s an `Idempotency-Key` header, as in [system design lesson 13](../system-design/13-idempotency-and-retries.md).
-
-## 7. Common mistakes
-
-**Wrong:** verbs in the path, and every call a `POST`.
-
-```js
-// sketch, not run here
-app.post("/getOrders", listOrders);
-app.post("/deleteOrder", deleteOrder);              // the id is somewhere in the body
-```
-
-**Right:**
-
-```js
-// sketch, not run here
-app.get("/orders", listOrders);
-app.delete("/orders/:id", deleteOrder);             // the id is in the path
-```
-
-**Why:** the method already is the verb. Caches, retries and logs all read the method.
-
-**Wrong:** `200` for everything.
-
-```js
-// sketch, not run here
-if (!order) return res.status(200).json({ error: "not found" });
-```
-
-**Right:**
-
-```js
-// sketch, not run here
-if (!order) return res.status(404).json({ error: "order 41 not found" });
-```
-
-**Why:** `res.ok`, retries and alerts all read the status, not your body.
+<details class="more"><summary>📖 More detail: the wrong code and the right code (a sketch)</summary>
 
 **Wrong:** a bare array with no limit.
 
@@ -389,7 +506,81 @@ app.get("/orders", async (req, res) => {
 
 **Why:** one `?limit=100000` can tire out the database, and a bare array cannot grow a `next_cursor`.
 
+Always answer with an object, never a bare array, so you can add fields later:
+
+```json
+{ "data": [{ "id": 30, "status": "paid" }, { "id": 29, "status": "shipped" }], "next_cursor": "29", "has_more": true }
+```
+
+</details>
+
+## 9. Mistake 2: renaming a field and shipping
+
+Old app builds stay on phones for months. If you rename `total_price` to `totalPrice`, last month's app reads `undefined` and shows "Rp NaN".
+
+| Change | Needs a new version? |
+|---|---|
+| add a field or an endpoint | no, old apps ignore it |
+| remove a field, rename it, or change its type | **yes** (a breaking change) |
+
+<details class="guess"><summary>🤔 Guess: where does the version go: in the path, or in a header? Press to check.</summary>
+
+Both work. In the path (`/v1/orders/41`) it is easy to see and to try in a browser. In a header (`Api-Version`) the URL stays the same, but it is easier to forget.
+
+</details>
+
+> **Remember:** add fields freely. Remove or rename only in a new version.
+
+<details class="more"><summary>📖 More detail: the versions picture, the table and the rule</summary>
+
+**Old apps keep working.** You cannot force everyone to update.
+
+```mermaid
+graph LR
+    OLD["Old app on Budi phone<br/>reads total_price"] --> V1["GET /v1/orders/41<br/>answer has total_price"]
+    NEW["New app<br/>reads total.amount"] --> V2["GET /v2/orders/41<br/>answer has total"]
+    V1 --> DB["the same orders table"]
+    V2 --> DB
+    OLD2["Old app with no version"] -->|field renamed| BAD["total_price is undefined<br/>screen shows Rp NaN"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class BAD bad
+```
+
+**Where the version goes.**
+
+Old app builds stay on phones for months.
+
+| Where the version goes | Example | Good | Bad |
+|---|---|---|---|
+| In the path | `GET /v1/orders/41` | easy to see and to try in a browser | the URL changes for the same order |
+| In a header | `Api-Version: 2024-06-01` | one URL for one order | easy to forget, harder to try by hand |
+
+**The rule.**
+
+The rule:
+
+- **Safe without a new version:** add a field or an endpoint. Old apps ignore what they do not know.
+- **Needs a new version:** remove a field, rename it, or change its type. That is a breaking change.
+
+**The mistake in one line.**
+
 **Wrong:** rename `total_price` to `totalPrice` and ship. **Right:** add the new field and keep the old one, or make `/v2`. **Why:** last month's app still reads `total_price`.
+
+</details>
+
+## 10. Why it matters and what it costs
+
+- **Without it:** every endpoint is a guess, errors hide inside `200`, and big lists are slow or wrong.
+- **With it:** nouns, methods, honest status codes, and pages with a bookmark.
+- **The cost:** some actions do not fit. Cursors cannot jump to page 9. Old versions are old code to keep.
+
+<details class="more"><summary>📖 More detail: safe to repeat, and if you freeze in the interview</summary>
+
+**Safe to repeat.**
+
+`GET`, `PUT` and `DELETE` are safe to repeat. `POST` is not: two taps can make two orders. Give create `POST`s an `Idempotency-Key` header, as in [system design lesson 13](../system-design/13-idempotency-and-retries.md).
+
+**If you freeze.**
 
 **If you freeze:**
 
@@ -397,7 +588,9 @@ app.get("/orders", async (req, res) => {
 2. "Lists come in pages: `{ data, next_cursor, has_more }`, with a cap on the limit."
 3. "Add fields freely. Remove or rename only in a new version."
 
-## 8. Watch and play
+</details>
+
+## 11. Watch and play
 
 All links checked on 2026-10-22.
 
@@ -431,7 +624,7 @@ All links checked on 2026-10-22.
 
 </details>
 
-## 9. Practice
+## 12. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -551,7 +744,7 @@ Checked on 2026-10-22 with Node 24.15.0: the 22 tests fail on the empty stub and
 
 </details>
 
-## 10. Interview question
+## 13. Interview question
 
 **Q:** "Design the REST endpoints for a shop's orders. How do you page the order history, and how do you change the API later without breaking old mobile apps?"
 
@@ -570,7 +763,7 @@ A common follow-up: "Why not `?page=3`?" Use picture 2d.
 
 </details>
 
-## 11. Explain it back
+## 14. Explain it back
 
 Close this file. Explain REST API design out loud in 4 parts (problem, how, tradeoff, my example). Use Rina's guessing game and Budi's order 26. Write it below, then run `/explain-check REST API design`.
 
@@ -582,7 +775,7 @@ Close this file. Explain REST API design out loud in 4 parts (problem, how, trad
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 15. Review questions (day 1, 3, 7, 21)
 
 1. Give the method, path and success status for: make a new order, change one field of order 41, remove order 41.
 2. Why can offset paging show the same order twice, and why does a cursor not?
