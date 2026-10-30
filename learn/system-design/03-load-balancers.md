@@ -1,12 +1,33 @@
 # 03. Load balancers
 
-> **Subject:** System Design · **Lesson:** 03 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 03 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say what a load balancer does, tell layer 4 from layer 7, choose between round robin and least connections, explain how a dead server is removed and how it returns, and name three things a load balancer cannot fix.
+>
 > **Before this:** [Scaling up vs out](02-scaling-up-vs-out.md) · **Next:** [Caching](04-caching.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: one front door
 
-A load balancer is one front door for many servers. It sends each request to a server that is alive, and it stops sending requests to a server that is dead.
+A load balancer is one front door for many servers. It sends each request to a server that is alive, and it stops sending requests to a dead one. Like a host at a restaurant door: the host does not cook, the host only decides which waiter takes each guest.
+
+```mermaid
+graph TB
+    U["Users<br/>one address"] --> LB["Load balancer"]
+    LB --> S["Servers A, B and C"]
+    LB -.->|are you alive| S
+```
+
+<details class="guess"><summary>🤔 Guess: with no front door, Mia calls Server B, which has stopped. Who tells her? Press to check.</summary>
+
+**Nobody.** Without a front door every user picks a server alone. The work is not shared, and a dead server keeps getting users. A load balancer asks each server "are you alive?" on a timer and skips the dead ones.
+
+</details>
+
+> **Remember:** users know one address. The load balancer picks the server for each request.
+
+<details class="more"><summary>📖 More detail: four new words, the big picture, the problem drawn, and the restaurant</summary>
 
 In lesson 02 the front door was one small box in the picture. Here it is the whole lesson.
 
@@ -19,11 +40,7 @@ New words (four):
 
 One plain idea first. A **connection** is one open line between a user and a server. While the line is open, the server is busy with that user. So the number of open connections tells you how busy a server is.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that users know one address only. The dotted lines go the other way: the load balancer keeps asking each server if it is alive.
+**The big picture.** Notice that users know one address only. The dotted lines go the other way: the load balancer keeps asking each server if it is alive.
 
 ```mermaid
 graph LR
@@ -36,9 +53,7 @@ graph LR
     LB -.->|are you alive| C
 ```
 
-### 2b. The problem, drawn
-
-Without a front door, every user picks a server alone. Notice that the work is not shared, and nobody tells Mia that Server B is dead.
+**The problem, drawn.** Without a front door, every user picks a server alone. Notice that the work is not shared, and nobody tells Mia that Server B is dead.
 
 ```mermaid
 graph TB
@@ -50,116 +65,7 @@ graph TB
     class A,B,X bad
 ```
 
-### 2c. How it works over time
-
-This is story 3 of the stepper, with fewer requests. Notice the order: B stops, two failed checks remove B, then two passed checks bring B back. One request fails in the gap.
-
-```mermaid
-sequenceDiagram
-    participant U as Browser
-    participant L as Load balancer
-    participant A as Server A
-    participant B as Server B
-    U->>L: Request 1
-    L->>A: A takes its turn
-    A-->>U: Page
-    U->>L: Request 2
-    L->>B: B takes its turn
-    B-->>U: Page
-    Note over B: Server B crashes
-    L->>B: Health check 1
-    Note over L,B: No answer. 1 failed.
-    U->>L: Request 3
-    L->>B: B takes its turn
-    Note over L,B: No answer. The user sees an error.
-    L->>B: Health check 2
-    Note over L,B: No answer. 2 failed. B is out of the pool.
-    U->>L: Request 4
-    L->>A: B is skipped
-    A-->>U: Page
-    Note over B: Server B starts again
-    L->>B: Health check 3
-    B-->>L: Alive
-    L->>B: Health check 4
-    B-->>L: Alive
-    Note over L,B: 2 passed. B is in the pool again.
-```
-
-### 2d. What is in memory right now
-
-This is the load balancer's notebook at one moment. Notice that C has the fewest connections, 0, but C is out of the pool. A dead server often shows 0 connections, so least connections would love it without a health check.
-
-```mermaid
-graph TB
-    R["Request 12 arrives"] --> N["Load balancer notebook<br/>A  in pool  2 open<br/>B  in pool  7 open  slow<br/>C  OUT of the pool  0 open"]
-    N --> D["Least connections<br/>looks only at servers in the pool<br/>A has 2 and B has 7"]
-    D --> W["Request 12 goes to A"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class N bad
-    class W good
-```
-
-### 2e. Right against wrong
-
-The wrong way has one load balancer. If it stops, the whole site is down, even when every server is fine. The right way has two that share one address.
-
-```mermaid
-graph LR
-    W1["Users"] --> W2["One load balancer"]
-    W2 --> W3["Servers A B C"]
-    W2 -.->|stops| W4["Whole site is down<br/>all servers are fine"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class W2,W4 bad
-```
-
-```mermaid
-graph LR
-    R1["Users"] --> R2["One shared address"]
-    R2 --> R3["Load balancer 1<br/>working"]
-    R2 -.->|takes over if 1 stops| R4["Load balancer 2<br/>waiting"]
-    R3 --> R5["Servers A B C"]
-    R4 --> R5
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class R2,R3,R4 good
-```
-
-### 2f. Layer 4 against layer 7
-
-Notice what each one can read. Layer 4 sees the outside of the envelope. Layer 7 opens it.
-
-```mermaid
-graph TB
-    subgraph L4["Layer 4 reads the outside"]
-        direction LR
-        E4["A request"] --> R4["Sees the address<br/>and the door number"]
-        R4 --> D4["Cannot tell<br/>images from orders"]
-    end
-    subgraph L7["Layer 7 opens the envelope"]
-        direction LR
-        E7["A request"] --> R7["Sees the path<br/>the headers and the cookie"]
-        R7 --> D7["/images goes to file servers<br/>/orders goes to app servers"]
-    end
-```
-
-### 2g. Which way to pick a server?
-
-This is the choice you say out loud. Notice that round robin is the answer when nothing special is true.
-
-```mermaid
-graph TB
-    Q["A request arrives"] --> D1["Are servers equal<br/>and requests about equally short?"]
-    D1 -->|yes| RR["Round robin<br/>take turns"]
-    D1 -->|no| D2["Do some requests take much longer?"]
-    D2 -->|yes| LC["Least connections"]
-    D2 -->|no| D3["Are some servers bigger?"]
-    D3 -->|yes| WE["Weighted<br/>bigger servers get more turns"]
-    D3 -->|no| D4["Must the same user reach the same server?"]
-    D4 -->|yes| HA["Hash based<br/>same key goes to the same server"]
-    D4 -->|no| RR
-```
-
-## 3. Real life analogy
+**The restaurant in full.**
 
 A busy restaurant has one host at the door and three waiters. The host does not cook and does not serve. The host only decides which waiter takes each guest.
 
@@ -170,7 +76,30 @@ A busy restaurant has one host at the door and three waiters. The host does not 
 
 Where the analogy stops: a host can see that a waiter looks tired. A load balancer sees only counts and answers. Also, if the host falls ill, nobody gets a table. The load balancer can fail too.
 
-## 4. The smallest code that shows it
+</details>
+
+## 2. How to pick a server
+
+| Way | How it picks | Use it when |
+|---|---|---|
+| Round robin | take turns | servers are equal and requests take about the same time |
+| Least connections | the fewest open requests wins | some requests are slow, like a big report or an upload |
+| Weighted | bigger servers get more turns | servers are not equal |
+| Hash based | the same key always reaches the same server | the same user must reach the same server |
+
+Think of three servers where B is slow: it keeps each request open for 8 ticks, A and C for 2 ticks. One new request arrives on every tick, 9 in all.
+
+<details class="guess"><summary>🤔 Guess: round robin gives B a request on ticks 1, 4 and 7. After 9 requests, how many are still open on B, and how many on A? And with least connections? Press to check.</summary>
+
+Round robin: **B holds 3, A holds 0.** It counts turns, not work. Least connections: **1 on each server.** (Real output, Node 26.12.1.)
+
+</details>
+
+> **Remember:** round robin counts turns, not work. Least connections looks at the work.
+
+<details class="more"><summary>📖 More detail: the code, the ticks, the notebook, and which way to pick</summary>
+
+**The smallest code that shows it.**
 
 Three servers. B is slow. One **tick** is one step of time, and one new request arrives on each tick. A request on A or C stays open for 2 ticks. On B it stays open for 8 ticks. The code sends 9 requests, twice, with two ways to pick.
 
@@ -202,7 +131,9 @@ Checked on 2026-10-16 with Node 22.
 
 Round robin ends with 3 open requests on slow B and 0 on A. Least connections ends with 1 on each server.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
+
+**What really happens, step by step.**
 
 The machine here is the load balancer. The state is the number of open connections on each server. Read one row at a time. "Finished first" names the server that finished a request before this tick. Open counts are after the pick.
 
@@ -236,7 +167,102 @@ The machine here is the load balancer. The state is the number of open connectio
 
 What to see: round robin gave B a new request on ticks 1, 4 and 7, because it was B's turn. B was still busy with the old ones. Least connections gave B one request. After tick 1, B never had the fewest.
 
-**Health checks: how B leaves and returns** (rule: 2 failed checks in a row take a server out, 2 passed checks in a row put it in)
+**What is in memory right now.** This is the load balancer's notebook at one moment. Notice that C has the fewest connections, 0, but C is out of the pool. A dead server often shows 0 connections, so least connections would love it without a health check.
+
+```mermaid
+graph TB
+    R["Request 12 arrives"] --> N["Load balancer notebook<br/>A  in pool  2 open<br/>B  in pool  7 open  slow<br/>C  OUT of the pool  0 open"]
+    N --> D["Least connections<br/>looks only at servers in the pool<br/>A has 2 and B has 7"]
+    D --> W["Request 12 goes to A"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class N bad
+    class W good
+```
+
+**Which way to pick a server?** This is the choice you say out loud. Notice that round robin is the answer when nothing special is true.
+
+```mermaid
+graph TB
+    Q["A request arrives"] --> D1["Are servers equal<br/>and requests about equally short?"]
+    D1 -->|yes| RR["Round robin<br/>take turns"]
+    D1 -->|no| D2["Do some requests take much longer?"]
+    D2 -->|yes| LC["Least connections"]
+    D2 -->|no| D3["Are some servers bigger?"]
+    D3 -->|yes| WE["Weighted<br/>bigger servers get more turns"]
+    D3 -->|no| D4["Must the same user reach the same server?"]
+    D4 -->|yes| HA["Hash based<br/>same key goes to the same server"]
+    D4 -->|no| RR
+```
+
+**The four ways, in words.**
+
+**The ways to pick a server.**
+
+- **Round robin:** take turns. Use it when servers are equal and requests take about the same time.
+- **Least connections:** the fewest open requests wins. Use it when some requests are slow, like a big report or an upload.
+- **Weighted:** bigger servers get more turns. It also sends, for example, 5 percent of users to a new version, to test it.
+- **Hash based:** the same key, like a user id, always reaches the same server. The cost: when the pool changes, many keys move to another server (lesson 20 fixes this).
+
+**Step through it yourself:** [open the stepper](visuals/03-load-balancers.html). It has three stories: round robin, least connections with a slow server, and a server that fails its health check. Guess first, then press Next. Every server shows how many connections it has open.
+
+</details>
+
+## 3. Health checks: how a dead server leaves and returns
+
+The load balancer asks each server "are you alive?" on a timer. In this lesson, 2 failed checks in a row take a server out of the **pool** (the list it may use). 2 passed checks in a row put it back.
+
+```mermaid
+graph TB
+    A["B crashes<br/>the balancer does not know"] --> B["2 failed checks in a row<br/>B is out of the pool"]
+    B --> C["B starts again"]
+    C --> D["2 passed checks in a row<br/>B is in the pool again"]
+```
+
+<details class="guess"><summary>🤔 Guess: a server crashes between two checks. Can a user still see an error? Press to check.</summary>
+
+**Yes.** In the gap before the failed checks add up, the load balancer still sends B its turns. One request fails, and it is nobody's bug: the check is not instant.
+
+</details>
+
+> **Remember:** a health check always has a gap. Retry safe requests on another server to hide it.
+
+<details class="more"><summary>📖 More detail: the checks over time, and the table step by step</summary>
+
+**How it works over time.** This is story 3 of the stepper, with fewer requests. Notice the order: B stops, two failed checks remove B, then two passed checks bring B back. One request fails in the gap.
+
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant L as Load balancer
+    participant A as Server A
+    participant B as Server B
+    U->>L: Request 1
+    L->>A: A takes its turn
+    A-->>U: Page
+    U->>L: Request 2
+    L->>B: B takes its turn
+    B-->>U: Page
+    Note over B: Server B crashes
+    L->>B: Health check 1
+    Note over L,B: No answer. 1 failed.
+    U->>L: Request 3
+    L->>B: B takes its turn
+    Note over L,B: No answer. The user sees an error.
+    L->>B: Health check 2
+    Note over L,B: No answer. 2 failed. B is out of the pool.
+    U->>L: Request 4
+    L->>A: B is skipped
+    A-->>U: Page
+    Note over B: Server B starts again
+    L->>B: Health check 3
+    B-->>L: Alive
+    L->>B: Health check 4
+    B-->>L: Alive
+    Note over L,B: 2 passed. B is in the pool again.
+```
+
+**Health checks, step by step** (rule: 2 failed checks in a row take a server out, 2 passed checks in a row put it in).
 
 | Step | What happens | B in the pool? | B failed in a row | B passed in a row | What the user sees |
 |---|---|---|---|---|---|
@@ -255,20 +281,43 @@ What to see: round robin gave B a new request on ticks 1, 4 and 7, because it wa
 
 **Step through it yourself:** [open the stepper](visuals/03-load-balancers.html). It has three stories: round robin, least connections with a slow server, and a server that fails its health check. Guess first, then press Next. Every server shows how many connections it has open.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** each user must know which server to call. One server is too busy while another is empty. A dead server keeps getting users (picture 2b).
-- **How it solves it:** users know one address. The load balancer chooses a server for each request (picture 2g). Health checks remove dead servers and bring them back (picture 2c).
-- **Cost or tradeoff:** one more part to run, and one more step on every request. The front door can also fail (picture 2e).
+## 4. Layer 4 against layer 7
 
-**The ways to pick a server.**
+How much of the request does the balancer read? **Layer 4** reads the outside of the envelope: the machine's address and the door number (IP address and port). **Layer 7** opens it: the path, the headers and the cookie.
 
-- **Round robin:** take turns. Use it when servers are equal and requests take about the same time.
-- **Least connections:** the fewest open requests wins. Use it when some requests are slow, like a big report or an upload.
-- **Weighted:** bigger servers get more turns. It also sends, for example, 5 percent of users to a new version, to test it.
-- **Hash based:** the same key, like a user id, always reaches the same server. The cost: when the pool changes, many keys move to another server (lesson 20 fixes this).
+| | Layer 4 | Layer 7 |
+|---|---|---|
+| Reads | the address and the door number | the path, headers, cookie |
+| Can do | pass the connection on, very fast | send `/images` to file servers, check a login |
+| Default for | traffic that is not web, or top speed | a normal web app |
 
-**Layer 4 against layer 7.** The picture is 2f. The table is the choice.
+<details class="guess"><summary>🤔 Guess: you want `/images` to go to file servers and `/orders` to app servers. Layer 4 or layer 7? Press to check.</summary>
+
+**Layer 7.** Layer 4 cannot tell images from orders, because it never reads the path.
+
+</details>
+
+> **Remember:** layer 4 sees the outside of the envelope. Layer 7 opens it, and is the default for a web app.
+
+<details class="more"><summary>📖 More detail: the two layers drawn, and the full table</summary>
+
+**Layer 4 against layer 7.** Notice what each one can read.
+
+```mermaid
+graph TB
+    subgraph L4["Layer 4 reads the outside"]
+        direction LR
+        E4["A request"] --> R4["Sees the address<br/>and the door number"]
+        R4 --> D4["Cannot tell<br/>images from orders"]
+    end
+    subgraph L7["Layer 7 opens the envelope"]
+        direction LR
+        E7["A request"] --> R7["Sees the path<br/>the headers and the cookie"]
+        R7 --> D7["/images goes to file servers<br/>/orders goes to app servers"]
+    end
+```
 
 | | Layer 4 | Layer 7 |
 |---|---|---|
@@ -277,6 +326,51 @@ What to see: round robin gave B a new request on ticks 1, 4 and 7, because it wa
 | What it costs | It is blind to the content, so it cannot tell `/images` from `/orders` | More work per request, because it must read the request |
 | Examples | AWS NLB, HAProxy in TCP mode | nginx, Traefik, AWS ALB |
 | Pick it when | The traffic is not web traffic, or you need top speed | A normal web app. This is the default |
+
+</details>
+
+## 5. What a load balancer cannot fix
+
+The front door is one part that can fail, so run two that share one address. It cannot fix sticky sessions (keep the login in a shared box), a slow database that every server waits for (caching helps), or jobs on a timer (it shares requests, not clocks).
+
+```mermaid
+graph TB
+    U["Users"] --> A["One shared address"]
+    A --> L1["Load balancer 1<br/>working"]
+    L1 -.->|if 1 stops 2 takes over| L2["Load balancer 2<br/>waiting"]
+```
+
+<details class="guess"><summary>🤔 Guess: the database is slow and every page waits for it. Does a better load balancer help? Press to check.</summary>
+
+**No.** All the servers wait for the same database. Not the load balancer's job. Caching helps (lesson 04).
+
+</details>
+
+> **Remember:** the front door is one more part and one more step on every request. It can fail too.
+
+<details class="more"><summary>📖 More detail: one against two front doors, and the five limits</summary>
+
+**Right against wrong.** The wrong way has one load balancer. If it stops, the whole site is down, even when every server is fine. The right way has two that share one address.
+
+```mermaid
+graph LR
+    W1["Users"] --> W2["One load balancer"]
+    W2 --> W3["Servers A B C"]
+    W2 -.->|stops| W4["Whole site is down<br/>all servers are fine"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class W2,W4 bad
+```
+
+```mermaid
+graph LR
+    R1["Users"] --> R2["One shared address"]
+    R2 --> R3["Load balancer 1<br/>working"]
+    R2 -.->|takes over if 1 stops| R4["Load balancer 2<br/>waiting"]
+    R3 --> R5["Servers A B C"]
+    R4 --> R5
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class R2,R3,R4 good
+```
 
 **What a load balancer cannot fix.**
 
@@ -288,7 +382,28 @@ What to see: round robin gave B a new request on ticks 1, 4 and 7, because it wa
 | A slow database | All servers wait for the same database | Not the load balancer's job. Caching helps (lesson 04) |
 | Jobs on a timer | The load balancer shares requests, not clocks | Run the schedule in one place |
 
-## 7. Common mistakes
+**Why it exists and what it costs.**
+
+- **Problem without it:** each user must know which server to call. One server is too busy while another is empty. A dead server keeps getting users (the problem picture in card 1).
+- **How it solves it:** users know one address. The load balancer chooses a server for each request (card 2). Health checks remove dead servers and bring them back (card 3).
+- **Cost or tradeoff:** one more part to run, and one more step on every request. The front door can also fail (card 5).
+
+</details>
+
+## 6. Two mistakes, and what to say if you freeze
+
+- **Wrong:** "Round robin is the default, so I use it." **Right:** if request times differ a lot, use least connections.
+- **Wrong:** a health route that always says yes. **Right:** a route that runs a real small check, like `SELECT 1`.
+
+<details class="guess"><summary>🤔 Guess: the shared database is down for everyone, and every server's health check runs `SELECT 1`. What does the load balancer do? Press to check.</summary>
+
+Every server fails the check, so the load balancer **removes all of them** and the whole site is down. Think about which things a check should look at.
+
+</details>
+
+> **Remember:** if you freeze, say "One front door, many servers. Users know one address."
+
+<details class="more"><summary>📖 More detail: the two mistakes in full, and the freeze plan</summary>
 
 **Wrong:**
 
@@ -304,7 +419,7 @@ What to see: round robin gave B a new request on ticks 1, 4 and 7, because it wa
  Round robin keeps handing slow servers new work."
 ```
 
-**Why:** round robin counts turns, not work. The code in section 4 shows B holding 3 requests while A holds none.
+**Why:** round robin counts turns, not work. The code in card 2 (blue bar) shows B holding 3 requests while A holds none.
 
 **Wrong:** a health route that always says yes.
 
@@ -331,15 +446,17 @@ app.get("/health", async (req, res) => {
 2. Say "Equal requests: round robin. Slow requests mixed in: least connections."
 3. Say "Health checks remove dead servers. I run the front door as a pair."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
-- **Video:** no video link found. Two searches returned only written pages. Search for "load balancer explained" and pick one under 20 minutes. Compare it with picture 2a.
+- **Video:** no video link found. Two searches returned only written pages. Search for "load balancer explained" and pick one under 20 minutes. Compare it with the big picture in card 1.
 - **Play with it:** [Sam Rose: Load Balancing](https://samwho.dev/load-balancing/) - an interactive essay. A search summary says it moves from round robin to least connections. Try it, then compare it with the stepper.
 - **Play with it:** [System Design Space: load balancing algorithms](https://system-design.space/en/visuals/load-balancing-algorithms/) - a search result called it a playground that compares algorithms. Try a slow server.
 - **Play with it:** [the stepper in this folder](visuals/03-load-balancers.html) - guess first, then press Next. Try all three tabs.
-- **Read:** [ByteByteGo: What is a load balancer?](https://bytebytego.com/guides/what-is-a-load-balancer/) - a search summary says it covers layer 4, layer 7 and global balancers. Compare it with picture 2f.
+- **Read:** [ByteByteGo: What is a load balancer?](https://bytebytego.com/guides/what-is-a-load-balancer/) - a search summary says it covers layer 4, layer 7 and global balancers. Compare it with the layer pictures in card 4.
 - **Read:** [HAProxy: layer 4 against layer 7](https://www.haproxy.com/blog/loadbalancing-faq/) - find what each one cannot do.
 - **Read:** [Load balancers and microservices for an online shop](load-balancers-microservices-online-shop.md) - the deeper guide in this folder. Find the part on draining.
 
@@ -363,7 +480,7 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -458,7 +575,7 @@ Checked on 2026-10-16 with Node 22: the tests fail on the empty stub and all 8 p
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "You have five copies of your API. Walk me through how a load balancer sits in front of them. How does it choose a server, and how does it know a server is dead?"
 
@@ -476,7 +593,7 @@ Checked on 2026-10-16 with Node 22: the tests fail on the empty stub and all 8 p
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain load balancers out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of Server B crashing: what does the user see, and when does the load balancer find out? Then write your best version below and run `/explain-check load balancers` or ask the `explain-coach` agent to review it.
 
@@ -488,12 +605,12 @@ Close this file. Explain load balancers out loud like to a new junior, in 4 part
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. What does a load balancer do, and what happens to a server that fails its health checks?
 2. Some requests take 10 seconds and others take 10 milliseconds. Round robin or least connections? Why?
 3. Name three things a load balancer cannot fix, and what you do about each one.
-4. Draw the picture from section 2c from memory.
+4. Draw the picture of the checks over time (card 3) from memory.
 
 <details><summary>Answers</summary>
 
