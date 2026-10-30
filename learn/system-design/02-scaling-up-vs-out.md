@@ -1,12 +1,39 @@
 # 02. Scaling up vs out
 
-> **Subject:** System Design · **Lesson:** 02 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 02 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say the difference between a bigger machine and more machines, name what each one costs, and explain why your servers must keep no user data in their own memory before you add a second one.
+>
 > **Before this:** [The interview framework](01-the-interview-framework.md) · **Next:** [Load balancers](03-load-balancers.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a bigger machine or more machines
 
-When one machine is too busy, you can buy a bigger one, or you can add more machines. Adding more machines only works if no machine keeps user data in its own memory.
+When one machine is too busy, you can **scale up** (buy a bigger one) or **scale out** (add more machines of the same kind). A small shop with one cashier shows both: scale up is a faster till for the same cashier. Scale out is a second cashier and a person at the door who sends each customer to a free one.
+
+```mermaid
+graph TB
+    U1["Users"] --> M1["One machine, small"]
+    M1 -->|swap for| M2["One machine, big"]
+```
+
+```mermaid
+graph TB
+    U2["Users"] --> LB["Load balancer"]
+    LB --> S["Machines 1, 2 and 3"]
+    S --> SB["Shared box"]
+```
+
+<details class="guess"><summary>🤔 Guess: your site peaks at 300 requests per second. One simple server answers about 1,000. Scale up, scale out, or neither? Press to check.</summary>
+
+**Neither, yet.** One machine is enough. Scale when the numbers ask for it.
+
+</details>
+
+> **Remember:** up is one bigger machine. Out is more machines. Out only works when no machine keeps user data in its own memory.
+
+<details class="more"><summary>📖 More detail: four new words, the big picture, the shop, and when a machine stops</summary>
 
 New words (four):
 
@@ -20,11 +47,7 @@ Two plain ideas, explained now so the pictures make sense:
 - **The cookie:** a small note that the browser keeps and sends back with every request. It holds an id, here `abc`, so the server can find the login note.
 - **The shared box:** one place that every server can read and write. It can be your database, or Redis (a fast store that keeps data in memory). Interview word: shared store.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that scale up keeps one machine. Scale out has many machines and one shared box behind them.
+**The big picture.** Notice that scale up keeps one machine. Scale out has many machines and one shared box behind them.
 
 ```mermaid
 graph TB
@@ -44,91 +67,18 @@ graph TB
     end
 ```
 
-### 2b. The problem, drawn
+**The shop in full.**
 
-This is the bug you meet when you add the second machine. Notice that the login note sits in Server A only. Server B has nothing.
+A small shop has one cashier. The cashier knows every regular customer by name, because the cashier keeps all of it in their head.
 
-```mermaid
-graph LR
-    S["Sam"] -->|request 1 log in| LB["Load balancer"]
-    S -->|request 2 My orders| LB
-    LB -->|turn 1| A["Server A<br/>memory holds<br/>abc is Sam"]
-    LB -->|turn 2| B["Server B<br/>memory is empty"]
-    B -->|cannot find abc| X["Please log in<br/>Sam is logged out"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class B,X bad
-```
+- **Scale up:** buy the cashier a faster till and a bigger counter. There is still one cashier. If they get sick, the shop closes.
+- **Scale out:** hire a second cashier, and put a person at the door who sends each customer to a free cashier. That person is the load balancer.
+- **The bug:** a regular walks in and goes to cashier 2. Cashier 2 does not know them and asks them to start again.
+- **The fix:** a notebook on the counter. Both cashiers write every regular in it, and both read it. Now it does not matter which cashier you meet.
 
-### 2c. How it works over time
+Where the analogy stops: cashiers can talk to each other, but servers cannot read each other's memory at all. Also, reading the notebook takes a moment. A shared box takes a small trip over the network on every request. And if the notebook is lost, both cashiers are stuck.
 
-This is the fix. Notice that Server B never saw the login. It asks the shared box, so it still knows Sam.
-
-```mermaid
-sequenceDiagram
-    participant S as Browser
-    participant L as Load balancer
-    participant A as Server A
-    participant B as Server B
-    participant X as Shared box
-    S->>L: Log in with a password
-    L->>A: Turn 1
-    A->>X: Write abc is Sam
-    A-->>S: Cookie abc
-    S->>L: My orders with cookie abc
-    L->>B: Turn 2
-    B->>X: Who is abc
-    X-->>B: abc is Sam
-    B-->>S: Sam orders page
-```
-
-### 2d. What is in memory right now
-
-This is a snapshot after Sam logged in on Server A. Notice where the note sits in each case. With the fix, both servers are empty and the box holds the note.
-
-```mermaid
-graph TB
-    subgraph BAD["Without a shared box"]
-        A1["Server A memory<br/>abc is Sam"]
-        B1["Server B memory<br/>empty"]
-    end
-    subgraph GOOD["With a shared box"]
-        A2["Server A memory<br/>empty"]
-        B2["Server B memory<br/>empty"]
-        X2["Shared box<br/>abc is Sam"]
-        A2 --> X2
-        B2 --> X2
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class A1,B1 bad
-    class A2,B2,X2 good
-```
-
-### 2e. Right against wrong
-
-The wrong way glues Sam to one server (interview word: sticky session). The right way lets any server answer. Notice what happens when Server A stops.
-
-```mermaid
-graph LR
-    W1["Keep the note in server memory"] --> W2["Glue Sam to Server A"]
-    W2 --> W3["Server A stops or restarts"]
-    W3 --> W4["Sam is logged out"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class W1,W2,W3,W4 bad
-```
-
-```mermaid
-graph LR
-    R1["Keep the note in a shared box"] --> R2["Any server can answer"]
-    R2 --> R3["Server A stops or restarts"]
-    R3 --> R4["Server B answers<br/>Sam stays logged in"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class R1,R2,R3,R4 good
-```
-
-### 2f. When a machine stops
-
-Notice that one big machine stopping means the whole site is down. With four machines, three still answer.
+**When a machine stops.** Notice that one big machine stopping means the whole site is down. With four machines, three still answer.
 
 ```mermaid
 graph TB
@@ -150,34 +100,84 @@ graph TB
     class O2,O3,O4,OR good
 ```
 
-### 2g. Which one first?
+</details>
 
-This is the choice you say out loud. Notice that scale up comes first in two of the three exits.
+## 2. The bug when you add a second machine
+
+The login note (the **session**) sits in the memory of Server A only. The browser sends a cookie `abc`, and Server B has no note for `abc`. So Sam is logged out.
 
 ```mermaid
 graph TB
-    Q["One machine is too busy"] --> D1["Is it the database?"]
-    D1 -->|yes| UP1["Scale up first<br/>then add copies for reads"]
-    D1 -->|no| D2["Must the site survive one machine stopping<br/>or is the load near the biggest machine?"]
-    D2 -->|no| UP2["Scale up first<br/>no code change"]
-    D2 -->|yes| D3["Are the servers stateless?"]
-    D3 -->|no| FIX["Move the session into a shared box"]
-    FIX --> OUT1["Scale out<br/>load balancer plus shared box"]
-    D3 -->|yes| OUT1
+    A["1 Sam logs in on Server A<br/>A memory: abc is Sam"] --> B["2 Sam clicks My orders"]
+    B --> C["The click lands on Server B<br/>B memory is empty"]
+    C --> D["Please log in<br/>Sam is logged out"]
 ```
 
-## 3. Real life analogy
+<details class="guess"><summary>🤔 Guess: Sam logged in on Server A. Four more requests take turns: A, B, A, B. How many say "please log in"? Press to check.</summary>
 
-A small shop has one cashier. The cashier knows every regular customer by name, because the cashier keeps all of it in their head.
+**Two**: the two that land on B. In the code run, it prints `A says Sam | B says please log in | A says Sam | B says please log in`.
 
-- **Scale up:** buy the cashier a faster till and a bigger counter. There is still one cashier. If they get sick, the shop closes.
-- **Scale out:** hire a second cashier, and put a person at the door who sends each customer to a free cashier. That person is the load balancer.
-- **The bug:** a regular walks in and goes to cashier 2. Cashier 2 does not know them and asks them to start again.
-- **The fix:** a notebook on the counter. Both cashiers write every regular in it, and both read it. Now it does not matter which cashier you meet.
+</details>
 
-Where the analogy stops: cashiers can talk to each other, but servers cannot read each other's memory at all. Also, reading the notebook takes a moment. A shared box takes a small trip over the network on every request. And if the notebook is lost, both cashiers are stuck.
+> **Remember:** a stateless server keeps nothing about a user between two requests.
 
-## 4. The smallest code that shows it
+<details class="more"><summary>📖 More detail: the problem drawn, what is in memory, glue against shared box, and the code</summary>
+
+**The problem, drawn.** This is the bug you meet when you add the second machine. Notice that the login note sits in Server A only. Server B has nothing.
+
+```mermaid
+graph LR
+    S["Sam"] -->|request 1 log in| LB["Load balancer"]
+    S -->|request 2 My orders| LB
+    LB -->|turn 1| A["Server A<br/>memory holds<br/>abc is Sam"]
+    LB -->|turn 2| B["Server B<br/>memory is empty"]
+    B -->|cannot find abc| X["Please log in<br/>Sam is logged out"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class B,X bad
+```
+
+**What is in memory right now.** A snapshot after Sam logged in on Server A. Notice where the note sits in each case. With the fix, both servers are empty and the box holds the note.
+
+```mermaid
+graph TB
+    subgraph BAD["Without a shared box"]
+        A1["Server A memory<br/>abc is Sam"]
+        B1["Server B memory<br/>empty"]
+    end
+    subgraph GOOD["With a shared box"]
+        A2["Server A memory<br/>empty"]
+        B2["Server B memory<br/>empty"]
+        X2["Shared box<br/>abc is Sam"]
+        A2 --> X2
+        B2 --> X2
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class A1,B1 bad
+    class A2,B2,X2 good
+```
+
+**Right against wrong.** The wrong way glues Sam to one server (interview word: sticky session). The right way lets any server answer. Notice what happens when Server A stops.
+
+```mermaid
+graph LR
+    W1["Keep the note in server memory"] --> W2["Glue Sam to Server A"]
+    W2 --> W3["Server A stops or restarts"]
+    W3 --> W4["Sam is logged out"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class W1,W2,W3,W4 bad
+```
+
+```mermaid
+graph LR
+    R1["Keep the note in a shared box"] --> R2["Any server can answer"]
+    R2 --> R3["Server A stops or restarts"]
+    R3 --> R4["Server B answers<br/>Sam stays logged in"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class R1,R2,R3,R4 good
+```
+
+**The smallest code that shows it.**
 
 Two servers take turns. Request 1 is a login and lands on A. Then four requests ask "who am I?" and land on A, B, A, B. The code runs twice. First each server has its own memory. Then both servers use the same `Map` (a list of key and value pairs).
 
@@ -207,7 +207,54 @@ Checked on 2026-10-16 with Node 22.
 
 Only the `Map` changed between the two runs. The id `abc` plays the part of the cookie. The server uses it to find the login note.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
+
+</details>
+
+## 3. The fix: any server can answer
+
+Keep the note in a **shared box** that every server can read and write: your database, or Redis (a fast store that keeps data in memory). The servers keep nothing, so any server can answer Sam.
+
+```mermaid
+graph TB
+    A["Login lands on Server A<br/>A writes abc is Sam in the box"] --> B["Next click lands on Server B"]
+    B --> C["B asks the box<br/>who is abc"]
+    C --> D["The box says Sam<br/>Sam stays logged in"]
+```
+
+Run the code twice. With each server's own memory, every request that lands on B says "please log in". With one shared `Map`, every request says Sam.
+
+<details class="guess"><summary>🤔 Guess: the shared box is a new part. What new problem does it bring? Press to check.</summary>
+
+Two. Every request now takes a small trip over the network to the box. And the box is now **the one part that stops everything** if it fails. It needs a spare copy that takes over.
+
+</details>
+
+> **Remember:** move the data out of the server, and then any server can answer. You moved the single point of failure, you did not remove it.
+
+<details class="more"><summary>📖 More detail: the fix over time, and the run step by step</summary>
+
+**The fix, over time.** Notice that Server B never saw the login. It asks the shared box, so it still knows Sam.
+
+```mermaid
+sequenceDiagram
+    participant S as Browser
+    participant L as Load balancer
+    participant A as Server A
+    participant B as Server B
+    participant X as Shared box
+    S->>L: Log in with a password
+    L->>A: Turn 1
+    A->>X: Write abc is Sam
+    A-->>S: Cookie abc
+    S->>L: My orders with cookie abc
+    L->>B: Turn 2
+    B->>X: Who is abc
+    X-->>B: abc is Sam
+    B-->>S: Sam orders page
+```
+
+**What really happens, step by step.**
 
 The "machine" here is your set of servers. The state is what each memory holds. Read one row at a time. The code prints one line at the end. The last column shows which piece of that line each request adds.
 
@@ -235,22 +282,29 @@ What to see: in run 1 the answer depends on which server gets the request. In ru
 
 **Step through it yourself:** [open the stepper](visuals/02-scaling-up-vs-out.html). It has three stories: the bug, the fix, and adding a server and losing one. Guess first, then press Next. It shows the browser, the load balancer, each server's memory and the shared box.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** one machine has a top limit, the biggest machine you can rent. It is also one part that stops everything when it stops (interview word: single point of failure). See picture 2f.
-- **How it solves it:**
-  - Scale up swaps the machine for a bigger one. You change no code.
-  - Scale out adds machines. The load balancer shares the requests. This only works when the servers are stateless, so the next request can land anywhere (pictures 2b to 2d).
-- **Cost or tradeoff:** each way costs something different.
+## 4. When a machine stops: how busy to run
 
-| | Scale up (bigger machine) | Scale out (more machines) |
-|---|---|---|
-| Code change | None | Servers must be stateless. Sessions move to a shared box |
-| New parts to run | None | A load balancer and a shared box |
-| Top limit | The biggest machine you can rent | Very high. Keep adding machines |
-| If one machine stops | The whole site stops | The rest keep answering, with less capacity |
-| Growing | Usually a short stop to switch machines | Add a machine while the others keep running |
-| Main danger | You hit the ceiling. Very big machines get expensive | Hidden state, a shared box that fails, harder debugging |
+One big machine stopping means the whole site is down. With four machines, three still answer. But the three left must carry the work of four. So keep each machine only partly busy. The safe level is (N minus 1) divided by N.
+
+| Machines | How busy each may be |
+|---|---|
+| 2 | 50 percent |
+| 4 | 75 percent |
+| 10 | 90 percent |
+
+<details class="guess"><summary>🤔 Guess: you run 5 machines. At most how busy may each one be and still survive losing one? Press to check.</summary>
+
+**80 percent**: (5 minus 1) divided by 5. The 4 left carry the work of 5.
+
+</details>
+
+> **Remember:** the more machines you have, the less you waste on spares.
+
+<details class="more"><summary>📖 More detail: the problem, the numbers, and the full table</summary>
+
+- **Problem without it:** one machine has a top limit, the biggest machine you can rent. It is also one part that stops everything when it stops (interview word: single point of failure). See the "When a machine stops" picture in card 1 (blue bar).
 
 **The numbers, briefly.**
 
@@ -268,6 +322,57 @@ What to see: in run 1 the answer depends on which server gets the request. In ru
 
 Two small machines at 50 percent busy are a worse deal than they look. You pay for two and use one. The more machines you have, the less you waste on spares.
 
+</details>
+
+## 5. Which one first?
+
+Scale up first when it is the database, when the load is small, or when the team is small. Scale out when the site must survive one machine stopping, when the load is near the biggest machine, or when it goes up and down. Most real systems use both: **app servers scale out first, databases scale up first.**
+
+| Situation | First answer |
+|---|---|
+| The database is busy | scale up, then copies for reading |
+| Small load, a short stop is fine | scale up |
+| Must survive one machine stopping | scale out |
+| Load swings up and down | scale out |
+
+<details class="guess"><summary>🤔 Guess: a chat app must keep working when one machine dies. It does 200 requests per second. Up or out? Press to check.</summary>
+
+**Out.** The rule is not the load, it is the spare: you need at least two machines. First make the servers stateless, with sessions in a shared box.
+
+</details>
+
+> **Remember:** scale up needs no code change. Scale out needs stateless servers, a load balancer and a shared box.
+
+<details class="more"><summary>📖 More detail: the choice drawn, the cost table, and when each is right</summary>
+
+**Which one first?** This is the choice you say out loud. Notice that scale up comes first in two of the three exits.
+
+```mermaid
+graph TB
+    Q["One machine is too busy"] --> D1["Is it the database?"]
+    D1 -->|yes| UP1["Scale up first<br/>then add copies for reads"]
+    D1 -->|no| D2["Must the site survive one machine stopping<br/>or is the load near the biggest machine?"]
+    D2 -->|no| UP2["Scale up first<br/>no code change"]
+    D2 -->|yes| D3["Are the servers stateless?"]
+    D3 -->|no| FIX["Move the session into a shared box"]
+    FIX --> OUT1["Scale out<br/>load balancer plus shared box"]
+    D3 -->|yes| OUT1
+```
+
+- **How it solves it:**
+  - Scale up swaps the machine for a bigger one. You change no code.
+  - Scale out adds machines. The load balancer shares the requests. This only works when the servers are stateless, so the next request can land anywhere (cards 2 and 3).
+- **Cost or tradeoff:** each way costs something different.
+
+| | Scale up (bigger machine) | Scale out (more machines) |
+|---|---|---|
+| Code change | None | Servers must be stateless. Sessions move to a shared box |
+| New parts to run | None | A load balancer and a shared box |
+| Top limit | The biggest machine you can rent | Very high. Keep adding machines |
+| If one machine stops | The whole site stops | The rest keep answering, with less capacity |
+| Growing | Usually a short stop to switch machines | Add a machine while the others keep running |
+| Main danger | You hit the ceiling. Very big machines get expensive | Hidden state, a shared box that fails, harder debugging |
+
 **When scale up is the right first answer:**
 
 - The load is small and a short stop is fine. This is the most common case.
@@ -283,7 +388,24 @@ Two small machines at 50 percent busy are a worse deal than they look. You pay f
 
 Most real systems use both. App servers scale out first. Databases scale up first. (The [question bank](senior-system-design-interview-questions.md) says the same in question 13.)
 
-## 7. Common mistakes
+</details>
+
+## 6. Four mistakes, and what to say if you freeze
+
+- **Wrong:** "I will add ten servers, horizontal is more modern." **Right:** use the numbers. Scale up first, and scale out when you need a spare or hit the limit.
+- **Wrong:** sticky sessions (glue each user to one server). **Right:** move the session into a shared box.
+- **Wrong:** a variable in the server holds data a later request needs. **Right:** keep it in the shared box.
+- **Wrong:** "Redis holds the sessions, so we are done." **Right:** Redis is now the one part that stops everything, so it needs a spare.
+
+<details class="guess"><summary>🤔 Guess: the team turns on sticky sessions. Server A restarts for an update. What happens to the users glued to it? Press to check.</summary>
+
+They are all **logged out**. Also, new machines only get new users, so adding machines helps less.
+
+</details>
+
+> **Remember:** glue is not a fix. Move the data out of the server.
+
+<details class="more"><summary>📖 More detail: the four mistakes in full, and the freeze plan</summary>
 
 **Wrong:**
 
@@ -349,16 +471,18 @@ app.post("/cart", async (req, res) => {
 2. If yes: "I move it to a shared box. Then I can add machines."
 3. Then say the numbers: "At 300 requests per second, one machine is enough for now."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
-- **Video:** [Scalability Explained: Vertical vs Horizontal Scaling](https://www.youtube.com/watch?v=Tn5z9OZK2hU) - the title came from a search result. I could not see the channel or the length. Watch the first minutes and compare with picture 2a.
+- **Video:** [Scalability Explained: Vertical vs Horizontal Scaling](https://www.youtube.com/watch?v=Tn5z9OZK2hU) - the title came from a search result. I could not see the channel or the length. Watch the first minutes and compare with the big picture in card 1.
 - **Read:** [ByteByteGo: scale from zero to millions of users](https://bytebytego.com/courses/system-design-interview/scale-from-zero-to-millions-of-users) - the part where the web tier becomes stateless, with pictures. Find where it moves the session out of the server.
-- **Read:** [KodeKloud: Interview Byte, the random logout question](https://notes.kodekloud.com/docs/System-Design-For-Beginners/Foundations-One-Server/Interview-Byte-The-Random-Logout-Question/page.md) - the page name matches the bug in picture 2b. I could not read it, so check that it fits.
+- **Read:** [KodeKloud: Interview Byte, the random logout question](https://notes.kodekloud.com/docs/System-Design-For-Beginners/Foundations-One-Server/Interview-Byte-The-Random-Logout-Question/page.md) - the page name matches the bug in card 2. I could not read it, so check that it fits.
 - **Read:** [NeetCode newsletter: system design concepts to know](https://blog.neetcode.io/p/system-design-concepts-know) - a search summary says it argues for a bigger machine as the simpler first step. Find that part.
 - **Play with it:** [the stepper in this folder](visuals/02-scaling-up-vs-out.html) - guess first, then press Next. Try all three tabs. No outside interactive tool was found for this topic.
-- **Play:** [Excalidraw](https://excalidraw.com/) - a free whiteboard. Draw picture 2a and 2c from memory, then compare.
+- **Play:** [Excalidraw](https://excalidraw.com/) - a free whiteboard. Draw the big picture (card 1) and the fix over time (card 3) from memory, then compare.
 
 <details><summary>Go deeper (optional)</summary>
 
@@ -387,7 +511,7 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -474,7 +598,7 @@ For each case, say "scale up" or "scale out" and give one reason with a number o
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Our API is getting slow. Do you buy a bigger server or add more servers?"
 
@@ -491,7 +615,7 @@ For each case, say "scale up" or "scale out" and give one reason with a number o
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain scaling up and out out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of Sam being logged out. Then write your best version below and run `/explain-check scaling up vs out` or ask the `explain-coach` agent to review it.
 
@@ -503,12 +627,12 @@ Close this file. Explain scaling up and out out loud like to a new junior, in 4 
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. What is the difference between scale up and scale out? Give one cost for each.
 2. Sam logs in, and his next click makes the site ask him to log in again. There are two servers. Why does this happen, and what is the fix?
 3. You run 3 machines. At most how busy can each one be if you want to survive losing one? Why?
-4. Draw the picture from section 2c from memory.
+4. Draw the picture of the fix over time (card 3) from memory.
 
 <details><summary>Answers</summary>
 
