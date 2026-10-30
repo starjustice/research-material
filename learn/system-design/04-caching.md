@@ -1,12 +1,33 @@
 # 04. Caching
 
-> **Subject:** System Design · **Lesson:** 04 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 04 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** draw how a read and a write work with a cache (hit, miss, write), say why a copy goes old and what a TTL does about it, and explain a stampede with two fixes.
+>
 > **Before this:** [Load balancers](03-load-balancers.md) · **Next:** [CDN](05-cdn.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a copy in a fast place
 
-A cache keeps a copy of an answer in a fast place, so the slow place does not do the same work again and again.
+A cache keeps a copy of an answer in a fast place (usually memory), so the slow place does not do the same work again and again. A shop assistant keeps a sticky note on the till: "rice 100". Note found is a **hit**. No note is a **miss**, so the assistant makes the slow phone call.
+
+```mermaid
+graph TB
+    U["User asks the app"] --> C["1 App looks in the cache<br/>fast and small"]
+    C -->|miss| D["2 App asks the database<br/>slow and the truth"]
+    D --> K["3 App keeps a copy<br/>in the cache"]
+```
+
+<details class="guess"><summary>🤔 Guess: Redis answers in about 1 ms, the database in about 50 ms. 90 of 100 reads are hits. What is the average read time, and how much less load does the database see? Press to check.</summary>
+
+About **6 ms** (90 x 1 + 10 x 51, divided by 100), down from 50. The database sees 10 questions, not 100: **10 times less load**. The second number matters more. A cache mainly protects the database.
+
+</details>
+
+> **Remember:** a cache keeps a copy in a fast place. The price is that a copy can go old.
+
+<details class="more"><summary>📖 More detail: four new words, the big picture, the problem drawn, and the shop</summary>
 
 The price is that a copy can go old. This lesson shows how to keep copies fresh enough.
 
@@ -19,11 +40,7 @@ New words (four):
 
 Two small words: a **hit** means the cache had the copy. A **miss** means it did not. The way we use the cache here is called **cache aside**: the app looks after the cache itself.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that the app looks in the cache first. It asks the database only when there is no copy.
+**The big picture.** Notice that the app looks in the cache first. It asks the database only when there is no copy.
 
 ```mermaid
 graph LR
@@ -35,9 +52,7 @@ graph LR
     A -->|3 keep a copy| C
 ```
 
-### 2b. The problem, drawn
-
-Notice that the database does the same work for one answer, again and again.
+**The problem, drawn.** Notice that the database does the same work for one answer, again and again.
 
 ```mermaid
 graph LR
@@ -49,9 +64,46 @@ graph LR
     class D bad
 ```
 
-### 2c. How it works over time
+**The shop in full.**
 
-This is cache aside. Notice that only read 1 goes to the database. The write changes the database and then deletes the copy.
+A shop assistant is asked the price of rice all day. The price list is in the head office, so each check is a slow phone call.
+
+- **The cache:** a sticky note on the till says "rice 100". The assistant reads the note instead of calling. Note found is a hit. No note is a miss, so the assistant calls.
+- **The TTL:** every note says "good until 3 pm". At 3 pm the assistant throws it away.
+- **An old copy:** at 1 pm head office changes the price, but nobody tells the till. The note still says 100.
+- **Invalidation:** head office rings the shop, and the assistant tears up the note.
+- **The stampede:** at 3 pm the busiest note is thrown away, and 30 customers are waiting. That is 30 phone calls at once. Fix 1: one assistant calls and the others wait for that answer. Fix 2: make a new note at 2:55 pm, before the old one ends.
+
+Where the analogy stops: a sticky note sits at one till. A real cache is shared by many servers. It lives in memory, so a restart removes every copy at once. It also has limited space, so it must throw out copies when it is full.
+
+</details>
+
+## 2. Read and write: cache aside
+
+On a **read**: look in the cache. On a miss, ask the database and keep a copy. On a **write**: change the database, then delete the copy. This way of using a cache is called **cache aside**: the app looks after the cache itself.
+
+A fake database waits 50 ms. The app reads the price 3 times, the admin saves a new price, then the app reads 2 more times:
+
+```
+miss price 100
+hit  price 100
+hit  price 100
+miss price 90
+hit  price 90
+database calls: 2
+```
+
+<details class="guess"><summary>🤔 Guess: on a write, should you put the new value into the cache, or delete the copy? Press to check.</summary>
+
+**Delete the copy.** Two writers can finish in the wrong order, and then the older value wins. A delete has no value to get wrong. The next read is a miss and fills the cache with the truth.
+
+</details>
+
+> **Remember:** on a write, change the database first, then delete the copy. Keep a TTL too.
+
+<details class="more"><summary>📖 More detail: the code, the run over time, step by step, and two other ways to write</summary>
+
+**How it works over time.** This is cache aside. Notice that only read 1 goes to the database. The write changes the database and then deletes the copy.
 
 ```mermaid
 sequenceDiagram
@@ -72,27 +124,48 @@ sequenceDiagram
     A->>C: Delete the copy of price 7
 ```
 
-### 2d. What is in each box right now
+**The smallest code that shows it.** The code leaves out the TTL to stay small. Practice A adds it.
 
-This is a snapshot, 30 seconds into story 2 of the stepper page (section 5). A script changed the database at 20 seconds. Notice that the cache and the database disagree, and nobody told the cache.
-
-```mermaid
-graph TB
-    subgraph NOW["30 seconds after the copy was saved"]
-        D["Database<br/>price 7 is 90<br/>changed at 20 s by a script"]
-        C["Cache<br/>price 7 is 100<br/>30 s left of 60<br/>OLD COPY"]
-        U["User asks<br/>gets 100 very fast<br/>and it is wrong"]
-        C --> U
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class C,U bad
-    class D good
+```js
+const db = { 7: "price 100" }, cache = new Map(); let calls = 0;   // db is slow, cache is fast
+const slowDb = async (id) => { calls++; await new Promise((r) => setTimeout(r, 50)); return db[id]; };
+async function read(id) {
+  if (cache.has(id)) return "hit  " + cache.get(id);   // found: answer at once
+  const row = await slowDb(id);                         // not found: ask the slow database
+  cache.set(id, row);                                   // keep a copy for the next read
+  return "miss " + row;
+}
+const write = (id, row) => { db[id] = row; cache.delete(id); };   // change the database, delete the copy
+const show = async () => console.log(await read(7));
+(async () => {
+  await show(); await show(); await show(); write(7, "price 90"); await show(); await show();
+  console.log("database calls:", calls);
+})();
 ```
 
-### 2e. Right against wrong
+Checked on 2026-10-16 with Node 22.
 
-The wrong way changes only the database. The right way also deletes the copy. Notice that the right way keeps a TTL too, in case a delete is missed.
+Five reads, but the database was asked only twice. `read` is cache aside. `write` changes the database first and then deletes the copy.
+
+Run again on 2026-10-30 with Node 26.12.1: the same output as in the card.
+
+**What really happens, step by step.**
+
+The "machine" is the app, the cache and the database. The state is what the cache and the database hold, and how often the database was asked. Each `show()` call runs `read(7)` once.
+
+| Step | Code | What the app does | Cache after | Database after | Database calls | Printed |
+|---|---|---|---|---|---|---|
+| 1 | `show()` read 1 | Looks in the cache: nothing, a **miss**. Asks the slow database. Keeps a copy. | `7 = price 100` | `7 = price 100` | 1 | `miss price 100` |
+| 2 | `show()` read 2 | Looks in the cache: found, a **hit**. Does not ask the database. | `7 = price 100` | `7 = price 100` | 1 | `hit  price 100` |
+| 3 | `show()` read 3 | Another **hit**. | `7 = price 100` | `7 = price 100` | 1 | `hit  price 100` |
+| 4 | `write(7, "price 90")` | Changes the database. Then deletes the copy. | empty | `7 = price 90` | 1 | nothing |
+| 5 | `show()` read 4 | Cache is empty, a **miss**. Asks the database. Keeps a copy of 90. | `7 = price 90` | `7 = price 90` | 2 | `miss price 90` |
+| 6 | `show()` read 5 | A **hit**. | `7 = price 90` | `7 = price 90` | 2 | `hit  price 90` |
+| 7 | last line | Prints the counter. | `7 = price 90` | `7 = price 90` | 2 | `database calls: 2` |
+
+What to see: the database is asked only in steps 1 and 5. Those are the two misses.
+
+**Right against wrong.** The wrong way changes only the database. The right way also deletes the copy. Notice that the right way keeps a TTL too, in case a delete is missed.
 
 ```mermaid
 graph LR
@@ -111,23 +184,108 @@ graph LR
     class R1,R2,R3,R4 good
 ```
 
-### 2f. The stampede, drawn
+**Two other ways to write.** Cache aside is the default.
 
-Notice the loop at the end. Slow answers make users press reload, and the reloads add more load.
+| Way | What happens on a write | Good for | Cost |
+|---|---|---|---|
+| Cache aside | Change the database, then delete the copy | Most reads. The default answer | The first read after a change is a miss |
+| Write through | Write the database and the cache in the same step | Data read right after it is written | Each write is slower, and the cache fills with data nobody reads |
+| Write back (also called write behind) | Write the cache only. A worker saves to the database a little later | View counters and likes | If the cache dies first, the data is lost. Never for money or orders |
+
+**Step through it yourself:** [open the stepper](visuals/04-caching.html). It has three stories: a miss then hits, an old copy until the TTL ends, and the stampede with both fixes. Guess first, then use the buttons. The counters show hits, misses and database calls.
+
+</details>
+
+## 3. Why a copy goes old, and what a TTL does
+
+A **TTL** (time to live) is how many seconds a copy may stay. When the time is over, the cache throws the copy away. If something changes the database and does not delete the copy, users see the old answer until the TTL ends.
 
 ```mermaid
-graph LR
-    K["A busy copy ends<br/>at 12:00:00"] --> M["1000 requests miss<br/>in the same second"]
-    M -->|1000 equal questions| D["Database<br/>overloaded"]
-    D --> S["Answers are slow<br/>users press reload"]
-    S -->|reloads add more load| D
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class M,D,S bad
+graph TB
+    A["0 s: copy saved<br/>TTL 60 s, price 100"] --> B["20 s: a script changes<br/>the database to 90"]
+    B --> C["30 s: a read hits the copy<br/>user sees 100, old"]
+    C --> D["60 s: the copy ends"]
+    D --> E["61 s: a miss<br/>user sees 90"]
 ```
 
-### 2g. Two fixes for the stampede
+<details class="guess"><summary>🤔 Guess: the TTL is 10 minutes, and a script changes the price without deleting the copy. How old can the price be at worst? Press to check.</summary>
 
-Fix 1: one request refills and the others wait. The lock is a note in the cache that says "I am refilling this key". Fix 2: refresh the copy before it ends. Notice that in both fixes the database is asked once.
+Up to **10 minutes**. The TTL does not make the copy fresh. It only limits how long it can stay old. Always set a TTL, even when you delete on write: it is the backup for a missed delete.
+
+</details>
+
+> **Remember:** the TTL does not make a copy fresh. It limits how long a copy can stay old.
+
+<details class="more"><summary>📖 More detail: the TTL story, what is in each box, and why invalidation is hard</summary>
+
+**Story 2: the TTL and an old copy.**
+
+**Story 2: the TTL and an old copy.** The copy was saved at 0 s with a TTL of 60 seconds. At 20 s a script changes the database and does not delete the copy.
+
+| Time | What happens | Database | Cache | The user sees |
+|---|---|---|---|---|
+| 0 s | The copy is saved. It ends at 60 s. | 100 | 100 | |
+| 10 s | A read finds the copy (hit). | 100 | 100 | 100 |
+| 20 s | A script changes the database. Nobody tells the cache. | 90 | 100 (old) | |
+| 30 s | A read finds the copy (hit). | 90 | 100 (old) | 100, **old** |
+| 45 s | A read finds the copy (hit). | 90 | 100 (old) | 100, **old** |
+| 60 s | The time is over. The cache throws the copy away. | 90 | empty | |
+| 61 s | A read misses. The app asks the database and saves a copy. | 90 | 90 | 90 |
+| 70 s | A read finds the copy (hit). | 90 | 90 | 90 |
+
+What to see: the answer was old for 40 seconds (20 s to 60 s). The TTL did not make it fresh. It only limited how long it could stay old.
+
+**What is in each box right now.** A snapshot, 30 seconds into this story. A script changed the database at 20 seconds. Notice that the cache and the database disagree, and nobody told the cache.
+
+```mermaid
+graph TB
+    subgraph NOW["30 seconds after the copy was saved"]
+        D["Database<br/>price 7 is 90<br/>changed at 20 s by a script"]
+        C["Cache<br/>price 7 is 100<br/>30 s left of 60<br/>OLD COPY"]
+        U["User asks<br/>gets 100 very fast<br/>and it is wrong"]
+        C --> U
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class C,U bad
+    class D good
+```
+
+**Why invalidation is hard.**
+
+- One answer can have copies in many places: the browser, a CDN (copy servers near the users, lesson 05), Redis, and each server's memory.
+- A script or another service can change the data without your code knowing.
+- A slow reader can read the old row, wait for your delete, then save the old row. A TTL limits the damage.
+- On a write, delete the copy. Do not write the new value in. Two writers can finish in the wrong order, and the older value wins. A delete has no value to get wrong.
+
+**The TTL.** Ask how old this answer may be before a user is hurt. A product list can be 5 to 15 minutes old. Always set a TTL, even when you also delete on write. It is the backup for a missed delete.
+
+</details>
+
+## 4. The stampede and two fixes
+
+A **stampede** (also called thundering herd): a busy copy ends, and many requests run to the database in the same moment. Slow answers make users press reload, and the reloads add more load.
+
+```mermaid
+graph TB
+    K["A busy copy ends<br/>at 12:00:00"] --> M["1000 requests miss<br/>in the same second"]
+    M --> D["Database overloaded<br/>answers are slow"]
+    D --> S["Users press reload<br/>more load"]
+```
+
+**Fix 1:** one request refills and the others wait. The lock is a note in the cache: "I am refilling this key". **Fix 2:** refresh the copy before it ends. In both fixes the database is asked once.
+
+<details class="guess"><summary>🤔 Guess: 5 requests miss in the same moment. How many database calls with no protection, and how many when everyone shares one refill? Press to check.</summary>
+
+**5** with no protection, **1** with one shared refill. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** a stampede is many equal misses at once. Let the first miss refill and the rest wait, or refill before the copy ends.
+
+<details class="more"><summary>📖 More detail: the two fixes drawn, the stampede story, and the fixes in plain words</summary>
+
+**Two fixes for the stampede.** Fix 1: one request refills and the others wait. Fix 2: refresh the copy before it ends. Notice that in both fixes the database is asked once.
 
 ```mermaid
 graph TB
@@ -147,9 +305,56 @@ graph TB
     end
 ```
 
-### 2h. What to cache
+**The stampede, drawn.** Notice the loop at the end. Slow answers make users press reload, and the reloads add more load.
 
-Notice the three questions. A "no" on the first two is a reason to read the database.
+```mermaid
+graph LR
+    K["A busy copy ends<br/>at 12:00:00"] --> M["1000 requests miss<br/>in the same second"]
+    M -->|1000 equal questions| D["Database<br/>overloaded"]
+    D --> S["Answers are slow<br/>users press reload"]
+    S -->|reloads add more load| D
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class M,D,S bad
+```
+
+**Story 3: the stampede.** Three tries with the same busy key. In parts 1 and 2, 5 requests arrive in the same moment that the copy ends.
+
+| Part | What happens | Database calls |
+|---|---|---|
+| 1. No protection | The copy ends. 5 requests miss. All 5 ask the database at once. It is overloaded. | **5** |
+| 2. Fix 1, a lock | 5 requests miss. R1 gets the lock and asks the database once. R2 to R5 wait. R1 saves the copy and drops the lock. R2 to R5 read the new copy. | **1** |
+| 3. Fix 2, refresh early | At 172 s a request finds a copy with 8 s left. It gets the old copy at once, and the app refills on the side. At 180 s, 5 requests all find the new copy. | **1** |
+
+**The two stampede fixes, in plain words.**
+
+1. **One request refills, the others wait** (interview words: lock, single flight). The lock is a note in the cache: "I am refilling this key". The first miss takes it. The others wait, then read the new copy.
+2. **Refresh before the copy ends** (interview words: refresh ahead, stale while revalidate). A request that sees a copy almost over serves it and refills on the side.
+
+</details>
+
+## 5. What to cache, and what it costs
+
+Cache answers that are asked again and again, change rarely, and may be a few seconds old: a product list, exchange rates. Do not cache what decides about money or stock, like a balance at the moment of a payment. Never cache secrets.
+
+| Cache | Do not cache |
+|---|---|
+| asked again and again | used to decide about money or stock |
+| changes rarely | secrets |
+| a few seconds old is fine | one user's data under a key other users share |
+
+The costs: copies can be old, the first read after a change is slow, it is one more part to run, and memory is limited (when it is full, the cache throws out some copies, called **eviction**).
+
+<details class="guess"><summary>🤔 Guess: a payment page shows your balance. Do you cache it for 5 minutes? Press to check.</summary>
+
+**No.** A balance used to decide about money is read from the database. A copy could be old, and the person could pay with money they no longer have.
+
+</details>
+
+> **Remember:** cache what is read often, changes rarely and can be a few seconds old.
+
+<details class="more"><summary>📖 More detail: the three questions drawn, the cost list, and what to cache</summary>
+
+**What to cache.** Notice the three questions. A "no" on the first two is a reason to read the database.
 
 ```mermaid
 graph TB
@@ -166,98 +371,9 @@ graph TB
     class Y1,Y2 good
 ```
 
-## 3. Real life analogy
+**Why it exists and what it costs.**
 
-A shop assistant is asked the price of rice all day. The price list is in the head office, so each check is a slow phone call.
-
-- **The cache:** a sticky note on the till says "rice 100". The assistant reads the note instead of calling. Note found is a hit. No note is a miss, so the assistant calls.
-- **The TTL:** every note says "good until 3 pm". At 3 pm the assistant throws it away.
-- **An old copy:** at 1 pm head office changes the price, but nobody tells the till. The note still says 100.
-- **Invalidation:** head office rings the shop, and the assistant tears up the note.
-- **The stampede:** at 3 pm the busiest note is thrown away, and 30 customers are waiting. That is 30 phone calls at once. Fix 1: one assistant calls and the others wait for that answer. Fix 2: make a new note at 2:55 pm, before the old one ends.
-
-Where the analogy stops: a sticky note sits at one till. A real cache is shared by many servers. It lives in memory, so a restart removes every copy at once. It also has limited space, so it must throw out copies when it is full.
-
-## 4. The smallest code that shows it
-
-A fake database that waits 50 ms. The app reads the price 3 times. Then the admin saves a new price. Then the app reads 2 more times. The code leaves out the TTL to stay small. Practice A adds it.
-
-```js
-const db = { 7: "price 100" }, cache = new Map(); let calls = 0;   // db is slow, cache is fast
-const slowDb = async (id) => { calls++; await new Promise((r) => setTimeout(r, 50)); return db[id]; };
-async function read(id) {
-  if (cache.has(id)) return "hit  " + cache.get(id);   // found: answer at once
-  const row = await slowDb(id);                         // not found: ask the slow database
-  cache.set(id, row);                                   // keep a copy for the next read
-  return "miss " + row;
-}
-const write = (id, row) => { db[id] = row; cache.delete(id); };   // change the database, delete the copy
-const show = async () => console.log(await read(7));
-(async () => {
-  await show(); await show(); await show(); write(7, "price 90"); await show(); await show();
-  console.log("database calls:", calls);
-})();
-```
-
-**Output:**
-
-```
-miss price 100
-hit  price 100
-hit  price 100
-miss price 90
-hit  price 90
-database calls: 2
-```
-
-Checked on 2026-10-16 with Node 22.
-
-Five reads, but the database was asked only twice. `read` is cache aside. `write` changes the database first and then deletes the copy.
-
-## 5. What really happens, step by step
-
-The "machine" is the app, the cache and the database. The state is what the cache and the database hold, and how often the database was asked. Each `show()` call runs `read(7)` once.
-
-| Step | Code | What the app does | Cache after | Database after | Database calls | Printed |
-|---|---|---|---|---|---|---|
-| 1 | `show()` read 1 | Looks in the cache: nothing, a **miss**. Asks the slow database. Keeps a copy. | `7 = price 100` | `7 = price 100` | 1 | `miss price 100` |
-| 2 | `show()` read 2 | Looks in the cache: found, a **hit**. Does not ask the database. | `7 = price 100` | `7 = price 100` | 1 | `hit  price 100` |
-| 3 | `show()` read 3 | Another **hit**. | `7 = price 100` | `7 = price 100` | 1 | `hit  price 100` |
-| 4 | `write(7, "price 90")` | Changes the database. Then deletes the copy. | empty | `7 = price 90` | 1 | nothing |
-| 5 | `show()` read 4 | Cache is empty, a **miss**. Asks the database. Keeps a copy of 90. | `7 = price 90` | `7 = price 90` | 2 | `miss price 90` |
-| 6 | `show()` read 5 | A **hit**. | `7 = price 90` | `7 = price 90` | 2 | `hit  price 90` |
-| 7 | last line | Prints the counter. | `7 = price 90` | `7 = price 90` | 2 | `database calls: 2` |
-
-What to see: the database is asked only in steps 1 and 5. Those are the two misses.
-
-**Story 2: the TTL and an old copy.** The copy was saved at 0 s with a TTL of 60 seconds. At 20 s a script changes the database and does not delete the copy.
-
-| Time | What happens | Database | Cache | The user sees |
-|---|---|---|---|---|
-| 0 s | The copy is saved. It ends at 60 s. | 100 | 100 | |
-| 10 s | A read finds the copy (hit). | 100 | 100 | 100 |
-| 20 s | A script changes the database. Nobody tells the cache. | 90 | 100 (old) | |
-| 30 s | A read finds the copy (hit). | 90 | 100 (old) | 100, **old** |
-| 45 s | A read finds the copy (hit). | 90 | 100 (old) | 100, **old** |
-| 60 s | The time is over. The cache throws the copy away. | 90 | empty | |
-| 61 s | A read misses. The app asks the database and saves a copy. | 90 | 90 | 90 |
-| 70 s | A read finds the copy (hit). | 90 | 90 | 90 |
-
-What to see: the answer was old for 40 seconds (20 s to 60 s). The TTL did not make it fresh. It only limited how long it could stay old.
-
-**Story 3: the stampede.** Three tries with the same busy key. In parts 1 and 2, 5 requests arrive in the same moment that the copy ends.
-
-| Part | What happens | Database calls |
-|---|---|---|
-| 1. No protection | The copy ends. 5 requests miss. All 5 ask the database at once. It is overloaded. | **5** |
-| 2. Fix 1, a lock | 5 requests miss. R1 gets the lock and asks the database once. R2 to R5 wait. R1 saves the copy and drops the lock. R2 to R5 read the new copy. | **1** |
-| 3. Fix 2, refresh early | At 172 s a request finds a copy with 8 s left. It gets the old copy at once, and the app refills on the side. At 180 s, 5 requests all find the new copy. | **1** |
-
-**Step through it yourself:** [open the stepper](visuals/04-caching.html). It has three stories: a miss then hits, an old copy until the TTL ends, and the stampede with both fixes. Guess first, then use the buttons. The counters show hits, misses and database calls.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** the database does the same slow work for the same answer, thousands of times (picture 2b). It is also the hardest part to make bigger (lesson 02). So it is often the first thing to break.
+- **Problem without it:** the database does the same slow work for the same answer, thousands of times (the problem picture in card 1). It is also the hardest part to make bigger (lesson 02). So it is often the first thing to break.
 - **How it solves it:** the app keeps a copy in a fast place and asks the database only on a miss. Rough numbers: Redis about 1 ms, a slow database question about 50 ms. Say 90 of 100 reads are hits (interview word: hit ratio).
   - The average read is (90 x 1 + 10 x 51) / 100 = **6 ms**, down from 50 ms.
   - The database sees 10 questions, not 100: **10 times less load**. This matters more. A cache mainly protects the database.
@@ -268,34 +384,27 @@ What to see: the answer was old for 40 seconds (20 s to 60 s). The TTL did not m
   - Memory is limited. When it is full, the cache throws out some copies (interview word: eviction).
   - A busy copy that ends can cause a stampede.
 
-**Why invalidation is hard.**
-
-- One answer can have copies in many places: the browser, a CDN (copy servers near the users, lesson 05), Redis, and each server's memory.
-- A script or another service can change the data without your code knowing.
-- A slow reader can read the old row, wait for your delete, then save the old row. A TTL limits the damage.
-- On a write, delete the copy. Do not write the new value in. Two writers can finish in the wrong order, and the older value wins. A delete has no value to get wrong.
-
-**The TTL.** Ask how old this answer may be before a user is hurt. A product list can be 5 to 15 minutes old. Always set a TTL, even when you also delete on write. It is the backup for a missed delete.
-
-**The two stampede fixes, in plain words.**
-
-1. **One request refills, the others wait** (interview words: lock, single flight). The lock is a note in the cache: "I am refilling this key". The first miss takes it. The others wait, then read the new copy.
-2. **Refresh before the copy ends** (interview words: refresh ahead, stale while revalidate). A request that sees a copy almost over serves it and refills on the side.
-
-**Two other ways to write.** Cache aside is the default.
-
-| Way | What happens on a write | Good for | Cost |
-|---|---|---|---|
-| Cache aside | Change the database, then delete the copy | Most reads. The default answer | The first read after a change is a miss |
-| Write through | Write the database and the cache in the same step | Data read right after it is written | Each write is slower, and the cache fills with data nobody reads |
-| Write back (also called write behind) | Write the cache only. A worker saves to the database a little later | View counters and likes | If the cache dies first, the data is lost. Never for money or orders |
-
 **What to cache.**
 
 - **Cache:** answers asked again and again, that change rarely and may be a few seconds old. For example a product list or exchange rates.
 - **Do not cache:** answers used to decide about money or stock, like a balance at the moment of a payment. Read those from the database. Never cache secrets. Never put one user's data under a key that other users share.
 
-## 7. Common mistakes
+</details>
+
+## 6. Two mistakes, and what to say if you freeze
+
+- **Wrong:** the price changes in the database and the copy stays. **Right:** change the database, then delete the copy, and keep a TTL as a backup.
+- **Wrong:** many requests miss at the same moment, and each one asks the database. **Right:** the first miss starts one refill, and the others wait for that same refill.
+
+<details class="guess"><summary>🤔 Guess: you delete the copy before the database change is saved. What can go wrong? Press to check.</summary>
+
+A reader can read the old price in the gap and save it as a new copy, and nothing will delete it. **Delete after the change is saved, not before.**
+
+</details>
+
+> **Remember:** if you freeze, say "I cache answers that are read often and change rarely."
+
+<details class="more"><summary>📖 More detail: the two mistakes in full, with code you can run</summary>
 
 **Wrong:** the price changes in the database, and the copy stays.
 
@@ -374,17 +483,19 @@ Checked on 2026-10-16 with Node 22.
 2. Say "On a read I look in the cache. On a miss I ask the database and keep a copy with a TTL. On a write I change the database and delete the copy."
 3. Say "The risks are old copies and a stampede on a busy key. I handle them with the delete, the TTL, and a lock or an early refresh."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
-- **Video:** [Caching Strategies Made Easy (Cache-Aside, Read-Through, Write-Behind)](https://www.youtube.com/watch?v=XgYGXq4O_6s) - title from a search result, channel and length unknown. Compare its cache aside picture with 2c.
+- **Video:** [Caching Strategies Made Easy (Cache-Aside, Read-Through, Write-Behind)](https://www.youtube.com/watch?v=XgYGXq4O_6s) - title from a search result, channel and length unknown. Compare its cache aside picture with the over-time picture in card 2.
 - **Video:** [Cache Concepts: Cache Eviction vs. Cache Expiration](https://www.youtube.com/watch?v=76qpwvn262g) - title from a search result, channel and length unknown. Expiration is the TTL. Eviction is practice C.
 - **Play with it:** [the stepper in this folder](visuals/04-caching.html) - guess first, then try all three stories.
 - **Play with it:** [Ravensmove LRU cache visualizer](https://ravensmove.com/tools/lru-cache-visualizer) - a search summary says it shows hits, misses and what is thrown out. Try it before practice C.
-- **Read:** [Hello Interview: caching](https://hellointerview.com/learn/system-design/core-concepts/caching) - a search summary says it makes cache aside the default. Compare with 2c.
+- **Read:** [Hello Interview: caching](https://hellointerview.com/learn/system-design/core-concepts/caching) - a search summary says it makes cache aside the default. Compare with the over-time picture in card 2.
 - **Read:** [ByteByteGo: top caching strategies](https://blog.bytebytego.com/p/top-caching-strategies) - pictures of the read and write ways. Find write through and write back.
-- **Read:** [Redis blog: how to tame the thundering herd problem](https://redis.io/en/blog/how-to-tame-the-thundering-herd-problem/) - a search summary says copies that end together are a cause. Compare with 2f.
+- **Read:** [Redis blog: how to tame the thundering herd problem](https://redis.io/en/blog/how-to-tame-the-thundering-herd-problem/) - a search summary says copies that end together are a cause. Compare with the stampede picture in card 4.
 - No outside visualizer for the stampede was found.
 
 <details><summary>Go deeper (optional)</summary>
@@ -403,7 +514,7 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -512,7 +623,7 @@ A `Map` remembers the order in which keys were added. So the first key was used 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Our product page is slow because every request hits the database. How would you add caching, and what can go wrong?"
 
@@ -528,7 +639,7 @@ A `Map` remembers the order in which keys were added. So the first key was used 
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain caching out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of the price of rice: a miss, a hit, an old copy, and a busy copy that ends. Then write your best version below and run `/explain-check caching` or ask the `explain-coach` agent to review it.
 
@@ -540,12 +651,12 @@ Close this file. Explain caching out loud like to a new junior, in 4 parts (prob
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. A read arrives. Say what happens on a hit, on a miss, and on a write.
 2. The price changed in the database at 20 seconds. At 30 seconds a user still sees the old price. Why? Name the two things that fix or limit it.
 3. A very busy copy ends, and the database breaks down. What is this called? Give two fixes in plain words.
-4. Draw the picture from section 2c from memory.
+4. Draw the cache aside picture (card 2, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
