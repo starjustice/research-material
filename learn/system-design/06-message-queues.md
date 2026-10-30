@@ -1,12 +1,33 @@
 # 06. Message queues
 
-> **Subject:** System Design · **Lesson:** 06 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 06 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say why slow work goes into a queue, follow one job from the producer to the worker and its ack, explain why a job can run twice and what that asks of your code, and say what happens to a job that fails again and again.
+>
 > **Before this:** [CDN](05-cdn.md) · **Next:** [Consistency and CAP](07-consistency-and-cap.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a waiting line for slow work
 
-A message queue is a waiting line between two programs. The first program drops a job in the line and moves on. A second program takes jobs from the line and does the slow work later.
+A message queue is a waiting line between two programs. The **producer** (your API) drops a job in the line and moves on. A **worker** takes jobs from the line and does the slow work later. Like a phone repair shop: the clerk pins a ticket on the board and says "we will call you", and technicians take tickets one at a time.
+
+```mermaid
+graph TB
+    P["Producer<br/>your API"] -->|1 add a job| Q["Queue<br/>job 1, job 2, job 3"]
+    Q -->|2 a worker takes a job| W["Worker<br/>does the slow work<br/>then sends an ack"]
+    W --> M["Email provider<br/>slow and sometimes down"]
+```
+
+<details class="guess"><summary>🤔 Guess: a customer places an order, and the email provider is slow today (5 seconds). With a queue, how long does the customer wait? Press to check.</summary>
+
+About **60 ms**. The API saves the order, adds the job "send receipt 42" and answers at once. The worker sends the email later. Without a queue, the customer waits the 5 seconds, sees an error, and taps again.
+
+</details>
+
+> **Remember:** the producer adds a job and moves on. A worker does the slow work later.
+
+<details class="more"><summary>📖 More detail: new words, the problem drawn, the run over time, and the repair shop</summary>
 
 Lessons 02 to 05 made answers faster. This lesson is about work the user does not need to wait for, like a receipt email.
 
@@ -25,11 +46,7 @@ Three plain ideas, explained now so the pictures make sense:
 
 Times in the pictures are example numbers, not measured. 1 ms is one thousandth of a second.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that the producer never talks to the worker. The queue sits between them, and the worker sends an ack when it is done.
+**The big picture.** Notice that the producer never talks to the worker. The queue sits between them, and the worker sends an ack when it is done.
 
 ```mermaid
 graph LR
@@ -39,9 +56,7 @@ graph LR
     W --> M["Email provider<br/>slow and sometimes down"]
 ```
 
-### 2b. The problem, drawn
-
-This is checkout with no queue. Notice that the customer waits for the email. When the email provider is slow, the whole order looks broken.
+**The problem, drawn.** This is checkout with no queue. Notice that the customer waits for the email. When the email provider is slow, the whole order looks broken.
 
 ```mermaid
 sequenceDiagram
@@ -59,9 +74,7 @@ sequenceDiagram
     Note over A,D: A second order is saved
 ```
 
-### 2c. How it works over time
-
-This is story 1 of the stepper. Notice that the customer gets an answer before the email is sent.
+**How it works over time.** This is story 1 of the stepper. Notice that the customer gets an answer before the email is sent.
 
 ```mermaid
 sequenceDiagram
@@ -80,9 +93,42 @@ sequenceDiagram
     Note over Q: Job 42 is deleted
 ```
 
-### 2d. When a worker crashes
+**The repair shop in full.**
 
-This is story 2. Notice that the queue cannot see the email went out. It only sees that no ack came.
+A phone repair shop. You hand over your phone. The clerk writes a ticket, pins it on a board, and says "we will call you". You leave at once. The clerk is the producer and the board is the queue. Technicians take tickets from the board, one at a time. They are the workers.
+
+- **The hiding timer:** a ticket a technician took is off the board. If the technician goes home sick, the manager pins the ticket on the board again that evening.
+- **Ack:** the technician signs the ticket "done". Only then does it go in the finished box.
+- **Running twice:** a technician fixes your phone, takes your payment, and falls sick before signing. The next technician takes the payment again. So the shop needs a rule: "check first if this phone is paid".
+- **Dead letter queue:** a phone nobody can fix. After three tries the ticket goes in a "problem" box on the manager's desk.
+
+Where the analogy stops: a technician would tell the next one "I took the payment". A crashed worker says nothing. Also a ticket board hangs on a wall, so everyone sees it fill up. A queue lives inside a computer, so nobody sees it grow unless someone watches the queue length.
+
+</details>
+
+## 2. The ack, and why a job can run twice
+
+The worker sends an **ack** ("I finished this job, delete it") only after the work. When a worker takes a job, the queue hides it for a set time (the hiding timer). If no ack comes before the timer ends, the queue shows the job again. The queue cannot see inside the worker, so a crash after the email means the email goes out twice. This promise is called **at least once**: one time or more, never zero.
+
+```mermaid
+graph TB
+    A["Worker takes job 42<br/>the queue hides it for 30 s"] --> B["Worker sends the email"]
+    B --> C["Worker crashes<br/>before the ack"]
+    C --> D["30 s pass and no ack<br/>job 42 is shown again"]
+    D --> E["Another worker runs job 42<br/>the customer has 2 emails"]
+```
+
+<details class="guess"><summary>🤔 Guess: a worker acks first, then crashes before it does the work. Is the job run twice, or lost? Press to check.</summary>
+
+**Lost.** The queue already deleted the job, and nobody knows. An ack before the work means "at most once". Ack after the work, and make the work safe to repeat.
+
+</details>
+
+> **Remember:** ack after the work. A crash means the job runs again, so the worker must be safe to repeat.
+
+<details class="more"><summary>📖 More detail: the crash drawn, the notebook, ack first against ack last, and the promises</summary>
+
+**When a worker crashes.** This is story 2. Notice that the queue cannot see the email went out. It only sees that no ack came.
 
 ```mermaid
 sequenceDiagram
@@ -102,9 +148,7 @@ sequenceDiagram
     Note over Q: Job 42 is deleted
 ```
 
-### 2e. What is in the queue's notebook right now
-
-This is one moment. Notice that every job sits in exactly one place. Only an ack deletes a job. The arrows show how a job moves.
+**What is in the queue's notebook right now.** This is one moment. Notice that every job sits in exactly one place. Only an ack deletes a job. The arrows show how a job moves.
 
 ```mermaid
 graph TB
@@ -120,9 +164,7 @@ graph TB
     H -->|failed 3 times| X
 ```
 
-### 2f. Right against wrong
-
-Both ways can meet a crash. Notice what the crash costs: a lost job on the wrong way, a repeated job on the right way.
+**Right against wrong.** Both ways can meet a crash. Notice what the crash costs: a lost job on the wrong way, a repeated job on the right way.
 
 ```mermaid
 graph LR
@@ -144,63 +186,84 @@ graph LR
     class R1,R2,R3,R4,R5 good
 ```
 
-### 2g. A bad job, over time
+**Why a job can run twice.** This is the part interviewers ask about.
 
-This is story 3. Notice the two things at once: the bad job uses up its 3 tries, and the good jobs keep flowing.
+1. A worker takes a job. The queue hides it and starts the hiding timer.
+2. The worker does the work, then crashes before the ack. Or it is only slow, and the timer ends first.
+3. The queue cannot look inside the worker. It only knows that no ack arrived.
+4. So the queue must choose. It can show the job again, and the job may run twice. Or it can delete the job, and the job may run zero times. Most queues show it again, because a lost job is usually worse than a repeated one. That choice is called at least once.
+
+| Promise | The worker acks | A crash means | Use it for |
+|---|---|---|---|
+| At most once | before the work | the job is lost and runs 0 times | a "user is typing" signal |
+| At least once | after the work | the job runs again, so 2 times | almost everything: emails, orders, points |
+| "Exactly once" | after the work, and the worker is safe to repeat | the job may run twice, but the result is the same as once | money, points, stock |
+
+Nobody can promise one single delivery over a network, because a message or an ack can always get lost. What you can build is one single effect: at least once delivery plus a worker that is safe to repeat.
+
+</details>
+
+## 3. Make the worker safe to repeat
+
+**Safe to repeat** (interview word: idempotent) means that running a job twice gives the same result as running it once.
+
+| Job | Safe to run twice? |
+|---|---|
+| Set the order 42 status to SENT | Yes: it sets the same value |
+| Delete the temp file | Yes: it is already gone |
+| Add 10 points to a store | **No**: the store gets 20 |
+| Send the receipt email | **No**: two emails |
+
+The usual fix for the last two: give every job a unique id. The worker saves that id in a table with a unique rule, in the same database transaction as the work. A second run finds the id and skips the job.
+
+<details class="guess"><summary>🤔 Guess: a job "add 10 points" runs twice. How many points does the store get? What stops it? Press to check.</summary>
+
+**20 points.** Stop it with the job id: save it in a table with a unique rule, in the same transaction as the points. The second run finds the id and skips the job. Both happen or neither happens.
+
+</details>
+
+> **Remember:** nobody can promise one single delivery. You build one single effect: at least once, plus a worker that is safe to repeat.
+
+<details class="more"><summary>📖 More detail: why "exactly once" is built, and the full table</summary>
+
+Nobody can promise one single delivery over a network, because a message or an ack can always get lost. What you can build is one single effect: at least once delivery plus a worker that is safe to repeat.
+
+**Safe to repeat** (interview word: idempotent) means that running a job twice gives the same result as running it once. Lesson [13](13-idempotency-and-retries.md) teaches how.
+
+| Job | Safe to run twice? | Why |
+|---|---|---|
+| Set the order 42 status to SENT | Yes | The second run sets the same value |
+| Delete the temp file | Yes | It is already gone, so there is nothing to do |
+| Add 10 points to a store | No | The store gets 20 points |
+| Send the receipt email | No | The customer gets two emails |
+
+The usual fix for the last two: give every job a unique id. The worker saves that id in a table with a unique rule, in the same database transaction as the work. A second run finds the id and skips the job.
+
+</details>
+
+## 4. A job that keeps failing: retries and the dead letter queue
+
+A failed job goes back in the line, with three rules. **Wait longer** after each failure (1 s, 2 s, 4 s: exponential backoff). Add a small **random part** to each wait so 5,000 failed jobs do not return at the same second (jitter). **Stop after a few tries** (3 to 5). Then the job goes to the **dead letter queue**, a side shelf where it waits for a person.
 
 ```mermaid
-sequenceDiagram
-    participant Q as Queue
-    participant W as Worker
-    participant X as Dead letter queue
-    Q->>W: Job 62 try 1
-    W-->>Q: Failed. No ack.
-    Note over Q: Job 62 goes to the end of the line
-    Q->>W: Job 63
-    W->>Q: Ack job 63
-    Q->>W: Job 64
-    W->>Q: Ack job 64
-    Q->>W: Job 62 try 2
-    W-->>Q: Failed. No ack.
-    Q->>W: Job 62 try 3
-    W-->>Q: Failed. No ack.
-    Q->>X: Out of tries. Park job 62 with its error.
-    Note over X: A person is alerted and looks at job 62
+graph TB
+    A["Job 62 fails<br/>no ack"] --> B["It goes to the end of the line<br/>good jobs keep flowing"]
+    B --> C["Try 2 and try 3 fail too"]
+    C --> D["Out of tries<br/>job 62 goes to the dead letter queue"]
+    D --> E["A person is alerted and looks"]
 ```
 
-### 2h. A burst of orders
+<details class="guess"><summary>🤔 Guess: three jobs: `a` (sends its email, then crashes the first time), `b`, and `bad` (always fails, 3 tries then dead). What does the last line print? Press to check.</summary>
 
-Notice that without the queue the email provider refuses most calls. With the queue every job still works, only later.
+`sent: a b a dead: bad`. Job `a` ran twice. Job `bad` never sent anything and ended in `dead`. (Real run, Node 26.12.1.)
 
-```mermaid
-graph LR
-    subgraph NO["Without a queue"]
-        N1["600 orders in 1 minute"] -->|600 calls at once| N2["Email provider<br/>allows 100 per minute"]
-        N2 --> N3["500 calls refused<br/>500 orders show an error"]
-    end
-    subgraph YES["With a queue"]
-        Y1["600 orders in 1 minute"] -->|600 jobs added| Y2["Queue length rises to 500<br/>then falls to 0"]
-        Y2 -->|100 per minute| Y3["Worker"]
-        Y3 --> Y4["All 600 emails sent<br/>in 6 minutes"]
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class N2,N3 bad
-    class Y2,Y3,Y4 good
-```
+</details>
 
-## 3. Real life analogy
+> **Remember:** one bad job cannot stop the others. Alert when the dead letter queue holds anything.
 
-A phone repair shop. You hand over your phone. The clerk writes a ticket, pins it on a board, and says "we will call you". You leave at once. The clerk is the producer and the board is the queue. Technicians take tickets from the board, one at a time. They are the workers.
+<details class="more"><summary>📖 More detail: the code, the real output, step by step, a bad job over time, and the retry rules</summary>
 
-- **The hiding timer:** a ticket a technician took is off the board. If the technician goes home sick, the manager pins the ticket on the board again that evening.
-- **Ack:** the technician signs the ticket "done". Only then does it go in the finished box.
-- **Running twice:** a technician fixes your phone, takes your payment, and falls sick before signing. The next technician takes the payment again. So the shop needs a rule: "check first if this phone is paid".
-- **Dead letter queue:** a phone nobody can fix. After three tries the ticket goes in a "problem" box on the manager's desk.
-
-Where the analogy stops: a technician would tell the next one "I took the payment". A crashed worker says nothing. Also a ticket board hangs on a wall, so everyone sees it fill up. A queue lives inside a computer, so nobody sees it grow unless someone watches the queue length.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.**
 
 One file plays both the queue and the worker. There are three jobs: `a`, `b` and `bad`. Job `a` sends its email and then crashes the first time. Job `bad` always fails. An error means no ack arrived. A job that has failed fewer than 3 times goes to the end of the line. The third failure moves it to `dead`.
 
@@ -237,9 +300,11 @@ Checked on 2026-10-16 with Node 22.
 
 Look at the last line. `sent: a b a` means job `a` ran twice. Job `bad` never sent anything and ended in `dead`. In a real system the queue and the worker are two programs. Here one loop plays both.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-The machine here is the queue. The state is where each job sits: waiting, hidden with a worker, done, or dead. One row is one pass of the loop in section 4. The line after a pass is what is left waiting.
+**What really happens, step by step.**
+
+The machine here is the queue. The state is where each job sits: waiting, hidden with a worker, done, or dead. One row is one pass of the loop in card 4. The line after a pass is what is left waiting.
 
 | Step | Job taken (now hidden) | What happens | Printed | Waiting line after (queue length) | Sent so far | Dead letters |
 |---|---|---|---|---|---|---|
@@ -258,37 +323,29 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/06-message-queues.html). It has three stories: the happy path, a worker that crashes before the ack, and a bad job that fails 3 times. Guess first, then press Next. Every story shows the queue length, the hidden jobs, the dead letter queue and what the customers really received.
 
-## 6. Why it exists and what it costs
+**A bad job, over time.** This is story 3. Notice the two things at once: the bad job uses up its 3 tries, and the good jobs keep flowing.
 
-- **Problem without it:** the API does the slow work itself. The customer waits (picture 2b). A burst of orders floods the slow helper (picture 2h). A crash in the middle loses the work and nobody knows (picture 2f, the wrong way).
-- **How it solves it:** the API adds a job and answers at once (picture 2c). The queue holds the extra jobs, and workers take them at a steady speed (picture 2h). The queue keeps each job until the ack, so a crash loses nothing (pictures 2d and 2f). A failed job is tried again, and a job that keeps failing is parked (picture 2g).
-- **Cost or tradeoff:** more parts, a delay, and a job that can run twice. The table at the end of this section has the full list.
+```mermaid
+sequenceDiagram
+    participant Q as Queue
+    participant W as Worker
+    participant X as Dead letter queue
+    Q->>W: Job 62 try 1
+    W-->>Q: Failed. No ack.
+    Note over Q: Job 62 goes to the end of the line
+    Q->>W: Job 63
+    W->>Q: Ack job 63
+    Q->>W: Job 64
+    W->>Q: Ack job 64
+    Q->>W: Job 62 try 2
+    W-->>Q: Failed. No ack.
+    Q->>W: Job 62 try 3
+    W-->>Q: Failed. No ack.
+    Q->>X: Out of tries. Park job 62 with its error.
+    Note over X: A person is alerted and looks at job 62
+```
 
-**Why a job can run twice.** This is the part interviewers ask about.
-
-1. A worker takes a job. The queue hides it and starts the hiding timer.
-2. The worker does the work, then crashes before the ack. Or it is only slow, and the timer ends first.
-3. The queue cannot look inside the worker. It only knows that no ack arrived.
-4. So the queue must choose. It can show the job again, and the job may run twice. Or it can delete the job, and the job may run zero times. Most queues show it again, because a lost job is usually worse than a repeated one. That choice is called at least once.
-
-| Promise | The worker acks | A crash means | Use it for |
-|---|---|---|---|
-| At most once | before the work | the job is lost and runs 0 times | a "user is typing" signal |
-| At least once | after the work | the job runs again, so 2 times | almost everything: emails, orders, points |
-| "Exactly once" | after the work, and the worker is safe to repeat | the job may run twice, but the result is the same as once | money, points, stock |
-
-Nobody can promise one single delivery over a network, because a message or an ack can always get lost. What you can build is one single effect: at least once delivery plus a worker that is safe to repeat.
-
-**Safe to repeat** (interview word: idempotent) means that running a job twice gives the same result as running it once. Lesson [13](13-idempotency-and-retries.md) teaches how.
-
-| Job | Safe to run twice? | Why |
-|---|---|---|
-| Set the order 42 status to SENT | Yes | The second run sets the same value |
-| Delete the temp file | Yes | It is already gone, so there is nothing to do |
-| Add 10 points to a store | No | The store gets 20 points |
-| Send the receipt email | No | The customer gets two emails |
-
-The usual fix for the last two: give every job a unique id. The worker saves that id in a table with a unique rule, in the same database transaction as the work. A second run finds the id and skips the job.
+**Retries and the dead letter queue in full.**
 
 **Retries.** A failed job is tried again, with three rules:
 
@@ -296,7 +353,49 @@ The usual fix for the last two: give every job a unique id. The worker saves tha
 - Add a small random part to each wait. Then 5,000 failed jobs do not all return at the same second (interview word: jitter).
 - Stop after a few tries, for example 3 to 5. A job that can never work, like one with bad data, goes straight to the dead letter queue.
 
-**The dead letter queue.** After the last try, the queue moves the job there and keeps the error. One bad job cannot stop the others (picture 2g), and the job is not lost. A person fixes the cause and replays it. Two cautions: alert when the dead letter queue holds anything, because a shelf nobody reads is a slow way to lose data. And replay only if the worker is safe to repeat, because some dead jobs half worked.
+**The dead letter queue.** After the last try, the queue moves the job there and keeps the error. One bad job cannot stop the others (card 4), and the job is not lost. A person fixes the cause and replays it. Two cautions: alert when the dead letter queue holds anything, because a shelf nobody reads is a slow way to lose data. And replay only if the worker is safe to repeat, because some dead jobs half worked.
+
+</details>
+
+## 5. A burst of orders, and what a queue costs
+
+A burst: 600 orders arrive in 1 minute, and the email provider allows 100 a minute. With no queue, 500 calls are refused. With a queue, the queue length rises to 500 and then falls to 0, and all 600 emails go out in 6 minutes. The price:
+
+| Cost | What you do |
+|---|---|
+| results come later | show a status, or send a message when done |
+| a job can run twice | make the worker safe to repeat |
+| order is not promised | keep order per key, or let a status only move forward |
+| it grows without noise | alert on the queue length and the age of the oldest job |
+
+<details class="guess"><summary>🤔 Guess: jobs arrive faster than the workers finish. Does anything show an error? Press to check.</summary>
+
+**No.** The queue length just climbs, and nobody sees an error unless you watch it. Alert on the queue length and on the age of the oldest job.
+
+</details>
+
+> **Remember:** if the user is waiting for the answer, call it directly. A login check cannot wait in a line.
+
+<details class="more"><summary>📖 More detail: the burst drawn, the full cost table, and why it exists</summary>
+
+**A burst of orders.** Notice that without the queue the email provider refuses most calls. With the queue every job still works, only later.
+
+```mermaid
+graph LR
+    subgraph NO["Without a queue"]
+        N1["600 orders in 1 minute"] -->|600 calls at once| N2["Email provider<br/>allows 100 per minute"]
+        N2 --> N3["500 calls refused<br/>500 orders show an error"]
+    end
+    subgraph YES["With a queue"]
+        Y1["600 orders in 1 minute"] -->|600 jobs added| Y2["Queue length rises to 500<br/>then falls to 0"]
+        Y2 -->|100 per minute| Y3["Worker"]
+        Y3 --> Y4["All 600 emails sent<br/>in 6 minutes"]
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class N2,N3 bad
+    class Y2,Y3,Y4 good
+```
 
 **What a queue costs.**
 
@@ -311,7 +410,29 @@ The usual fix for the last two: give every job a unique id. The worker saves tha
 
 **When not to use a queue.** If the user is waiting for the answer, call it directly. A login check or "show my orders" cannot wait in a line.
 
-## 7. Common mistakes
+**Why it exists and what it costs.**
+
+- **Problem without it:** the API does the slow work itself. The customer waits (card 1). A burst of orders floods the slow helper (card 5). A crash in the middle loses the work and nobody knows (card 2, the wrong way).
+- **How it solves it:** the API adds a job and answers at once (card 1). The queue holds the extra jobs, and workers take them at a steady speed (card 5). The queue keeps each job until the ack, so a crash loses nothing (card 2). A failed job is tried again, and a job that keeps failing is parked (card 4).
+- **Cost or tradeoff:** more parts, a delay, and a job that can run twice. The table at the end of this section has the full list.
+
+</details>
+
+## 6. Three mistakes, and what to say if you freeze
+
+- **Wrong:** the worker acks first, to keep the queue short. **Right:** ack after the work.
+- **Wrong:** the worker trusts "once". **Right:** a unique job id in a table, in the same transaction.
+- **Wrong:** "Retry until it works." **Right:** 3 tries with growing waits, then the dead letter queue, and an alert.
+
+<details class="guess"><summary>🤔 Guess: why not "retry until it works"? Press to check.</summary>
+
+A job with bad data **never works**. Retrying for ever wastes the worker and hides the problem. An error that will pass later (a timeout, a 503) gets a retry. An error that will never pass (bad data, a 400) goes straight to the dead letter queue.
+
+</details>
+
+> **Remember:** if you freeze, say "Slow work that nobody waits for goes in a queue. The API adds a job and answers at once."
+
+<details class="more"><summary>📖 More detail: the three mistakes in full, and the freeze plan</summary>
 
 **Wrong:** the worker acks first, to keep the queue short.
 
@@ -366,11 +487,13 @@ await db.transaction(async (tx) => {
 2. Say "The worker acks after the work. A crash means the job runs again, so workers must be safe to repeat."
 3. Say "A bad job goes to a dead letter queue after a few tries, and I watch the queue length."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
-- **Video:** no video link found. My searches returned only written pages. Search for "message queue explained" and pick one under 20 minutes. Compare it with picture 2a.
+- **Video:** no video link found. My searches returned only written pages. Search for "message queue explained" and pick one under 20 minutes. Compare it with the big picture in card 1.
 - **Play with it:** [Engineer's Universe: Message Queues and Pub/Sub simulator](https://engineersuniverse.com/labs/ai-computing/cloud-computing/message-queues-pubsub) - a search summary says you can lose an ack and watch the redelivery repeat the effect. Try it, then compare it with story 2.
 - **Play with it:** [the stepper in this folder](visuals/06-message-queues.html) - guess first, then press Next. Try all three tabs.
 - **Read:** [Amazon SQS: visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/AboutVT.html) - the hiding timer in a real product. A search summary says the default is 30 seconds. Find what happens when the timer is too short.
@@ -408,7 +531,7 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -526,11 +649,11 @@ Checked on 2026-10-16 with Node 22: the tests fail on the empty stub and all 14 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Checkout sends an email and builds a PDF inside the request. It is slow and sometimes fails. How would you fix it, and what can go wrong with your fix?"
 
-A common follow-up, from interview guides in the search results: "A worker finishes the job and crashes before the ack. What happens next?" Picture 2d is the answer.
+A common follow-up, from interview guides in the search results: "A worker finishes the job and crashes before the ack. What happens next?" The crash picture in card 2 (blue bar) is the answer.
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -546,7 +669,7 @@ A common follow-up, from interview guides in the search results: "A worker finis
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain message queues out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of order 71: the worker sends the email, crashes before the ack, and the customer gets two emails. Then write your best version below and run `/explain-check message queues` or ask the `explain-coach` agent to review it.
 
@@ -558,12 +681,12 @@ Close this file. Explain message queues out loud like to a new junior, in 4 part
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Name three reasons to put slow work in a queue instead of doing it inside the request.
 2. A worker sends the email and crashes before the ack. What does the queue do, what does the customer see, and what must your worker be?
 3. A job fails every time because its data is bad. What should happen to it, and what should a person do?
-4. Draw the picture from section 2d from memory.
+4. Draw the crash picture (card 2, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
