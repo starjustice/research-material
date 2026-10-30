@@ -1,10 +1,33 @@
 # 14. Observability
 
-> **Subject:** System Design · **Lesson:** 14 · **Made:** 2026-10-21 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 14 · **Made:** 2026-10-21 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say which tool answers which question, follow one trace id across two services, find the slow step in a trace, and say why you watch p99.
+>
 > **Before this:** [Idempotency and retries](13-idempotency-and-retries.md) · **Next:** [Choosing tools and explaining why](15-choosing-tools-and-explaining-why.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: metrics, traces, logs
+
+It is 3 am and a user writes "checkout is slow". One checkout goes through the API, the payment service and a database. Which box was slow? **Observability** means the system shows you what happens inside it, so you do not guess. Give every request one id, then use numbers to see that something is wrong, a timeline to see where, and log lines to see why. Like a parcel company: a wall screen says "40 parcels late", the tracking page shows each stop, and the drivers' notebooks say why.
+
+```mermaid
+graph TB
+    R["One checkout request<br/>trace id 4bf92f35"] --> M["Metrics: checkout p99 3000 ms<br/>is something wrong"]
+    M --> T["Trace: SELECT payments<br/>2900 of 3000 ms<br/>where did the time go"]
+    T --> L["Logs: payment warn<br/>slow query 2900 ms<br/>what happened"]
+```
+
+<details class="guess"><summary>🤔 Guess: a user says checkout is slow. Which tool tells you which box was slow: metrics, logs or traces? Press to check.</summary>
+
+**Traces.** Metrics say *that* checkout is slow, not which box. The trace says *where*. The logs say *why*, and they carry the same trace id, so you can jump from the trace to the log.
+
+</details>
+
+> **Remember:** metrics tell me something is wrong. A trace tells me where. Logs tell me why.
+
+<details class="more"><summary>📖 More detail: the three tools, new words, the big picture, the problem drawn, and the parcels</summary>
 
 Give every request one id, then use numbers to see that something is wrong, a timeline to see where, and log lines to see why.
 
@@ -27,11 +50,7 @@ New words (four):
 
 The checkout is the one from [lesson 12](12-design-an-online-shop-checkout.md). All numbers are examples.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that one request feeds all three tools. The trace id ties them together.
+**The big picture.** Notice that one request feeds all three tools. The trace id ties them together.
 
 ```mermaid
 graph LR
@@ -43,9 +62,7 @@ graph LR
     T --> T2["SELECT payments<br/>2900 of 3000 ms"]
 ```
 
-### 2b. The problem, drawn
-
-Notice that the two log files share nothing. You can only match lines by time.
+**The problem, drawn.** Notice that the two log files share nothing. You can only match lines by time.
 
 ```mermaid
 graph LR
@@ -61,7 +78,47 @@ graph LR
     class LA,LP,Y bad
 ```
 
-### 2c. How it works over time
+**The parcel company in full.**
+
+Think of a parcel delivery company.
+
+- **Metrics** are the screen on the office wall: "40 parcels late today". It shows a problem, not which parcel.
+- **The trace id** is the tracking number. Every depot scans it.
+- **The trace** is the tracking page: each stop with a time.
+- **Logs** are the drivers' notebooks. Each note has the tracking number next to it.
+
+Where it stops being true: the company tracks every parcel. You get thousands of requests a second, so you keep only some traces. And a request can be in two services at once. A parcel cannot.
+
+**Why it exists and what it costs.**
+
+- **Problem without it:** you guess which box was slow from log times.
+- **How it solves it:** numbers raise the alarm. One trace id joins the spans and logs of one request.
+- **Cost or tradeoff:** storage and money. You keep only some traces and choose what to log.
+
+</details>
+
+## 2. One trace id travels in a header
+
+The first server gives the request a **trace id**. It passes the id to the next service in an HTTP header called `traceparent`, and every box writes it down. The payment service reads the header and keeps the same id.
+
+```mermaid
+graph TB
+    A["Browser sends POST /checkout<br/>no trace id yet"] --> B["API makes trace id 4bf92f35"]
+    B --> C["API calls the payment service<br/>header traceparent 4bf92f35"]
+    C --> D["Payment service reads the header<br/>and keeps the same id"]
+```
+
+<details class="guess"><summary>🤔 Guess: the payment service ignores the header and makes its own id `t2`. You search for the API's id `t1`. What do you find? Press to check.</summary>
+
+Only the **API line**. The payment service's slow query line is lost to your search. Fix: read the id from the header. (Real run, Node 26.12.1.) In real code OpenTelemetry reads the header for you.
+
+</details>
+
+> **Remember:** the id crosses the network inside a header. In a queue, put the `traceId` into the job data.
+
+<details class="more"><summary>📖 More detail: the id over time, the real header, and step by step</summary>
+
+**How it works over time.** Notice that the id rides inside an HTTP header. The payment service reads it and keeps the same id.
 
 Notice that the id rides inside an HTTP header. The payment service reads it and keeps the same id.
 
@@ -90,7 +147,55 @@ traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 
 The long middle part is the trace id. This lesson writes only its first 8 characters, `4bf92f35`.
 
-### 2d. What is in memory right now
+**What really happens, step by step.**
+
+| Step | What happens | Who has id 4bf92f35 | Spans after | New log line | Metrics |
+|---|---|---|---|---|---|
+| 0 | An alert fires: "checkout p99 over 1 s for 5 minutes" | nobody yet | none | none | p99 3,000 ms, average 182 ms |
+| 1 | The browser sends `POST /checkout` with no trace id | nobody | none | none | same |
+| 2 | The API makes trace id 4bf92f35 and starts its span | API | POST /checkout running | api, checkout started | same |
+| 3 | The API asks Postgres for the cart through Prisma | API | SELECT cart, 20 ms | none | same |
+| 4 | The API calls the payment service with the `traceparent` header | API, the header | POST /checkout running | none | same |
+| 5 | The payment service reads the header and keeps the id | API, payment | POST /charge running | payment, charge started | same |
+| 6 | The payment service asks its database for old payments | API, payment | SELECT payments running | none | same |
+| 7 | The query returns after 2,900 ms | API, payment | SELECT payments, 2,900 ms | payment, warn, slow query | same |
+| 8 | The payment service answers 200 | API, payment | POST /charge, 2,960 ms | none | same |
+| 9 | The API answers 201 and closes its span | API, payment | POST /checkout, 3,000 ms | api, checkout done | 101 requests, 0 errors |
+| 10 | You open trace 4bf92f35 and sort by own time | you | all four | search finds all four lines | p99 still 3,000 ms |
+
+What to see:
+
+- Step 0: metrics say **that** checkout is slow, not which box.
+- Steps 4 and 5: the id crosses the network inside a header.
+- Step 9: 0 errors. Slow is not an error, so a search for errors finds nothing.
+- Step 10: the trace says **where**. The warn log says **what**.
+
+**Step through it yourself:** [open the stepper](visuals/14-observability.html). Guess the slow step, then press Next.
+
+</details>
+
+## 3. Find the slow step in a trace
+
+A **span** is one timed step, like one database query. A trace is all the spans with one trace id. A span's **own time** is its time minus the spans directly under it. The slow step has the biggest own time.
+
+| Span | Total | Own time |
+|---|---|---|
+| api POST /checkout | 3000 ms | 20 ms |
+| api SELECT cart | 20 ms | 20 ms |
+| payment POST /charge | 2960 ms | 60 ms |
+| payment SELECT payments | 2900 ms | 2900 ms |
+
+<details class="guess"><summary>🤔 Guess: which span is the slow step, and how do you spot it? Press to check.</summary>
+
+**`payment SELECT payments`.** It has the biggest own time: 2,900 ms, and nothing is under it. The spans above mostly wait for the span under them, so the top span is always the longest.
+
+</details>
+
+> **Remember:** the top span is always the longest. Look for the biggest own time.
+
+<details class="more"><summary>📖 More detail: the finished trace, the code, and the real output</summary>
+
+**What is in memory right now.** This is the finished trace. Notice that the top span is always the longest. It waits for everything under it.
 
 This is the finished trace. Notice that the top span is always the longest. It waits for everything under it.
 
@@ -114,49 +219,7 @@ The log lines at this moment all carry the same trace id:
 | payment | warn | slow query | ms 2900 |
 | api | info | checkout done | ms 3000 |
 
-### 2e. Right against wrong: a log line
-
-You search for `4bf92f35`. Notice that plain text lines cannot be found by id.
-
-```mermaid
-graph LR
-    Q1["Search 4bf92f35"] -->|wrong| W["Plain text lines<br/>Payment slow for order 881<br/>no id in the line<br/>0 lines found"]
-    Q2["Search 4bf92f35"] -->|right| R["JSON lines with traceId<br/>api checkout started<br/>payment slow query 2900 ms<br/>4 lines from 2 services"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#dff3ea,stroke:#2f9e6b,color:#000
-    class W bad
-    class R good
-```
-
-### 2f. Right against wrong: average or p99
-
-Here are 100 checkouts. Notice that no user waited 182 ms. The average is a number nobody felt.
-
-```mermaid
-graph LR
-    R["100 checkouts"] --> A["90 took 100 ms"]
-    R --> B["8 took 400 ms"]
-    R --> C["2 took 3000 ms"]
-    A --> AVG["average 182 ms<br/>looks fine"]
-    B --> AVG
-    C --> AVG
-    C --> P99["p99 3000 ms<br/>2 people waited 3 s"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class AVG bad
-```
-
-## 3. Real life analogy
-
-Think of a parcel delivery company.
-
-- **Metrics** are the screen on the office wall: "40 parcels late today". It shows a problem, not which parcel.
-- **The trace id** is the tracking number. Every depot scans it.
-- **The trace** is the tracking page: each stop with a time.
-- **Logs** are the drivers' notebooks. Each note has the tracking number next to it.
-
-Where it stops being true: the company tracks every parcel. You get thousands of requests a second, so you keep only some traces. And a request can be in two services at once. A parcel cannot.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.** The four spans of the slow checkout, drawn as bars. One `#` is 100 ms.
 
 The four spans of the slow checkout, drawn as bars. One `#` is 100 ms.
 
@@ -192,38 +255,94 @@ Checked on 2026-10-21 with Node 24.
 - The last bar has nothing under it. Its 2,900 ms are its own. That is the slow step.
 - The log line has the same `traceId`, so you can jump from the trace to the log.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-| Step | What happens | Who has id 4bf92f35 | Spans after | New log line | Metrics |
-|---|---|---|---|---|---|
-| 0 | An alert fires: "checkout p99 over 1 s for 5 minutes" | nobody yet | none | none | p99 3,000 ms, average 182 ms |
-| 1 | The browser sends `POST /checkout` with no trace id | nobody | none | none | same |
-| 2 | The API makes trace id 4bf92f35 and starts its span | API | POST /checkout running | api, checkout started | same |
-| 3 | The API asks Postgres for the cart through Prisma | API | SELECT cart, 20 ms | none | same |
-| 4 | The API calls the payment service with the `traceparent` header | API, the header | POST /checkout running | none | same |
-| 5 | The payment service reads the header and keeps the id | API, payment | POST /charge running | payment, charge started | same |
-| 6 | The payment service asks its database for old payments | API, payment | SELECT payments running | none | same |
-| 7 | The query returns after 2,900 ms | API, payment | SELECT payments, 2,900 ms | payment, warn, slow query | same |
-| 8 | The payment service answers 200 | API, payment | POST /charge, 2,960 ms | none | same |
-| 9 | The API answers 201 and closes its span | API, payment | POST /checkout, 3,000 ms | api, checkout done | 101 requests, 0 errors |
-| 10 | You open trace 4bf92f35 and sort by own time | you | all four | search finds all four lines | p99 still 3,000 ms |
+</details>
 
-What to see:
+## 4. Logs you can find: JSON with the trace id
 
-- Step 0: metrics say **that** checkout is slow, not which box.
-- Steps 4 and 5: the id crosses the network inside a header.
-- Step 9: 0 errors. Slow is not an error, so a search for errors finds nothing.
-- Step 10: the trace says **where**. The warn log says **what**.
+A **structured log** is a line written as JSON, with named fields (level, traceId, service, msg), so a computer can filter it. A plain text line has no id, so a search for the trace id finds 0 lines. Every line carries the same trace id, so one search gives the whole story from both services. Never log secrets: logs are copied to many places.
 
-**Step through it yourself:** [open the stepper](visuals/14-observability.html). Guess the slow step, then press Next.
+```mermaid
+graph TB
+    Q["Search 4bf92f35"] --> R["JSON lines with traceId<br/>api: checkout started<br/>payment: slow query 2900 ms<br/>4 lines from 2 services"]
+```
 
-## 6. Why it exists and what it costs
+<details class="guess"><summary>🤔 Guess: `logger.info({ traceId, body: req.body }, "login")`. What is wrong? Press to check.</summary>
 
-- **Problem without it:** you guess which box was slow from log times.
-- **How it solves it:** numbers raise the alarm. One trace id joins the spans and logs of one request.
-- **Cost or tradeoff:** storage and money. You keep only some traces and choose what to log.
+The body has the **password and the phone number**. A password in a log is a leaked password. Log the user id instead: `{ traceId, userId: user.id }`.
 
-### What to measure for each service
+</details>
+
+> **Remember:** every log line carries the trace id. Never log secrets.
+
+<details class="more"><summary>📖 More detail: a log line, right against wrong, and the log lines of the finished trace</summary>
+
+**Right against wrong: a log line.** You search for `4bf92f35`. Notice that plain text lines cannot be found by id.
+
+You search for `4bf92f35`. Notice that plain text lines cannot be found by id.
+
+```mermaid
+graph LR
+    Q1["Search 4bf92f35"] -->|wrong| W["Plain text lines<br/>Payment slow for order 881<br/>no id in the line<br/>0 lines found"]
+    Q2["Search 4bf92f35"] -->|right| R["JSON lines with traceId<br/>api checkout started<br/>payment slow query 2900 ms<br/>4 lines from 2 services"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#dff3ea,stroke:#2f9e6b,color:#000
+    class W bad
+    class R good
+```
+
+**The log lines of the finished trace.**
+
+The log lines at this moment all carry the same trace id:
+
+| Service | Level | Message | Extra fields |
+|---|---|---|---|
+| api | info | checkout started | orderId 881 |
+| payment | info | charge started | orderId 881 |
+| payment | warn | slow query | ms 2900 |
+| api | info | checkout done | ms 3000 |
+
+</details>
+
+## 5. What to measure: RED, p99, and alerts
+
+Measure three numbers for every service (RED): **R**ate (requests per minute), **E**rrors (the share that fail with 5xx), **D**uration (how long, as p50 and p99). **p99** means 99 out of 100 requests were this fast or faster. The average hides the slow ones. Here are 100 checkouts:
+
+| How many | How long |
+|---|---|
+| 90 | 100 ms |
+| 8 | 400 ms |
+| 2 | 3000 ms |
+
+<details class="guess"><summary>🤔 Guess: for these 100 checkouts, what is the average, and what is p99? Press to check.</summary>
+
+Average **182 ms**, p99 **3000 ms**. Nobody waited 182 ms. The average is a number nobody felt. p99 shows the two people who waited 3 seconds.
+
+</details>
+
+> **Remember:** watch p99, not the average. Alert on what users feel: errors and slow requests. CPU goes on a dashboard.
+
+<details class="more"><summary>📖 More detail: average against p99 drawn, RED, percentiles, alerts, and your stack</summary>
+
+**Right against wrong: average or p99.** Here are 100 checkouts. Notice that no user waited 182 ms. The average is a number nobody felt.
+
+Here are 100 checkouts. Notice that no user waited 182 ms. The average is a number nobody felt.
+
+```mermaid
+graph LR
+    R["100 checkouts"] --> A["90 took 100 ms"]
+    R --> B["8 took 400 ms"]
+    R --> C["2 took 3000 ms"]
+    A --> AVG["average 182 ms<br/>looks fine"]
+    B --> AVG
+    C --> AVG
+    C --> P99["p99 3000 ms<br/>2 people waited 3 s"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class AVG bad
+```
+
+**What to measure for each service.**
 
 Measure three numbers for every service. Their first letters spell RED.
 
@@ -235,13 +354,13 @@ Measure three numbers for every service. Their first letters spell RED.
 
 Google's four golden signals add saturation: how full the busiest part is, like "19 of 20 database connections in use".
 
-### Percentiles in plain words
+**Percentiles in plain words.**
 
 - Sort all the request times from fast to slow.
 - **p50** is the middle one. **p99** is near the end: only 1 in 100 was slower.
-- The average in picture 2f says 182 ms. It hides the two people who waited 3 seconds. So you watch p99.
+- The average in the 100 checkouts picture (card 5, blue bar) says 182 ms. It hides the two people who waited 3 seconds. So you watch p99.
 
-### Alert on what users feel
+**Alert on what users feel.**
 
 Notice that the top group is what users feel. CPU can be at 90 percent while every user is happy.
 
@@ -261,7 +380,7 @@ graph TB
 - Keep CPU and memory on a dashboard. Use them to hunt the cause.
 - Making "checkout should be fast" a target number is an SLO. That is [lesson 26](26-slos-and-error-budgets.md).
 
-### In your stack
+**In your stack.**
 
 You do not write spans by hand. OpenTelemetry, a free standard with Node libraries, makes spans for HTTP calls, Express and Prisma. It also adds and reads the `traceparent` header. For logs, use pino and add the trace id. Setup is in [Production readiness, Part 3](production-readiness-observability-security.md).
 
@@ -271,31 +390,24 @@ You do not write spans by hand. OpenTelemetry, a free standard with Node librari
 | Traces are a lot of data | Keep all slow and failed traces, and a small share of the rest |
 | A little extra time per request | Usually small. Measure it once |
 
-<details><summary>Go deeper (optional)</summary>
+</details>
 
-**The `traceparent` header, piece by piece.** `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`. `00` is the version. Then 32 hex characters of trace id. Then 16 hex characters for the span that made the call (the spec calls it parent-id). Then `01`, a flag that says "this trace is being kept". It comes from the W3C Trace Context standard, a W3C Recommendation since November 2021. Level 2 is still a draft.
+## 6. Four mistakes, and what to say if you freeze
 
-**Keeping only some traces.** This is called sampling. Head sampling decides at the start, for example "keep 10 percent". It is cheap, but may drop the one slow request. Tail sampling waits until the trace ends, then keeps all errors and slow traces. It needs a middle program, the OpenTelemetry Collector, with memory to wait.
+- **Wrong:** logging secrets and personal data. **Right:** log the id of the user.
+- **Wrong:** the user id as a tag on a metric. **Right:** a few routes and a few statuses as tags.
+- **Wrong:** log lines with no trace id. **Right:** the trace id in every line.
+- **Wrong:** alerts on CPU, memory and every small warning. **Right:** alert on errors and p99.
 
-**OpenTelemetry status, checked on 2026-10-21.** The spec marks traces, metrics and logs as stable. For JavaScript, the status page lists traces and metrics as stable and logs as "development". That is why this lesson says: pino for logs, plus the trace id.
+<details class="guess"><summary>🤔 Guess: a metric has the user id as a tag, and you have a million users. What happens? Press to check.</summary>
 
-**Your stack in detail.** `@opentelemetry/auto-instrumentations-node` covers http, Express and pg. Prisma's plugin is `@prisma/instrumentation`. It makes spans like `prisma:client:operation` and `prisma:engine:db_query`. Next.js has an `instrumentation.ts` file for OpenTelemetry. The data goes to a tool like Jaeger or Grafana Tempo, where you open a trace by id. Inside one Node process, OpenTelemetry remembers the current trace across `await` with `AsyncLocalStorage`.
-
-**Alert rules.** Every page must need a human now. If it can wait for the morning, make it a ticket.
-
-**The trace id in queues.** BullMQ jobs have no headers. Put `traceId` into the job data. The worker reads it and uses it in its spans and logs.
-
-**Own time** is called self time in many tools.
-
-**Why p99 matters more than it sounds.** If one page calls 10 services, and each is slow 1 percent of the time, about 1 page in 10 is slow. 1 minus 0.99 to the power of 10 is about 9.6 percent.
-
-**Tools do not keep every time.** Prometheus puts times into buckets (a histogram) and estimates p99 from them. Its answer can differ a little from the exact way in this lesson. You also cannot average two p99 numbers. Compute p99 again from the joined buckets.
-
-**Percentile methods.** This lesson uses "nearest rank": rank = p times count divided by 100, rounded up. Other tools blend two neighbours. On big lists the answers are close.
+The metric tool keeps one set of numbers per tag value, so a million users means **a million sets** (high cardinality). Put the user id in logs instead.
 
 </details>
 
-## 7. Common mistakes
+> **Remember:** if you freeze, say "Metrics tell me something is wrong. A trace tells me where. Logs tell me why."
+
+<details class="more"><summary>📖 More detail: the mistakes in full, and the freeze plan</summary>
 
 **Wrong:** logging secrets and personal data.
 
@@ -339,7 +451,9 @@ checkoutTime.observe({ route: "/checkout", status: 201 }, ms);      // a few rou
 2. Say "The first server makes a trace id. It travels in the traceparent header and goes into every log line."
 3. Say "I measure rate, errors and duration. I watch p99, not the average. I alert on what users feel."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Every link was opened on 2026-10-21.
 
@@ -362,7 +476,7 @@ Every link was opened on 2026-10-21.
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -520,7 +634,7 @@ Checked on 2026-10-21 with Node 24: the 18 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Users say checkout is slow, but only sometimes. You run several services. How do you find the cause? What would you set up so the next time is easier?"
 
@@ -537,7 +651,7 @@ Checked on 2026-10-21 with Node 24: the 18 tests fail on the empty stub and all 
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain observability out loud to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the slow checkout at 3 am. Then write it below and run `/explain-check observability` or ask the `explain-coach` agent.
 
@@ -549,12 +663,12 @@ Close this file. Explain observability out loud to a new junior, in 4 parts (pro
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Which tool answers "is something wrong", which answers "where", and which answers "what happened"?
 2. How does the payment service know it belongs to the same trace as the API?
 3. 98 requests take 100 ms and 2 take 5,000 ms. What is the average? What is the p99? Which one would you alert on?
-4. Draw picture 2c from memory: the checkout with the trace id moving from box to box.
+4. Draw the picture of the trace id moving (card 2, blue bar) from memory: the checkout with the trace id moving from box to box.
 
 <details><summary>Answers</summary>
 
@@ -564,6 +678,35 @@ Close this file. Explain observability out loud to a new junior, in 4 parts (pro
 4. Browser to API: POST /checkout. API makes trace id 4bf92f35 and reads the cart in 20 ms. API to payment service: POST /charge with traceparent 4bf92f35. Payment service keeps the id and asks its database, which takes 2,900 ms. Answers go back: 2,960 ms, then 3,000 ms.
 
 </details>
+
+## 12. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Go deeper (optional)</summary>
+
+**The `traceparent` header, piece by piece.** `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`. `00` is the version. Then 32 hex characters of trace id. Then 16 hex characters for the span that made the call (the spec calls it parent-id). Then `01`, a flag that says "this trace is being kept". It comes from the W3C Trace Context standard, a W3C Recommendation since November 2021. Level 2 is still a draft.
+
+**Keeping only some traces.** This is called sampling. Head sampling decides at the start, for example "keep 10 percent". It is cheap, but may drop the one slow request. Tail sampling waits until the trace ends, then keeps all errors and slow traces. It needs a middle program, the OpenTelemetry Collector, with memory to wait.
+
+**OpenTelemetry status, checked on 2026-10-21.** The spec marks traces, metrics and logs as stable. For JavaScript, the status page lists traces and metrics as stable and logs as "development". That is why this lesson says: pino for logs, plus the trace id.
+
+**Your stack in detail.** `@opentelemetry/auto-instrumentations-node` covers http, Express and pg. Prisma's plugin is `@prisma/instrumentation`. It makes spans like `prisma:client:operation` and `prisma:engine:db_query`. Next.js has an `instrumentation.ts` file for OpenTelemetry. The data goes to a tool like Jaeger or Grafana Tempo, where you open a trace by id. Inside one Node process, OpenTelemetry remembers the current trace across `await` with `AsyncLocalStorage`.
+
+**Alert rules.** Every page must need a human now. If it can wait for the morning, make it a ticket.
+
+**The trace id in queues.** BullMQ jobs have no headers. Put `traceId` into the job data. The worker reads it and uses it in its spans and logs.
+
+**Own time** is called self time in many tools.
+
+**Why p99 matters more than it sounds.** If one page calls 10 services, and each is slow 1 percent of the time, about 1 page in 10 is slow. 1 minus 0.99 to the power of 10 is about 9.6 percent.
+
+**Tools do not keep every time.** Prometheus puts times into buckets (a histogram) and estimates p99 from them. Its answer can differ a little from the exact way in this lesson. You also cannot average two p99 numbers. Compute p99 again from the joined buckets.
+
+**Percentile methods.** This lesson uses "nearest rank": rank = p times count divided by 100, rounded up. Other tools blend two neighbours. On big lists the answers are close.
+
+</details>
+
 
 ## Connected lessons
 
