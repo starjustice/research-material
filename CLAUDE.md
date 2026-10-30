@@ -169,3 +169,7 @@ A successful output should be:
 
 - **Work directly on `main`.** Do not create a new branch or worktree for changes in this workspace — commit straight to `main`.
 - If a session was started inside an auto-created worktree, merge that work into `main` when it is done instead of leaving it on a side branch.
+
+## Shared AI brain
+
+Other AIs also work in this project. Read `AGENTS.md` for the shared memory vault and handoff rules (`/Users/wing/ai-brain`).
