@@ -1,14 +1,33 @@
 # 26. SLOs and error budgets
 
-> **Subject:** System Design · **Lesson:** 26 · **Made:** 2026-10-17 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 26 · **Made:** 2026-10-17 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** turn 99.9% into minutes per month and per year, say what an SLI, an SLO and an SLA each are, explain the error budget as permission to ship, and say why you alert on how fast the budget is going and not on CPU.
+>
 > **Before this:** [Multi-tenancy](25-multi-tenancy.md) · **Next:** [Safe deploys](27-safe-deploys.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: how much failure is fine?
 
-An SLO is a number that says how often your service may fail. The failure you can still afford this month is your error budget. You watch how fast you spend it, and you alert on that speed.
+An **SLO** is a number that says how often your service may fail. The failure you can still afford this month is your **error budget**. You watch how fast you spend it, and you alert on that speed. A city bus company shows it: "99 of every 100 buses on time" is the goal, the 1 late bus in 100 is the budget the manager may spend on trying a new route.
 
-Earlier lessons showed how to build systems that fail less. This lesson answers a different question: how much failure is fine, and how do you know you have gone too far?
+```mermaid
+graph TB
+    A["SLI: good requests<br/>divided by all requests"] --> B["SLO: the goal<br/>99.9 percent over 30 days"]
+    B --> C["Error budget<br/>0.1 percent<br/>43.2 minutes a month"]
+    C --> D["Much left: ship<br/>Almost gone: fix reliability"]
+```
+
+<details class="guess"><summary>🤔 Guess: the SLO is 99.9% over 30 days. How many minutes a month may the service fail? Press to check.</summary>
+
+**43.2 minutes.** A 30 day month has 43,200 minutes, and you may fail 0.1% of them: 43,200 times 0.001.
+
+</details>
+
+> **Remember:** the SLI measures, the SLO is the goal, the error budget is what the SLO still allows. The SLA is a contract, and it is looser than the goal.
+
+<details class="more"><summary>📖 More detail: new words, the big picture, the problem drawn, and the bus company</summary>
 
 New words (four):
 
@@ -25,11 +44,7 @@ Three plain ideas, explained now so the pictures make sense:
 
 Times and traffic in the pictures are example numbers.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice the chain: measure, compare with the goal, count what is left, then decide. The SLA sits outside the chain. It is a contract, and it is looser than the goal.
+**The big picture.** Notice the chain: measure, compare with the goal, count what is left, then decide. The SLA sits outside the chain. It is a contract, and it is looser than the goal.
 
 ```mermaid
 graph LR
@@ -41,9 +56,7 @@ graph LR
     SLA["SLA<br/>a contract with money back<br/>99.5 percent"] -->|looser than the goal| SLO
 ```
 
-### 2b. The problem, drawn
-
-Two things go wrong when a team has no SLO. Notice that both end with people who stop trusting the numbers.
+**The problem, drawn.** Two things go wrong when a team has no SLO. Notice that both end with people who stop trusting the numbers.
 
 ```mermaid
 graph TB
@@ -56,9 +69,133 @@ graph TB
     class P1,P2,Q1,Q2,Q3 bad
 ```
 
-### 2c. How it works over time
+**The bus company in full.**
 
-This is story 2 of the stepper. A bad deploy makes 5 percent of requests fail. Notice that the page does not come at minute 1. It comes when both windows agree, and it stops soon after the fix.
+A city bus company. The city says: "Buses must arrive within 5 minutes of the timetable."
+
+- **SLI:** the share of buses that were on time. Riders feel this.
+- **SLO:** the company's own goal: 99 of every 100 buses on time this month.
+- **Error budget:** the late buses it can afford: 1 in every 100. The manager may spend them on trying a new route.
+- **Burn rate:** if 10 buses are late by 8 a.m. on day 1, the manager acts today. She does not wait for the end of the month.
+- **SLA:** the city contract. If fewer than 95 of 100 buses are on time, the company pays a fine.
+- **CPU:** the engine temperature. A hot engine with buses on time is fine. A cool engine with buses stuck in a jam is not.
+
+Where the analogy stops: a rider can see a late bus. A web user who gets an error often just leaves, and nobody counts them. Also, one failure on a web service can hit every user at once, not one bus at a time.
+
+</details>
+
+## 2. From a percentage to minutes
+
+Each extra nine cuts the budget by ten, and costs far more than the one before.
+
+| SLO | Per 30 days | Per year |
+|---|---|---|
+| 99% | 7.2 hours | 87.6 hours |
+| 99.9% | 43.2 min | 8.76 hours |
+| 99.99% | 4.32 min | 52.6 min |
+| 99.999% | 25.9 s | 5.26 min |
+
+Before you pick a row, ask: "What does one hour of downtime cost the business?" A shop that earns little at night does not need the same number as a bank.
+
+<details class="guess"><summary>🤔 Guess: a 99.9% SLO and 43.2 million requests a month. How many bad requests are allowed? Press to check.</summary>
+
+**43,200.** 43,200,000 times 0.001. Real SLOs count bad requests, not minutes. The two views agree when failures are total outages, and differ when failures are partial.
+
+</details>
+
+> **Remember:** each extra nine cuts the budget by ten. Pick the number users would notice, not a nice looking number.
+
+<details class="more"><summary>📖 More detail: the nines drawn, the arithmetic step by step, and the full table</summary>
+
+**From a percentage to minutes.** Notice that each extra nine cuts the budget by ten.
+
+```mermaid
+graph LR
+    N1["99 percent<br/>7.2 hours a month"] -->|one more nine| N2["99.9 percent<br/>43.2 minutes a month"]
+    N2 -->|one more nine| N3["99.99 percent<br/>4.3 minutes a month"]
+    N3 -->|one more nine| N4["99.999 percent<br/>26 seconds a month"]
+```
+
+**From 99.9% to minutes.** Here is the arithmetic behind the number 43.2, one step at a time.
+
+| Step | Calculation | Result |
+|---|---|---|
+| 1 | Minutes in 30 days: 30 × 24 × 60 | 43,200 minutes |
+| 2 | The share you may fail: 100% minus 99.9% | 0.1%, or 0.001 |
+| 3 | Minutes you may fail: 43,200 × 0.001 | **43.2 minutes** |
+| 4 | Bad requests you may have, at 43.2 million requests a month: 43,200,000 × 0.001 | 43,200 bad requests |
+| 5 | Spending speed when 5% fail: 0.05 ÷ 0.001 | burn rate 50 |
+| 6 | Time until the budget is gone: 30 days ÷ 50 | 0.6 days, which is 14.4 hours |
+
+**From a percentage to a time (in full).**
+
+A 30 day month has 43,200 minutes. A year has 525,600.
+
+| SLO | Allowed to fail | Per day | Per 30 days | Per year | Bad requests per 10 million |
+|---|---|---|---|---|---|
+| 99% | 1% | 14.4 min | 7.2 hours | 87.6 hours (3.65 days) | 100,000 |
+| 99.9% | 0.1% | 1.44 min | **43.2 min** | 8.76 hours | 10,000 |
+| 99.99% | 0.01% | 8.6 s | 4.32 min | 52.6 min | 1,000 |
+| 99.999% | 0.001% | 0.86 s | 25.9 s | 5.26 min | 100 |
+
+Before you pick a row, ask: "What does one hour of downtime cost the business?" A shop that earns little at night does not need the same number as a bank.
+
+</details>
+
+## 3. SLI: measure what users feel
+
+A user does not feel CPU. A user feels an error or a slow page. A **good request** worked and was fast enough. So choose an SLI from a user action, for example "orders that answer without a server error in under 1 second, divided by all order requests". For speed, use a share or a percentile, not an average.
+
+<details class="guess"><summary>🤔 Guess: 99 requests take 0.1 s and 1 request takes 10 s. The average is about 0.2 s. Do users feel fine? Press to check.</summary>
+
+**No.** 1 user in 100 waited 10 seconds. The average hides the slow users. Say "99% of requests are faster than 300 ms" instead.
+
+</details>
+
+> **Remember:** alert on symptoms (what users feel), not causes (CPU, memory). Keep causes on a dashboard.
+
+<details class="more"><summary>📖 More detail: choosing an SLI, percentiles, and symptoms against causes</summary>
+
+**SLI: measure what users feel.**
+
+A user does not feel CPU. A user feels an error or a slow page. So choose an SLI from a user action:
+
+| User action | A good request is | The SLI |
+|---|---|---|
+| Place an order | Answers without a server error in under 1 second | good requests ÷ all order requests |
+| Open a page | Loads in under 300 ms | requests faster than 300 ms ÷ all requests |
+| Wait for an email job | The job finishes within 5 minutes of being added | jobs on time ÷ all jobs (see lesson [06](06-message-queues.md)) |
+
+**Use a percentile for speed, not an average.** If 99 requests take 0.1 s and 1 request takes 10 s, the average is about 0.2 s. That looks fine, but 1 user in 100 waited 10 seconds. The p99 time is the time that 99 of 100 requests beat. Here it is 0.1 s for the first 99 and the slow one sits right above it. Saying "99% of requests are faster than 300 ms" is the same idea, written as a share.
+
+**Alert on symptoms, not causes.** The Google SRE book says monitoring must answer two questions: what is broken, and why. A symptom is what users feel (errors, slow pages). A cause is why (CPU, memory, one container restarting). Page on the symptom. Keep causes on a dashboard to find the reason after the page.
+
+</details>
+
+## 4. Burn rate: alert on speed
+
+**Burn rate** is the error rate divided by the allowed error rate. It says how many times faster than allowed you spend the budget.
+
+| Burn rate | For a 99.9% SLO over 30 days |
+|---|---|
+| 1 | the budget lasts exactly 30 days |
+| 6 | the budget is gone in 5 days |
+| 14.4 | gone in about 2 days |
+| 1000 | every request fails: gone in 43 minutes |
+
+The pager rule: page when **both** the last 60 minutes and the last 5 minutes burn faster than 14.4. The long window proves the problem is real. The short window proves it is still happening, so the page stops soon after the fix.
+
+<details class="guess"><summary>🤔 Guess: a bad deploy makes 5% of requests fail from minute 1 to minute 22, with 1,000 requests a minute. When does the pager fire, and when does it clear? Press to check.</summary>
+
+It pages at **minute 18** (900 bad requests spent) and clears at **minute 26** (1,100 spent, 2.55% of the month). Users were hurt from minute 1. A one minute blip does not page, because the long window is still low. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** two windows, both above the line. Big problems page fast, small ones page slowly.
+
+<details class="more"><summary>📖 More detail: the bad deploy over time, the monitor, the code, the real output, and step by step</summary>
+
+**How it works over time.** A bad deploy makes 5 percent of requests fail. Notice that the page does not come at minute 1. It comes when both windows agree, and it stops soon after the fix.
 
 ```mermaid
 sequenceDiagram
@@ -79,9 +216,7 @@ sequenceDiagram
     Note over M: 2.55 percent of the monthly budget is spent
 ```
 
-### 2d. What the monitor sees at one moment
-
-This is minute 18, the moment the page starts. Notice that the pager rule looks at two numbers, and both are above the line.
+**What the monitor sees at one moment.** This is minute 18, the moment the page starts. Notice that the pager rule looks at two numbers, and both are above the line.
 
 ```mermaid
 graph TB
@@ -97,78 +232,7 @@ graph TB
     class E bad
 ```
 
-### 2e. Right against wrong
-
-Both alerts watch the same two events: a nightly job that uses CPU, and a bad deploy that returns errors. Notice what each alert does with them.
-
-```mermaid
-graph LR
-    W1["Alert on CPU above 90 percent"] --> W2["Nightly job uses CPU<br/>users are fine"]
-    W2 --> W3["Page at 3 a.m.<br/>for nothing"]
-    W1 --> W4["Bad deploy returns errors<br/>CPU stays at 40 percent"]
-    W4 --> W5["No page<br/>users are hurt for an hour"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class W1,W2,W3,W4,W5 bad
-```
-
-```mermaid
-graph LR
-    R1["Alert on how fast<br/>the budget is spent"] --> R2["Nightly job uses CPU<br/>users are fine<br/>burn rate stays near 0"]
-    R2 --> R3["No page"]
-    R1 --> R4["Bad deploy returns errors<br/>burn rate jumps to 50"]
-    R4 --> R5["Page after 18 minutes"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class R1,R2,R3,R4,R5 good
-```
-
-### 2f. From a percentage to minutes
-
-This is story 1 of the stepper. Notice that each extra nine cuts the budget by ten.
-
-```mermaid
-graph LR
-    N1["99 percent<br/>7.2 hours a month"] -->|one more nine| N2["99.9 percent<br/>43.2 minutes a month"]
-    N2 -->|one more nine| N3["99.99 percent<br/>4.3 minutes a month"]
-    N3 -->|one more nine| N4["99.999 percent<br/>26 seconds a month"]
-```
-
-### 2g. The goal and the contract
-
-You should break your own goal long before you break the contract. Notice the order: real result, then goal, then contract.
-
-```mermaid
-graph TB
-    R["What you really delivered<br/>99.95 percent"] -->|stay above| O["SLO is the team goal<br/>99.9 percent<br/>miss it and you slow down releases"]
-    O -->|stay above| A["SLA is the contract<br/>99.5 percent<br/>miss it and you pay"]
-```
-
-### 2h. What do I do with the budget?
-
-This is story 3 of the stepper. Notice that the answer comes from one number, not from an argument.
-
-```mermaid
-graph TB
-    Q["Look at the error budget"] --> D1["Is the budget used up?"]
-    D1 -->|yes| F["Freeze risky releases<br/>and fix reliability first"]
-    D1 -->|no| D2["Is it going fast?<br/>burn rate above 1"]
-    D2 -->|yes| W["Watch closely<br/>page if the burn is very high"]
-    D2 -->|no| S["Ship features<br/>take normal risks"]
-```
-
-## 3. Real life analogy
-
-A city bus company. The city says: "Buses must arrive within 5 minutes of the timetable."
-
-- **SLI:** the share of buses that were on time. Riders feel this.
-- **SLO:** the company's own goal: 99 of every 100 buses on time this month.
-- **Error budget:** the late buses it can afford: 1 in every 100. The manager may spend them on trying a new route.
-- **Burn rate:** if 10 buses are late by 8 a.m. on day 1, the manager acts today. She does not wait for the end of the month.
-- **SLA:** the city contract. If fewer than 95 of 100 buses are on time, the company pays a fine.
-- **CPU:** the engine temperature. A hot engine with buses on time is fine. A cool engine with buses stuck in a jam is not.
-
-Where the analogy stops: a rider can see a late bus. A web user who gets an error often just leaves, and nobody counts them. Also, one failure on a web service can hit every user at once, not one bus at a time.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.**
 
 A bad deploy makes 5 percent of requests fail from minute 1 to minute 22. The service handles 1,000 requests a minute. The code prints a line each time the pager changes state. The pager rule: both the last 60 minutes and the last 5 minutes burn faster than 14.4.
 
@@ -195,9 +259,9 @@ Checked on 2026-10-17 with Node 24.
 
 Look at the two lines. The users were hurt from minute 1, but the page came at minute 18. It cleared at minute 26, four minutes after the fix. The 43,200 is the whole month's budget: 43.2 million requests times 0.1%.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-### Part 1: the code above
+**What really happens, step by step.**
 
 The machine here is the monitor. Each row is one minute of the loop. "Burn" is the error rate divided by 0.001. The page needs both burns above 14.4.
 
@@ -221,63 +285,9 @@ What to see:
 - At minute 26 the long window is still high (18.3), because it remembers the whole hour. The short window is low, so the page clears. This is why the rule has two windows.
 - Total cost: 1,100 bad requests, which is 2.55% of the month's budget. One bad deploy did not break the SLO.
 
-### Part 2: from 99.9% to minutes
-
-Here is the arithmetic behind the number 43.2, one step at a time.
-
-| Step | Calculation | Result |
-|---|---|---|
-| 1 | Minutes in 30 days: 30 × 24 × 60 | 43,200 minutes |
-| 2 | The share you may fail: 100% minus 99.9% | 0.1%, or 0.001 |
-| 3 | Minutes you may fail: 43,200 × 0.001 | **43.2 minutes** |
-| 4 | Bad requests you may have, at 43.2 million requests a month: 43,200,000 × 0.001 | 43,200 bad requests |
-| 5 | Spending speed when 5% fail: 0.05 ÷ 0.001 | burn rate 50 |
-| 6 | Time until the budget is gone: 30 days ÷ 50 | 0.6 days, which is 14.4 hours |
-
 **Step through it yourself:** [open the stepper](visuals/26-slos-and-error-budgets.html). It has three stories: 99.9% in minutes, a bad deploy and the page, and a month where the budget decides ship or freeze. Guess first, then press Next. Story 2 uses the same numbers as the table above.
 
-## 6. Why it exists and what it costs
-
-- **Problem without it:** "always up" is not a goal. 100% means you can never change anything (picture 2b). And alerts on CPU wake people for nothing and miss real pain (picture 2e).
-- **How it solves it:** you choose a number that users would accept. The part left over is a budget you may spend on changes and risk (picture 2a). You alert when the budget goes fast (picture 2c).
-- **Cost or tradeoff:** you must measure real user requests, and each extra nine costs far more than the one before it.
-
-### From a percentage to a time
-
-A 30 day month has 43,200 minutes. A year has 525,600.
-
-| SLO | Allowed to fail | Per day | Per 30 days | Per year | Bad requests per 10 million |
-|---|---|---|---|---|---|
-| 99% | 1% | 14.4 min | 7.2 hours | 87.6 hours (3.65 days) | 100,000 |
-| 99.9% | 0.1% | 1.44 min | **43.2 min** | 8.76 hours | 10,000 |
-| 99.99% | 0.01% | 8.6 s | 4.32 min | 52.6 min | 1,000 |
-| 99.999% | 0.001% | 0.86 s | 25.9 s | 5.26 min | 100 |
-
-Before you pick a row, ask: "What does one hour of downtime cost the business?" A shop that earns little at night does not need the same number as a bank.
-
-### SLI: measure what users feel
-
-A user does not feel CPU. A user feels an error or a slow page. So choose an SLI from a user action:
-
-| User action | A good request is | The SLI |
-|---|---|---|
-| Place an order | Answers without a server error in under 1 second | good requests ÷ all order requests |
-| Open a page | Loads in under 300 ms | requests faster than 300 ms ÷ all requests |
-| Wait for an email job | The job finishes within 5 minutes of being added | jobs on time ÷ all jobs (see lesson [06](06-message-queues.md)) |
-
-**Use a percentile for speed, not an average.** If 99 requests take 0.1 s and 1 request takes 10 s, the average is about 0.2 s. That looks fine, but 1 user in 100 waited 10 seconds. The p99 time is the time that 99 of 100 requests beat. Here it is 0.1 s for the first 99 and the slow one sits right above it. Saying "99% of requests are faster than 300 ms" is the same idea, written as a share.
-
-**Alert on symptoms, not causes.** The Google SRE book says monitoring must answer two questions: what is broken, and why. A symptom is what users feel (errors, slow pages). A cause is why (CPU, memory, one container restarting). Page on the symptom. Keep causes on a dashboard to find the reason after the page.
-
-### The error budget is permission to ship
-
-- Budget left? Ship features and take normal risks.
-- Budget gone? Pause risky releases and fix reliability. Google calls the written rule an error budget policy.
-- This turns "developers want speed, operators want safety" into one shared number.
-
-The policy is agreed before the bad day. Then nobody argues about it during the bad day.
-
-### Burn rate: alert on speed
+**Burn rate: alert on speed (in full).**
 
 Burn rate is the error rate divided by the allowed error rate (0.1% for a 99.9% SLO). It says how many times faster than allowed you spend the budget.
 
@@ -310,11 +320,60 @@ Why two windows? The long window proves the problem is real. The short window pr
 | 1.5% | minute 58 |
 | 1.44% or less | never. The slower rows (6 hours, then 3 days) catch it |
 
-### SLI, SLO and SLA are not the same thing
+</details>
+
+## 5. The error budget is permission to ship
+
+Budget left? Ship features and take normal risks. Budget gone? Pause risky releases and fix reliability (the written rule is an **error budget policy**). It is agreed before the bad day, so nobody argues about it during the bad day. An **SLA** is a contract with a penalty, usually money back. Your SLO must be stricter than the SLA, so your own alarm rings first.
+
+```mermaid
+graph TB
+    R["What you delivered<br/>99.95 percent"] -->|stay above| O["SLO: the team goal<br/>99.9 percent<br/>miss it and you slow down"]
+    O -->|stay above| A["SLA: the contract<br/>99.5 percent<br/>miss it and you pay"]
+```
+
+<details class="guess"><summary>🤔 Guess: the SLO is 99.9% and the SLA is also 99.9%. What goes wrong? Press to check.</summary>
+
+The **first alarm is also the first bill.** You have no room between "we should slow down" and "we pay". Make the SLO stricter than the SLA.
+
+</details>
+
+> **Remember:** the budget turns "developers want speed, operators want safety" into one shared number.
+
+<details class="more"><summary>📖 More detail: what to do with the budget, the goal and the contract, the SLA, and the costs</summary>
+
+**What do I do with the budget?** This is story 3 of the stepper. Notice that the answer comes from one number, not from an argument.
+
+```mermaid
+graph TB
+    Q["Look at the error budget"] --> D1["Is the budget used up?"]
+    D1 -->|yes| F["Freeze risky releases<br/>and fix reliability first"]
+    D1 -->|no| D2["Is it going fast?<br/>burn rate above 1"]
+    D2 -->|yes| W["Watch closely<br/>page if the burn is very high"]
+    D2 -->|no| S["Ship features<br/>take normal risks"]
+```
+
+**The goal and the contract.** You should break your own goal long before you break the contract. Notice the order: real result, then goal, then contract.
+
+```mermaid
+graph TB
+    R["What you really delivered<br/>99.95 percent"] -->|stay above| O["SLO is the team goal<br/>99.9 percent<br/>miss it and you slow down releases"]
+    O -->|stay above| A["SLA is the contract<br/>99.5 percent<br/>miss it and you pay"]
+```
+
+**The error budget is permission to ship.**
+
+- Budget left? Ship features and take normal risks.
+- Budget gone? Pause risky releases and fix reliability. Google calls the written rule an error budget policy.
+- This turns "developers want speed, operators want safety" into one shared number.
+
+The policy is agreed before the bad day. Then nobody argues about it during the bad day.
+
+**SLI, SLO and SLA are not the same thing.**
 
 An SLA is a contract. For example, the AWS EC2 region SLA commits to 99.99% a month. If AWS misses it, you get service credits: 10% back below 99.99%, 30% below 99.0%, and 100% below 95.0%. That is the "penalty" in the definition. Your SLO should be stricter than the SLA you promise, so your own alarm rings first.
 
-### What it costs
+**What it costs.**
 
 | Cost | What it means | What you do |
 |---|---|---|
@@ -325,9 +384,53 @@ An SLA is a contract. For example, the AWS EC2 region SLA commits to 99.99% a mo
 | Low traffic is noisy | With 100 requests a day, one failure is 1% | Use a longer window |
 | Big problems page fast, small ones slowly | See the table above | Keep the ticket rows for slow leaks |
 
-Words you will hear: SLI, SLO, SLA, error budget, burn rate, p99.
+**Why it exists and what it costs.**
 
-## 7. Common mistakes
+- **Problem without it:** "always up" is not a goal. 100% means you can never change anything (card 1). And alerts on CPU wake people for nothing and miss real pain (card 6).
+- **How it solves it:** you choose a number that users would accept. The part left over is a budget you may spend on changes and risk (card 5). You alert when the budget goes fast (card 4).
+- **Cost or tradeoff:** you must measure real user requests, and each extra nine costs far more than the one before it.
+
+</details>
+
+## 6. Five mistakes, and what to say if you freeze
+
+- **Wrong:** "Our SLO is 100% uptime." **Right:** 99.9% of checkouts succeed in under 1 second, over 30 days.
+- **Wrong:** "Page me when CPU is above 90%." **Right:** page when the budget burns fast, on two windows.
+- **Wrong:** one window for the pager. **Right:** both windows must agree.
+- **Wrong:** "The average response time is 200 ms, so users are happy." **Right:** "99% of requests are faster than 300 ms."
+- **Wrong:** "SLA and SLO are the same." **Right:** the SLO is the goal, the SLA is the looser contract.
+
+<details class="guess"><summary>🤔 Guess: a nightly job pushes CPU above 90% while users are fine. Later a bad deploy returns errors with CPU at 40%. What does an alert on CPU do with each? Press to check.</summary>
+
+It **pages at 3 a.m. for nothing**, and **does not page for the bad deploy**, so users are hurt for an hour. An alert on how fast the budget is spent stays quiet for the job and pages after 18 minutes for the deploy.
+
+</details>
+
+> **Remember:** if you freeze, say "The SLO is the goal. While there is budget, we ship. When it is gone, we fix reliability. I page on burn rate, not on CPU."
+
+<details class="more"><summary>📖 More detail: CPU against burn rate drawn, the five mistakes in full, and the freeze plan</summary>
+
+**Right against wrong.** Both alerts watch the same two events: a nightly job that uses CPU, and a bad deploy that returns errors. Notice what each alert does with them.
+
+```mermaid
+graph LR
+    W1["Alert on CPU above 90 percent"] --> W2["Nightly job uses CPU<br/>users are fine"]
+    W2 --> W3["Page at 3 a.m.<br/>for nothing"]
+    W1 --> W4["Bad deploy returns errors<br/>CPU stays at 40 percent"]
+    W4 --> W5["No page<br/>users are hurt for an hour"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class W1,W2,W3,W4,W5 bad
+```
+
+```mermaid
+graph LR
+    R1["Alert on how fast<br/>the budget is spent"] --> R2["Nightly job uses CPU<br/>users are fine<br/>burn rate stays near 0"]
+    R2 --> R3["No page"]
+    R1 --> R4["Bad deploy returns errors<br/>burn rate jumps to 50"]
+    R4 --> R5["Page after 18 minutes"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class R1,R2,R3,R4,R5 good
+```
 
 **Wrong:**
 
@@ -357,7 +460,7 @@ Words you will hear: SLI, SLO, SLA, error budget, burn rate, p99.
  Keep CPU on a dashboard to find the cause."
 ```
 
-**Why:** CPU is a cause. A high CPU with happy users wastes a night. A normal CPU with failing checkouts wastes an hour of user pain (picture 2e). Practice B fixes a pager rule in code.
+**Why:** CPU is a cause. A high CPU with happy users wastes a night. A normal CPU with failing checkouts wastes an hour of user pain (card 6). Practice B fixes a pager rule in code.
 
 **Wrong:**
 
@@ -408,15 +511,17 @@ if (avg(t, 60) / BUDGET > 14.4 && avg(t, 5) / BUDGET > 14.4) page();   // both w
 2. Say "While there is budget, we ship. When it is gone, we fix reliability."
 3. Say "I page when the budget burns fast, on two windows. I do not page on CPU."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links were opened with a page fetch tool on 2026-10-17. For the video I read the title, channel and length from the video page. I did not watch it. If a link is broken, tell me and I will replace it.
 
-- **Video:** [SLIs, SLOs, SLAs, oh my! (class SRE implements DevOps)](https://www.youtube.com/watch?v=tEylFyxbDLE) - Google Cloud Tech, about 8 minutes. Watch for the three words and compare them with picture 2a.
+- **Video:** [SLIs, SLOs, SLAs, oh my! (class SRE implements DevOps)](https://www.youtube.com/watch?v=tEylFyxbDLE) - Google Cloud Tech, about 8 minutes. Watch for the three words and compare them with the big picture in card 1.
 - **Play with it:** [the stepper in this folder](visuals/26-slos-and-error-budgets.html) - guess first, then press Next. Try all three tabs.
 - **Play with it:** [uptime.is](https://uptime.is/) - type 99.9 and see the allowed downtime per day, week, month and year. It uses an average month of about 30.4 days, so it shows 43m 50s, not 43.2 minutes.
 - **Play with it:** [SLO and error budget calculator](https://architecto.dev/en/free-tools/slo-error-budget-calculator) - set 99.9% and 30 days. It shows the 43.2 minute budget and the number of bad requests. It also suggests alert levels.
-- **Read:** [Google SRE Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) - find Table 5-8 with 14.4, 6 and 1. Compare it with the table in section 6.
+- **Read:** [Google SRE Workbook: Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/) - find Table 5-8 with 14.4, 6 and 1. Compare it with the burn rate table in card 4.
 - **Read:** [Google SRE book: Service Level Objectives](https://sre.google/sre-book/service-level-objectives/) - the plain definitions of SLI, SLO and SLA, and the idea of an error budget.
 - **Read:** [AWS EC2 service level agreement](https://aws.amazon.com/compute/sla/) - a real SLA. Find the service credit table.
 
@@ -426,7 +531,7 @@ Links were opened with a page fetch tool on 2026-10-17. For the video I read the
 
 **The SLI formula.** The SRE Workbook chapter [Implementing SLOs](https://sre.google/workbook/implementing-slos/) (opened 2026-10-17) says to treat an SLI as the number of good events divided by the total number of events. Its two common SLIs are availability (the share of requests that got a successful response) and latency (the share of requests faster than a threshold). It also describes an error budget policy: what to do when you run out, for example pause risky releases until reliability recovers.
 
-**Counting requests, not minutes.** "43.2 minutes" is a simple way to say it. A minute where 1% of requests fail is not a lost minute. Real SLOs count bad requests, as in section 6: 43,200 bad requests out of 43.2 million. The two views agree when failures are total outages. They differ when failures are partial.
+**Counting requests, not minutes.** "43.2 minutes" is a simple way to say it. A minute where 1% of requests fail is not a lost minute. Real SLOs count bad requests, as in card 2: 43,200 bad requests out of 43.2 million. The two views agree when failures are total outages. They differ when failures are partial.
 
 **Rolling window or calendar month.** A rolling window of 30 days always looks back 30 days. A calendar month resets on day 1. A rolling window avoids a cliff on the first of the month. A calendar month is easier to report. Pick one and write it down.
 
@@ -442,7 +547,7 @@ Links were opened with a page fetch tool on 2026-10-17. For the video I read the
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -512,7 +617,7 @@ Open `learn/system-design/practice/26-slos-and-error-budgets.js`. It has five em
 node --test learn/system-design/practice/26-slos-and-error-budgets.test.js
 ```
 
-The last test replays the bad deploy from section 4 and checks that the page starts at minute 18 and clears at minute 26.
+The last test replays the bad deploy from card 4 and checks that the page starts at minute 18 and clears at minute 26.
 
 <details><summary>One possible answer</summary>
 
@@ -547,11 +652,11 @@ Checked on 2026-10-17 with Node 24: the 18 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "What is the difference between an SLI, an SLO and an SLA? How would you use an error budget, and what would you alert on?"
 
-A common follow-up: "Would you page on CPU at 90%?" Picture 2e is the answer.
+A common follow-up: "Would you page on CPU at 90%?" Card 6 is the answer.
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -565,7 +670,7 @@ A common follow-up: "Would you page on CPU at 90%?" Picture 2e is the answer.
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain SLOs and error budgets out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of the bad deploy: 5 percent of requests fail, the page comes at minute 18, and it clears at minute 26. Then write your best version below and run `/explain-check slos and error budgets` or ask the `explain-coach` agent to review it.
 
@@ -577,12 +682,12 @@ Close this file. Explain SLOs and error budgets out loud like to a new junior, i
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. A service has an SLO of 99.9% over 30 days. How many minutes may it fail? What about 99.99%? What is the error budget for?
 2. Say the difference between an SLO and an SLA. Which one is stricter, and why?
 3. A bad deploy makes 5% of requests fail. Why does the page come at minute 18 and not at minute 1? Why does it clear soon after the fix?
-4. Draw the picture from section 2c from memory.
+4. Draw the bad deploy over time (card 4, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
