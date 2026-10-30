@@ -1,10 +1,34 @@
 # 29. Security in a design
 
-> **Subject:** System Design · **Lesson:** 29 · **Made:** 2026-10-17 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 29 · **Made:** 2026-10-17 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say the difference between who you are and what you may do, find and fix the bug where changing an id shows someone else's data, choose between roles and rules for permissions, and say where each check sits in a design.
+>
 > **Before this:** [Disaster recovery](28-disaster-recovery.md) · **Next:** [LLM features in a system](30-llm-features-in-a-system.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a check at every door
+
+Security in a design is a check at every door, not only at the front door. Two checks matter most. **Authentication** asks "who are you?" (the login check). **Authorization** asks "what may you do to this one thing?" (the permission check). In a hotel, the desk checks your ID and gives you a key card (authentication). Your card opens room 43 but not room 44 (authorization).
+
+```mermaid
+graph TB
+    U["User with a token"] --> E["Edge: rate limit"]
+    E --> G["Gateway: is the token real"]
+    G --> S["Orders service<br/>may THIS user touch<br/>THIS order"]
+    S --> D["Database: least access"]
+```
+
+<details class="guess"><summary>🤔 Guess: Ann has a real token and asks for `GET /orders/43`, which belongs to Ben. The server only checks that the token is real. What does Ann get? Press to check.</summary>
+
+**Ben's order**, with his total of 99. The token is real the whole time, and the server never asks if order 43 is Ann's. This bug is called **BOLA** (broken object level authorization). The older name is IDOR.
+
+</details>
+
+> **Remember:** a real token only says who you are. Also check, on every request, that this user may touch this object.
+
+<details class="more"><summary>📖 More detail: new words, the big picture, the problem drawn, the hotel, and why it exists</summary>
 
 Security in a design is a check at every door, not only at the front door. Two checks matter most: who are you, and may you do this to this one thing.
 
@@ -26,11 +50,7 @@ Four plain ideas, used below:
 
 Checked on 2026-10-17: the official OWASP site still shows the API Security Top 10 **2023** as its newest edition. It does not mention a newer one.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that there is a check at every arrow, not one big wall at the front. The service next to the data does the most important check.
+**The big picture.** Notice that there is a check at every arrow, not one big wall at the front. The service next to the data does the most important check.
 
 ```mermaid
 graph LR
@@ -42,7 +62,7 @@ graph LR
     SM["Secret manager<br/>passwords and keys"] -->|loaded at start| S
 ```
 
-### 2b. The problem, drawn
+**The problem, drawn.** This is the bug. Notice that the token is real the whole time. The server never asks if order 43 is Ann's.
 
 This is the bug. Notice that the token is real the whole time. The server never asks if order 43 is Ann's.
 
@@ -63,7 +83,44 @@ sequenceDiagram
     S-->>A: 200 the order of Ben
 ```
 
-### 2c. The fix, over time
+**The hotel in full.**
+
+A hotel. At the desk you show your ID and get a key card. That is authentication. Your card opens room 43 and the gym. It does not open room 44. That is authorization. Staff cards open the staff doors. That is a role.
+
+Now a guest walks to the desk and says "give me the key to room 44". A good desk checks the name on the booking, not only that the person is a guest. A bad desk gives the key. That is BOLA.
+
+Where the analogy stops: a hotel has maybe 200 doors, and a thief walks to them one by one. An API has millions of ids, and a script tries 10,000 of them in a minute. Also a hotel guard sees faces. A server sees only what the request says, so it must check every time.
+
+**Why it exists and what it costs.**
+
+- **Problem without it:** a stranger reads or changes data that is not theirs (card 1). Anyone inside your network can call an internal route. A password in the code leaks with the code.
+- **How it solves it:** a check at each door (cards 1 and 5). The service that holds the data checks the owner on every request (card 2).
+- **Cost or tradeoff:** more code to write and to test. Every check must run on every route, and one missed route is a hole. See the cost table at the end of this section.
+
+</details>
+
+## 2. The fix for BOLA: check the owner on every request
+
+Put the owner in the database question. Four rules (from OWASP, API1:2023): check on **every** route that takes an id; take the user from the **signed token**, never from the body, the query or a header the client can set; put the owner in the query, `where: { id, storeId: user.storeId }`, so a missing row means `404`; and write a test with **two users**.
+
+```mermaid
+graph TB
+    A["Ann asks GET /orders/43<br/>the token says the user is ann"] --> B["Find order 43<br/>where the owner is ann"]
+    B --> C["No row"]
+    C --> D["404 not found<br/>same as an order<br/>that does not exist"]
+```
+
+<details class="guess"><summary>🤔 Guess: the server reads the user from the query string first, and from the token second. Ann is logged in and asks for Ben's order 8 with `?user=ben`. What does she get? Press to check.</summary>
+
+**`ok`.** The query string wins, so the server thinks the caller is Ben. Ann just became Ben. The identity must come only from the signed token. Without `?user=ben`, the same request gets `404`. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** the user comes from the signed token. The owner is part of the database query. No row means 404. Test with two users.
+
+<details class="more"><summary>📖 More detail: the fix over time, the table, right against wrong, the code, the real output, and step by step</summary>
+
+**The fix, over time.** Notice that the owner check is part of the database question. Ann gets the same answer as for an order that does not exist.
 
 Notice that the owner check is part of the database question. Ann gets the same answer as for an order that does not exist.
 
@@ -82,7 +139,7 @@ sequenceDiagram
     Note over A,S: Same answer as an order that does not exist
 ```
 
-### 2d. What is true at one moment
+**What is true at one moment.** Three requests from Ann. Notice that the token never changes. Only the order id changes, and the owner column decides.
 
 Three requests from Ann. Notice that the token never changes. Only the order id changes, and the owner column decides.
 
@@ -105,7 +162,7 @@ graph LR
     class X bad
 ```
 
-### 2e. Right against wrong
+**Right against wrong.** Notice who decides the identity. On the wrong way the client decides. On the right way the signed token decides.
 
 Notice who decides the identity. On the wrong way the client decides. On the right way the signed token decides.
 
@@ -127,69 +184,7 @@ graph LR
     class R1,R2,R3,R4 good
 ```
 
-### 2f. Roles and rules
-
-Notice that the two ideas answer different questions. A role says what kind of person you are. A rule says which objects are yours.
-
-```mermaid
-graph TB
-    Q["Who may read order 43?"] --> RB["Role check<br/>support may read any order"]
-    Q --> AB["Rule check<br/>the owner may read the order"]
-    RB -->|Sam is support| Y1["Sam yes"]
-    RB -->|Ann is a customer| N1["Ann not by this check"]
-    AB -->|Ben owns order 43| Y2["Ben yes"]
-    AB -->|Ann does not| N2["Ann no"]
-    Y1 --> C["Real systems use both<br/>role first then rule"]
-    Y2 --> C
-```
-
-### 2g. Service to service, over time
-
-Notice that all three callers are inside the network. Only the one with the right card and the right permission gets in.
-
-```mermaid
-sequenceDiagram
-    participant I as Intruder inside the network
-    participant O as Orders service
-    participant W as Email worker
-    participant P as Payments service
-    I->>P: POST /internal/refund
-    P-->>I: refused because there is no certificate
-    O->>P: POST /internal/refund with the certificate of orders
-    Note over P: Certificate is real. Rule says orders may call refund.
-    P-->>O: 200 refunded
-    W->>P: POST /internal/refund with the certificate of the email worker
-    Note over P: Certificate is real. Rule says the email worker may not.
-    P-->>W: 403 not allowed
-```
-
-### 2h. Where does each check go?
-
-This is the picture to draw in an interview. Notice that each question has one home.
-
-```mermaid
-graph TB
-    Q["A request arrives"] --> D1["Who is calling?"]
-    D1 -->|a person| A1["Verify the token<br/>at the gateway and in the service"]
-    D1 -->|a service| A2["mTLS or a short lived service token"]
-    A1 --> D2["Which object does it touch?"]
-    A2 --> D2
-    D2 --> A3["Ownership or rule check<br/>in the service next to the data"]
-    A3 --> D3["Which function and which fields?"]
-    D3 --> A4["Role check per endpoint<br/>allow list of fields"]
-    A4 --> D4["What data came in?"]
-    D4 --> A5["Validate on the server<br/>and use parameters for SQL"]
-```
-
-## 3. Real life analogy
-
-A hotel. At the desk you show your ID and get a key card. That is authentication. Your card opens room 43 and the gym. It does not open room 44. That is authorization. Staff cards open the staff doors. That is a role.
-
-Now a guest walks to the desk and says "give me the key to room 44". A good desk checks the name on the booking, not only that the person is a guest. A bad desk gives the key. That is BOLA.
-
-Where the analogy stops: a hotel has maybe 200 doors, and a thief walks to them one by one. An API has millions of ids, and a script tries 10,000 of them in a minute. Also a hotel guard sees faces. A server sees only what the request says, so it must check every time.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.**
 
 Two servers answer the same question. The `wrong` one only needs a real token. The `right` one also asks who owns the order. The user comes from the token, not from the request.
 
@@ -216,9 +211,9 @@ Checked on 2026-10-17 with Node 24.
 
 Look at the second line. The `wrong` server hands Ann the order of Ben, with his total. The `right` server says `404`, the same word it uses for an order that does not exist.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-### Part 1: the code above
+**What really happens, step by step.**
 
 The machine here is a server that answers one request at a time. The state is what Ann receives.
 
@@ -232,7 +227,7 @@ The machine here is a server that answers one request at a time. The state is wh
 
 What to see: steps 2 and 3 look the same, so a quick test with your own data passes on both servers. Only step 4 against step 5 shows the bug. You must test with a second user.
 
-### Part 2: a real handler, three requests
+**A real handler, three requests.**
 
 This is the shape of practice C. Two small pieces run in order: `requireLogin` (who are you) and then `getOrder` (may you read this one). Orders 42 and 43 are as above. Sam is a user with the role `support`.
 
@@ -248,13 +243,7 @@ What to see: the last two rows give the same answer. A stranger cannot tell if o
 
 **Step through it yourself:** [open the stepper](visuals/29-security-in-a-design.html). It has three stories: Ann changes the id (a wrong server and a right server side by side), five different requests at five doors, and calls between services with and without a check. Guess first, then press Next.
 
-## 6. Why it exists and what it costs
-
-- **Problem without it:** a stranger reads or changes data that is not theirs (picture 2b). Anyone inside your network can call an internal route. A password in the code leaks with the code.
-- **How it solves it:** a check at each door (pictures 2a and 2h). The service that holds the data checks the owner on every request (picture 2c).
-- **Cost or tradeoff:** more code to write and to test. Every check must run on every route, and one missed route is a hole. See the cost table at the end of this section.
-
-### The two checks
+**The two checks.**
 
 | | Authentication | Authorization |
 |---|---|---|
@@ -263,9 +252,9 @@ What to see: the last two rows give the same answer. A stranger cannot tell if o
 | Where | Gateway, then checked again in the service | In the service, next to the data |
 | Failure code | `401` | `403`, or `404` to hide that it exists |
 
-A real token only answers the first question. In picture 2b the token was real. The bug was in the second question, which nobody asked.
+A real token only answers the first question. In the problem picture (card 1) the token was real. The bug was in the second question, which nobody asked.
 
-### The fix for BOLA: check the owner on every request
+**The fix for BOLA, in full.**
 
 OWASP lists this as number 1 in the API list (API1:2023). Four rules, from the OWASP page:
 
@@ -278,7 +267,45 @@ Random ids (a UUID instead of 43) make guessing harder. OWASP says to prefer the
 
 A GraphQL API has one URL and many doors. The check lives in each resolver or in the data query. One check on `/graphql` is not enough.
 
-### Roles or rules?
+</details>
+
+## 3. Roles or rules?
+
+A **role** is a job title that brings permissions, like "support". A **rule** looks at facts, like "this order belongs to this user". Most products use both: the role says what kind of action is allowed, and the rule says on which objects.
+
+| | Role (RBAC) | Rule (ABAC) |
+|---|---|---|
+| Looks like | "support may read any order" | "the owner equals the user" |
+| Good for | a few fixed kinds of people | "only their own", time limits |
+| Weak at | one role per store | many rules are hard to test |
+
+<details class="guess"><summary>🤔 Guess: "only my own store's orders": is that a role or a rule? Press to check.</summary>
+
+A **rule** (an owner column). With roles you would need one role per store, called role explosion. In Hasura it is the same idea: the role picks the permission, and the permission is a WHERE clause on the session user id.
+
+</details>
+
+> **Remember:** the role says what kind of action is allowed. The rule says on which objects.
+
+<details class="more"><summary>📖 More detail: roles and rules drawn, and the full table</summary>
+
+**Roles and rules.** Notice that the two ideas answer different questions. A role says what kind of person you are. A rule says which objects are yours.
+
+Notice that the two ideas answer different questions. A role says what kind of person you are. A rule says which objects are yours.
+
+```mermaid
+graph TB
+    Q["Who may read order 43?"] --> RB["Role check<br/>support may read any order"]
+    Q --> AB["Rule check<br/>the owner may read the order"]
+    RB -->|Sam is support| Y1["Sam yes"]
+    RB -->|Ann is a customer| N1["Ann not by this check"]
+    AB -->|Ben owns order 43| Y2["Ben yes"]
+    AB -->|Ann does not| N2["Ann no"]
+    Y1 --> C["Real systems use both<br/>role first then rule"]
+    Y2 --> C
+```
+
+**Roles or rules?**
 
 | | Roles (RBAC) | Rules on attributes (ABAC) |
 |---|---|---|
@@ -289,21 +316,58 @@ A GraphQL API has one URL and many doors. The check lives in each resolver or in
 
 Most products use both. The role says what kind of action is allowed. The rule says on which objects. You know this from Hasura: a role has a permission, and the permission is a WHERE clause on the session user id. The role picks the clause. The clause picks the rows.
 
-### Internal does not mean trusted
+</details>
+
+## 4. Internal does not mean trusted
+
+If one container is hacked, an attacker sits inside your network and can call `POST /internal/refund`. Network location proves nothing (zero trust). Two ways to prove who a service is: **mTLS** (both sides show a certificate, an ID card), or a short lived service token. Then the receiver still checks permission.
+
+| Caller | Proof | Rule | Answer |
+|---|---|---|---|
+| Intruder | no certificate | | refused |
+| Orders service | certificate | orders may call refund | 200 |
+| Email worker | certificate | email worker may not | 403 |
+
+<details class="guess"><summary>🤔 Guess: the email worker has a real certificate and calls `refund`. Is it allowed? Press to check.</summary>
+
+**No: 403.** Proving who you are is not the same as being allowed. The receiver checks the permission: "orders may call refund, the email worker may not".
+
+</details>
+
+> **Remember:** internal does not mean trusted. Every call between services shows a certificate or a short token, and the receiver checks the permission.
+
+<details class="more"><summary>📖 More detail: service to service over time, and the internal text in full</summary>
+
+**Service to service, over time.** Notice that all three callers are inside the network. Only the one with the right card and the right permission gets in.
+
+Notice that all three callers are inside the network. Only the one with the right card and the right permission gets in.
+
+```mermaid
+sequenceDiagram
+    participant I as Intruder inside the network
+    participant O as Orders service
+    participant W as Email worker
+    participant P as Payments service
+    I->>P: POST /internal/refund
+    P-->>I: refused because there is no certificate
+    O->>P: POST /internal/refund with the certificate of orders
+    Note over P: Certificate is real. Rule says orders may call refund.
+    P-->>O: 200 refunded
+    W->>P: POST /internal/refund with the certificate of the email worker
+    Note over P: Certificate is real. Rule says the email worker may not.
+    P-->>W: 403 not allowed
+```
+
+**Internal does not mean trusted.**
 
 If one container is hacked, an attacker sits inside your network. Without a check, they call `POST /internal/refund`. The idea behind zero trust is that network location proves nothing (NIST SP 800-207). Two ways to prove who a service is:
 
 - **mTLS:** each service has a certificate. Both sides check the other's card. Small helper programs next to each service (a service mesh, for example Istio) can do this for you. They also change the certificates often, so a stolen card stops working soon.
 - **A short lived service token:** an identity service hands each service a signed token that lasts minutes. The receiver checks it.
 
-Then the receiver checks permission: "orders may call refund, the email worker may not" (picture 2g). Proving who you are is not the same as being allowed.
+Then the receiver checks permission: "orders may call refund, the email worker may not" (card 4). Proving who you are is not the same as being allowed.
 
-### Secrets, and the data that comes in
-
-- **Secrets:** keep them out of code, images and git. Keep them in a secret manager, with access per service and a log of who read what. Change them on a schedule. Change them without downtime by letting the old and new value both work for a short time. A mobile app cannot keep a secret, because anyone can open the app bundle. Secret keys stay on the server.
-- **Input:** check the shape of all data on the server. Check type, size and allowed values. Use an allow list, not a block list. Browser checks are for comfort only. Validation does not stop SQL injection. Parameters do that (OWASP Input Validation cheat sheet).
-
-### What the checks cost
+**What the checks cost.**
 
 | Cost | What it means | What you do about it |
 |---|---|---|
@@ -313,7 +377,70 @@ Then the receiver checks permission: "orders may call refund, the email worker m
 | Token cannot be taken back | A JWT works until it expires | Short life plus a refresh token you can cancel (see the auth tutorial) |
 | Certificates need care | Someone must issue and renew them | Use a mesh or a platform that does it |
 
-## 7. Common mistakes
+</details>
+
+## 5. Where each check goes, and secrets
+
+Each question has one home. Who is calling? The token at the gateway and again in the service, or mTLS for services. Which object? The ownership check in the service next to the data. Which function and which fields? A role check per endpoint and an allow list of fields. What data came in? Validate on the server, and use parameters for SQL.
+
+| Question | Home |
+|---|---|
+| Who is calling? | verify the token (mTLS for services) |
+| Which object? | ownership check in the service next to the data |
+| Which function and fields? | role check per endpoint, allow list of fields |
+| What data came in? | validate on the server, parameters for SQL |
+
+<details class="guess"><summary>🤔 Guess: a mobile app needs a payment secret key. Where does it live? Press to check.</summary>
+
+On the **server**. A mobile app cannot keep a secret, because anyone can open the app bundle. Keep secrets out of code, images and git, in a secret manager with access per service and a log of who read what.
+
+</details>
+
+> **Remember:** a missed route is a hole. Put the check where it is hard to forget: in the data layer or a shared helper.
+
+<details class="more"><summary>📖 More detail: where does each check go, and secrets and input</summary>
+
+**Where does each check go?** This is the picture to draw in an interview. Notice that each question has one home.
+
+This is the picture to draw in an interview. Notice that each question has one home.
+
+```mermaid
+graph TB
+    Q["A request arrives"] --> D1["Who is calling?"]
+    D1 -->|a person| A1["Verify the token<br/>at the gateway and in the service"]
+    D1 -->|a service| A2["mTLS or a short lived service token"]
+    A1 --> D2["Which object does it touch?"]
+    A2 --> D2
+    D2 --> A3["Ownership or rule check<br/>in the service next to the data"]
+    A3 --> D3["Which function and which fields?"]
+    D3 --> A4["Role check per endpoint<br/>allow list of fields"]
+    A4 --> D4["What data came in?"]
+    D4 --> A5["Validate on the server<br/>and use parameters for SQL"]
+```
+
+**Secrets, and the data that comes in.**
+
+- **Secrets:** keep them out of code, images and git. Keep them in a secret manager, with access per service and a log of who read what. Change them on a schedule. Change them without downtime by letting the old and new value both work for a short time. A mobile app cannot keep a secret, because anyone can open the app bundle. Secret keys stay on the server.
+- **Input:** check the shape of all data on the server. Check type, size and allowed values. Use an allow list, not a block list. Browser checks are for comfort only. Validation does not stop SQL injection. Parameters do that (OWASP Input Validation cheat sheet).
+
+</details>
+
+## 6. Four mistakes, and what to say if you freeze
+
+- **Wrong:** trust the id from the request. **Right:** put the owner in the query.
+- **Wrong:** hide the button and call it done. **Right:** the server checks the role itself.
+- **Wrong:** "It is an internal route, so it needs no check." **Right:** every internal call shows proof, and the receiver checks permission.
+- **Wrong:** answer `403 this order is not yours` for an order that exists. **Right:** answer `404`.
+
+<details class="guess"><summary>🤔 Guess: why answer `404`, not `403`, for another user's order? Press to check.</summary>
+
+A `403` tells a stranger that order 43 **exists**, so guessing gets easier. Log the real reason inside the server, and show `404` outside.
+
+</details>
+
+> **Remember:** if you freeze, say "A real token only says who you are. I also check on every request that this user may touch this object."
+
+<details class="more"><summary>📖 More detail: the four mistakes in full, and the freeze plan</summary>
 
 **Wrong:** trust the id from the request.
 
@@ -361,13 +488,15 @@ if (!order) return res.status(404).json({ error: "not found" });                
 2. Say "The user comes from the signed token. The owner is part of the database query. No row means 404."
 3. Say "Services prove who they are with mTLS or a short token. Secrets live in a secret manager."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 How the links were checked on 2026-10-17: I opened each page with a tool. For the video, the tool gave me only the title and the channel from YouTube's own data. It did not show the length, so I do not state one. The PortSwigger lab page loaded. I did not run the lab, so check what sign up it asks for.
 
-- **Video:** [Broken Object Level Authorization - 2023 OWASP Top 10 API Security Risks](https://www.youtube.com/watch?v=nIWBp_nvzq4) (SmartBear). Compare the example with picture 2b.
+- **Video:** [Broken Object Level Authorization - 2023 OWASP Top 10 API Security Risks](https://www.youtube.com/watch?v=nIWBp_nvzq4) (SmartBear). Compare the example with the problem picture in card 1.
 - **Play with it:** [the stepper in this folder](visuals/29-security-in-a-design.html) - guess first, then press Next. Try all three tabs.
-- **Play with it:** [PortSwigger lab: Insecure direct object references](https://portswigger.net/web-security/access-control/lab-insecure-direct-object-references) - the goal is to find the password of the user carlos by changing a reference. You do the attack from picture 2b yourself.
+- **Play with it:** [PortSwigger lab: Insecure direct object references](https://portswigger.net/web-security/access-control/lab-insecure-direct-object-references) - the goal is to find the password of the user carlos by changing a reference. You do the attack from card 1 yourself.
 - **Play with it:** [jwt.io](https://jwt.io/) - paste a token and read the claims. Find the claim that holds the user id. That is the place the server should read the user from.
 - **Read:** [OWASP API1:2023 Broken Object Level Authorization](https://api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization) - the four prevention rules and three attack stories.
 - **Read:** [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) - find "deny by default" and "validate permissions on every request".
@@ -379,7 +508,7 @@ How the links were checked on 2026-10-17: I opened each page with a tool. For th
 
 | Risk | In plain words | Where the fix lives |
 |---|---|---|
-| API1 Broken Object Level Authorization | Change an id and see another user's object | Owner check in the service (2c) |
+| API1 Broken Object Level Authorization | Change an id and see another user's object | Owner check in the service (card 2) |
 | API2 Broken Authentication | Weak login, no limit on guesses, tokens that never end | Gateway, rate limit, short tokens |
 | API3 Broken Object Property Level Authorization | A user reads or sets a field they should not, like `role` | Allow list of fields |
 | API4 Unrestricted Resource Consumption | One call costs too much: huge pages, deep GraphQL | Size, depth and rate limits |
@@ -408,7 +537,7 @@ How the links were checked on 2026-10-17: I opened each page with a tool. For th
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -521,7 +650,7 @@ Checked on 2026-10-17 with Node 24: the 11 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "A user changes the order id in the URL and sees another customer's order. What is this bug, how do you fix it, and where does the check live in your design?"
 
@@ -541,7 +670,7 @@ Common follow-ups: "Is a valid JWT enough?" and "How do your internal services t
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain security in a design out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of Ann changing 42 to 43, then the story of the intruder who calls the refund route. Then write your best version below and run `/explain-check security in a design` or ask the `explain-coach` agent to review it.
 
@@ -553,12 +682,12 @@ Close this file. Explain security in a design out loud like to a new junior, in 
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. What is the difference between authentication and authorization? Which one does a real token prove?
 2. Ann changes `/orders/42` to `/orders/43` and sees the order of Ben. Name the bug, give the fix in one sentence, and say which status code Ann should get and why.
 3. Your payments service has a route `/internal/refund`, and it is only reachable inside your network. Why is that not enough? Name two ways to fix it.
-4. Draw the picture from section 2h from memory.
+4. Draw where each check goes (card 5, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
