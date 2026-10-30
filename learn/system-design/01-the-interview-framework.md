@@ -1,14 +1,37 @@
 # 01. The interview framework
 
-> **Subject:** System Design · **Lesson:** 01 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 01 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** name the six steps of a system design answer in order, give each one a time slot for a 45 minute round, and run all six on a small design (a paste bin) without drawing boxes first.
+>
 > **Before this:** none, this is the first lesson. The [roadmap](system-design-roadmap-beginner-to-senior.md) shows the whole path. · **Next:** [Scaling up vs out](02-scaling-up-vs-out.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: six jobs in order
 
-A design answer is six small jobs in a fixed order. Drawing the boxes is job five, not job one.
+A design answer is six small jobs in a fixed order. Drawing the boxes is job five, not job one. When you freeze, you do not need a good idea. You only need to know the next job.
 
-When you freeze, you do not need a good idea. You only need to know the next job.
+Think of a builder: ask the owner, measure the land, list the doors, list the rooms, draw the floor plan, and spend the most time on the roof.
+
+```mermaid
+graph TB
+    A["1 Requirements<br/>5 min"] --> B["2 Estimate<br/>4 min"]
+    B --> C["3 API<br/>4 min"]
+    C --> D["4 Data<br/>4 min"]
+    D --> E["5 High level design<br/>8 min"]
+    E --> F["6 Deep dive<br/>20 min"]
+```
+
+<details class="guess"><summary>🤔 Guess: which of the six jobs gets the most minutes in a 45 minute round? Press to check.</summary>
+
+The **deep dive**: 20 minutes. The first four jobs take 17 minutes together, and the boxes only 8.
+
+</details>
+
+> **Remember:** drawing the boxes is job five. When you freeze, ask "which job am I on?".
+
+<details class="more"><summary>📖 More detail: four new words, the problem drawn, and the builder</summary>
 
 New words (four):
 
@@ -19,11 +42,7 @@ New words (four):
 
 Two more ideas appear once, and are explained where they appear: the tables for your data, and the picture with boxes.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that the picture with boxes is step five. The longest time slot is the last one.
+**The big picture, with what each step hands to the next.** Notice that the picture with boxes is step five. The longest time slot is the last one.
 
 ```mermaid
 graph LR
@@ -34,9 +53,7 @@ graph LR
     E -->|one picture| F["6 Deep dive<br/>20 min"]
 ```
 
-### 2b. The problem, drawn
-
-This is what happens when you freeze and then draw boxes at once. Notice that every box was drawn before anyone knew the size of the problem.
+**The problem, drawn.** This is what happens when you freeze and then draw boxes at once. Notice that every box was drawn before anyone knew the size of the problem.
 
 ```mermaid
 graph TB
@@ -51,54 +68,7 @@ graph TB
     class B,C,E,H bad
 ```
 
-### 2c. How it works over time
-
-This is the right order for the same paste bin. Notice who talks: you ask first, the board fills step by step, and you ask the interviewer where to go deep.
-
-```mermaid
-sequenceDiagram
-    participant Y as You
-    participant I as Interviewer
-    participant B as Whiteboard
-    Note over Y,B: Step 1 Requirements
-    Y->>I: Let me ask a few questions first
-    I-->>Y: One million pastes a day and up to 10 KB each
-    Y->>B: Write IN and OUT and the numbers
-    Note over Y,B: Step 2 Estimate
-    Y->>B: Do the maths and circle the driver
-    Note over Y,B: Steps 3 and 4 API and Data
-    Y->>B: Write 2 requests and 1 table
-    Note over Y,B: Step 5 High level design
-    Y->>B: Draw the boxes and follow one request
-    Y->>I: Deeper on storage or on ids?
-    I-->>Y: Storage please
-    Note over Y,B: Step 6 Deep dive
-    Y->>B: Options and costs and my choice
-    Y->>I: Here is what breaks and how I would know
-```
-
-### 2d. What is on the whiteboard right now
-
-A snapshot at minute 25, just after step five. Notice that each step left one clear thing on the board, and that you can read it in order.
-
-```mermaid
-graph TB
-    subgraph W["Whiteboard at minute 25"]
-        R["Top left<br/>IN create a paste and read a paste<br/>OUT accounts and search"]
-        N["Top right<br/>10 writes per sec<br/>300 reads per sec at the busiest time<br/>10 GB per day<br/>DRIVER is storage"]
-        A["Middle left<br/>POST pastes<br/>GET pastes id"]
-        D["Middle right<br/>pastes table<br/>find each row by id"]
-        P["Bottom<br/>Client then app servers then database"]
-        R --> N
-        N --> A
-        A --> D
-        D --> P
-    end
-```
-
-### 2e. Right against wrong
-
-The wrong order starts from the answer. The right order starts from the questions.
+**Right against wrong.** The wrong order starts from the answer. The right order starts from the questions.
 
 ```mermaid
 graph LR
@@ -110,19 +80,7 @@ graph LR
     A["Right order<br/>Prompt"] --> B["Ask"] --> C["Count"] --> D["Draw only what the numbers need"] --> E["Go deep on the driver"]
 ```
 
-### 2f. The driver picks the deep dive
-
-This is why step 2 exists. Notice that the same six steps lead to different deep dives. Later lessons teach the tools for each one.
-
-```mermaid
-graph LR
-    N["Step 2 gives the driver"] -->|reads are huge| R["Deep dive the read path"]
-    N -->|storage is huge| S["Deep dive where the data lives"]
-    N -->|a sudden burst| B["Deep dive the burst"]
-    N -->|money or exact counts| C["Deep dive getting it exact"]
-```
-
-## 3. Real life analogy
+**The builder, in full.**
 
 A builder does not start with bricks.
 
@@ -135,7 +93,31 @@ A builder does not start with bricks.
 
 Where the analogy stops: a house owner is not the judge. In the interview, the interviewer is both. They watch how you ask, not only what you draw. Also, a whiteboard is easy to rub out. Changing the plan in the middle is fine if you say why.
 
-## 4. The smallest code that shows it
+</details>
+
+## 2. Steps 1 and 2: ask, then count
+
+Step 1: ask 3 or 4 questions. Write **IN** (what you build) and **OUT** (what you cut, said aloud). Step 2: do rough maths with round numbers, then say **the driver** out loud. The driver is the number that shows where the hard part is.
+
+Paste bin: 1 million pastes a day, up to 10 KB each, reads are 10 times writes.
+
+| Number | Value |
+|---|---|
+| writes per second | 10 |
+| reads per second at the busiest time | 300 |
+| new data each day | 10 GB |
+
+One simple server answers about 1,000 simple requests a second. 300 is far below that. So **the driver is storage**, not traffic.
+
+<details class="guess"><summary>🤔 Guess: the paste bin does 300 reads per second at its peak. Do you start with a cache and a queue? Press to check.</summary>
+
+No. Traffic is small, so those boxes would not help. Storage is the driver, so the deep dive goes to where 10 GB a day will live.
+
+</details>
+
+> **Remember:** an estimate that does not change what you say next wasted four minutes.
+
+<details class="more"><summary>📖 More detail: the code, the real output, and the maths line by line</summary>
 
 This is step 2 for the paste bin. Pastes are text that people share by link. We make 1 million a day, each up to 10 KB, and people read 10 times more than they write. The busiest moment of the day (the peak) is about 3 times the average.
 
@@ -170,27 +152,9 @@ Checked on 2026-10-16 with Node 22.
 
 Why 1000? One simple server answers about 1,000 simple requests per second. 300 is far below that. So traffic is not the hard part here. The last line is the whole point of step 2: the numbers **say something**.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-The "machine" here is your 45 minutes. The state is what sits on the whiteboard. Read one row at a time.
-
-| Step | Clock | What you do | Paste bin example | Whiteboard after |
-|---|---|---|---|---|
-| 1 Requirements | 0 to 5 min | Ask 3 or 4 questions. Write IN and OUT. Say out loud what you cut. If the interviewer gives no numbers, pick some and say "I assume". | IN: create a paste, read a paste by its link. OUT (said aloud): accounts, editing, search. Numbers: 1 million new pastes a day, up to 10 KB, reads 10 times writes, a read should feel instant, pastes are kept 1 year. | IN, OUT, and the numbers. |
-| 2 Estimate | 5 to 9 min | Do the maths with round numbers. Say the driver out loud. | 1,000,000 / 100,000 = 10 writes per second. Reads: 100. Busiest time (peak) is about 3 times the average: 300. Size: 10 KB x 1M = 10 GB a day = 3.65 TB a year. **Driver: storage, not traffic.** | The numbers, with "storage" circled. |
-| 3 API | 9 to 13 min | Write the 2 to 4 requests that serve the IN list. Say what each one returns. | `POST /pastes` with the text gives `201` and a link with an id. `GET /pastes/:id` gives `200` and the text, or `404` if it is gone. | Two requests. |
-| 4 Data | 13 to 17 min | Write the tables. Circle the one column you find each row by, and say which request uses it. | `pastes`: id (circled, used by GET), text, created_at, expires_at. | One table. |
-| 5 High level design | 17 to 25 min | Draw the fewest boxes that serve the requests. Follow one request from click to answer, out loud. Then ask where to go deeper. | Client, then app servers (copies of the same program, so any copy can answer), then the database. A GET arrives, any app server asks the database by id, and returns the text. | One picture, and an agreement on the deep dive. |
-| 6a Deep dive | 25 to 40 min | Pick the 2 hardest parts, using the driver. For each: options, cost, choice, and what would change your mind. | Part 1: where do 3.65 TB of text live? Part 2: how do we make ids that nobody can guess? | The picture grows by one box. |
-| 6b What breaks | 40 to 45 min | Say what breaks, how you would know, and what you would watch. | If file storage is slow, reads are slow. Watch the read time and the error rate. Delete expired pastes every night. | Two lines of "watch" notes. |
-
-How to say a deep dive, in this order:
-
-> "There are two ways. A: keep the text in the database. It is simple, but the database grows by 10 GB a day, and backups get slow. B: keep the text in file storage (a service made to keep big files cheaply) and keep only the id and the file name in the database. It adds one more part to run. The driver is storage, so I choose B. If pastes lived only 7 days, I would choose A."
-
-That has four parts: options, cost, choice, and what would change the choice.
-
-Step 2 as arithmetic, line by line (the code from section 4):
+**Step 2 as arithmetic, line by line** (the code above):
 
 | Line | Value after it runs | What it means |
 |---|---|---|
@@ -202,19 +166,139 @@ Step 2 as arithmetic, line by line (the code from section 4):
 | `tbPerYear` | 3.65 | 10 GB x 365 days, written in TB. |
 | last `console.log` | "Storage is the driver" | The conclusion that picks the deep dive. |
 
-No page to step through for this lesson, because nothing runs inside an engine. To practice the clock, use a timer and a drawing board (see section 8).
+</details>
 
-## 6. Why it exists and what it costs
+## 3. Steps 3 to 5: requests, tables, boxes
 
-- **Problem without it:** you freeze at the blank board. Then you draw boxes before you know the size, defend them for 40 minutes, and never reach the hard part (picture 2b).
-- **How it solves it:** each step gives the next step its input. The estimate gives the driver. The driver gives the deep dive. When you are stuck, you only ask "which step am I on?".
-- **Cost or tradeoff:**
-  - The first 17 minutes have little drawing. It feels slow. Do not rush it.
-  - The times are a guide, not a law. If the interviewer jumps ahead, follow them.
-  - Do not ask 15 questions. Ask the 3 or 4 that change the design. Pick sensible numbers for the rest.
-  - In a 30 minute round, make steps 1 to 4 shorter. Never cut the deep dive.
+Step 3: write the 2 to 4 requests that serve your IN list. Step 4: write the tables, and circle the one column each request finds rows by. Step 5: draw the fewest boxes that serve the requests, then follow one request from click to answer, out loud.
 
-## 7. Common mistakes
+Paste bin: `POST /pastes` gives `201` and a link. `GET /pastes/:id` gives `200` and the text, or `404`. One table: `pastes` with `id`, `text`, `created_at`, `expires_at`.
+
+```mermaid
+graph TB
+    C["Client"] --> A["App servers<br/>copies of one program"]
+    A --> D["Database<br/>pastes table"]
+```
+
+<details class="guess"><summary>🤔 Guess: which column of `pastes` do you circle, and which request uses it? Press to check.</summary>
+
+The **`id`**. The `GET /pastes/:id` request finds each row by it.
+
+</details>
+
+> **Remember:** draw only what the numbers need. Then ask the interviewer where to go deeper.
+
+<details class="more"><summary>📖 More detail: the six steps with the clock, the talk over time, and the board at minute 25</summary>
+
+**The six steps, one row each.** The "machine" here is your 45 minutes. The state is what sits on the whiteboard. Read one row at a time.
+
+| Step | Clock | What you do | Paste bin example | Whiteboard after |
+|---|---|---|---|---|
+| 1 Requirements | 0 to 5 min | Ask 3 or 4 questions. Write IN and OUT. Say out loud what you cut. If the interviewer gives no numbers, pick some and say "I assume". | IN: create a paste, read a paste by its link. OUT (said aloud): accounts, editing, search. Numbers: 1 million new pastes a day, up to 10 KB, reads 10 times writes, a read should feel instant, pastes are kept 1 year. | IN, OUT, and the numbers. |
+| 2 Estimate | 5 to 9 min | Do the maths with round numbers. Say the driver out loud. | 1,000,000 / 100,000 = 10 writes per second. Reads: 100. Busiest time (peak) is about 3 times the average: 300. Size: 10 KB x 1M = 10 GB a day = 3.65 TB a year. **Driver: storage, not traffic.** | The numbers, with "storage" circled. |
+| 3 API | 9 to 13 min | Write the 2 to 4 requests that serve the IN list. Say what each one returns. | `POST /pastes` with the text gives `201` and a link with an id. `GET /pastes/:id` gives `200` and the text, or `404` if it is gone. | Two requests. |
+| 4 Data | 13 to 17 min | Write the tables. Circle the one column you find each row by, and say which request uses it. | `pastes`: id (circled, used by GET), text, created_at, expires_at. | One table. |
+| 5 High level design | 17 to 25 min | Draw the fewest boxes that serve the requests. Follow one request from click to answer, out loud. Then ask where to go deeper. | Client, then app servers (copies of the same program, so any copy can answer), then the database. A GET arrives, any app server asks the database by id, and returns the text. | One picture, and an agreement on the deep dive. |
+| 6a Deep dive | 25 to 40 min | Pick the 2 hardest parts, using the driver. For each: options, cost, choice, and what would change your mind. | Part 1: where do 3.65 TB of text live? Part 2: how do we make ids that nobody can guess? | The picture grows by one box. |
+| 6b What breaks | 40 to 45 min | Say what breaks, how you would know, and what you would watch. | If file storage is slow, reads are slow. Watch the read time and the error rate. Delete expired pastes every night. | Two lines of "watch" notes. |
+
+**How it works over time.** Notice who talks: you ask first, the board fills step by step, and you ask the interviewer where to go deep.
+
+```mermaid
+sequenceDiagram
+    participant Y as You
+    participant I as Interviewer
+    participant B as Whiteboard
+    Note over Y,B: Step 1 Requirements
+    Y->>I: Let me ask a few questions first
+    I-->>Y: One million pastes a day and up to 10 KB each
+    Y->>B: Write IN and OUT and the numbers
+    Note over Y,B: Step 2 Estimate
+    Y->>B: Do the maths and circle the driver
+    Note over Y,B: Steps 3 and 4 API and Data
+    Y->>B: Write 2 requests and 1 table
+    Note over Y,B: Step 5 High level design
+    Y->>B: Draw the boxes and follow one request
+    Y->>I: Deeper on storage or on ids?
+    I-->>Y: Storage please
+    Note over Y,B: Step 6 Deep dive
+    Y->>B: Options and costs and my choice
+    Y->>I: Here is what breaks and how I would know
+```
+
+**What is on the whiteboard right now.** A snapshot at minute 25, just after step five. Notice that each step left one clear thing on the board, and that you can read it in order.
+
+```mermaid
+graph TB
+    subgraph W["Whiteboard at minute 25"]
+        R["Top left<br/>IN create a paste and read a paste<br/>OUT accounts and search"]
+        N["Top right<br/>10 writes per sec<br/>300 reads per sec at the busiest time<br/>10 GB per day<br/>DRIVER is storage"]
+        A["Middle left<br/>POST pastes<br/>GET pastes id"]
+        D["Middle right<br/>pastes table<br/>find each row by id"]
+        P["Bottom<br/>Client then app servers then database"]
+        R --> N
+        N --> A
+        A --> D
+        D --> P
+    end
+```
+
+No page to step through for this lesson, because nothing runs inside an engine. To practice the clock, use a timer and a drawing board (see the Watch and play links).
+
+</details>
+
+## 4. Step 6: the deep dive in four parts
+
+The deep dive is the longest job, 20 minutes. Pick the 2 hardest parts, using the driver. For each part say four things: the **options**, their **cost**, your **choice**, and **what would change your choice**. Last, say what breaks and what you would watch.
+
+> "A: keep the text in the database. It is simple, but it grows 10 GB a day. B: keep the text in file storage and only the id in the database. It adds one more part to run. The driver is storage, so I choose B. If pastes lived 7 days, I would choose A."
+
+<details class="guess"><summary>🤔 Guess: a candidate says only "I would use S3" (a service that keeps big files). Which of the four parts are missing? Press to check.</summary>
+
+All four. There are no options, no cost, no choice with a reason, and no "what would change it". The interviewer grades your reasons, not the tool names.
+
+</details>
+
+> **Remember:** options, cost, choice, and what would change it.
+
+<details class="more"><summary>📖 More detail: the full quote, and how the driver picks the deep dive</summary>
+
+**How to say a deep dive, in this order:**
+
+> "There are two ways. A: keep the text in the database. It is simple, but the database grows by 10 GB a day, and backups get slow. B: keep the text in file storage (a service made to keep big files cheaply) and keep only the id and the file name in the database. It adds one more part to run. The driver is storage, so I choose B. If pastes lived only 7 days, I would choose A."
+
+That has four parts: options, cost, choice, and what would change the choice.
+
+**The driver picks the deep dive.** This is why step 2 exists. Notice that the same six steps lead to different deep dives. Later lessons teach the tools for each one.
+
+```mermaid
+graph LR
+    N["Step 2 gives the driver"] -->|reads are huge| R["Deep dive the read path"]
+    N -->|storage is huge| S["Deep dive where the data lives"]
+    N -->|a sudden burst| B["Deep dive the burst"]
+    N -->|money or exact counts| C["Deep dive getting it exact"]
+```
+
+</details>
+
+## 5. Three mistakes, and what to do if you freeze
+
+- **Wrong:** the first sentence is a list of tools. **Right:** a question and a plan.
+- **Wrong:** you do the maths, then ignore it. **Right:** you say what the maths means.
+- **Wrong:** the deep dive names a tool. **Right:** it names a way, its cost, your choice, and what would change it.
+
+<details class="guess"><summary>🤔 Guess: it is minute 1 and you freeze. What do you say and do? Press to check.</summary>
+
+1. Say "I will start with requirements." This is true, and it gives you time.
+2. Write three headings on the board: IN, OUT, NUMBERS.
+3. Ask the first question: "Who uses it, and how many of them?"
+4. When you do not know what to draw, go back one step. Do not jump forward.
+
+</details>
+
+> **Remember:** when you do not know what to draw, go back one step. Never jump forward.
+
+<details class="more"><summary>📖 More detail: the three mistakes, wrong against right</summary>
 
 **Wrong:** the first sentence is a list of tools.
 
@@ -247,26 +331,47 @@ No page to step through for this lesson, because nothing runs inside an engine. 
 
 **Wrong:** the deep dive names a tool: "I would use S3."
 
-**Right:** the deep dive names a way, its cost, your choice and what would change it (see the quote in section 5).
+**Right:** the deep dive names a way, its cost, your choice and what would change it (see the quote in card 4).
 
 **Why:** the interviewer grades your reasons, not the tool names.
 
-**If you freeze:**
+</details>
 
-1. Say "I will start with requirements." This is true, and it gives you time.
-2. Write three headings on the board: IN, OUT, NUMBERS.
-3. Ask the first question: "Who uses it, and how many of them?"
-4. When you do not know what to draw, go back one step. Do not jump forward.
+## 6. Why it exists and what it costs
 
-## 8. Watch and play
+Without the six steps you freeze at the blank board, draw boxes before you know the size, defend them for 40 minutes, and never reach the hard part. With them, each step gives the next one its input: the estimate gives the driver, and the driver gives the deep dive.
+
+The cost: the first 17 minutes have little drawing, so it feels slow. The times are a guide, not a law.
+
+<details class="guess"><summary>🤔 Guess: the interviewer jumps to the deep dive at minute 10. Do you stop them? Press to check.</summary>
+
+No. Follow them. In a 30 minute round, make steps 1 to 4 shorter. Never cut the deep dive.
+
+</details>
+
+> **Remember:** the order costs time before the first picture. Do not rush it, and do not ask 15 questions.
+
+<details class="more"><summary>📖 More detail: the problem, the fix and the costs</summary>
+
+- **Problem without it:** you freeze at the blank board. Then you draw boxes before you know the size, defend them for 40 minutes, and never reach the hard part (the problem picture in card 1).
+- **How it solves it:** each step gives the next step its input. The estimate gives the driver. The driver gives the deep dive. When you are stuck, you only ask "which step am I on?".
+- **Cost or tradeoff:**
+  - The first 17 minutes have little drawing. It feels slow. Do not rush it.
+  - The times are a guide, not a law. If the interviewer jumps ahead, follow them.
+  - Do not ask 15 questions. Ask the 3 or 4 that change the design. Pick sensible numbers for the rest.
+  - In a 30 minute round, make steps 1 to 4 shorter. Never cut the deep dive.
+
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
 - **Video:** [System Design Interview: A Step-By-Step Guide](https://yt.chop.dev/en/v/i7twT3x5yv8) by ByteByteGo, just under 10 minutes. This is a mirror page of the YouTube video. If it fails, search YouTube for the same title. I could not confirm which steps it names, so compare it with the six steps here.
-- **Read:** [Hello Interview: the delivery framework](https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery) - steps with times for a 45 minute round. Compare its clock with the table in section 5.
+- **Read:** [Hello Interview: the delivery framework](https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery) - steps with times for a 45 minute round. Compare its clock with the table in card 3.
 - **Read:** [ByteByteGo: a framework for system design interviews](https://bytebytego.com/courses/system-design-interview/a-framework-for-system-design-interviews) - a four step version of the same idea. Find where its steps match ours.
-- **Read:** [Back-of-the-envelope calculation on DEV](https://dev.to/vladisov/back-of-the-envelope-calculation-4eal) - rough maths with round numbers. Redo one example and compare with section 4.
-- **Play:** [Excalidraw](https://excalidraw.com/) - a free whiteboard. Set a timer for 20 minutes and do exercise 9C. Use the clock from section 5.
+- **Read:** [Back-of-the-envelope calculation on DEV](https://dev.to/vladisov/back-of-the-envelope-calculation-4eal) - rough maths with round numbers. Redo one example and compare with card 2.
+- **Play:** [Excalidraw](https://excalidraw.com/) - a free whiteboard. Set a timer for 20 minutes and do exercise 8C. Use the clock from card 3.
 - No interactive visualizer for this topic was found. The timer and the board are the practice tool.
 
 <details><summary>Go deeper (optional)</summary>
@@ -284,17 +389,17 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 - 1 million users doing 10 actions a day is about 100 requests per second on average. Requests per second is often written QPS (queries per second).
 - Peak is 2 to 3 times the average. For traffic that comes in sudden bursts, use 10 times.
 
-**Why random ids for the paste bin.** An id of 8 characters from 62 letters and digits has 62^8 = 218,340,105,584,896 values. A clash is very rare. The primary key (the column the table finds rows by, and refuses to repeat) rejects a clash, and you try again. A plain counter has no clashes, but anyone can read every paste by counting up. This is one of the two deep dive parts in section 5.
+**Why random ids for the paste bin.** An id of 8 characters from 62 letters and digits has 62^8 = 218,340,105,584,896 values. A clash is very rare. The primary key (the column the table finds rows by, and refuses to repeat) rejects a clash, and you try again. A plain counter has no clashes, but anyone can read every paste by counting up. This is one of the two deep dive parts in card 4.
 
 **What interviewers score.** The walkthrough's "Part 4" has a step by step table of what senior looks like against what gets marked down. The [question bank](senior-system-design-interview-questions.md) has the same question asked in many ways.
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
-Take the code from section 4. Change the first lines to this, and keep the rest as it is. What do the two `console.log` lines print?
+Take the code from card 2 (it is in the blue bar). Change the first lines to this, and keep the rest as it is. What do the two `console.log` lines print?
 
 ```js
 const pastesPerDay = 50_000_000;
@@ -315,7 +420,7 @@ console.log(peakReadsPerSec < 1000 ? "storage" : "traffic");
 traffic
 ```
 
-50 million / 100,000 is 500 writes per second. Times 10 reads times 3 for the peak is 15,000. That is far above 1,000, so the driver is now traffic. Storage is only 100 GB a day. Same six steps, a different deep dive (picture 2f).
+50 million / 100,000 is 500 writes per second. Times 10 reads times 3 for the peak is 15,000. That is far above 1,000, so the driver is now traffic. Storage is only 100 GB a day. Same six steps, a different deep dive (the driver picture in card 4).
 
 </details>
 
@@ -337,7 +442,7 @@ A better opening: "I will start with requirements. I think the core is: create a
 
 **C. Write it yourself**
 
-Set a timer for 20 minutes. Open Excalidraw or take paper. Do steps 1 to 5 for this prompt: **"Design a poll. Someone creates a question with 4 options. Other people vote once each and see the counts."** Use the clock from section 5. Write IN and OUT, the numbers and the driver, 3 requests, the tables, and one picture. Say the driver out loud before you draw. There is no code to run.
+Set a timer for 20 minutes. Open Excalidraw or take paper. Do steps 1 to 5 for this prompt: **"Design a poll. Someone creates a question with 4 options. Other people vote once each and see the counts."** Use the clock from card 3. Write IN and OUT, the numbers and the driver, 3 requests, the tables, and one picture. Say the driver out loud before you draw. There is no code to run.
 
 <details><summary>One possible answer</summary>
 
@@ -350,7 +455,7 @@ Set a timer for 20 minutes. Open Excalidraw or take paper. Do steps 1 to 5 for t
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Walk me through how you approach a system design question."
 
@@ -366,7 +471,7 @@ Set a timer for 20 minutes. Open Excalidraw or take paper. Do steps 1 to 5 for t
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain the framework out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Say the six steps and their minutes without looking. Then write your best version below and run `/explain-check the interview framework` or ask the `explain-coach` agent to review it.
 
@@ -378,12 +483,12 @@ Close this file. Explain the framework out loud like to a new junior, in 4 parts
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Name the six steps in order, with the minutes for each in a 45 minute round.
 2. Why does the estimate come before the picture with boxes? What does it give you?
 3. It is minute 1 and you freeze. What do you say, what do you write, and which question do you ask first?
-4. Draw the picture from section 2a from memory.
+4. Draw the six step picture from card 1 from memory.
 
 <details><summary>Answers</summary>
 
