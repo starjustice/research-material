@@ -1,10 +1,34 @@
 # 11. Design a notification system
 
-> **Subject:** System Design · **Lesson:** 11 · **Made:** 2026-10-21 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 11 · **Made:** 2026-10-21 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** draw how one event, "your loan is approved", reaches a user by push, email, SMS and in-app without slowing the request. You can also explain the dedupe key, retries, dead device tokens, and how a login code gets past a marketing blast.
+>
 > **Before this:** [Design a chat app](10-design-a-chat-app.md) · **Next:** [Design an online shop checkout](12-design-an-online-shop-checkout.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: drop an event, and go back to work
+
+A service drops a short note that says "this happened" (an **event**) and goes back to work. A notification service checks the event and makes one job per **channel** (push, email, SMS, or in-app). Workers send the jobs, retry short problems, and never send twice. Like the mail room of a bank: departments drop letters in the tray and do not walk to the post office.
+
+```mermaid
+graph TB
+    L["Loan service<br/>drops an event and moves on"] --> N["Notification service<br/>dedupe, preferences,<br/>quiet hours, limits"]
+    N --> Q["One queue per channel<br/>push, email, SMS"]
+    Q --> W["Workers send<br/>and retry short problems"]
+    W --> P["Providers<br/>Apple, Google, email, SMS"]
+```
+
+<details class="guess"><summary>🤔 Guess: the loan service sends the push, the email and the SMS itself, and the SMS company is down. What happens to the "approve" button? Press to check.</summary>
+
+It **waits for every provider**, then times out. The approve fails, or the SMS is lost. The officer clicks again, and Sari gets two pushes. Drop an event instead, and everything after that happens later.
+
+</details>
+
+> **Remember:** the first service drops an event and goes back to work. A provider that is down only delays the notification.
+
+<details class="more"><summary>📖 More detail: new words, the big picture, the problems drawn, the mail room, and why it exists</summary>
 
 A service drops a short note that says "this happened" (an **event**) and goes back to work. A notification service checks the event and makes one job per way to reach the user. Workers send the jobs, retry short problems, and never send twice.
 
@@ -34,20 +58,7 @@ A provider answers each send with a number:
 | 404 or 410 | This phone is gone |
 | 400 | Your request is wrong |
 
-<details><summary>Go deeper (optional)</summary>
-
-- Apple's push service is called APNs. Google's is called FCM (Firebase Cloud Messaging).
-- Google answers 404 for a dead token, and Apple answers 410.
-- The app sends its device token to your server. An email company and an SMS company are the other providers.
-- Lesson 10 ended with a push queue and a push worker. This lesson opens that box.
-
-</details>
-
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice: the loan service only drops an event, and everything after the notification service happens later.
+**The big picture.** Notice: the loan service only drops an event, and everything after the notification service happens later.
 
 ```mermaid
 graph LR
@@ -67,7 +78,7 @@ graph LR
 
 Each channel has its own queue. A slow SMS company cannot hold up push.
 
-### 2b. The problem, drawn
+**The problem, drawn.** Notice: when the request sends everything itself, the approve button waits for every provider.
 
 Notice: when the request sends everything itself, the approve button waits for every provider.
 
@@ -94,66 +105,52 @@ graph LR
     class L bad
 ```
 
-### 2c. How it works over time: one failed try, one retry
+**The mail room in full.**
 
-Notice: the loan service is done after one step, and the 503 only makes the push one second late.
+The mail room of a bank.
 
-```mermaid
-sequenceDiagram
-    participant L as Loan service
-    participant N as Notification service
-    participant Q as Push queue
-    participant W as Push worker
-    participant A as Apple push
-    participant S as Sari phone
-    L->>N: event evt77 loan L-42 approved
-    N-->>L: accepted
-    N->>N: key evt77 sari push is new and push is on
-    N->>Q: job for token tA with status queued
-    W->>Q: take the next job
-    W->>A: send try 1
-    A-->>W: 503 busy
-    Note over W: wait 1 s and put the job at the back
-    W->>A: send try 2
-    A-->>W: 200 accepted
-    W->>N: status sent
-    A->>S: shows Your loan L-42 is approved
-```
+| In the mail room | In the system |
+|---|---|
+| Departments drop letters in the tray and go back to work. They do not walk to the post office | Events |
+| Each customer has a card: "email yes, phone calls no, nothing after 10 pm" | Preferences |
+| A log book line: "letter 77 to Sari by email, done". If letter 77 comes again, the clerk throws it away | The dedupe key |
+| One tray per courier, with a red folder on top for urgent letters | Channel queues and lanes |
+| The courier is busy, so the clerk tries again in one minute, then in two | Retries |
+| After three tries, the letter goes on a "problem" shelf for a person | The dead letter queue |
+| A letter comes back "moved". The clerk crosses out the old address for good | Device token cleanup |
 
-### 2d. What is in memory right now
+Where the analogy stops: a mail room handles a few hundred letters a day. A blast is 5 million in 10 minutes. Providers answer in milliseconds, and a "moved" note may never come back.
 
-A **lane** is a separate line inside one queue, one for each priority. Notice: this is one moment after the event, and every job row has a status.
+**Why it exists and what it costs.**
+
+- **Problem without it:** the first service waits for every provider. It fails when one is down and sends twice on a retry.
+- **How it solves it:** one service runs the checks. Each channel gets a queue with priority lanes. Workers retry short problems, then give up into the dead letter queue.
+- **Cost or tradeoff:** more parts and a short delay. You must catch duplicates yourself.
+
+</details>
+
+## 2. Never send twice: the dedupe key
+
+The loan service misses the "accepted" reply and sends the event again. With at least once delivery this is normal. A **dedupe key** is a short text that names one notification, like `evt77:sari:push` (event, user, channel). The table has a unique rule on it, so it refuses the second copy. The key comes from the event id, not the time, and it goes in **after** the provider says 200.
 
 ```mermaid
 graph TB
-    subgraph P["Sari's preferences"]
-        P1["push on - email on - SMS off"]
-        P2["quiet hours 22 to 7 - now 14"]
-    end
-    subgraph T["Device tokens"]
-        T1["tA - Sari's phone"]
-        T2["tB - old tablet - app deleted"]
-    end
-    subgraph N["Notifications table"]
-        N1["evt77:sari:push:tA - sent"]
-        N2["evt77:sari:push:tB - failed 410"]
-        N3["evt77:sari:email:sari - queued"]
-    end
-    subgraph Q["Email queue lanes"]
-        Q1["urgent - empty"]
-        Q2["normal - evt77 for sari"]
-        Q3["bulk - 3 promo jobs"]
-    end
+    A["evt77 arrives<br/>insert key evt77:sari:push"] --> B["New key: send the push"]
+    B --> C["evt77 arrives again<br/>after a timeout"]
+    C --> D["Key already exists<br/>skip and answer accepted"]
 ```
 
-| Status | Meaning |
-|---|---|
-| queued | Waiting in the queue |
-| held | Waiting for quiet hours to end |
-| sent | The provider said yes |
-| failed | The send did not work. `tB` got 410, so the worker deletes it |
+<details class="guess"><summary>🤔 Guess: the key is the event id plus the time it arrived. The same event arrives twice. Does the dedupe work? Press to check.</summary>
 
-### 2e. Right against wrong
+**No.** The times differ, so there are two keys, and Sari gets two pushes. The key must come from the event id, so the same event always makes the same key.
+
+</details>
+
+> **Remember:** a key seen before means "do not send again". Put the key in after the 200.
+
+<details class="more"><summary>📖 More detail: right against wrong, the code, the real output, and step by step</summary>
+
+**Right against wrong.**
 
 The loan service misses the "accepted" reply and sends the event again. With at least once, this is normal.
 
@@ -190,66 +187,7 @@ sequenceDiagram
 
 The key comes from the event id, not the time. So the same event always makes the same key.
 
-### 2f. What to do with each answer
-
-Notice: only a short problem is worth a retry.
-
-```mermaid
-graph TB
-    R["The provider answers"] -->|200| OK["Mark sent"]
-    R -->|429 or 500 or 503| T["Tries left?"]
-    T -->|yes| WAIT["Wait 1 s then 2 s then 4 s<br/>and go to the back of the line"]
-    T -->|no| DLQ["Dead letter queue<br/>and an alert"]
-    R -->|404 or 410| DEL["The phone is gone<br/>delete the token and never retry"]
-    R -->|400| BAD["Our request is wrong<br/>dead letter queue now"]
-```
-
-A dead token never comes back. Retrying it only wastes calls.
-
-### 2g. Priority lanes
-
-Notice: the worker always looks at the urgent lane first.
-
-```mermaid
-graph LR
-    OTP["Login code"] -->|urgent| U["Urgent lane"]
-    LA["Loan approved"] -->|normal| N["Normal lane"]
-    MK["Marketing blast"] -->|bulk| B["Bulk lane"]
-    U --> W["SMS worker<br/>urgent then normal then bulk"]
-    N --> W
-    B --> W
-    W --> P["SMS provider"]
-```
-
-Urgent jobs also skip quiet hours and channel choices. Nobody waits until 7 am for a login code.
-
-<details><summary>Go deeper (optional)</summary>
-
-- **The row key in 2d.** Each job row uses the dedupe key plus the address, like `evt77:sari:push:tA`.
-- **Later statuses.** After **sent**, a provider may tell you **delivered** or **opened**.
-- **Why delete dead tokens fast.** Retrying a dead token forever wastes calls. Apple may also drop your connection if you keep making errors.
-
-</details>
-
-## 3. Real life analogy
-
-The mail room of a bank.
-
-| In the mail room | In the system |
-|---|---|
-| Departments drop letters in the tray and go back to work. They do not walk to the post office | Events |
-| Each customer has a card: "email yes, phone calls no, nothing after 10 pm" | Preferences |
-| A log book line: "letter 77 to Sari by email, done". If letter 77 comes again, the clerk throws it away | The dedupe key |
-| One tray per courier, with a red folder on top for urgent letters | Channel queues and lanes |
-| The courier is busy, so the clerk tries again in one minute, then in two | Retries |
-| After three tries, the letter goes on a "problem" shelf for a person | The dead letter queue |
-| A letter comes back "moved". The clerk crosses out the old address for good | Device token cleanup |
-
-Where the analogy stops: a mail room handles a few hundred letters a day. A blast is 5 million in 10 minutes. Providers answer in milliseconds, and a "moved" note may never come back.
-
-## 4. The smallest code that shows it
-
-One event, three channels, a dedupe set, and a push provider that fails once. Then the same event arrives again.
+**The smallest code that shows it.** One event, three channels, a dedupe set, and a push provider that fails once. Then the same event arrives again.
 
 ```js
 const sent = new Set();                                  // dedupe keys already sent
@@ -283,13 +221,9 @@ evt77:sari:sms off
 
 Checked on 2026-10-21 with Node 24.
 
-<details><summary>Go deeper (optional)</summary>
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-The code shows three ideas at once: preferences, the retry, and the dedupe key. In a real system, the `sent` set is a unique index on the dedupe key in the database. The retry does not loop in place. The worker puts the job back in the queue with a wait.
-
-</details>
-
-## 5. What really happens, step by step
+**What really happens, step by step.**
 
 One row is one thing the code does. Watch the `sent` set and what Sari sees.
 
@@ -312,21 +246,144 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/11-design-a-notification-system.html). Story 1 is this trace. Story 2 shows a login code jumping the line, a dead token, and a dead letter. Guess first, then press Next.
 
-<details><summary>Go deeper (optional)</summary>
+</details>
 
-- In a real system, step 2 is not a quick loop. The worker puts the job at the back of the queue. It waits 1 s, then 2 s, so other jobs keep moving.
-- Story 1 in the stepper: loan approved, a 503, a retry, and a second copy of the event that the dedupe key stops.
-- Story 2 in the stepper: an urgent OTP jumps past three marketing SMS. A dead token is removed after one 410. A job runs out of tries and goes to the dead letter queue.
+## 3. Retries: what to do with each answer
+
+A provider answers each send with a number. Only a short problem is worth a retry.
+
+| Answer | What the worker does |
+|---|---|
+| 200 | Mark it sent |
+| 429, 500, 503 | Busy for now. Wait 1 s, then 2 s, then 4 s, and go to the back of the line. After too many tries, the dead letter queue |
+| 404, 410 | The phone is gone. Delete the device token and never retry |
+| 400 | Our request is wrong. Dead letter queue now |
+
+<details class="guess"><summary>🤔 Guess: a token gets a 410, and the worker retries it every time a notification comes. What goes wrong? Press to check.</summary>
+
+A dead token **never comes back**, so every retry wastes a call. With a million dead tokens, that is a million useless calls each time. Apple may also drop your connection if you keep making errors. Delete the token on the first 404 or 410.
 
 </details>
 
-## 6. Why it exists and what it costs
+> **Remember:** only a short problem is worth a retry. A dead token is deleted.
 
-- **Problem without it:** the first service waits for every provider. It fails when one is down and sends twice on a retry.
-- **How it solves it:** one service runs the checks. Each channel gets a queue with priority lanes. Workers retry short problems, then give up into the dead letter queue.
-- **Cost or tradeoff:** more parts and a short delay. You must catch duplicates yourself.
+<details class="more"><summary>📖 More detail: one failed try over time, and what to do with each answer drawn</summary>
 
-### The numbers
+**How it works over time: one failed try, one retry.** Notice: the loan service is done after one step, and the 503 only makes the push one second late.
+
+Notice: the loan service is done after one step, and the 503 only makes the push one second late.
+
+```mermaid
+sequenceDiagram
+    participant L as Loan service
+    participant N as Notification service
+    participant Q as Push queue
+    participant W as Push worker
+    participant A as Apple push
+    participant S as Sari phone
+    L->>N: event evt77 loan L-42 approved
+    N-->>L: accepted
+    N->>N: key evt77 sari push is new and push is on
+    N->>Q: job for token tA with status queued
+    W->>Q: take the next job
+    W->>A: send try 1
+    A-->>W: 503 busy
+    Note over W: wait 1 s and put the job at the back
+    W->>A: send try 2
+    A-->>W: 200 accepted
+    W->>N: status sent
+    A->>S: shows Your loan L-42 is approved
+```
+
+**What to do with each answer.** Notice: only a short problem is worth a retry.
+
+Notice: only a short problem is worth a retry.
+
+```mermaid
+graph TB
+    R["The provider answers"] -->|200| OK["Mark sent"]
+    R -->|429 or 500 or 503| T["Tries left?"]
+    T -->|yes| WAIT["Wait 1 s then 2 s then 4 s<br/>and go to the back of the line"]
+    T -->|no| DLQ["Dead letter queue<br/>and an alert"]
+    R -->|404 or 410| DEL["The phone is gone<br/>delete the token and never retry"]
+    R -->|400| BAD["Our request is wrong<br/>dead letter queue now"]
+```
+
+A dead token never comes back. Retrying it only wastes calls.
+
+</details>
+
+## 4. Priority lanes: a login code gets past a blast
+
+A **lane** is a separate line inside one queue, one for each priority. The worker always looks at the urgent lane first. Urgent jobs also skip quiet hours, because nobody waits until 7 am for a login code.
+
+| Lane | Example | The worker takes it |
+|---|---|---|
+| urgent | a login code (an OTP) | first |
+| normal | loan approved | second |
+| bulk | a marketing blast | last |
+
+<details class="guess"><summary>🤔 Guess: a marketing blast of 5 million jobs, and workers send 8,300 a second, all in one shared line. How long does a login code wait behind it? Press to check.</summary>
+
+About **10 minutes** (5,000,000 divided by 8,300 is about 600 seconds). By then the user has given up. The blast is 8,300 a second, 40 times normal, and that is why there are lanes.
+
+</details>
+
+> **Remember:** a blast must never block a login code. Give the urgent lane its own priority.
+
+<details class="more"><summary>📖 More detail: the lanes drawn, what is in memory, and the numbers</summary>
+
+**Priority lanes.** Notice: the worker always looks at the urgent lane first.
+
+Notice: the worker always looks at the urgent lane first.
+
+```mermaid
+graph LR
+    OTP["Login code"] -->|urgent| U["Urgent lane"]
+    LA["Loan approved"] -->|normal| N["Normal lane"]
+    MK["Marketing blast"] -->|bulk| B["Bulk lane"]
+    U --> W["SMS worker<br/>urgent then normal then bulk"]
+    N --> W
+    B --> W
+    W --> P["SMS provider"]
+```
+
+Urgent jobs also skip quiet hours and channel choices. Nobody waits until 7 am for a login code.
+
+**What is in memory right now.**
+
+A **lane** is a separate line inside one queue, one for each priority. Notice: this is one moment after the event, and every job row has a status.
+
+```mermaid
+graph TB
+    subgraph P["Sari's preferences"]
+        P1["push on - email on - SMS off"]
+        P2["quiet hours 22 to 7 - now 14"]
+    end
+    subgraph T["Device tokens"]
+        T1["tA - Sari's phone"]
+        T2["tB - old tablet - app deleted"]
+    end
+    subgraph N["Notifications table"]
+        N1["evt77:sari:push:tA - sent"]
+        N2["evt77:sari:push:tB - failed 410"]
+        N3["evt77:sari:email:sari - queued"]
+    end
+    subgraph Q["Email queue lanes"]
+        Q1["urgent - empty"]
+        Q2["normal - evt77 for sari"]
+        Q3["bulk - 3 promo jobs"]
+    end
+```
+
+| Status | Meaning |
+|---|---|
+| queued | Waiting in the queue |
+| held | Waiting for quiet hours to end |
+| sent | The provider said yes |
+| failed | The send did not work. `tB` got 410, so the worker deletes it |
+
+**The numbers.**
 
 Rough guesses. Say them out loud.
 
@@ -342,7 +399,30 @@ Rough guesses. Say them out loud.
 
 The blast is the key number: **8,300 a second, 40 times normal**. That is why there are lanes.
 
-### Four channels
+</details>
+
+## 5. Four channels, and what it costs
+
+Each channel has its own queue, so a slow SMS company cannot hold up push. Each user has preferences (push on, SMS off, quiet hours 22 to 7) and may have several **device tokens**, the address of one app on one phone.
+
+| Channel | Watch out |
+|---|---|
+| **Push** | Fast and free, but Apple and Google may drop or merge messages |
+| **Email** | Marketing mail needs a one click unsubscribe |
+| **SMS** | Costs money for every message, and is a favorite target for fraud |
+| **In-app** | A row in your own inbox table. Sari only sees it when she opens the app |
+
+<details class="guess"><summary>🤔 Guess: SMS reaches any phone. Why not send everything by SMS? Press to check.</summary>
+
+It **costs money for every message**, and fraud likes it. Use push first (fast and free), email for long text, and SMS when you must reach a phone without the app.
+
+</details>
+
+> **Remember:** the costs are duplicates, retries that make it worse, dead letters that need a person, stale tokens, quiet hours, and too many messages.
+
+<details class="more"><summary>📖 More detail: the four channels in full, and the cost table</summary>
+
+**Four channels.**
 
 | Channel | Good for | Watch out |
 |---|---|---|
@@ -351,7 +431,7 @@ The blast is the key number: **8,300 a second, 40 times normal**. That is why th
 | **SMS** | Reaches any phone, even without the app | Costs money for every message. A favorite target for fraud |
 | **In-app** | A row in your own inbox table. No provider | Sari only sees it when she opens the app |
 
-### What it costs
+**What it costs.**
 
 | Cost | What it means | What you do |
 |---|---|---|
@@ -362,7 +442,23 @@ The blast is the key number: **8,300 a second, 40 times normal**. That is why th
 | Quiet hours | Push and SMS wait until morning | A job that releases held rows at the end of each user's quiet hours |
 | Too many messages | Users turn everything off, or uninstall | A limit per user per day for bulk |
 
-## 7. Common mistakes
+</details>
+
+## 6. Three mistakes, and what to say if you freeze
+
+- **Wrong:** send inside the request. **Right:** publish an event and return.
+- **Wrong:** retry every failure, at once, forever. **Right:** retry only 429, 500 and 503, with growing waits and a cap.
+- **Wrong:** one queue for everything. **Right:** lanes per priority.
+
+<details class="guess"><summary>🤔 Guess: "The queue gives each job to one worker, so there are no duplicates." True? Press to check.</summary>
+
+**No.** The queue delivers at least once. A worker can crash after the send but before it tells the queue "done", and the queue hands the job out again. The dedupe key, `eventId:userId:channel`, with a unique key in the database, makes a second copy harmless.
+
+</details>
+
+> **Remember:** if you freeze, say "Services drop an event. The notification service checks it and queues one job per channel."
+
+<details class="more"><summary>📖 More detail: the three mistakes in full, and the freeze plan</summary>
 
 **Wrong:** send inside the request.
 
@@ -401,21 +497,13 @@ app.post("/loans/:id/approve", async (req, res) => {
 2. "Workers send. Busy answers get a retry, then the dead letter queue. A dead token gets deleted."
 3. "The dedupe key is event, user and channel. Login codes use an urgent lane."
 
-<details><summary>Go deeper (optional)</summary>
-
-**The gap between save and publish.** If the server dies between the save and the publish, the event is lost. The fix is an outbox row written in the same transaction as the save. The walkthrough Part 3 shows it.
-
-**"5xx" in interviews.** People say "5xx" for all the 500 answers, like 500 and 503. Retry them with growing waits.
-
-**The longer freeze lines.** The checks are dedupe, preferences, quiet hours and limits. Busy means 429 and 5xx, with growing waits. Dead means 404 or 410. The dedupe key sits behind a unique index, and the urgent lane means a blast never blocks a login code.
-
 </details>
 
-## 8. Watch and play
+## 7. Watch and play
 
 All links were checked on 2026-10-21. The video facts come from YouTube's own data. If one breaks, say so.
 
-- **Video:** [Design a Notification Service (OneSignal) | Systems Design Questions 3.0 With Ex-Google SWE](https://www.youtube.com/watch?v=IScGMqojqKE), Jordan has no life, 11 min 33 s. Compare it with pictures 2a and 2g.
+- **Video:** [Design a Notification Service (OneSignal) | Systems Design Questions 3.0 With Ex-Google SWE](https://www.youtube.com/watch?v=IScGMqojqKE), Jordan has no life, 11 min 33 s. Compare it with cards 1 and 4.
 - **Play with it:** [the stepper in this folder](visuals/11-design-a-notification-system.html). Guess first. Try both tabs.
 - **Read:** [Hello Interview: Design a Notification System](https://www.hellointerview.com/learn/system-design/problem-breakdowns/notification-system). The full interview answer.
 - **Read:** [ByteByteGo: How Does a Typical Push Notification System Work?](https://bytebytego.com/guides/how-does-a-typical-push-notification-system-work/). One picture of the whole path.
@@ -457,7 +545,7 @@ All links were checked on 2026-10-21. The video facts come from YouTube's own da
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -644,11 +732,11 @@ Checked on 2026-10-21 with Node 24: the 24 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Design a notification system for a banking app. It sends push, email, SMS and in-app messages: login codes, 'your loan is approved', and marketing. 10 million users."
 
-A common follow-up: "The SMS provider is down for 20 minutes. What happens?" SMS jobs wait and retry. Push and email keep flowing. Jobs out of tries wait in the dead letter queue (picture 2f).
+A common follow-up: "The SMS provider is down for 20 minutes. What happens?" SMS jobs wait and retry. Push and email keep flowing. Jobs out of tries wait in the dead letter queue (card 3).
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -663,7 +751,7 @@ A common follow-up: "The SMS provider is down for 20 minutes. What happens?" SMS
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain a notification system out loud to a new junior: problem, how, tradeoff, my example. Use Sari's loan L-42: a 503 and a retry, the event arriving twice, and her old tablet answering 410. Write your best version below. Then run `/explain-check design a notification system` or ask the `explain-coach` agent.
 
@@ -675,7 +763,7 @@ Close this file. Explain a notification system out loud to a new junior: problem
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Walk "loan L-42 approved" from the loan service to Sari's phone. Name each part and each check.
 2. What goes into the dedupe key? Why the event id and not the time? Where else must a worker check before it sends?
@@ -690,6 +778,52 @@ Close this file. Explain a notification system out loud to a new junior: problem
 4. The code is urgent, so it goes into the urgent lane, and workers always empty that lane first. In one shared line it would wait about 10 minutes behind 5 million jobs at 8,300 a second. Urgent jobs also skip quiet hours and the user's channel choices.
 
 </details>
+
+## 12. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Go deeper (optional)</summary>
+
+- Apple's push service is called APNs. Google's is called FCM (Firebase Cloud Messaging).
+- Google answers 404 for a dead token, and Apple answers 410.
+- The app sends its device token to your server. An email company and an SMS company are the other providers.
+- Lesson 10 ended with a push queue and a push worker. This lesson opens that box.
+
+</details>
+
+<details><summary>Go deeper (optional)</summary>
+
+- **The row key in the memory picture (card 4).** Each job row uses the dedupe key plus the address, like `evt77:sari:push:tA`.
+- **Later statuses.** After **sent**, a provider may tell you **delivered** or **opened**.
+- **Why delete dead tokens fast.** Retrying a dead token forever wastes calls. Apple may also drop your connection if you keep making errors.
+
+</details>
+
+<details><summary>Go deeper (optional)</summary>
+
+The code shows three ideas at once: preferences, the retry, and the dedupe key. In a real system, the `sent` set is a unique index on the dedupe key in the database. The retry does not loop in place. The worker puts the job back in the queue with a wait.
+
+</details>
+
+<details><summary>Go deeper (optional)</summary>
+
+- In a real system, step 2 is not a quick loop. The worker puts the job at the back of the queue. It waits 1 s, then 2 s, so other jobs keep moving.
+- Story 1 in the stepper: loan approved, a 503, a retry, and a second copy of the event that the dedupe key stops.
+- Story 2 in the stepper: an urgent OTP jumps past three marketing SMS. A dead token is removed after one 410. A job runs out of tries and goes to the dead letter queue.
+
+</details>
+
+<details><summary>Go deeper (optional)</summary>
+
+**The gap between save and publish.** If the server dies between the save and the publish, the event is lost. The fix is an outbox row written in the same transaction as the save. The walkthrough Part 3 shows it.
+
+**"5xx" in interviews.** People say "5xx" for all the 500 answers, like 500 and 503. Retry them with growing waits.
+
+**The longer freeze lines.** The checks are dedupe, preferences, quiet hours and limits. Busy means 429 and 5xx, with growing waits. Dead means 404 or 410. The dedupe key sits behind a unique index, and the urgent lane means a blast never blocks a login code.
+
+</details>
+
 
 ## Connected lessons
 
