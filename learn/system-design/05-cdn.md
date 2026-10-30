@@ -1,12 +1,32 @@
 # 05. CDN
 
-> **Subject:** System Design · **Lesson:** 05 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 05 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say what a CDN keeps and where, follow a first request (a miss) and a second request (a hit) with the time each user waits, tell what a CDN may keep and what it must never keep, and explain why a file named `app.3f9a1c.js` never needs a purge.
+>
 > **Before this:** [Caching](04-caching.md) · **Next:** [Message queues](06-message-queues.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: copies on servers near the user
 
-A CDN keeps copies of your public files on servers around the world. Each user gets a file from a server close to them, and your own server is asked far less often.
+A CDN keeps copies of your public files on servers around the world. Your own server is the **origin**. A CDN server close to the user is an **edge**. Like a bakery chain: one big bakery in Singapore, and small shops in many cities that each keep a few loaves on a shelf.
+
+```mermaid
+graph TB
+    U["Lena in London"] -->|10 ms| E["Edge London<br/>has a copy"]
+    E -->|only on a miss| O["Origin in Singapore<br/>your own server"]
+```
+
+<details class="guess"><summary>🤔 Guess: Lena in London asks first and the London edge is empty. Tom in London asks next. Example numbers: edge 10 ms, trip to the origin adds 170 ms. How long does each wait? Press to check.</summary>
+
+Lena waits about **180 ms**: a **miss**, so the edge asks the origin and saves a copy. Tom waits about **10 ms**: a **hit**, the copy is on the London shelf. (Example numbers, not measured.)
+
+</details>
+
+> **Remember:** only a miss travels to the origin. The first user at an edge pays a little more. Everyone after pays almost nothing.
+
+<details class="more"><summary>📖 More detail: four new words, the problem drawn, the run over time, and the bakery</summary>
 
 New words (four):
 
@@ -22,11 +42,7 @@ Two plain ideas, explained now so the pictures make sense:
 
 Times are in ms (1 ms is one thousandth of a second). They are example numbers, not measured.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that each user talks to an edge that is close. Only a miss travels to the origin.
+**The big picture.** Notice that each user talks to an edge that is close. Only a miss travels to the origin.
 
 ```mermaid
 graph LR
@@ -36,9 +52,7 @@ graph LR
     E2 -->|only on a miss| O
 ```
 
-### 2b. The problem, drawn
-
-This is a site with no CDN. Notice that every file from every user travels to one server, and London waits the longest.
+**The problem, drawn.** This is a site with no CDN. Notice that every file from every user travels to one server, and London waits the longest.
 
 ```mermaid
 graph LR
@@ -51,9 +65,7 @@ graph LR
     class O,W bad
 ```
 
-### 2c. How it works over time
-
-Notice that Lena makes the long trip and Tom does not. Lena was first, so she filled the shelf.
+**How it works over time.** Notice that Lena makes the long trip and Tom does not. Lena was first, so she filled the shelf.
 
 ```mermaid
 sequenceDiagram
@@ -72,9 +84,7 @@ sequenceDiagram
     E-->>T: the file after 10 ms
 ```
 
-### 2d. What is on each shelf right now
-
-This is a snapshot after Lena, Tom and Ana. Notice that each edge has its own shelf. The Jakarta edge is empty, because nobody near Jakarta has asked.
+**What is on each shelf right now.** This is a snapshot after Lena, Tom and Ana. Notice that each edge has its own shelf. The Jakarta edge is empty, because nobody near Jakarta has asked.
 
 ```mermaid
 graph TB
@@ -96,85 +106,22 @@ graph TB
     class J1 empty
 ```
 
-### 2e. Right against wrong
+**The same idea with real distances.**
 
-The shelf is shared, and the edge finds a copy by the URL. It does not look at the cookie. Public means any shared cache may keep the page. Private means only the user's own browser may. Notice what Omar gets.
+The same idea with real distances. The numbers match the stepper page and the over-time picture above.
 
-```mermaid
-graph LR
-    W1["Page /account holds Lena's data<br/>header says public"] --> W2["Edge saves it under the URL /account"]
-    W2 --> W3["Omar asks for /account"]
-    W3 --> W4["Edge sends Lena's page to Omar"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class W1,W2,W3,W4 bad
-```
+| User | With no CDN | With a CDN | Why |
+|---|---|---|---|
+| Lena in London, first | 170 ms | 180 ms | Miss. The short trip to the edge, then the long trip to the origin. |
+| Tom in London, second | 170 ms | 10 ms | Hit. The copy is on the London shelf. |
+| Ana in Sydney, first in Sydney | 90 ms | 100 ms | Miss. The Sydney shelf was empty. |
+| Times the origin was asked | 3 | 2 | One miss for each edge, not one for each user. |
 
-```mermaid
-graph LR
-    R1["Page /account holds Lena's data<br/>header says private"] --> R2["Edge does not save it"]
-    R2 --> R3["Omar asks for /account"]
-    R3 --> R4["Edge asks the origin<br/>Omar gets his own page"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class R1,R2,R3,R4 good
-```
+What to see: the first user at an edge pays a little more than with no CDN. Everyone after that pays almost nothing.
 
-### 2f. What may an edge keep?
+**Step through it yourself:** [open the stepper](visuals/05-cdn.html). It has three stories: first misses and second hits with the wait times, a private page cached by mistake, and a new deploy with the same name against a fingerprint name. Guess first, then press Next.
 
-Notice that one question decides it: does every user get exactly the same page from this URL?
-
-```mermaid
-graph TB
-    Q["Does every user get the same answer from this URL?"] -->|yes| Y["Public files and pages<br/>images and fonts and scripts and styles<br/>public pages"]
-    Q -->|no| N["Per user answers<br/>account and cart and orders and anything with a login"]
-    Y --> YK["The edge may keep it<br/>public with a time limit"]
-    N --> NK["The edge must not keep it<br/>private"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class Y,YK good
-    class N,NK bad
-```
-
-### 2g. A new deploy: same name against a fingerprint name
-
-Notice that the second way needs no purge. A new name is a new key on the shelf.
-
-```mermaid
-graph TB
-    subgraph OLD["Same file name app.js"]
-        O1["Deploy new code"] --> O2["Edge still holds the old app.js<br/>fresh for 1 day"]
-        O2 --> O3["Users get the OLD file"]
-        O3 --> O4["You must purge app.js"]
-    end
-    subgraph NEW["Fingerprint in the name"]
-        N1["Deploy new code"] --> N2["New file app.8b2d70.js<br/>a new name"]
-        N2 --> N3["The page names the new file<br/>the edge misses once and saves it"]
-        N3 --> N4["No purge<br/>the old copy is just never asked for"]
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class O2,O3,O4 bad
-    class N2,N3,N4 good
-```
-
-### 2h. Where the CDN sits in a Next.js app
-
-Notice that the edge keeps two kinds of things and skips one. ISR pages are pages that Next.js builds ahead of time and rebuilds in the background. Everything else is a miss that goes to Next.js.
-
-```mermaid
-graph LR
-    B["Browser"] --> E["CDN edge"]
-    E -->|miss| N["Next.js server<br/>the origin"]
-    N --> DB["PostgreSQL"]
-    E -->|kept 1 year| K1["Static files<br/>fingerprint in the name"]
-    E -->|kept for a set time| K2["ISR pages<br/>rebuilt in the background"]
-    E -->|never kept| S1["Per user pages<br/>private"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class K1,K2 good
-    class S1 bad
-```
-
-## 3. Real life analogy
+**The bakery in full.**
 
 A bakery chain has one big bakery in Singapore. Far away customers would wait a long time for each loaf. So the chain opens small shops in many cities. Each shop keeps a few loaves on a shelf.
 
@@ -186,7 +133,29 @@ A bakery chain has one big bakery in Singapore. Far away customers would wait a 
 
 Where the analogy stops: bread goes bad by itself, but a file copy never changes. It is only out of date when the original changes.
 
-## 4. The smallest code that shows it
+</details>
+
+## 2. How the edge decides: the Cache-Control note
+
+Your origin writes a short note on every answer, called a **header**. The one that matters is `Cache-Control`. It says who may keep the answer, and for how long. The edge and the browser obey it. If there is no note, the CDN guesses, so always write the note on purpose.
+
+| Note | In plain words |
+|---|---|
+| `public, max-age=60` | any cache may keep it for 60 seconds |
+| `private` | only the user's own browser may keep it |
+| `no-store` | nobody keeps it, anywhere |
+
+<details class="guess"><summary>🤔 Guess: the origin sends `private` for `/account` and `public, max-age=60` for `/logo.png`. We ask for each one twice. How many of the 4 requests reach the origin? Press to check.</summary>
+
+**3.** `/logo.png` is a miss, then a hit. `/account` is a miss both times, because the edge never saves a `private` answer. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** the origin writes the note and the edge obeys it.
+
+<details class="more"><summary>📖 More detail: the code, the real output, step by step, and all the notes</summary>
+
+**The smallest code that shows it.**
 
 The origin is a real server on localhost. The edge is a `Map` that obeys the header. We ask for `/logo.png` twice and for `/account` twice. The origin says `private` for `/account`.
 
@@ -219,7 +188,9 @@ Checked on 2026-10-16 with Node 22.
 
 The `Map` is the shelf. The `fetch` call is the edge asking the origin. The edge saves the body unless the header says `private` or `no-store`. This edge keeps a copy for ever. A real edge also forgets it after `max-age` seconds.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
+
+**What really happens, step by step.**
 
 The "machine" here is the edge shelf. The state is what sits on it, and how many times the origin is asked. Read one row at a time.
 
@@ -231,41 +202,7 @@ The "machine" here is the edge shelf. The state is what sits on it, and how many
 | 4 | `url` is `/account` again | Nothing was saved, so there is still no copy. The edge asks the origin again. | `/logo.png` only | 3 times | MISS `/account` |
 | 5 | the loop ends | `origin.close()` stops the server. 4 requests came in. The origin saw 3 of them. | `/logo.png` only | 3 times | nothing |
 
-The same idea with real distances. The numbers match the stepper page and picture 2c.
-
-| User | With no CDN | With a CDN | Why |
-|---|---|---|---|
-| Lena in London, first | 170 ms | 180 ms | Miss. The short trip to the edge, then the long trip to the origin. |
-| Tom in London, second | 170 ms | 10 ms | Hit. The copy is on the London shelf. |
-| Ana in Sydney, first in Sydney | 90 ms | 100 ms | Miss. The Sydney shelf was empty. |
-| Times the origin was asked | 3 | 2 | One miss for each edge, not one for each user. |
-
-What to see: the first user at an edge pays a little more than with no CDN. Everyone after that pays almost nothing.
-
-**Step through it yourself:** [open the stepper](visuals/05-cdn.html). It has three stories: first misses and second hits with the wait times, a private page cached by mistake, and a new deploy with the same name against a fingerprint name. Guess first, then press Next.
-
-## 6. Why it exists and what it costs
-
-- **Problem without it:** far users wait for every file, and a page needs dozens of files. Your own server also sends every download.
-- **How it solves it:** the edge keeps copies near users. A hit costs one short trip and never reaches your server (pictures 2a to 2d).
-- **Cost or tradeoff:**
-  - The first user at each edge waits a little more than with no CDN.
-  - A copy can be out of date until its time is up, or until you purge it.
-  - It is one more part to pay for, and one more place to look when a user sees the wrong thing.
-  - The shelf is shared, so private data on it can reach the wrong user (picture 2e).
-
-### 6a. What may an edge keep?
-
-Ask one question: will every user get exactly the same page from this URL? If yes, the edge may keep it. If no, it must not. By default the edge finds a copy by the URL only.
-
-| Keep at the edge | Do not keep at the edge |
-|---|---|
-| Images, fonts and video | A user's account, cart or orders |
-| JavaScript and CSS files that have a fingerprint in the name | Any answer that changes with the login |
-| Public pages that look the same for everyone | A balance or a stock count that must be exact right now |
-| Public API answers, with a short time | Anything with a secret in it |
-
-### 6b. The notes that control it
+**The notes that control it.**
 
 Your origin writes these notes. The edge and the browser obey them. If a response has no note, the CDN guesses, so always write the note on purpose.
 
@@ -279,7 +216,116 @@ Your origin writes these notes. The edge and the browser obey them. If a respons
 | `immutable` | This file never changes. Do not even check. |
 | `ETag: "abc"` | A fingerprint of the answer. After the time is up, the edge asks "is abc still the latest?". The origin can say "yes" with no file. |
 
-### 6c. Purge, and file names that never need one
+</details>
+
+## 3. What may an edge keep?
+
+The shelf is shared, and the edge finds a copy by the **URL**. It does not look at the cookie. So a per user page on the shelf can reach the wrong user. One question decides it: does every user get exactly the same page from this URL? Yes: the edge may keep it. No: it must not (`private`).
+
+```mermaid
+graph TB
+    A["/account holds Lena's data<br/>header says public"] --> B["Edge saves it<br/>under the URL /account"]
+    B --> C["Omar asks for /account"]
+    C --> D["Edge sends Lena's page<br/>to Omar"]
+```
+
+<details class="guess"><summary>🤔 Guess: which may a CDN keep: a logo, a cart page, a public blog post, an account page? Press to check.</summary>
+
+The **logo** and the **public blog post**. The cart and the account page change with the login, so they must be `private`.
+
+</details>
+
+> **Remember:** does every user get exactly the same page from this URL? If not, it is private.
+
+<details class="more"><summary>📖 More detail: right against wrong, the one question drawn, and the keep list</summary>
+
+**Right against wrong.** The shelf is shared, and the edge finds a copy by the URL. It does not look at the cookie. Public means any shared cache may keep the page. Private means only the user's own browser may. Notice what Omar gets.
+
+```mermaid
+graph LR
+    W1["Page /account holds Lena's data<br/>header says public"] --> W2["Edge saves it under the URL /account"]
+    W2 --> W3["Omar asks for /account"]
+    W3 --> W4["Edge sends Lena's page to Omar"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class W1,W2,W3,W4 bad
+```
+
+```mermaid
+graph LR
+    R1["Page /account holds Lena's data<br/>header says private"] --> R2["Edge does not save it"]
+    R2 --> R3["Omar asks for /account"]
+    R3 --> R4["Edge asks the origin<br/>Omar gets his own page"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class R1,R2,R3,R4 good
+```
+
+**What may an edge keep?** Notice that one question decides it: does every user get exactly the same page from this URL?
+
+```mermaid
+graph TB
+    Q["Does every user get the same answer from this URL?"] -->|yes| Y["Public files and pages<br/>images and fonts and scripts and styles<br/>public pages"]
+    Q -->|no| N["Per user answers<br/>account and cart and orders and anything with a login"]
+    Y --> YK["The edge may keep it<br/>public with a time limit"]
+    N --> NK["The edge must not keep it<br/>private"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class Y,YK good
+    class N,NK bad
+```
+
+Ask one question: will every user get exactly the same page from this URL? If yes, the edge may keep it. If no, it must not. By default the edge finds a copy by the URL only.
+
+| Keep at the edge | Do not keep at the edge |
+|---|---|
+| Images, fonts and video | A user's account, cart or orders |
+| JavaScript and CSS files that have a fingerprint in the name | Any answer that changes with the login |
+| Public pages that look the same for everyone | A balance or a stock count that must be exact right now |
+| Public API answers, with a short time | Anything with a secret in it |
+
+</details>
+
+## 4. A new deploy: a fingerprint in the file name
+
+If you deploy new code but keep the file name `app.js`, the edge keeps giving out the old file until its time is up. A **purge** (throwing the copy away) works, but it takes seconds, it never reaches browsers that already hold the file, and someone must remember it. The better fix: put a short code made from the file content in the name, `app.3f9a1c.js`. New content means a new name.
+
+```mermaid
+graph TB
+    A["Deploy new code"] --> B["New file app.8b2d70.js<br/>a new name"]
+    B --> C["The page names the new file<br/>the edge misses once"]
+    C --> D["No purge<br/>the old copy is never asked for"]
+```
+
+<details class="guess"><summary>🤔 Guess: why can a file named `app.3f9a1c.js` be kept for a year with no purge? Press to check.</summary>
+
+**One name never holds two contents.** If one letter changes, the code changes, and so does the name. A copy under that name is never out of date. The page (HTML) holds the names, so the page gets a short time, such as 60 seconds.
+
+</details>
+
+> **Remember:** give a long life only to a name that changes when the content changes.
+
+<details class="more"><summary>📖 More detail: same name against fingerprint name, and the purge problems</summary>
+
+**A new deploy: same name against a fingerprint name.** Notice that the second way needs no purge. A new name is a new key on the shelf.
+
+```mermaid
+graph TB
+    subgraph OLD["Same file name app.js"]
+        O1["Deploy new code"] --> O2["Edge still holds the old app.js<br/>fresh for 1 day"]
+        O2 --> O3["Users get the OLD file"]
+        O3 --> O4["You must purge app.js"]
+    end
+    subgraph NEW["Fingerprint in the name"]
+        N1["Deploy new code"] --> N2["New file app.8b2d70.js<br/>a new name"]
+        N2 --> N3["The page names the new file<br/>the edge misses once and saves it"]
+        N3 --> N4["No purge<br/>the old copy is just never asked for"]
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class O2,O3,O4 bad
+    class N2,N3,N4 good
+```
+
+**Purge, and file names that never need one.**
 
 The problem: you deploy new code, but the edge keeps giving out the old file until its time is up. There are two fixes.
 
@@ -293,16 +339,80 @@ The problem: you deploy new code, but the edge keeps giving out the old file unt
 
 Rule: give a long life only to a name that changes when the content changes.
 
-### 6d. Where the CDN sits in a Next.js app
+</details>
 
-Picture 2h shows it.
+## 5. What a CDN costs, and where it sits in Next.js
+
+The costs: the first user at each edge waits a little more, a copy can be out of date until its time is up, it is one more part to pay for, and the shared shelf can leak private data. In a Next.js app, the edge keeps build files (fingerprint in the name, one year `immutable`) and ISR pages (built ahead and rebuilt in the background), and never keeps per user pages.
+
+```mermaid
+graph TB
+    B["Browser"] --> E["CDN edge<br/>keeps static files<br/>and ISR pages"]
+    E -->|miss| N["Next.js server<br/>the origin"]
+    N --> DB["PostgreSQL"]
+```
+
+<details class="guess"><summary>🤔 Guess: a Next.js app has build files, ISR pages and per user pages. Which one gets a one year `immutable` note? Press to check.</summary>
+
+The **build files**, because their names have a fingerprint. ISR pages get a set time (`s-maxage`). Per user pages are not kept.
+
+</details>
+
+> **Remember:** the CDN protects your origin. Only misses reach it.
+
+<details class="more"><summary>📖 More detail: where the CDN sits, the full cost list, and refreshing a page on purpose</summary>
+
+**Where the CDN sits in a Next.js app.** Notice that the edge keeps two kinds of things and skips one. ISR pages are pages that Next.js builds ahead of time and rebuilds in the background. Everything else is a miss that goes to Next.js.
+
+```mermaid
+graph LR
+    B["Browser"] --> E["CDN edge"]
+    E -->|miss| N["Next.js server<br/>the origin"]
+    N --> DB["PostgreSQL"]
+    E -->|kept 1 year| K1["Static files<br/>fingerprint in the name"]
+    E -->|kept for a set time| K2["ISR pages<br/>rebuilt in the background"]
+    E -->|never kept| S1["Per user pages<br/>private"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class K1,K2 good
+    class S1 bad
+```
+
+**Why it exists and what it costs.**
+
+- **Problem without it:** far users wait for every file, and a page needs dozens of files. Your own server also sends every download.
+- **How it solves it:** the edge keeps copies near users. A hit costs one short trip and never reaches your server (card 1).
+- **Cost or tradeoff:**
+  - The first user at each edge waits a little more than with no CDN.
+  - A copy can be out of date until its time is up, or until you purge it.
+  - It is one more part to pay for, and one more place to look when a user sees the wrong thing.
+  - The shelf is shared, so private data on it can reach the wrong user (card 3).
+
+**In a Next.js app.**
+
+The picture is in the blue bar above.
 
 - Next.js puts a fingerprint in the names of its build files and sends them with a one year `immutable` note. They never need a purge.
 - A page built ahead of time can be kept too. ISR (incremental static regeneration) means: Next.js builds the page once, keeps it, and rebuilds it in the background after a set number of seconds. It sends `s-maxage` with that time.
 - A page that depends on the user is built on each request and is not kept.
 - The catch: when you refresh a page on purpose, only Next.js forgets its copy. Purge the CDN at the same moment.
 
-## 7. Common mistakes
+</details>
+
+## 6. Two mistakes, and what to say if you freeze
+
+- **Wrong:** a per user page gets a public note. **Right:** `Cache-Control: private`.
+- **Wrong:** a long life on a name that does not change (`/app.js`). **Right:** a fingerprint in the name (`/app.3f9a1c.js`).
+
+<details class="guess"><summary>🤔 Guess: you cache `/account` with `public, s-maxage=300`. Does anything crash? Press to check.</summary>
+
+**No.** Nothing crashes, so you may not notice for a long time. Lena's page goes to Omar, because the edge finds a copy by URL and the URL is the same for every user.
+
+</details>
+
+> **Remember:** if you freeze, ask "does every user get the same answer from this URL?".
+
+<details class="more"><summary>📖 More detail: the two mistakes in full, and the freeze plan</summary>
 
 **Wrong:** a per user page gets a public note.
 
@@ -342,15 +452,17 @@ Cache-Control: public, max-age=31536000, immutable
 2. If yes, the CDN keeps it. Files get a fingerprint name and a long time. The page gets a short time.
 3. If no, it is `private`. Say the numbers: "A hit costs about 10 ms. A far miss costs about 170 ms."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
-- **Video:** [CDN - Content Delivery Network - Explained](https://www.youtube.com/watch?v=nhhfSBm6v4A) - the title came from a search result. I could not see the channel or the length. Watch for "files closer to users" and compare with picture 2a.
+- **Video:** [CDN - Content Delivery Network - Explained](https://www.youtube.com/watch?v=nhhfSBm6v4A) - the title came from a search result. I could not see the channel or the length. Watch for "files closer to users" and compare with the big picture in card 1.
 - **Play with it:** [Engineers Universe: Content Delivery Network Simulator](https://engineersuniverse.com/labs/ai-computing/cloud-computing/content-delivery-network) - a search summary says you can pick an edge, set the time limit, publish a new version at the origin and take the origin offline. Try: set a long time limit, publish a new version, and watch an edge give the old one.
 - **Play with it:** [the stepper in this folder](visuals/05-cdn.html) - guess first, then press Next. Try all three tabs.
-- **Read:** [Next.js: CDN caching](https://nextjs.org/docs/app/guides/cdn-caching) - the notes Next.js sends for static files, ISR pages and per user pages. Compare with picture 2h.
-- **Read:** [MDN: Cache-Control](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Cache-Control) - find `s-maxage`, `private` and `immutable`. Compare with the table in 6b.
+- **Read:** [Next.js: CDN caching](https://nextjs.org/docs/app/guides/cdn-caching) - the notes Next.js sends for static files, ISR pages and per user pages. Compare with the Next.js picture in card 5.
+- **Read:** [MDN: Cache-Control](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Cache-Control) - find `s-maxage`, `private` and `immutable`. Compare with the notes table in card 2 (blue bar).
 - **Read:** [Cloudflare: default cache behavior](https://developers.cloudflare.com/cache/concepts/default-cache-behavior) - what one real CDN keeps and skips when you set no note.
 - **Read (pictures):** [System Design Primer](https://github.com/donnemartin/system-design-primer) - find the CDN part. This link came from older notes in this folder.
 
@@ -372,11 +484,11 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
-Take the code from section 4. Change line 2 to this, and use this list in the `for` line:
+Take the code from card 2 (blue bar). Change line 2 to this, and use this list in the `for` line:
 
 ```js
 res.setHeader("Cache-Control", req.url === "/home" ? "no-store" : "public, max-age=60");
@@ -459,7 +571,7 @@ Read these six responses. For each one, write: may the CDN keep it, for how long
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Users far from our server say the site is slow, and our server is busy sending images and scripts. How would you use a CDN, and what would you keep off it?"
 
@@ -476,7 +588,7 @@ Read these six responses. For each one, write: may the CDN keep it, for how long
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain the CDN out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of Lena, Tom and Omar. Then write your best version below and run `/explain-check cdn` or ask the `explain-coach` agent to review it.
 
@@ -488,12 +600,12 @@ Close this file. Explain the CDN out loud like to a new junior, in 4 parts (prob
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Lena and then Tom, both in London, ask for the same file. The London edge is empty. What happens each time, and how long does each user wait (use the example numbers)?
 2. The page `/account` shows "Hi Lena, 1,200 points". Which note keeps it safe, and what goes wrong with `public`?
 3. Why does `app.3f9a1c.js` never need a purge, but `/app.js` with a one day life does?
-4. Draw the picture from section 2c from memory.
+4. Draw the over-time picture (card 1, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
