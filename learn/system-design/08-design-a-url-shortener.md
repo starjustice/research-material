@@ -1,12 +1,33 @@
 # 08. Design a URL shortener
 
-> **Subject:** System Design · **Lesson:** 08 · **Made:** 2026-10-17 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 08 · **Made:** 2026-10-17 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** draw how a short link is made and how a click is answered, compare three ways to make the code (hash, counter, random), explain why two links can get the same code and how the table stops it, and say what 301 and 302 do to caching and click counts.
+>
 > **Before this:** [Consistency and CAP](07-consistency-and-cap.md) · **Next:** [Design a rate limiter](09-design-a-rate-limiter.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a table from a short code to a long link
 
-A URL shortener is a table that maps a short code to a long link. Making a link adds one row. A click finds the row and tells the browser to go to the long link.
+A URL shortener is a table that maps a short code to a long link. Making a link adds one row. A click finds the row and tells the browser to go to the long link. Like numbered post office boxes: each box holds a note, "forward this mail to this long address". The table is easy. The two hard parts are a code that never repeats, and about 100 clicks for every new link.
+
+```mermaid
+graph TB
+    U["Person clicks sho.rt/21"] --> S["Redirect server<br/>looks up the code"]
+    S --> C["Cache, then link table<br/>21 maps to the long link"]
+    C --> R["Answer 302 and the long link<br/>the browser goes there"]
+```
+
+<details class="guess"><summary>🤔 Guess: 10 million new links a day, and each link gets about 100 clicks. How many clicks a second at the busiest time (about 3 times the average)? Press to check.</summary>
+
+**About 30,000 a second.** 10 million divided by 100,000 seconds (rounded) is 100 new links a second. Times 100 clicks is 10,000. Times 3 for the busiest time is 30,000. The click rate is the driver of this design.
+
+</details>
+
+> **Remember:** a short code is a key in a table. A click is a read. Reads are about 100 times more than writes.
+
+<details class="more"><summary>📖 More detail: new words, the big picture, the two problems, the post office, and the numbers</summary>
 
 Lessons 02 to 07 gave you the parts: many servers, a cache, copies and queues. This lesson uses them in one small design. The table is easy. The two hard parts are a code that never repeats, and about 100 clicks for every new link.
 
@@ -31,9 +52,7 @@ From lessons 04, 06 and 07:
 
 Times in the pictures are example numbers, not measured.
 
-## 2. The pictures
-
-### 2a. The big picture
+**The big picture.** Notice that there are two paths. Making a link writes one row. A click reads one row, and the cache answers most clicks.
 
 Notice that there are two paths. Making a link writes one row. A click reads one row, and the cache answers most clicks.
 
@@ -47,7 +66,7 @@ graph LR
     M -->|make a unique code and save| D
 ```
 
-### 2b. The problem, drawn
+**The problem, drawn.** This is a collision with no unique rule. Notice that nothing crashed and nobody saw an error. Ann's readers just land on the wrong site.
 
 This is a collision with no unique rule. Notice that nothing crashed and nobody saw an error. Ann's readers just land on the wrong site.
 
@@ -77,7 +96,66 @@ graph LR
     class T,X bad
 ```
 
-### 2c. How it works over time: making a link
+**The post office in full.**
+
+A post office with numbered boxes. Each box has a number on the door. Inside the box is a note: "forward this mail to this long address."
+
+- **Making a link:** the clerk takes the next free box number and writes the note.
+- **A click:** a person says the box number. The clerk reads the note and points them to the address.
+- **A collision:** the clerk gives box 21 to two people. The second note replaces the first. Now the first person's mail goes to the wrong house.
+- **The unique rule:** the box register will not accept a second note for a box that has one.
+- **301 and 302:** with a 301 the person writes the address on their hand and never asks again. With a 302 they ask the clerk every time.
+
+Where the analogy stops: a post office has a few hundred boxes. A shortener has billions, and 30,000 people may ask in one second. So the clerk needs a fast copy of the notes nearby, which is the cache.
+
+**Why it exists and what it costs.**
+
+- **Problem without it:** a long link is hard to type and hard to print. And when you share it, you lose all control. You cannot count clicks, change the target or turn it off.
+- **How it solves it:** a short code in a table gives you a small link that you own. Every click passes through your server, so you can count it, change it or stop it.
+- **Cost or tradeoff:** every click now depends on your service. A dead redirect breaks someone else's page. So reading must be fast and always up. Making a link can wait for a moment if it must.
+
+**The numbers.**
+
+A rough estimate with round numbers (interview words: back of the envelope). These are assumptions. Say them out loud in the interview.
+
+| Question | The math | Answer |
+|---|---|---|
+| New links per second | 10 million a day, divided by 100,000 (seconds in a day, rounded) | 100 per second |
+| Clicks per second | 100 clicks for each new link, so 100 times 100 | 10,000 per second |
+| Clicks at the busiest time | 10,000 times 3 | 30,000 per second |
+| Storage in one year | 10 million times 365 times 500 bytes a row | about 1.8 TB |
+| Links in 5 years | 10 million times 365 times 5 | 18 billion |
+| Codes with 6 letters | 62 to the power of 6 | 56.8 billion, enough for 5 years |
+| Codes with 7 letters | 62 to the power of 7 | 3.5 trillion, about 960 years at this rate |
+| Cache size | the busy 20 percent of one day's links: 2 million times 500 bytes | about 1 GB |
+| Reads that reach the table | 30,000 times 10 percent misses (a 90 percent hit rate is an assumption) | 3,000 per second |
+
+The driver is the click rate, 30,000 a second. Storage is not the problem in year one. Take 7 letters, so you never run out.
+
+</details>
+
+## 2. Making the code: a counter plus base62
+
+A counter hands out the next number. **Base62** counts with 62 symbols (`0-9`, `a-z`, `A-Z`), so a big number becomes short text: 125 becomes `21`. Then the code is saved with "insert only if the code is new". The table, not the server, has the last word on whether a code is free.
+
+```mermaid
+graph TB
+    A["Creator shortens<br/>shop.example/summer"] --> B["Counter gives 125<br/>125 in base62 is 21"]
+    B --> C["Insert 21 only if the code is new<br/>the table decides"]
+    C --> D["Your link is sho.rt/21"]
+```
+
+<details class="guess"><summary>🤔 Guess: 18 billion links in 5 years. Do 6 letters of base62 hold enough, and how many letters do you take? Press to check.</summary>
+
+6 letters hold 56.8 billion, enough for 5 years. But take **7 letters** (3.5 trillion, about 960 years at this rate), so you never run out.
+
+</details>
+
+> **Remember:** the counter never gives a code twice. A collision can come only from a custom alias.
+
+<details class="more"><summary>📖 More detail: making a link over time, the code, the real output, and step by step</summary>
+
+**How it works over time: making a link.** This uses a counter. Notice that the table, not the server, has the last word on whether a code is free.
 
 This uses a counter. Notice that the table, not the server, has the last word on whether a code is free.
 
@@ -96,7 +174,7 @@ sequenceDiagram
     S-->>C: Your link is sho.rt/21
 ```
 
-### 2d. What is in memory right now
+**What is in memory right now.** This is one moment. Notice that the counter is always ahead of the table by one, and the cache holds only links that were clicked.
 
 This is one moment. Notice that the counter is always ahead of the table by one, and the cache holds only links that were clicked.
 
@@ -118,105 +196,7 @@ graph TB
     R3 -.->|copied on a click| C2
 ```
 
-### 2e. Right against wrong
-
-Both ways meet the same two people who want the alias `sale` at the same moment. Notice who decides: on the wrong way two servers decide. On the right way the table decides.
-
-```mermaid
-graph LR
-    W1["Ann and Ben both ask for alias sale"] --> W2["Both servers check<br/>the table says free"]
-    W2 --> W3["Both servers save"]
-    W3 --> W4["The second save replaces the first<br/>Ann's link is gone and nobody is told"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class W2,W3,W4 bad
-```
-
-```mermaid
-graph LR
-    R1["Ann and Ben both ask for alias sale"] --> R2["Both servers save at once<br/>The table has a unique rule"]
-    R2 --> R3["The table accepts one<br/>and refuses the other"]
-    R3 --> R4["The refused server tells Ben<br/>alias taken so pick another"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class R1,R2,R3,R4 good
-```
-
-### 2f. How it works over time: a click
-
-This is the read path. Notice that the second click never touches the table.
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant S as Redirect server
-    participant C as Cache
-    participant T as Link table
-    B->>S: Click sho.rt/21
-    S->>C: Get 21
-    C-->>S: Not there so a miss
-    S->>T: Find the long link for 21
-    T-->>S: shop.example/summer
-    S->>C: Keep 21 for 1 day
-    S-->>B: 302 and Location shop.example/summer
-    B->>S: Next person clicks sho.rt/21
-    S->>C: Get 21
-    C-->>S: shop.example/summer so a hit
-    S-->>B: 302 and Location shop.example/summer
-    Note over C,T: The table is not touched on the second click
-```
-
-### 2g. 301 against 302
-
-The same person clicks twice. Notice who hears about click 2: on the 301 side nobody, on the 302 side your server.
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant S as Your server
-    B->>S: Click 1 on sho.rt/21
-    S-->>B: 301 and Location shop.example/summer
-    Note over B: The browser may keep this answer for a very long time
-    B->>B: Click 2 goes straight to the shop
-    Note over S: Your server never hears about click 2
-    Note over S: If you turn the link off this browser does not know
-```
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant S as Your server
-    B->>S: Click 1 on sho.rt/21
-    S-->>B: 302 and Location shop.example/summer
-    B->>S: Click 2 on sho.rt/21
-    S-->>B: 302 and Location shop.example/summer
-    Note over S: Every click reaches you so you can count it and turn the link off
-```
-
-### 2h. Which way to make the code?
-
-This is the choice you say out loud. Notice that the default is the counter, and the other two need a retry loop.
-
-```mermaid
-graph TB
-    Q["I need a new short code"] --> D1["Must one long link<br/>always give the same code?"]
-    D1 -->|yes| H["Hash the link<br/>keep 7 letters<br/>unique rule and retry"]
-    D1 -->|no| D2["Must codes be hard to guess?"]
-    D2 -->|yes| R["7 random letters<br/>unique rule and retry"]
-    D2 -->|no| K["Counter plus base62<br/>the usual choice"]
-```
-
-## 3. Real life analogy
-
-A post office with numbered boxes. Each box has a number on the door. Inside the box is a note: "forward this mail to this long address."
-
-- **Making a link:** the clerk takes the next free box number and writes the note.
-- **A click:** a person says the box number. The clerk reads the note and points them to the address.
-- **A collision:** the clerk gives box 21 to two people. The second note replaces the first. Now the first person's mail goes to the wrong house.
-- **The unique rule:** the box register will not accept a second note for a box that has one.
-- **301 and 302:** with a 301 the person writes the address on their hand and never asks again. With a 302 they ask the clerk every time.
-
-Where the analogy stops: a post office has a few hundred boxes. A shortener has billions, and 30,000 people may ask in one second. So the clerk needs a fast copy of the notes nearby, which is the cache.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.**
 
 A counter hands out numbers. Base62 turns each number into a code. The table check keeps a code from being used twice. Someone already chose the alias `b`, so the counter will meet a collision.
 
@@ -248,7 +228,9 @@ Checked on 2026-10-17 with Node 24.
 
 The first line prints before `a c d` because `console.log` runs all three `create` calls first. Look at `a c d`. The code `b` is missing. The counter gave out 11, the table said "taken", and the loop moved on to 12. The last line shows that 7 letters hold numbers up to 3.5 trillion.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
+
+**What really happens, step by step.**
 
 The machine here is the counter, the table and the check. One row is one thing the code does.
 
@@ -270,31 +252,52 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/08-design-a-url-shortener.html). It has three stories. Story 1 is the counter above, step by step. Story 2 is a collision, with and without a unique rule. Story 3 is one browser that clicks a 301 link, a 301 link with a 90 second timer, and a 302 link. Guess first, then press Next.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** a long link is hard to type and hard to print. And when you share it, you lose all control. You cannot count clicks, change the target or turn it off.
-- **How it solves it:** a short code in a table gives you a small link that you own. Every click passes through your server, so you can count it, change it or stop it.
-- **Cost or tradeoff:** every click now depends on your service. A dead redirect breaks someone else's page. So reading must be fast and always up. Making a link can wait for a moment if it must.
+## 3. Two links, one code: the unique rule
 
-### The numbers
+A **collision** is two different long links getting the same short code. With a hash, cut to 7 letters, collisions are certain over the years. With random codes they get likelier as the table fills. The fix is a **unique rule** in the table: no two rows may have the same code, and the table refuses the second one. Do not check first and then save: the gap between them is where two requests both pass.
 
-A rough estimate with round numbers (interview words: back of the envelope). These are assumptions. Say them out loud in the interview.
+```mermaid
+graph TB
+    A["Ann and Ben both ask<br/>for alias sale"] --> B["Both servers check<br/>the table says free"]
+    B --> C["Both servers save<br/>the second replaces the first"]
+    C --> D["Ann's link is gone<br/>nobody is told"]
+```
 
-| Question | The math | Answer |
-|---|---|---|
-| New links per second | 10 million a day, divided by 100,000 (seconds in a day, rounded) | 100 per second |
-| Clicks per second | 100 clicks for each new link, so 100 times 100 | 10,000 per second |
-| Clicks at the busiest time | 10,000 times 3 | 30,000 per second |
-| Storage in one year | 10 million times 365 times 500 bytes a row | about 1.8 TB |
-| Links in 5 years | 10 million times 365 times 5 | 18 billion |
-| Codes with 6 letters | 62 to the power of 6 | 56.8 billion, enough for 5 years |
-| Codes with 7 letters | 62 to the power of 7 | 3.5 trillion, about 960 years at this rate |
-| Cache size | the busy 20 percent of one day's links: 2 million times 500 bytes | about 1 GB |
-| Reads that reach the table | 30,000 times 10 percent misses (a 90 percent hit rate is an assumption) | 3,000 per second |
+<details class="guess"><summary>🤔 Guess: 3.5 trillion codes, and 1 billion links already stored. How likely is a new random code to be taken already? Press to check.</summary>
 
-The driver is the click rate, 30,000 a second. Storage is not the problem in year one. Take 7 letters, so you never run out.
+About **3 in 10,000**. At 18 billion links it is about 5 in 1,000. So collisions are a normal event, not a rare error. Each create must check anyway, so a retry costs almost nothing.
 
-### Three ways to make the code
+</details>
+
+> **Remember:** let the table decide, in one step. The unique rule refuses the second one.
+
+<details class="more"><summary>📖 More detail: right against wrong, the three ways to make a code, and custom aliases</summary>
+
+**Right against wrong.** Both ways meet the same two people who want the alias `sale` at the same moment. Notice who decides: on the wrong way two servers decide. On the right way the table decides.
+
+Both ways meet the same two people who want the alias `sale` at the same moment. Notice who decides: on the wrong way two servers decide. On the right way the table decides.
+
+```mermaid
+graph LR
+    W1["Ann and Ben both ask for alias sale"] --> W2["Both servers check<br/>the table says free"]
+    W2 --> W3["Both servers save"]
+    W3 --> W4["The second save replaces the first<br/>Ann's link is gone and nobody is told"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class W2,W3,W4 bad
+```
+
+```mermaid
+graph LR
+    R1["Ann and Ben both ask for alias sale"] --> R2["Both servers save at once<br/>The table has a unique rule"]
+    R2 --> R3["The table accepts one<br/>and refuses the other"]
+    R3 --> R4["The refused server tells Ben<br/>alias taken so pick another"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class R1,R2,R3,R4 good
+```
+
+**Three ways to make the code.**
 
 | Way | How | Collisions | Same long link gives the same code? | Guessable? | You must add |
 |---|---|---|---|---|---|
@@ -306,13 +309,125 @@ Why collisions are a normal event, not a rare error. There are 3.5 trillion code
 
 The counter is the usual choice. 100 creates a second is tiny for one counter. If one call for each create is too much, give each server a block of 1,000 numbers. The server hands them out by itself. The cost is gaps in the numbers when a server stops.
 
-### Reading fast
+**Custom aliases and expiry.**
+
+- **A custom alias** goes in the same table. The unique rule decides who gets it. A taken alias returns 409 (conflict). The counter must skip any code that a custom alias already took, as in card 2 (blue bar).
+- **Expiry** is a column `expires_at`. A click checks it. A link past its end date gets 410 (gone). A cleanup job deletes old rows later. Keep the code reserved, so nobody else can use it.
+
+</details>
+
+## 4. A click: cache first
+
+The server asks the cache first, then the table, then keeps the answer with a timer that is shorter than the link's end date. A row never changes after it is made, so a slightly old copy is fine. The exceptions are a link that was turned off or has expired. One trap: the creator clicks the new link at once, and a follower has not got the row yet, so they see a 404. The fix is to put the row in the cache when you make it.
+
+```mermaid
+graph TB
+    A["Click sho.rt/21"] --> B["Cache: is 21 there?"]
+    B -->|miss| C["Link table<br/>find the long link"]
+    C --> D["Keep 21 in the cache<br/>for 1 day"]
+```
+
+<details class="guess"><summary>🤔 Guess: the busiest time is 30,000 clicks a second, and 90 percent are cache hits. How many reach the table? And if the cache stops? Press to check.</summary>
+
+**3,000 a second** with the cache. If the cache stops, all **30,000** reach the table. So keep a small copy in each server's memory, and limit the table connections.
+
+</details>
+
+> **Remember:** a row never changes, so a cache is safe. Delete the cache key when you turn a link off.
+
+<details class="more"><summary>📖 More detail: a click over time, reading fast, and what it costs</summary>
+
+**How it works over time: a click.** This is the read path. Notice that the second click never touches the table.
+
+This is the read path. Notice that the second click never touches the table.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Redirect server
+    participant C as Cache
+    participant T as Link table
+    B->>S: Click sho.rt/21
+    S->>C: Get 21
+    C-->>S: Not there so a miss
+    S->>T: Find the long link for 21
+    T-->>S: shop.example/summer
+    S->>C: Keep 21 for 1 day
+    S-->>B: 302 and Location shop.example/summer
+    B->>S: Next person clicks sho.rt/21
+    S->>C: Get 21
+    C-->>S: shop.example/summer so a hit
+    S-->>B: 302 and Location shop.example/summer
+    Note over C,T: The table is not touched on the second click
+```
+
+**Reading fast.**
 
 - **Use a cache** (lesson 04). The server asks the cache first, then the table, then keeps the answer with a timer. Make the timer shorter than the link's end date.
 - **A slightly old answer is fine here** (lesson 07). A row never changes after it is made, so a copy cannot be wrong. Followers and the cache are safe. The exceptions are a link that was turned off or has expired.
 - **One trap:** the creator clicks the new link at once, and a follower has not got the row yet. The creator sees a 404. The fix is read your own writes: put the row in the cache when you make it.
 
-### 301 or 302
+**What it costs.**
+
+| Cost | What it means | What you do |
+|---|---|---|
+| The cache is critical | If it stops, 30,000 reads a second reach the table | Keep a small copy in each server's memory. Limit the table connections |
+| The cache may hold a dead link | After you turn a link off, the cache still answers until its timer ends | Delete the cache key when you turn a link off |
+| In order codes are guessable | Anyone can walk through the codes | Shuffle the number first, or use random codes |
+| Hash and random collide | It is certain over the years | A unique rule and a retry |
+| 301 loses clicks | The counts are too low | Use 302, or 301 with a short `max-age` |
+| Abuse | People hide bad links behind short ones | Limit how fast one user can make links. That is lesson 09 |
+
+</details>
+
+## 5. 301 against 302
+
+A redirect is not a page. The server sends a number and a new address in a header called `Location`. **301** means "moved for good", so the browser may keep it for a very long time. **302** means "moved for now".
+
+| | 301 | 302 |
+|---|---|---|
+| Clicks that reach you | the first click from each browser | every click |
+| Click counts | too low | right |
+| You turn a link off | old browsers still go to the old site | works at once |
+
+<details class="guess"><summary>🤔 Guess: the product shows click counts, and owners can turn links off. 301 or 302? Press to check.</summary>
+
+**302**, or 301 with a short `max-age`. If a link never changes and nobody counts clicks, 301 saves the most load. Do not write the click into the table inside the redirect: answer first, then add a click event to a queue.
+
+</details>
+
+> **Remember:** the status number is a hint. The `Cache-Control` header decides how long the browser keeps the answer.
+
+<details class="more"><summary>📖 More detail: 301 against 302 drawn, the full table, and which way to make the code</summary>
+
+**301 against 302.** The same person clicks twice. Notice who hears about click 2: on the 301 side nobody, on the 302 side your server.
+
+The same person clicks twice. Notice who hears about click 2: on the 301 side nobody, on the 302 side your server.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Your server
+    B->>S: Click 1 on sho.rt/21
+    S-->>B: 301 and Location shop.example/summer
+    Note over B: The browser may keep this answer for a very long time
+    B->>B: Click 2 goes straight to the shop
+    Note over S: Your server never hears about click 2
+    Note over S: If you turn the link off this browser does not know
+```
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Your server
+    B->>S: Click 1 on sho.rt/21
+    S-->>B: 302 and Location shop.example/summer
+    B->>S: Click 2 on sho.rt/21
+    S-->>B: 302 and Location shop.example/summer
+    Note over S: Every click reaches you so you can count it and turn the link off
+```
+
+**301 or 302.**
 
 | | 301 | 302 |
 |---|---|---|
@@ -329,23 +444,36 @@ Your choice depends on the product. If owners see click counts or can turn links
 
 Do not write the click into the table inside the redirect. Answer first. Then add a click event to a queue (lesson 06), and let a worker count it.
 
-### Custom aliases and expiry
+**Which way to make the code?** This is the choice you say out loud. Notice that the default is the counter, and the other two need a retry loop.
 
-- **A custom alias** goes in the same table. The unique rule decides who gets it. A taken alias returns 409 (conflict). The counter must skip any code that a custom alias already took, as in section 4.
-- **Expiry** is a column `expires_at`. A click checks it. A link past its end date gets 410 (gone). A cleanup job deletes old rows later. Keep the code reserved, so nobody else can use it.
+This is the choice you say out loud. Notice that the default is the counter, and the other two need a retry loop.
 
-### What it costs
+```mermaid
+graph TB
+    Q["I need a new short code"] --> D1["Must one long link<br/>always give the same code?"]
+    D1 -->|yes| H["Hash the link<br/>keep 7 letters<br/>unique rule and retry"]
+    D1 -->|no| D2["Must codes be hard to guess?"]
+    D2 -->|yes| R["7 random letters<br/>unique rule and retry"]
+    D2 -->|no| K["Counter plus base62<br/>the usual choice"]
+```
 
-| Cost | What it means | What you do |
-|---|---|---|
-| The cache is critical | If it stops, 30,000 reads a second reach the table | Keep a small copy in each server's memory. Limit the table connections |
-| The cache may hold a dead link | After you turn a link off, the cache still answers until its timer ends | Delete the cache key when you turn a link off |
-| In order codes are guessable | Anyone can walk through the codes | Shuffle the number first, or use random codes |
-| Hash and random collide | It is certain over the years | A unique rule and a retry |
-| 301 loses clicks | The counts are too low | Use 302, or 301 with a short `max-age` |
-| Abuse | People hide bad links behind short ones | Limit how fast one user can make links. That is lesson 09 |
+</details>
 
-## 7. Common mistakes
+## 6. Three mistakes, and what to say if you freeze
+
+- **Wrong:** check first, then save. **Right:** save, and let the table's unique rule refuse the second one.
+- **Wrong:** "Hash the link, keep 7 letters, done." **Right:** also a unique rule, and a retry with a salt when the table refuses.
+- **Wrong:** "301 is faster, so I use 301." **Right:** if the product counts clicks or turns links off, use 302.
+
+<details class="guess"><summary>🤔 Guess: you hash the link and keep 7 letters, with no unique rule. Over billions of rows, what happens? Press to check.</summary>
+
+Two links **will meet**. Cutting a hash throws information away, so the same code appears for two links, and the second row replaces the first with no error.
+
+</details>
+
+> **Remember:** if you freeze, say "A short code is a key in a table. A click reads the row and answers with a redirect."
+
+<details class="more"><summary>📖 More detail: the three mistakes in full, and the freeze plan</summary>
 
 **Wrong:** check first, then save.
 
@@ -388,11 +516,13 @@ try {
 2. Say "I make the code with a counter and base62, and the table has a unique rule, so a collision is refused and retried."
 3. Say "Reads are 100 times more than writes, so a cache answers most clicks. A row never changes, so a slightly old copy is fine. I use 302 when I must count clicks."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Every link below was opened and checked on 2026-10-21. For the videos, the title, channel and length come from YouTube's own data. If one breaks later, say so and it will be replaced.
 
-- **Video:** [How Does a URL Shortener Work?](https://www.youtube.com/watch?v=HHUi8F_qAXM) ByteByteGo, 6 min 44 s - the same design in short. Compare it with picture 2a.
+- **Video:** [How Does a URL Shortener Work?](https://www.youtube.com/watch?v=HHUi8F_qAXM) ByteByteGo, 6 min 44 s - the same design in short. Compare it with the big picture in card 1.
 - **Play with it:** [the stepper in this folder](visuals/08-design-a-url-shortener.html) - guess first, then press Next. Try all three tabs.
 - **Play with it:** in a terminal, run `curl -sI https://bit.ly/3`. Look at the first line, and at the `location` and `cache-control` lines. That is a real 301 and its timer. The server may change what it sends.
 - **Play with it:** [httpstatus.io](https://httpstatus.io/) - paste a short link and see each redirect step with its status code and headers.
@@ -424,7 +554,7 @@ Every link below was opened and checked on 2026-10-21. For the videos, the title
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -484,7 +614,7 @@ async function takeAlias(alias, owner) {
 }
 ```
 
-It now prints `[ 'Ann: got it', 'Ben: taken' ] owner: Ann`. In JavaScript, code with no `await` between two lines cannot be cut in half. A real database needs the same idea. That is the unique rule: `INSERT` and let the table refuse the second one (picture 2e). (Both outputs checked on 2026-10-17 with Node 24.)
+It now prints `[ 'Ann: got it', 'Ben: taken' ] owner: Ann`. In JavaScript, code with no `await` between two lines cannot be cut in half. A real database needs the same idea. That is the unique rule: `INSERT` and let the table refuse the second one (card 3). (Both outputs checked on 2026-10-17 with Node 24.)
 
 </details>
 
@@ -558,11 +688,11 @@ Checked on 2026-10-17 with Node 24: the 15 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Design a URL shortener. How do you make the short code? What happens when two links get the same code? And do you answer with a 301 or a 302?"
 
-A common follow-up: "The service gets 100 clicks for every new link. What do you do about it?" Pictures 2f and 2h are the answer.
+A common follow-up: "The service gets 100 clicks for every new link. What do you do about it?" Card 4 (the click path) and card 5 (301 against 302) are the answer.
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -578,7 +708,7 @@ A common follow-up: "The service gets 100 clicks for every new link. What do you
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain a URL shortener out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of two people who get the code `aB3dY7z`, and then one person who clicks a 301 link twice. Then write your best version below and run `/explain-check design a url shortener` or ask the `explain-coach` agent to review it.
 
@@ -590,12 +720,12 @@ Close this file. Explain a URL shortener out loud like to a new junior, in 4 par
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Two different long links get the same 7 letter code. What goes wrong with no unique rule, and what do you do about it?
 2. The product shows click counts and lets owners turn links off. Do you answer 301 or 302? Why? What is the middle way?
 3. You expect 100 clicks for every new link. Name three things this changes in your design.
-4. Draw the picture from section 2f from memory.
+4. Draw the click picture (card 4, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
@@ -613,7 +743,7 @@ Close this file. Explain a URL shortener out loud like to a new junior, in 4 par
 - [Caching](04-caching.md) - the read path of this lesson is cache aside. The stampede on a viral link is in that lesson.
 - [CDN](05-cdn.md) - a CDN can answer hot redirects at the edge.
 - [Message queues](06-message-queues.md) - click events go to a queue, so the redirect does not wait.
-- [Latency numbers and estimation](16-latency-numbers-and-estimation.md) - the numbers table in section 6 uses the method in that lesson.
+- [Latency numbers and estimation](16-latency-numbers-and-estimation.md) - the numbers table in card 1 (blue bar) uses the method in that lesson.
 - [Consistent hashing](20-consistent-hashing.md) - how to split the table by a hash of the code when one machine is not enough.
 - [Idempotency and retries](13-idempotency-and-retries.md) - the same idea as the unique rule: a repeated request must be safe.
 - [System design step by step, Part 2](system-design-step-by-step-walkthrough.md) - a full worked answer to this design, with more on the read path.
