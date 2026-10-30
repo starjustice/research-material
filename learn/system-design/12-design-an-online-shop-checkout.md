@@ -1,10 +1,33 @@
 # 12. Design an online shop checkout
 
-> **Subject:** System Design · **Lesson:** 12 · **Made:** 2026-10-21 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 12 · **Made:** 2026-10-21 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** show why two buyers can both "win" the last item and stop it with one SQL statement, draw the order's status moves from RESERVED to PAID or CANCELLED, explain why the webhook and not the success page decides that an order is paid, and say which undo steps run when a payment fails.
+>
 > **Before this:** [Design a notification system](11-design-a-notification-system.md) · **Next:** [Idempotency and retries](13-idempotency-and-retries.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: hold, pay, undo
+
+Hold the item in one safe step, let the payment company say "paid", and run undo steps when something fails. A small shop has one blue mug and a bank down the road: the mug waits behind the counter for Ana, the bank phones "Ana paid", and the shopkeeper trusts the bank, not Ana. Examples use Next.js, Express, Prisma, Postgres and Stripe.
+
+```mermaid
+graph TB
+    A["1 Hold the stock and make the order<br/>one SQL step"] --> B["2 Create the payment at Stripe"]
+    B --> C["3 Ana pays on Stripe's form"]
+    C --> D["4 Stripe sends a webhook<br/>mark the order PAID"]
+```
+
+<details class="guess"><summary>🤔 Guess: two buyers want the last mug. Both read "1 left" before either one writes. How many get the mug, and what does the stock say? Press to check.</summary>
+
+**Both get a yes**, and the stock says **0**. Two mugs were sold, and one does not exist. Reading then writing in two steps lets both through.
+
+</details>
+
+> **Remember:** hold in one step, let the payment company say "paid", run undo steps when something fails.
+
+<details class="more"><summary>📖 More detail: four things that go wrong, new words, the big picture, the race drawn, and the shop</summary>
 
 Hold the item in one safe step, let the payment company say "paid", and run undo steps when something fails.
 
@@ -30,11 +53,7 @@ From earlier lessons:
 - The outbox is a table of messages saved in the order's transaction (lesson 06).
 - A unique key on each request stops a resend from making a copy (lessons 08 and 10). Interview word: idempotency key.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that card details go to Stripe, not your server.
+**The big picture.** Notice that card details go to Stripe, not your server.
 
 ```mermaid
 graph LR
@@ -51,9 +70,7 @@ graph LR
 
 A small helper (the relay) sends outbox rows to the queue. A cleanup job gives back ended holds.
 
-### 2b. The problem, drawn
-
-Notice that both buyers read "1 left" before either one writes.
+**The problem, drawn.** Notice that both buyers read "1 left" before either one writes.
 
 ```mermaid
 sequenceDiagram
@@ -69,132 +86,7 @@ sequenceDiagram
     Note over DB: Stock says 0 but two mugs were sold
 ```
 
-### 2c. How it works over time: one good checkout
-
-Notice the order: hold, create the payment, then wait for the webhook.
-
-```mermaid
-sequenceDiagram
-    participant B as Ana browser
-    participant API as Express API
-    participant DB as Postgres
-    participant S as Stripe
-    B->>API: POST checkout with key k1
-    API->>DB: take 1 mug only if 1 is left and make order 41
-    DB-->>API: 1 row changed so order 41 is RESERVED
-    API->>S: create payment with key order-41
-    S-->>API: payment pi_41
-    API-->>B: pay pi_41 for order 41
-    B->>S: Ana enters her card
-    S->>API: webhook evt_1 payment succeeded
-    API->>DB: save evt_1 and mark 41 PAID and add outbox row
-    API-->>S: 200 OK
-    S-->>B: redirect to the success page
-    B->>API: GET order 41
-    API-->>B: PAID
-```
-
-Two keys stop copies. `k1` stops a second order. `order-41` stops a second payment.
-
-### 2d. What is in the database right now
-
-This is the database after step 7 in section 5. Notice `processed_events`: events already handled.
-
-```mermaid
-graph TB
-    subgraph P["products"]
-        P1["mug - stock 0"]
-        P2["scarf - stock 0"]
-    end
-    subgraph O["orders"]
-        O1["41 - ana - mug x1 - PAID - pi_41"]
-        O2["42 - cara - scarf x1 - RESERVED - hold ends 10:12"]
-    end
-    subgraph E["processed_events"]
-        E1["evt_1"]
-    end
-    subgraph X["outbox"]
-        X1["OrderPaid 41 - not sent yet"]
-    end
-```
-
-### 2e. Right against wrong
-
-Wrong: the success page marks the order paid. Notice what happens when it never loads.
-
-```mermaid
-sequenceDiagram
-    participant B as Ana browser
-    participant S as Stripe
-    participant API as Express API
-    B->>S: pay for order 41
-    S-->>B: charged so go to the success page
-    Note over B: Ana closes the tab or her wifi drops
-    Note over API: The success page never loads so order 41 stays RESERVED
-    Note over API: At ten past ten the cleanup job cancels 41 and the mug is sold again
-    Note over S: Ana paid and has no order
-```
-
-Right: the webhook decides. Notice that a repeated event changes nothing.
-
-```mermaid
-sequenceDiagram
-    participant B as Ana browser
-    participant S as Stripe
-    participant API as Express API
-    B->>S: pay for order 41
-    Note over B: Ana closes the tab
-    S->>API: webhook evt_1 payment succeeded
-    API->>API: evt_1 is new so mark 41 PAID
-    API-->>S: 200 OK
-    S->>API: evt_1 again
-    API->>API: evt_1 seen before so skip
-    API-->>S: 200 OK
-```
-
-### 2f. The order status and its allowed moves
-
-Only the arrows are allowed (interview word: state machine). Notice that an event with no arrow is ignored.
-
-```mermaid
-graph LR
-    R["RESERVED<br/>stock is held"] -->|payment succeeded| P["PAID"]
-    P -->|email and warehouse done| C["CONFIRMED"]
-    R -->|payment failed| X["CANCELLED<br/>stock goes back"]
-    R -->|hold ended| X
-    X -->|money arrives late| F["Refund<br/>order stays CANCELLED"]
-```
-
-In SQL, each move checks its starting status: `WHERE status = 'RESERVED'`. A late "failed" event after PAID changes 0 rows.
-
-### 2g. The saga: undo steps run backwards
-
-Stripe is outside your database. You cannot take back a charge, only refund it. Notice that each undo is a real step.
-
-```mermaid
-graph TB
-    S1["Step 1 hold the stock<br/>undo is release the stock"] --> S2["Step 2 take the payment at Stripe<br/>undo is refund"]
-    S2 --> S3["Step 3 mark PAID and add outbox row"]
-    S3 --> S4["Step 4 email and warehouse"]
-    S2 -->|card declined| U1["Undo step 1<br/>release the stock"]
-    S3 -->|order already cancelled| U2["Undo step 2<br/>refund the money"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class U1,U2 bad
-```
-
-<details><summary>Go deeper (optional)</summary>
-
-**Only the payment needs the saga.** The hold and the order live in the same Postgres. So they still share one normal transaction.
-
-**Why not trust the success page?** Stripe's own webhooks guide says you cannot rely on the landing page, because the customer may never visit it.
-
-**The outbox relay.** The relay is a small loop. It reads outbox rows that are not sent yet. It puts each one on the queue, then marks it sent. If it crashes between those two steps, it sends that row again. That is one more reason the email worker must be safe to repeat. Part 9 of [Queues, streams and event-driven design](queues-streams-and-event-driven-design.md) has the outbox and inbox in full.
-
-**Two ways to run a saga.** By events (interview word: choreography): each service listens and does its step. By one coordinator (interview word: orchestration): one piece of code calls each step and its undo. For a checkout, one coordinator in your API is easier to read and debug. The [queues guide, Part 8](queues-streams-and-event-driven-design.md) has the picture, and tools like Temporal run long sagas for you.
-
-</details>
-
-## 3. Real life analogy
+**The shop in full.**
 
 A small shop has one blue mug. A bank is down the road.
 
@@ -206,9 +98,37 @@ A small shop has one blue mug. A bank is down the road.
 
 Where it stops: in a flash sale, a short sale with big discounts, thousands buy in one second. And the shop must check the caller is the bank. Stripe adds a code made with a shared secret (interview word: signature).
 
-## 4. The smallest code that shows it
+**Why it exists and what it costs.**
 
-Two buyers, one mug. First read then write, then check and change in one step.
+- **Problem without it:** one item sold twice, paid orders lost, orders shipped twice.
+- **How it solves it:** hold in one step, trust the webhook, skip repeats, undo on failure.
+- **Cost:** more parts (cleanup job, relay, refunds). Held stock is blocked for minutes.
+
+</details>
+
+## 2. One SQL statement stops the race
+
+A **conditional update** checks and changes together: "take a mug only if one is left".
+
+```sql
+UPDATE products SET stock = stock - 1
+WHERE id = 'mug' AND stock >= 1
+RETURNING stock;
+```
+
+One row back means "you got it". Zero rows means "sold out". In Postgres, if two updates hit the same row, the second one waits for the first to finish, and then checks its `WHERE` again on the new row.
+
+<details class="guess"><summary>🤔 Guess: Ana and Budi run this update at the same moment, and the stock is 1. What does Budi get? Press to check.</summary>
+
+**Zero rows: sold out.** Budi's update waits for Ana's. Then Postgres checks `stock >= 1` against 0, not 1. The same idea in the code run: `[ 'ana: got the mug', 'budi: sold out' ] stock 0`. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** check and change in one step. Zero rows means sold out.
+
+<details class="more"><summary>📖 More detail: the code, the real output, step by step, and the unhappy paths</summary>
+
+**The smallest code that shows it.** Two buyers, one mug. First read then write, then check and change in one step.
 
 ```js
 let stock = 1;                                            // one blue mug left
@@ -246,7 +166,9 @@ One row back means "you got it". Zero rows means "sold out".
 
 Checked on 2026-10-21 with Node 24.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
+
+**What really happens, step by step.**
 
 Each row is one event. Watch each column change.
 
@@ -263,7 +185,7 @@ Each row is one event. Watch each column change.
 | 8 | Stripe sends `evt_1` again | Finds `evt_1` already saved, so it skips. Answers 200 | 0 | PAID | `evt_1` | OrderPaid 41 |
 | 9 | Relay and workers run | The relay puts OrderPaid 41 on the queue. The email worker sends the receipt | 0 | CONFIRMED | `evt_1` | sent |
 
-Unhappy paths: Cara holds a scarf, Dan holds a hat.
+**Unhappy paths: Cara holds a scarf, Dan holds a hat.**
 
 | Step | What happens | What the server does | Result |
 |---|---|---|---|
@@ -279,13 +201,205 @@ What to see:
 
 **Step through it yourself:** [open the stepper](visuals/12-design-an-online-shop-checkout.html). Guess first, then press Next.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** one item sold twice, paid orders lost, orders shipped twice.
-- **How it solves it:** hold in one step, trust the webhook, skip repeats, undo on failure.
-- **Cost:** more parts (cleanup job, relay, refunds). Held stock is blocked for minutes.
+## 3. The webhook decides that an order is paid
 
-### The numbers
+The browser can close right after paying, and anyone can open the success page URL. So the **webhook** (a call from Stripe's server to yours) marks the order PAID, and the success page only reads. Stripe resends the webhook until you answer OK, so check the signature, save the event id, and only then act.
+
+```mermaid
+graph TB
+    A["Ana pays, then her wifi drops<br/>the success page never loads"] --> B["Stripe sends webhook evt_1<br/>payment succeeded"]
+    B --> C["API saves evt_1<br/>and marks order 41 PAID"]
+    C --> D["Stripe sends evt_1 again<br/>seen before so skip"]
+```
+
+<details class="guess"><summary>🤔 Guess: `evt_1` (succeeded) already made order 41 PAID. A late `evt_2` (failed) arrives, and it is a new event, so the `seen` set lets it in. What stops it giving the mug back? Press to check.</summary>
+
+The **status check**. A move to CANCELLED is only allowed from RESERVED, and the order is PAID. The seen set stops a repeated event, and the status check stops an older event that arrives late. You need both. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** the webhook marks it paid. The success page only reads.
+
+<details class="more"><summary>📖 More detail: one good checkout, what is in the database, and the success page against the webhook</summary>
+
+**How it works over time: one good checkout.** Notice the order: hold, create the payment, then wait for the webhook.
+
+Notice the order: hold, create the payment, then wait for the webhook.
+
+```mermaid
+sequenceDiagram
+    participant B as Ana browser
+    participant API as Express API
+    participant DB as Postgres
+    participant S as Stripe
+    B->>API: POST checkout with key k1
+    API->>DB: take 1 mug only if 1 is left and make order 41
+    DB-->>API: 1 row changed so order 41 is RESERVED
+    API->>S: create payment with key order-41
+    S-->>API: payment pi_41
+    API-->>B: pay pi_41 for order 41
+    B->>S: Ana enters her card
+    S->>API: webhook evt_1 payment succeeded
+    API->>DB: save evt_1 and mark 41 PAID and add outbox row
+    API-->>S: 200 OK
+    S-->>B: redirect to the success page
+    B->>API: GET order 41
+    API-->>B: PAID
+```
+
+Two keys stop copies. `k1` stops a second order. `order-41` stops a second payment.
+
+**What is in the database right now.** Notice `processed_events`: events already handled.
+
+This is the database after step 7 in the step by step table (card 2, blue bar). Notice `processed_events`: events already handled.
+
+```mermaid
+graph TB
+    subgraph P["products"]
+        P1["mug - stock 0"]
+        P2["scarf - stock 0"]
+    end
+    subgraph O["orders"]
+        O1["41 - ana - mug x1 - PAID - pi_41"]
+        O2["42 - cara - scarf x1 - RESERVED - hold ends 10:12"]
+    end
+    subgraph E["processed_events"]
+        E1["evt_1"]
+    end
+    subgraph X["outbox"]
+        X1["OrderPaid 41 - not sent yet"]
+    end
+```
+
+**Right against wrong.** Wrong: the success page marks the order paid. Notice what happens when it never loads.
+
+Wrong: the success page marks the order paid. Notice what happens when it never loads.
+
+```mermaid
+sequenceDiagram
+    participant B as Ana browser
+    participant S as Stripe
+    participant API as Express API
+    B->>S: pay for order 41
+    S-->>B: charged so go to the success page
+    Note over B: Ana closes the tab or her wifi drops
+    Note over API: The success page never loads so order 41 stays RESERVED
+    Note over API: At ten past ten the cleanup job cancels 41 and the mug is sold again
+    Note over S: Ana paid and has no order
+```
+
+Right: the webhook decides. Notice that a repeated event changes nothing.
+
+```mermaid
+sequenceDiagram
+    participant B as Ana browser
+    participant S as Stripe
+    participant API as Express API
+    B->>S: pay for order 41
+    Note over B: Ana closes the tab
+    S->>API: webhook evt_1 payment succeeded
+    API->>API: evt_1 is new so mark 41 PAID
+    API-->>S: 200 OK
+    S->>API: evt_1 again
+    API->>API: evt_1 seen before so skip
+    API-->>S: 200 OK
+```
+
+</details>
+
+## 4. The order status moves, and the saga
+
+Only the arrows are allowed (a **state machine**). In SQL, each move checks its starting status: `WHERE status = 'RESERVED'`. A late "failed" event after PAID changes 0 rows.
+
+```mermaid
+graph TB
+    R["RESERVED<br/>stock is held"] -->|payment succeeded| P["PAID"]
+    P -->|email and warehouse done| C["CONFIRMED"]
+```
+
+```mermaid
+graph TB
+    R2["RESERVED"] -->|payment failed or hold ended| X["CANCELLED<br/>stock goes back"]
+    X -->|money arrives late| F["Refund<br/>order stays CANCELLED"]
+```
+
+A **saga** is steps that each have an undo step. Stripe is outside your database, so you cannot take back a charge, only refund it. The undo steps run backwards.
+
+<details class="guess"><summary>🤔 Guess: Dan's hold ended at 10:14 and his order was CANCELLED. His payment succeeds at 10:15. What happens? Press to check.</summary>
+
+The order stays **CANCELLED**, because a move to PAID is only allowed from RESERVED. A **refund** is sent, so the money goes back to Dan.
+
+</details>
+
+> **Remember:** each move checks its starting status. The undo for a charge is a refund.
+
+<details class="more"><summary>📖 More detail: the status moves drawn, and the saga drawn</summary>
+
+**The order status and its allowed moves.** Only the arrows are allowed (interview word: state machine). Notice that an event with no arrow is ignored.
+
+Only the arrows are allowed (interview word: state machine). Notice that an event with no arrow is ignored.
+
+```mermaid
+graph LR
+    R["RESERVED<br/>stock is held"] -->|payment succeeded| P["PAID"]
+    P -->|email and warehouse done| C["CONFIRMED"]
+    R -->|payment failed| X["CANCELLED<br/>stock goes back"]
+    R -->|hold ended| X
+    X -->|money arrives late| F["Refund<br/>order stays CANCELLED"]
+```
+
+In SQL, each move checks its starting status: `WHERE status = 'RESERVED'`. A late "failed" event after PAID changes 0 rows.
+
+**The saga: undo steps run backwards.** Stripe is outside your database. You cannot take back a charge, only refund it. Notice that each undo is a real step.
+
+Stripe is outside your database. You cannot take back a charge, only refund it. Notice that each undo is a real step.
+
+```mermaid
+graph TB
+    S1["Step 1 hold the stock<br/>undo is release the stock"] --> S2["Step 2 take the payment at Stripe<br/>undo is refund"]
+    S2 --> S3["Step 3 mark PAID and add outbox row"]
+    S3 --> S4["Step 4 email and warehouse"]
+    S2 -->|card declined| U1["Undo step 1<br/>release the stock"]
+    S3 -->|order already cancelled| U2["Undo step 2<br/>refund the money"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class U1,U2 bad
+```
+
+</details>
+
+## 5. Four ways to stop selling more than you have
+
+| Way | Good | Bad |
+|---|---|---|
+| Take stock at "add to cart" | Simple | Carts that never buy block stock for hours |
+| **Conditional update plus a hold that ends** (this lesson) | One SQL statement | One busy row in a flash sale |
+| A counter in Redis | Very fast | Two systems that can disagree |
+| One row per unit | Many buyers at once | More rows and more code |
+
+A flash sale puts every buyer on **one busy row** (a hot row). Keep that transaction short. Held stock is blocked for minutes, so the hold ends after about 10 minutes, and a cleanup job gives it back every minute.
+
+<details class="guess"><summary>🤔 Guess: a flash sale: 20,000 buyers in 2 minutes for 500 mugs. About how many tries a second land on one row? Press to check.</summary>
+
+About **170 a second**, all on one row. A short transaction keeps the row busy about 2 ms, so one row can take about 500 holds a second. Fine here. Past that, split the stock into one row per unit.
+
+</details>
+
+> **Remember:** hold in one step, keep the transaction short, and give stock back when the hold ends.
+
+<details class="more"><summary>📖 More detail: the four ways in full, the numbers, and what it costs</summary>
+
+**Four ways to stop selling more than you have.**
+
+| Way | How it works | Good | Bad |
+|---|---|---|---|
+| **Take stock at "add to cart"** | The cart holds the item | Simple | Carts that never buy block stock for hours |
+| **Conditional update plus a hold that ends** | The pick for this lesson | One SQL statement. Postgres does the waiting | One busy row in a flash sale |
+| **A counter in Redis** | Redis subtracts from a number | Very fast | Two systems that can disagree. Shopify moved away from it |
+| **One row per unit** | Each buyer grabs any free unit row and skips busy ones | Many buyers at once | More rows and more code |
+
+**The numbers.**
 
 Round-number guesses (interview words: back of the envelope). Say them out loud.
 
@@ -299,16 +413,7 @@ Round-number guesses (interview words: back of the envelope). Say them out loud.
 
 A flash sale puts every buyer on **one busy row** (interview word: hot row). Keep that transaction short.
 
-### Four ways to stop selling more than you have
-
-| Way | How it works | Good | Bad |
-|---|---|---|---|
-| **Take stock at "add to cart"** | The cart holds the item | Simple | Carts that never buy block stock for hours |
-| **Conditional update plus a hold that ends** | The pick for this lesson | One SQL statement. Postgres does the waiting | One busy row in a flash sale |
-| **A counter in Redis** | Redis subtracts from a number | Very fast | Two systems that can disagree. Shopify moved away from it |
-| **One row per unit** | Each buyer grabs any free unit row and skips busy ones | Many buyers at once | More rows and more code |
-
-### What it costs
+**What it costs.**
 
 | Cost | What it means | What you do |
 |---|---|---|
@@ -318,17 +423,23 @@ A flash sale puts every buyer on **one busy row** (interview word: hot row). Kee
 | Money after the hold ended | The item may already be sold to someone else | Refund, and an alert so someone looks |
 | Stale reads | A follower may still show the old status | Read stock and order status from the leader (lesson 07) |
 
-<details><summary>Go deeper (optional)</summary>
+</details>
 
-**How long should a hold last?** A 5 minute hold sends unpaid stock back fast, but slow buyers lose their item while typing a card. A 30 minute hold is kind to slow buyers, but in a sale the stock sits blocked. 10 to 15 minutes is a common middle.
+## 6. Three mistakes, and what to say if you freeze
 
-**When one row is not enough.** One hot row limits a flash sale to a few hundred holds a second. Past that, split the stock into one row per unit, and let each buyer skip rows that are busy. That is the "one row per unit" line in the table.
+- **Wrong:** read the stock, then write it, in two Prisma calls. **Right:** one conditional `updateMany`, then call Stripe after the transaction.
+- **Wrong:** "Mark the order paid when the success page loads." **Right:** the webhook marks it paid.
+- **Wrong:** act on the webhook JSON every time it arrives. **Right:** check the signature, save the event id, then act.
 
-**Shopify's move from Redis to MySQL.** In [Scaling inventory reservations](https://shopify.engineering/scaling-inventory-reservations) (May 2026), Shopify moved checkout holds out of Redis and into MySQL, next to their stock ledger, so one transaction covers both. With Redis they risked selling too many or too few. For busy items they keep one row per unit, capped at 1,000 per item and location, and buyers take free rows with `SKIP LOCKED`, so they do not wait on each other. [Hello Interview's write up](https://www.hellointerview.com/learn/system-design/in-the-wild/shopify-inventory-reservations) goes with the video in section 8.
+<details class="guess"><summary>🤔 Guess: why must the Stripe webhook route come before `express.json()`? Press to check.</summary>
+
+The signature is checked on the **exact raw bytes**. `express.json()` changes them, so the check would fail. Use `express.raw` for that route.
 
 </details>
 
-## 7. Common mistakes
+> **Remember:** if you freeze, say "One conditional update holds the stock. Zero rows means sold out."
+
+<details class="more"><summary>📖 More detail: the three mistakes in full, and the freeze plan</summary>
 
 **Wrong:** read the stock, then write it, in two Prisma calls.
 
@@ -396,7 +507,9 @@ app.post("/webhooks/stripe", express.raw({ type: "application/json" }), async (r
 2. "The webhook marks it paid, after checking the signature and event id."
 3. "On failure, undo steps run: give the stock back, refund late money."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 All links were checked on 2026-10-21.
 
@@ -427,7 +540,7 @@ All links were checked on 2026-10-21.
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -603,11 +716,11 @@ Checked on 2026-10-21 with Node 24: the 21 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Design the checkout for an online shop. Stock is limited, payments go through Stripe. Never sell more than you have, and never take money without an order."
 
-Follow-up: "The money arrives after the hold ended. What happens?" See picture 2f and step 12.
+Follow-up: "The money arrives after the hold ended. What happens?" See card 4 and step 12 in card 2 (blue bar).
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -622,7 +735,7 @@ Follow-up: "The money arrives after the hold ended. What happens?" See picture 2
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain a checkout out loud: problem, how, tradeoff, my example. Use the last mug race and Cara's declined card. Write it below, then run `/explain-check design an online shop checkout` or ask `explain-coach`.
 
@@ -634,12 +747,12 @@ Close this file. Explain a checkout out loud: problem, how, tradeoff, my example
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Ana and Budi press Pay for the last mug at once. Which SQL decides, and what does Budi get?
 2. Why does the webhook, not the success page, mark an order paid?
 3. Name the two webhook guards, and one event each one stops.
-4. Draw picture 2f from memory.
+4. Draw the status moves (card 4) from memory.
 
 <details><summary>Answers</summary>
 
@@ -649,6 +762,33 @@ Close this file. Explain a checkout out loud: problem, how, tradeoff, my example
 4. RESERVED to PAID on "payment succeeded". PAID to CONFIRMED when email and warehouse are done. RESERVED to CANCELLED on "payment failed" or "hold ended", and the stock goes back. CANCELLED plus money that arrives late leads to a refund, and the order stays CANCELLED.
 
 </details>
+
+## 12. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Go deeper (optional)</summary>
+
+**Only the payment needs the saga.** The hold and the order live in the same Postgres. So they still share one normal transaction.
+
+**Why not trust the success page?** Stripe's own webhooks guide says you cannot rely on the landing page, because the customer may never visit it.
+
+**The outbox relay.** The relay is a small loop. It reads outbox rows that are not sent yet. It puts each one on the queue, then marks it sent. If it crashes between those two steps, it sends that row again. That is one more reason the email worker must be safe to repeat. Part 9 of [Queues, streams and event-driven design](queues-streams-and-event-driven-design.md) has the outbox and inbox in full.
+
+**Two ways to run a saga.** By events (interview word: choreography): each service listens and does its step. By one coordinator (interview word: orchestration): one piece of code calls each step and its undo. For a checkout, one coordinator in your API is easier to read and debug. The [queues guide, Part 8](queues-streams-and-event-driven-design.md) has the picture, and tools like Temporal run long sagas for you.
+
+</details>
+
+<details><summary>Go deeper (optional)</summary>
+
+**How long should a hold last?** A 5 minute hold sends unpaid stock back fast, but slow buyers lose their item while typing a card. A 30 minute hold is kind to slow buyers, but in a sale the stock sits blocked. 10 to 15 minutes is a common middle.
+
+**When one row is not enough.** One hot row limits a flash sale to a few hundred holds a second. Past that, split the stock into one row per unit, and let each buyer skip rows that are busy. That is the "one row per unit" line in the table.
+
+**Shopify's move from Redis to MySQL.** In [Scaling inventory reservations](https://shopify.engineering/scaling-inventory-reservations) (May 2026), Shopify moved checkout holds out of Redis and into MySQL, next to their stock ledger, so one transaction covers both. With Redis they risked selling too many or too few. For busy items they keep one row per unit, capped at 1,000 per item and location, and buyers take free rows with `SKIP LOCKED`, so they do not wait on each other. [Hello Interview's write up](https://www.hellointerview.com/learn/system-design/in-the-wild/shopify-inventory-reservations) goes with the video in the Watch and play card.
+
+</details>
+
 
 ## Connected lessons
 
