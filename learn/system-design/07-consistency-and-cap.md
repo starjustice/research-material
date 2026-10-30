@@ -1,12 +1,33 @@
 # 07. Consistency and CAP
 
-> **Subject:** System Design · **Lesson:** 07 · **Made:** 2026-10-16 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 07 · **Made:** 2026-10-16 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say why data has copies, why a copy can give an old answer, how to fix the part users feel, and what CAP really says (and three things it does not say).
+>
 > **Before this:** [Message queues](06-message-queues.md) · **Next:** [Design a URL shortener](08-design-a-url-shortener.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: a copy can be behind
 
-Data often lives in more than one place, and a copy can be a little behind. So you choose, feature by feature, whether to wait for the newest value or to answer at once with a value that may be old.
+Data often lives in more than one place. The **leader** takes every write. A **follower** holds a copy and answers reads. Like a head office that changes the price list, and branch shops that keep a copy. A courier carries each change to the branches, so for a moment a branch can say the old price. That is a **stale read**.
+
+```mermaid
+graph TB
+    W["Sam saves a new name"] -->|write| L["Leader<br/>name is Budi"]
+    L -->|copy takes a moment| F["Follower<br/>name is still Andi"]
+    F --> X["Sam reloads and reads<br/>sees the old name"]
+```
+
+<details class="guess"><summary>🤔 Guess: why keep copies at all? There are two reasons. Press to check.</summary>
+
+**Followers answer the reads**, so the leader has less to do. And **if the leader stops, a follower can take over.** The cost: a copy needs time to arrive, so a follower can return a stale read even when nothing is broken.
+
+</details>
+
+> **Remember:** copies help reads and survival. The cost is a stale read: nothing crashed, the new value is just not there yet.
+
+<details class="more"><summary>📖 More detail: new words, why copies exist, the problem drawn, and the head office</summary>
 
 Lesson 06 showed work that happens later. This lesson is about data that arrives later.
 
@@ -19,11 +40,7 @@ New words (four):
 
 Two names come later, after the plain idea: **CAP** and **PACELC**.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that every write goes to one place. The copy to each follower is the slow arrow.
+**The big picture.** Notice that every write goes to one place. The copy to each follower is the slow arrow.
 
 ```mermaid
 graph LR
@@ -34,7 +51,7 @@ graph LR
     N["Lee opens the profile"] -->|read| F2
 ```
 
-Why copies exist at all. Notice that each problem has its own fix, and both fixes are copies.
+**Why copies exist at all.** Notice that each problem has its own fix, and both fixes are copies.
 
 ```mermaid
 graph TB
@@ -44,9 +61,11 @@ graph TB
     P2 --> S2["Fix<br/>a follower takes over as leader"]
 ```
 
-### 2b. The problem, drawn
+- **Problem without copies:** every read hits one machine. If that machine stops, the data is out of reach (interview words: single point of failure, from lesson 02).
+- **How copies solve it:** copies do two jobs. Followers answer reads, so the leader has less to do. And if the leader stops, a follower can take over (the big picture above).
+- **Cost:** a copy needs time to arrive. So a follower can return a stale read, even when nothing is broken.
 
-Notice that nothing crashed. The new name is just not at the follower yet.
+**The problem, drawn.** Notice that nothing crashed. The new name is just not at the follower yet.
 
 ```mermaid
 graph TB
@@ -58,7 +77,45 @@ graph TB
     class F,X,Y bad
 ```
 
-### 2c. How it works over time
+**The head office in full.**
+
+A company has a head office and two branch shops. Only the head office changes the price list.
+
+- **Leader and followers:** the head office is the leader. Each branch keeps a copy of the list.
+- **The copy trip:** after a change, a courier carries the new list to each branch. It takes an hour.
+- **Stale read:** a customer phones a branch in that hour and hears the old price.
+- **Strong:** the branch phones the head office before every answer. Always right, but slower.
+- **Eventual:** the branch answers from its own list. Fast, but sometimes old.
+- **Read your own writes:** the manager who just changed a price phones the head office for the rest of the day.
+- **Network split:** the phone line to the head office is cut. The branch can say "I cannot tell you today" (consistent), or it can quote its own list (available).
+
+Where the analogy stops: a courier takes an hour, but servers copy in milliseconds. So you rarely see a stale read on a quiet day. Also, when the line is cut, real branches may take orders on their own. Later they must merge two lists, and sometimes one change is thrown away.
+
+</details>
+
+## 2. Read your own writes: fix the part users feel
+
+Sam saves at tick 0, and a copy needs 3 ticks to travel. The follower says `Andi` on ticks 0, 1 and 2: those are stale reads. But Sam's reads go to the **leader** for 4 ticks after his own write. Nobody minds that a stranger sees the old name for a moment. Everybody minds when their own change disappears.
+
+| Tick | Leader | Follower | Sam reads |
+|---|---|---|---|
+| 0 | Budi | Andi | Budi |
+| 1 | Budi | Andi | Budi |
+| 2 | Budi | Andi | Budi |
+| 3 | Budi | Budi | Budi |
+| 4 | Budi | Budi | Budi |
+
+<details class="guess"><summary>🤔 Guess: in this table, which column never says `Andi`, and why? Press to check.</summary>
+
+The **Sam** column. His reads go to the leader until tick 4, and by then the copy has landed. The follower is wrong for exactly 3 ticks, the copy delay. Nothing was lost. Time fixed it. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** read your own writes: for a few seconds after you write, send your reads to the leader.
+
+<details class="more"><summary>📖 More detail: the run over time, the boxes, the code, and step by step</summary>
+
+**How it works over time.** Notice the two reads by Sam. The code is the same. Only the time is different.
 
 Notice the two reads by Sam. The code is the same. Only the time is different.
 
@@ -78,7 +135,7 @@ sequenceDiagram
     F-->>S: Budi
 ```
 
-### 2d. What is in each box right now
+**What is in each box right now.** Three snapshots of the same boxes. Notice that the follower is wrong only in the middle one.
 
 Three snapshots of the same boxes. Notice that the follower is wrong only in the middle one.
 
@@ -107,7 +164,7 @@ graph LR
     class B2 good
 ```
 
-### 2e. Right against wrong
+**Right against wrong.**
 
 The wrong way sends every read to a follower. The right way (interview words: read your own writes) sends the writer's reads to the leader for a few seconds. Notice what Sam sees at the end.
 
@@ -130,64 +187,7 @@ graph LR
     class R2,R3,R4,R5 good
 ```
 
-### 2f. The network split, drawn (this is CAP)
-
-The line between the two nodes is cut. Ann already bought the last seat on Node A. Ben now asks Node B. Notice that Node B has only two choices, and each one costs something. **Consistent** means: refuse rather than be wrong. **Available** means: answer, even if the answer may be wrong.
-
-```mermaid
-graph TB
-    NA["Node A<br/>seats left 0"] -.->|line is cut| NB["Node B<br/>still says seats left 1"]
-    UB["Ben asks Node B<br/>for the last seat"] --> NB
-    NB --> CH["Node B must choose"]
-    CH -->|refuse| CC["Consistent<br/>Ben gets an error<br/>nobody is told something false"]
-    CH -->|answer from its own copy| AA["Available<br/>Ben gets an answer<br/>it may be wrong"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class CC good
-    class AA bad
-```
-
-### 2g. The everyday choice (this is PACELC)
-
-CAP only speaks when the line is cut. Notice that the "no" side is the one you live in every day.
-
-```mermaid
-graph TB
-    Q["A read arrives"] --> D1["Is the line between the copies cut right now?"]
-    D1 -->|yes CAP| X1["Refuse<br/>or answer with old data"]
-    D1 -->|no PACELC| D2["Wait for the newest copy<br/>or answer at once?"]
-    D2 -->|wait| W["Fresh but slower"]
-    D2 -->|answer at once| F["Fast but maybe old"]
-```
-
-### 2h. Which promise does this feature need?
-
-This is the choice you say out loud. Notice that most features end in the right-hand boxes.
-
-```mermaid
-graph TB
-    Q["A feature reads data that has copies"] --> D1["Does an old answer cost money<br/>or break a rule?"]
-    D1 -->|yes| S["Strong<br/>read the leader<br/>refuse when unsure"]
-    D1 -->|no| D2["Did this user just change it?"]
-    D2 -->|yes| R["Read your own writes<br/>leader for a few seconds"]
-    D2 -->|no| E["Eventual<br/>any follower or a cache"]
-```
-
-## 3. Real life analogy
-
-A company has a head office and two branch shops. Only the head office changes the price list.
-
-- **Leader and followers:** the head office is the leader. Each branch keeps a copy of the list.
-- **The copy trip:** after a change, a courier carries the new list to each branch. It takes an hour.
-- **Stale read:** a customer phones a branch in that hour and hears the old price.
-- **Strong:** the branch phones the head office before every answer. Always right, but slower.
-- **Eventual:** the branch answers from its own list. Fast, but sometimes old.
-- **Read your own writes:** the manager who just changed a price phones the head office for the rest of the day.
-- **Network split:** the phone line to the head office is cut. The branch can say "I cannot tell you today" (consistent), or it can quote its own list (available).
-
-Where the analogy stops: a courier takes an hour, but servers copy in milliseconds. So you rarely see a stale read on a quiet day. Also, when the line is cut, real branches may take orders on their own. Later they must merge two lists, and sometimes one change is thrown away.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.**
 
 A leader and a follower. One **tick** is one step of time. A copy needs 3 ticks to travel. Sam saves at tick 0. For 4 ticks after his own write, Sam's reads go to the leader. The code prints one line per tick.
 
@@ -221,9 +221,9 @@ Checked on 2026-10-16 with Node 22.
 
 The follower column says `Andi` on ticks 0, 1 and 2. Those are the stale reads. The Sam column never says `Andi`, because his reads go to the leader until tick 4. By then the copy has landed.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-### Part 1: the code above
+**What really happens, step by step.**
 
 The "machine" here is two boxes and a copy on the way. Read one row at a time. The `read` function does one extra job: before it answers, it applies every copy that is due.
 
@@ -238,7 +238,126 @@ The "machine" here is two boxes and a copy on the way. Read one row at a time. T
 
 What to see: the follower is wrong for exactly 3 ticks, the copy delay. Nothing was lost. Time fixed it.
 
-### Part 2: a network split, with two different choices
+**Step through it yourself:** [open the stepper](visuals/07-consistency-and-cap.html). It has three stories: a stale read, read your own writes, and a network split with both choices side by side. Guess first, then press the buttons. It shows the leader, the follower, and the copy that is still on its way.
+
+</details>
+
+## 3. Three promises: strong, read your own writes, eventual
+
+| Promise | In plain words |
+|---|---|
+| **Strong** | Every reader sees a finished write at once. Read the leader, or wait for enough copies. Slower, and sometimes an error |
+| **Read your own writes** | You see your own change at once. Others may see it a moment later |
+| **Eventual** | Every copy agrees after a short delay. Users may see old data for a moment |
+
+<details class="guess"><summary>🤔 Guess: which promise does each need: (a) a points balance before a redeem, (b) a profile name the user just saved, (c) a page view counter? Press to check.</summary>
+
+(a) **Strong**: a wrong balance means a wrong spend. (b) **Read your own writes**: the user must see their own change. (c) **Eventual**: nobody checks the last digit.
+
+</details>
+
+> **Remember:** choose per feature. Money is strong. Likes are eventual. A user's own change must be visible to that user.
+
+<details class="more"><summary>📖 More detail: the choice drawn, the full tables, and stale reads in tools you know</summary>
+
+**Which promise does this feature need?** This is the choice you say out loud. Notice that most features end in the right-hand boxes.
+
+This is the choice you say out loud. Notice that most features end in the right-hand boxes.
+
+```mermaid
+graph TB
+    Q["A feature reads data that has copies"] --> D1["Does an old answer cost money<br/>or break a rule?"]
+    D1 -->|yes| S["Strong<br/>read the leader<br/>refuse when unsure"]
+    D1 -->|no| D2["Did this user just change it?"]
+    D2 -->|yes| R["Read your own writes<br/>leader for a few seconds"]
+    D2 -->|no| E["Eventual<br/>any follower or a cache"]
+```
+
+**The three promises, with the cost of each.**
+
+| Promise | In plain words | How you build it | What it costs |
+|---|---|---|---|
+| **Strong** | Every reader sees a finished write at once | Read the leader. Or wait until enough copies confirm | Slower, and sometimes an error |
+| **Read your own writes** | You see your own change at once. Others may see it a moment later | For a few seconds after you write, send your reads to the leader | The leader does a bit more work. The app must remember when you wrote |
+| **Eventual** | Every copy agrees after a short delay | Nothing special. Copies catch up | Users may see old data for a moment |
+
+Read your own writes is the one users feel. Nobody minds that a stranger sees the old name for a moment. Everybody minds when their own change disappears.
+
+**Choose per feature.**
+
+| Feature | Promise | Why |
+|---|---|---|
+| A points balance before a redeem | Strong | A wrong balance means a wrong spend |
+| A profile name the user just saved | Read your own writes | The user must see their own change |
+| An order list, right after placing an order | Read your own writes | The new order must be there |
+| A product list or search results | Eventual | A few seconds old does no harm |
+| A page view counter | Eventual | Nobody checks the last digit |
+
+**Where the stale read shows up in tools you know.**
+
+| Tool | The copy | When it is old | The usual fix |
+|---|---|---|---|
+| PostgreSQL with a read replica | The replica | It gets changes a moment after the primary. Usually milliseconds, longer under heavy load | Read the primary for a few seconds after the user writes |
+| Redis in front of PostgreSQL | The cached value. Redis is a fast store that keeps data in memory, and a cache is a fast copy kept close to the app | Until someone deletes the key, or the timer on it ends | Delete the key after a write. Keep a short timer. See lesson 04 |
+| DynamoDB or Cassandra style stores (idea only) | Copies on several nodes | It depends on the setting. You can choose per request | Ask for a strong read when the feature needs it. See lesson 19 |
+
+A queue (lesson 06) is the same idea inside your own app. The user sees "order received" now, and the points arrive a little later. That is eventual consistency, on purpose.
+
+</details>
+
+## 4. The network split: what CAP says
+
+**Network split:** the line between two machines breaks. Both machines still run, but they cannot talk. A request arrives at a machine that cannot reach the leader, and it must choose: **refuse** (consistent: nobody is told something false) or **answer with maybe old data** (available). The P in CAP is not a choice, because networks do break. So CAP really says: **during a split, choose C or A.**
+
+```mermaid
+graph TB
+    A["The line is cut<br/>Ann bought the last seat on Node A"] --> B["Ben asks Node B<br/>Node B still says 1 seat"]
+    B --> C["Node B must choose"]
+    C --> D["Refuse: consistent<br/>or answer: available<br/>but maybe wrong"]
+```
+
+<details class="guess"><summary>🤔 Guess: during the split Node B answers from its own copy and sells the seat Ann already bought. What happens when the line works again? Press to check.</summary>
+
+The nodes compare and find **two sales for 1 seat**, so one buyer must get a refund. If Node B had refused, Ben would get an error, but nobody would be told something false. Neither choice is free.
+
+</details>
+
+> **Remember:** during a network split, choose: refuse, or answer with maybe old data. With no split you can have both.
+
+<details class="more"><summary>📖 More detail: the split drawn, what C, A and P mean, the two choices step by step, and what CAP does not say</summary>
+
+**The network split, drawn (this is CAP).** The line between the two nodes is cut. Ann already bought the last seat on Node A. Ben now asks Node B. Notice that Node B has only two choices, and each one costs something. **Consistent** means: refuse rather than be wrong. **Available** means: answer, even if the answer may be wrong.
+
+```mermaid
+graph TB
+    NA["Node A<br/>seats left 0"] -.->|line is cut| NB["Node B<br/>still says seats left 1"]
+    UB["Ben asks Node B<br/>for the last seat"] --> NB
+    NB --> CH["Node B must choose"]
+    CH -->|refuse| CC["Consistent<br/>Ben gets an error<br/>nobody is told something false"]
+    CH -->|answer from its own copy| AA["Available<br/>Ben gets an answer<br/>it may be wrong"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class CC good
+    class AA bad
+```
+
+**What CAP says.**
+
+The three letters, in plain words:
+
+- **C, consistency:** every read sees the latest write (the strong kind).
+- **A, availability:** every machine that is running answers every request with a real answer, not an error.
+- **P, partition tolerance:** the system keeps working when the network splits.
+
+The story is the split picture above:
+
+1. A network split happens. Two groups of machines cannot talk.
+2. A request arrives at a machine that cannot reach the leader.
+3. That machine must choose. **Refuse** (consistent), or **answer with maybe old data** (available).
+
+The letter P is not a choice. Networks do break, so a system with many machines must live with splits. So CAP really says: **during a split, choose C or A.**
+
+**A network split, with two different choices.**
 
 Two nodes, A (the leader) and B. Both hold "1 seat left". The line between them is cut. The same events happen in both tables. Only the rule for Node B is different.
 
@@ -266,51 +385,7 @@ What to see: in choice 1 nobody is told something false, but Ben gets an error. 
 
 **Step through it yourself:** [open the stepper](visuals/07-consistency-and-cap.html). It has three stories: a stale read, read your own writes, and a network split with both choices side by side. Guess first, then press the buttons. It shows the leader, the follower, and the copy that is still on its way.
 
-## 6. Why it exists and what it costs
-
-### Why copies exist
-
-- **Problem without copies:** every read hits one machine. If that machine stops, the data is out of reach (interview words: single point of failure, from lesson 02).
-- **How copies solve it:** copies do two jobs. Followers answer reads, so the leader has less to do. And if the leader stops, a follower can take over (picture 2a).
-- **Cost:** a copy needs time to arrive. So a follower can return a stale read, even when nothing is broken.
-
-### Three promises you can make
-
-| Promise | In plain words | How you build it | What it costs |
-|---|---|---|---|
-| **Strong** | Every reader sees a finished write at once | Read the leader. Or wait until enough copies confirm | Slower, and sometimes an error |
-| **Read your own writes** | You see your own change at once. Others may see it a moment later | For a few seconds after you write, send your reads to the leader | The leader does a bit more work. The app must remember when you wrote |
-| **Eventual** | Every copy agrees after a short delay | Nothing special. Copies catch up | Users may see old data for a moment |
-
-Read your own writes is the one users feel. Nobody minds that a stranger sees the old name for a moment. Everybody minds when their own change disappears.
-
-### Where the stale read shows up in tools you know
-
-| Tool | The copy | When it is old | The usual fix |
-|---|---|---|---|
-| PostgreSQL with a read replica | The replica | It gets changes a moment after the primary. Usually milliseconds, longer under heavy load | Read the primary for a few seconds after the user writes |
-| Redis in front of PostgreSQL | The cached value. Redis is a fast store that keeps data in memory, and a cache is a fast copy kept close to the app | Until someone deletes the key, or the timer on it ends | Delete the key after a write. Keep a short timer. See lesson 04 |
-| DynamoDB or Cassandra style stores (idea only) | Copies on several nodes | It depends on the setting. You can choose per request | Ask for a strong read when the feature needs it. See lesson 19 |
-
-A queue (lesson 06) is the same idea inside your own app. The user sees "order received" now, and the points arrive a little later. That is eventual consistency, on purpose.
-
-### What CAP says
-
-The three letters, in plain words:
-
-- **C, consistency:** every read sees the latest write (the strong kind).
-- **A, availability:** every machine that is running answers every request with a real answer, not an error.
-- **P, partition tolerance:** the system keeps working when the network splits.
-
-The story is picture 2f:
-
-1. A network split happens. Two groups of machines cannot talk.
-2. A request arrives at a machine that cannot reach the leader.
-3. That machine must choose. **Refuse** (consistent), or **answer with maybe old data** (available).
-
-The letter P is not a choice. Networks do break, so a system with many machines must live with splits. So CAP really says: **during a split, choose C or A.**
-
-### What CAP does not say
+**What CAP does not say.**
 
 | People say | The truth |
 |---|---|
@@ -319,7 +394,36 @@ The letter P is not a choice. Networks do break, so a system with many machines 
 | "My database is CP, or it is AP, for good." | Settings and each request can change it. Choose per feature |
 | "CAP explains why my page is slow today." | A slow page on a normal day is a different tradeoff. It is PACELC |
 
-### The everyday cost (PACELC)
+</details>
+
+## 5. The everyday cost: PACELC
+
+Most days there is no split, and you still pay. A strong answer must wait for other copies. A copy in another city adds tens of milliseconds or more, because the message goes there and back.
+
+| | The line is cut (CAP) | The line works (PACELC) |
+|---|---|---|
+| You choose | refuse, or answer with maybe old data | wait for the newest copy (fresh but slower), or answer at once from a nearby copy (fast but maybe old) |
+
+<details class="guess"><summary>🤔 Guess: a user in Jakarta reads data whose newest copy is in London. A strong answer waits for that copy. Is there a split? Press to check.</summary>
+
+**No split at all**, and you still pay. The message goes to London and back, tens of milliseconds or more. That is the everyday choice: waiting time against freshness.
+
+</details>
+
+> **Remember:** CAP only speaks when the line is cut. PACELC is the choice you live in every day: speed against freshness.
+
+<details class="more"><summary>📖 More detail: the everyday choice drawn, and PACELC in one line</summary>
+
+**The everyday choice (this is PACELC).** CAP only speaks when the line is cut. Notice that the "no" side is the one you live in every day.
+
+```mermaid
+graph TB
+    Q["A read arrives"] --> D1["Is the line between the copies cut right now?"]
+    D1 -->|yes CAP| X1["Refuse<br/>or answer with old data"]
+    D1 -->|no PACELC| D2["Wait for the newest copy<br/>or answer at once?"]
+    D2 -->|wait| W["Fresh but slower"]
+    D2 -->|answer at once| F["Fast but maybe old"]
+```
 
 Most days there is no split, and you still pay. A strong answer must wait for other copies. A copy in another city adds tens of milliseconds or more, because the message goes there and back (from the older guide).
 
@@ -330,17 +434,25 @@ PACELC says it in one line. **If** there is a split (P), choose availability or 
 
 Some stores let you set how many copies must answer before they say "done". Lesson 19 (replication and quorums) teaches how to choose that number.
 
-### Choose per feature
+</details>
 
-| Feature | Promise | Why |
-|---|---|---|
-| A points balance before a redeem | Strong | A wrong balance means a wrong spend |
-| A profile name the user just saved | Read your own writes | The user must see their own change |
-| An order list, right after placing an order | Read your own writes | The new order must be there |
-| A product list or search results | Eventual | A few seconds old does no harm |
-| A page view counter | Eventual | Nobody checks the last digit |
+## 6. Five mistakes, and what to say if you freeze
 
-## 7. Common mistakes
+- **Wrong:** "CAP says I can only keep two of three." **Right:** you cannot drop P. During a split, choose refuse or maybe old.
+- **Wrong:** "I added a read replica, so all reads go there." **Right:** except the reads of a user who just wrote.
+- **Wrong:** "Strong is safest, so I use it everywhere." **Right:** money and the last item are strong. Likes and feeds are eventual.
+- **Wrong:** "The data is in Redis, so it is always the newest." **Right:** a cache is a copy, old until the key is deleted or its timer ends.
+- **Wrong:** "Postgres is CA, MongoDB is CP." **Right:** say what each feature needs.
+
+<details class="guess"><summary>🤔 Guess: one Postgres on one machine: is it CP or AP? Press to check.</summary>
+
+**Neither.** One machine has no split, so CAP does not apply to it. Add a replica and the question starts. Many stores let you choose for each request.
+
+</details>
+
+> **Remember:** if you freeze, say "A copy can be old for a moment. That is a stale read."
+
+<details class="more"><summary>📖 More detail: the five mistakes in full, and the freeze plan</summary>
 
 **Wrong:**
 
@@ -400,7 +512,7 @@ Some stores let you set how many copies must answer before they say "done". Less
  I decide per screen how old is fine."
 ```
 
-**Why:** the cache and the database disagree for a moment after every write (lesson 04, picture 2d).
+**Why:** the cache and the database disagree for a moment after every write (lesson 04, card 3).
 
 **Wrong:**
 
@@ -423,16 +535,18 @@ Some stores let you set how many copies must answer before they say "done". Less
 2. Say "During a network split I choose: refuse, or answer with maybe old data. With no split I choose speed against freshness."
 3. Say "I choose per feature. Money is strong. Likes are eventual. A user's own change must be visible to that user."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links came from web search or from older notes in this folder, 2026-10-16. The build machine could not open pages, so open each one once. If one is broken, tell me and I will replace it.
 
-- **Video:** [System Design: Consistency And Availability Patterns](https://www.youtube.com/watch?v=J1crAAjuQyA) - the title came from a search result. I could not see the channel or the length. A search said it is about six years old. Watch for the words weak, eventual and strong, and compare them with the table in section 6.
+- **Video:** [System Design: Consistency And Availability Patterns](https://www.youtube.com/watch?v=J1crAAjuQyA) - the title came from a search result. I could not see the channel or the length. A search said it is about six years old. Watch for the words weak, eventual and strong, and compare them with the promises table in card 3.
 - **Play with it:** [the stepper in this folder](visuals/07-consistency-and-cap.html) - guess first, then press the buttons. Try all three tabs.
 - **Play with it:** [CRDT Chaos Visualizer, project page](https://awesome.ecosyste.ms/projects/github.com%2Fbatmac%2Fcrdt) - a search summary says it is a counter on 3 nodes with controls for delay and for network splits, and a graph that shows the copies agreeing again. This is a catalog page about the project. Find the link to the tool itself.
-- **Read:** [KodeKloud: CAP Theorem Without the Math](https://notes.kodekloud.com/docs/System-Design-For-Beginners/Failure-Protection-and-Operations/CAP-Theorem-Without-the-Math/page) - the page name matches this lesson. I could not read it, so check that it fits. Compare it with picture 2f.
-- **Read:** [Codemia: Read After Write, when your own update vanishes on refresh](https://codemia.io/archive/read-after-write-consistency) - a search summary says it covers the fix of reading the leader for the user who wrote. Compare it with picture 2e.
-- **Read:** [dev.to: Explaining the PACELC theorem to new hires](https://dev.to/fahimulhaq/explaining-the-pacelc-theorem-to-new-hires-2de2) - the everyday tradeoff in plain words. Compare it with picture 2g.
+- **Read:** [KodeKloud: CAP Theorem Without the Math](https://notes.kodekloud.com/docs/System-Design-For-Beginners/Failure-Protection-and-Operations/CAP-Theorem-Without-the-Math/page) - the page name matches this lesson. I could not read it, so check that it fits. Compare it with the split picture in card 4.
+- **Read:** [Codemia: Read After Write, when your own update vanishes on refresh](https://codemia.io/archive/read-after-write-consistency) - a search summary says it covers the fix of reading the leader for the user who wrote. Compare it with the right-against-wrong picture in card 2.
+- **Read:** [dev.to: Explaining the PACELC theorem to new hires](https://dev.to/fahimulhaq/explaining-the-pacelc-theorem-to-new-hires-2de2) - the everyday tradeoff in plain words. Compare it with the picture in card 5.
 - **Read:** [Distributed systems and reliability patterns, Part 3](distributed-systems-and-reliability-patterns.md) - the deeper guide in this folder. Find the table of four promises, and the table of wrong answers about CAP.
 
 <details><summary>Go deeper (optional)</summary>
@@ -463,7 +577,7 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -558,7 +672,7 @@ For each feature, say "strong" or "eventual", and give one reason. Write your an
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "What does the CAP theorem say? Then: a user saves their profile, reloads the page, and sees the old data. What is going on, and how do you fix it?"
 
@@ -574,7 +688,7 @@ For each feature, say "strong" or "eventual", and give one reason. Write your an
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain consistency and CAP out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use Sam and his old name, then the last seat during a network split. Then write your best version below and run `/explain-check consistency and cap` or ask the `explain-coach` agent to review it.
 
@@ -586,12 +700,12 @@ Close this file. Explain consistency and CAP out loud like to a new junior, in 4
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. Nothing crashed, but a user saves a change and sees the old value. Why does this happen? Name the fix, and say why it lasts a few seconds.
 2. What does CAP say? Name two things it does not say.
 3. There is no network split. What choice do you still make on every read, and what does each side cost?
-4. Draw the picture from section 2c from memory.
+4. Draw the picture of the run over time (card 2, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
