@@ -1,12 +1,33 @@
 # 09. Design a rate limiter
 
-> **Subject:** System Design · **Lesson:** 09 · **Made:** 2026-10-21 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 09 · **Made:** 2026-10-21 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** draw where a rate limiter sits and where its count lives, compare fixed window, sliding window and token bucket with one picture each, explain why two servers can both let the last request in and how one step in Redis stops it, and say what happens when Redis is down.
+>
 > **Before this:** [Design a URL shortener](08-design-a-url-shortener.md) · **Next:** [Design a chat app](10-design-a-chat-app.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: count each client, say "no" after a limit
 
-A rate limiter counts each client's requests and says "no, wait" after a limit.
+A rate limiter counts each client's requests and says "no, wait" after a limit. Lesson 08 ended with one script making millions of links. This is the guard. Two parts are hard: **how to count**, so nobody gets twice the limit, and **where the count lives**, so ten servers share one number.
+
+```mermaid
+graph TB
+    C["Client<br/>user 42"] --> A["API server<br/>limiter step"]
+    A -->|count and decide in one step| R["Redis<br/>one count per client"]
+    R --> D["Allowed: run the route<br/>Over the limit: 429"]
+```
+
+<details class="guess"><summary>🤔 Guess: the limit is 100 a minute. There are 4 servers, each counting in its own memory, and the load balancer spreads 400 requests evenly. How many get in? Press to check.</summary>
+
+**All 400.** Each server counts 100 and allows all 100. The real limit is 100 times 4. The fix: keep the count in one shared Redis.
+
+</details>
+
+> **Remember:** the count lives in one shared Redis, changed in one step. Never in each server's memory.
+
+<details class="more"><summary>📖 More detail: new words, the big picture, the problems drawn, the museum, and the answer the client sees</summary>
 
 Lesson 08 ended with a problem: one script can make millions of links. This lesson builds the guard. Two parts are hard:
 
@@ -30,9 +51,7 @@ From earlier lessons: a load balancer sends each request to any server (lesson 0
 
 Times in the pictures are examples, not measured.
 
-## 2. The pictures
-
-### 2a. The big picture
+**The big picture.** Notice that every server asks the same Redis.
 
 Notice that every server asks the same Redis.
 
@@ -47,7 +66,7 @@ graph LR
     A1 -->|over the limit| X["429 and Retry-After"]
 ```
 
-### 2b. The problem, drawn
+**The problem, drawn.** No limiter. Notice that the other users did nothing wrong. Then each server counts alone. Notice that 400 get in, not 100.
 
 No limiter. Notice that the other users did nothing wrong.
 
@@ -78,7 +97,56 @@ graph LR
     class X bad
 ```
 
-### 2c. How it works over time: a token bucket
+**The museum in full.**
+
+A museum where each visitor has their own ticket machine.
+
+| Idea | At the museum |
+|---|---|
+| Token bucket | Your machine holds up to 3 tickets and prints 1 new ticket a minute. You walk in 3 times fast, then wait. |
+| Fixed window | The guard lets you in 3 times per clock hour. Come at 1:59 and 2:01, and you get in 6 times. |
+| A count in each server | 4 doors, and each guard keeps a separate list. You use each door 3 times and get in 12 times. |
+| One shared count | All 4 guards look at one board. Only one guard writes on it at a time. |
+
+Where the analogy stops: an API checks 15,000 requests a second. The board must answer in about 1 ms. And a broken board must not close the museum.
+
+**Where the count lives.**
+
+Keep it in one shared Redis, changed in one step: `INCR` or a Lua script. Never keep it in each server's memory (card 1).
+
+**The answer the client sees.**
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 12
+```
+
+A good client waits that many seconds.
+
+</details>
+
+## 2. The token bucket
+
+Each client has a **bucket** of tokens (tickets). Each request takes one. New ones drip in slowly. Empty means "no". The bucket size is the biggest burst, and the drip speed is the average. No timer adds tokens: on each request the code adds the tokens for the time that passed, so each client needs two numbers, the tokens and the last time.
+
+```mermaid
+graph TB
+    A["Bucket starts full<br/>3 tokens, 1 new a second"] --> B["3 requests at once<br/>all allowed, 0 tokens"]
+    B --> C["2 more at once<br/>both get 429"]
+    C --> D["1.5 s later<br/>1.5 tokens grew back<br/>the next request is allowed"]
+```
+
+<details class="guess"><summary>🤔 Guess: after that allowed request at 1500 ms there are 0.5 tokens left. A request arrives at 1600 ms. Allowed? What is `Retry-After`? Press to check.</summary>
+
+**Refused.** 100 ms grew 0.1 token, so 0.6 is less than 1. `Retry-After: 1` (0.4 s, rounded up). (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** no timer adds tokens. Each request adds the tokens for the time that passed, up to the cap.
+
+<details class="more"><summary>📖 More detail: the bucket over time, what is in Redis, the code, the real output, and step by step</summary>
+
+**How it works over time: a token bucket.** 3 tokens, refilled at 1 a second. Notice the burst of 3, then the wait.
 
 3 tokens, refilled at 1 a second. Notice the burst of 3, then the wait.
 
@@ -100,7 +168,7 @@ sequenceDiagram
     S-->>C: Normal answer
 ```
 
-### 2d. What is in memory right now
+**What is in memory right now.** Notice: one Redis key per client and rule, each with two small numbers.
 
 Notice: one Redis key per client and rule, each with two small numbers.
 
@@ -123,7 +191,154 @@ graph TB
 
 Each key has an end time. Redis deletes a quiet client's key by itself.
 
-### 2e. Right against wrong
+**The smallest code that shows it.** A token bucket with a fake clock. It holds 3 tokens and grows 1 a second.
+
+```js
+function makeBucket(capacity, perSecond) {
+  let tokens = capacity, last = 0;                                    // the bucket starts full
+  return function allow(nowMs) {
+    tokens = Math.min(capacity, tokens + (nowMs - last) / 1000 * perSecond);   // add tokens for the time that passed
+    last = nowMs;
+    if (tokens >= 1) { tokens -= 1; return true; }                    // take one token
+    return false;                                                     // empty, so answer 429
+  };
+}
+const allow = makeBucket(3, 1);                                       // holds 3 tokens, 1 new token each second
+console.log([0, 0, 0, 0, 0].map((t) => allow(t)).join(" "));
+console.log(allow(1500), allow(1600), allow(10000));
+```
+
+**Output:**
+
+```
+true true true false false
+true false true
+```
+
+Checked on 2026-10-21 with Node 24.
+
+No timer adds tokens. On each request, the code adds tokens for the time that passed. So each client needs two numbers: tokens and the last time.
+
+Run again on 2026-10-30 with Node 26.12.1: the same output.
+
+**What really happens, step by step.**
+
+One row is one call to `allow`.
+
+| Step | Call | Time passed | Tokens after the drip | Decision | Tokens after | Answer |
+|---|---|---|---|---|---|---|
+| 1 | `allow(0)` | 0 ms | 3 (full) | 1 or more, take one | 2 | `true` |
+| 2 | `allow(0)` | 0 ms | 2 | take one | 1 | `true` |
+| 3 | `allow(0)` | 0 ms | 1 | take one | 0 | `true` |
+| 4 | `allow(0)` | 0 ms | 0 | less than 1, refuse | 0 | `false` |
+| 5 | `allow(0)` | 0 ms | 0 | refuse | 0 | `false` |
+| 6 | `allow(1500)` | 1,500 ms, so 1.5 tokens grow | 1.5 | take one | 0.5 | `true` |
+| 7 | `allow(1600)` | 100 ms, so 0.1 grows | 0.6 | less than 1, refuse | 0.6 | `false` |
+| 8 | `allow(10000)` | 8,400 ms, so 8.4 would grow | 3 (the cap) | take one | 2 | `true` |
+
+What to see:
+
+- Steps 1 to 3 are the burst. The bucket size is the biggest burst.
+- Step 6: nobody added tokens at 1,000 ms. The code added 1.5 at 1,500 ms.
+- Step 7: 0.6 is not enough. The answer is `Retry-After: 1` (0.4 s, rounded up).
+- Step 8: 8 quiet seconds do not give 9 tokens. The cap is 3.
+
+In a real system, Redis runs this math as a tiny program (a Lua script). Redis runs one script at a time, so nobody cuts in. The script is in the Go deeper box of the Watch and play card.
+
+**Step through it yourself:** [open the stepper](visuals/09-design-a-rate-limiter.html). Story 1 is this bucket. Story 2 is fixed against sliding window. Story 3 is the race. Guess first, then press Next.
+
+</details>
+
+## 3. Three ways to count
+
+A **fixed window** counts per clock minute, but it has an edge problem: the limit is 3, and 6 get in within 2 seconds, because the count goes back to 0 at the new minute. A **sliding window** counts "the last 60 seconds" instead, so there is almost no edge burst. A **token bucket** allows a burst on purpose.
+
+| Way | Stores per client | Edge burst? | Best for |
+|---|---|---|---|
+| Fixed window | 1 counter | yes, up to 2 times the limit | rough internal limits |
+| Sliding window | 2 counters | almost none (a guess) | "N per minute" on public routes and login |
+| Token bucket | tokens and last time | no | most API routes |
+
+<details class="guess"><summary>🤔 Guess: a sliding window. Last minute had 42 requests, this minute so far 18, and we are 15 s into this minute. The limit is 50. Is one more request allowed? Press to check.</summary>
+
+**No.** 45 of the last 60 seconds are in last minute: 42 times 45 over 60 is 31.5. Plus 18 is 49.5. One more makes 50.5, over 50.
+
+</details>
+
+> **Remember:** the default is the token bucket. Login gets a sliding window.
+
+<details class="more"><summary>📖 More detail: the edge problem drawn, how a sliding window guesses, and which way to count</summary>
+
+**The edge problem of a fixed window.** A fixed window counts per clock minute. Notice: the limit is 3, but 6 get in within 2 seconds.
+
+A fixed window counts per clock minute. Notice: the limit is 3, but 6 get in within 2 seconds.
+
+```mermaid
+graph LR
+    A["12:00:59<br/>3 requests<br/>count 3 of 3 - allowed"] --> E["12:01:00<br/>new minute<br/>count goes back to 0"]
+    E --> B["12:01:01<br/>3 requests<br/>count 3 of 3 - allowed"]
+    B --> R["6 requests in 2 seconds<br/>twice the limit"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class R bad
+```
+
+**How a sliding window guesses.** Notice that it uses only the part of last minute still inside the last 60 seconds.
+
+Notice that it uses only the part of last minute still inside the last 60 seconds.
+
+```mermaid
+graph LR
+    P["Last minute<br/>42 requests"] -->|we are 15 s into this minute| W["45 of the last 60 s<br/>are in last minute<br/>42 times 45 over 60 = 31.5"]
+    C["This minute so far<br/>18 requests"] --> G["Guess<br/>31.5 plus 18 = 49.5"]
+    W --> G
+    G -->|limit 50| D["One more request<br/>makes 50.5 - so no"]
+```
+
+**Which way to count?** Notice that the default is the token bucket.
+
+Notice that the default is the token bucket.
+
+```mermaid
+graph TB
+    Q["I need a limit"] --> D1["Is a short burst normal?<br/>for example an app opening 10 calls at once"]
+    D1 -->|yes| TB["Token bucket<br/>size sets the burst<br/>drip speed sets the average"]
+    D1 -->|no| D2["Must the limit be strict and small?<br/>for example 5 logins in 15 minutes"]
+    D2 -->|yes| SW["Sliding window<br/>no edge burst"]
+    D2 -->|no| FW["Fixed window<br/>one counter - simplest<br/>fine for rough internal limits"]
+```
+
+**Three ways to count, in full.**
+
+| Way | What it stores per client | Edge burst? | Allows a short burst? | Best for |
+|---|---|---|---|---|
+| **Fixed window** | 1 counter | Yes, up to 2 times the limit | Yes, by accident | Rough internal limits. Easiest: `INCR` and an end time |
+| **Sliding window counter** | 2 counters | Almost none. It is a guess | A little | "N per minute" on public routes and login |
+| **Token bucket** | 2 numbers: tokens and last time | No | Yes, on purpose. The bucket size sets it | Most API routes. Stripe uses it |
+
+</details>
+
+## 4. One step: why two servers can both let the last request in
+
+A client has used 2 of 3. Two servers check at once. Each reads 2, each thinks 2 is under 3, each writes 3 and allows. So 4 requests got in, and the count says 3. This is the "check, then save" race again. The fix: Redis `INCR` means "add 1 and give me the new number". Redis runs one command at a time, so nobody cuts in.
+
+```mermaid
+graph TB
+    A["Used 2 of limit 3<br/>two servers check at once"] --> B["Both read 2<br/>both think 2 is under 3"]
+    B --> C["Both write 3 and allow"]
+    C --> D["4 requests got in<br/>the count says 3"]
+```
+
+<details class="guess"><summary>🤔 Guess: two servers call `INCR` at once when the count is 2 and the limit is 3. What does each get back? Press to check.</summary>
+
+One gets **3**, so it is allowed. The other gets **4**, so it gets a `429`. Redis decided, one at a time.
+
+</details>
+
+> **Remember:** never read, decide, then write. Add 1 and read the new number in one step: `INCR`, or a Lua script.
+
+<details class="more"><summary>📖 More detail: right against wrong, and the mistake in code</summary>
+
+**Right against wrong.** The client has used 2 of a limit of 3. Two servers check at once.
 
 The client has used 2 of a limit of 3. Two servers check at once.
 
@@ -158,120 +373,77 @@ sequenceDiagram
     Note over R: Redis runs one command at a time so nobody cuts in
 ```
 
-### 2f. The edge problem of a fixed window
+**The mistake, in code.**
 
-A fixed window counts per clock minute. Notice: the limit is 3, but 6 get in within 2 seconds.
-
-```mermaid
-graph LR
-    A["12:00:59<br/>3 requests<br/>count 3 of 3 - allowed"] --> E["12:01:00<br/>new minute<br/>count goes back to 0"]
-    E --> B["12:01:01<br/>3 requests<br/>count 3 of 3 - allowed"]
-    B --> R["6 requests in 2 seconds<br/>twice the limit"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class R bad
-```
-
-### 2g. How a sliding window guesses
-
-Notice that it uses only the part of last minute still inside the last 60 seconds.
-
-```mermaid
-graph LR
-    P["Last minute<br/>42 requests"] -->|we are 15 s into this minute| W["45 of the last 60 s<br/>are in last minute<br/>42 times 45 over 60 = 31.5"]
-    C["This minute so far<br/>18 requests"] --> G["Guess<br/>31.5 plus 18 = 49.5"]
-    W --> G
-    G -->|limit 50| D["One more request<br/>makes 50.5 - so no"]
-```
-
-### 2h. Which way to count?
-
-Notice that the default is the token bucket.
-
-```mermaid
-graph TB
-    Q["I need a limit"] --> D1["Is a short burst normal?<br/>for example an app opening 10 calls at once"]
-    D1 -->|yes| TB["Token bucket<br/>size sets the burst<br/>drip speed sets the average"]
-    D1 -->|no| D2["Must the limit be strict and small?<br/>for example 5 logins in 15 minutes"]
-    D2 -->|yes| SW["Sliding window<br/>no edge burst"]
-    D2 -->|no| FW["Fixed window<br/>one counter - simplest<br/>fine for rough internal limits"]
-```
-
-## 3. Real life analogy
-
-A museum where each visitor has their own ticket machine.
-
-| Idea | At the museum |
-|---|---|
-| Token bucket | Your machine holds up to 3 tickets and prints 1 new ticket a minute. You walk in 3 times fast, then wait. |
-| Fixed window | The guard lets you in 3 times per clock hour. Come at 1:59 and 2:01, and you get in 6 times. |
-| A count in each server | 4 doors, and each guard keeps a separate list. You use each door 3 times and get in 12 times. |
-| One shared count | All 4 guards look at one board. Only one guard writes on it at a time. |
-
-Where the analogy stops: an API checks 15,000 requests a second. The board must answer in about 1 ms. And a broken board must not close the museum.
-
-## 4. The smallest code that shows it
-
-A token bucket with a fake clock. It holds 3 tokens and grows 1 a second.
+**Wrong:** read the count, decide, then write it back.
 
 ```js
-function makeBucket(capacity, perSecond) {
-  let tokens = capacity, last = 0;                                    // the bucket starts full
-  return function allow(nowMs) {
-    tokens = Math.min(capacity, tokens + (nowMs - last) / 1000 * perSecond);   // add tokens for the time that passed
-    last = nowMs;
-    if (tokens >= 1) { tokens -= 1; return true; }                    // take one token
-    return false;                                                     // empty, so answer 429
-  };
-}
-const allow = makeBucket(3, 1);                                       // holds 3 tokens, 1 new token each second
-console.log([0, 0, 0, 0, 0].map((t) => allow(t)).join(" "));
-console.log(allow(1500), allow(1600), allow(10000));
+// sketch, not run here
+const used = Number(await redis.get(key)) || 0;   // 1. read
+if (used >= limit) return res.status(429).end();  // 2. decide
+await redis.set(key, used + 1, "EX", 60);         // 3. write. Another server may have read the same number in between
 ```
 
-**Output:**
+**Right:** one step, with `INCR`.
 
+```js
+// sketch, not run here
+const used = await redis.incr(key);               // add 1 and get the new number, in one step
+if (used === 1) await redis.expire(key, 60);      // the first request of the window sets the end time
+if (used > limit) return res.status(429).set("Retry-After", "60").end();
 ```
-true true true false false
-true false true
-```
 
-Checked on 2026-10-21 with Node 24.
+**Why:** two servers can both pass between the read and the write. Practice B shows it.
 
-No timer adds tokens. On each request, the code adds tokens for the time that passed. So each client needs two numbers: tokens and the last time.
+</details>
 
-## 5. What really happens, step by step
+## 5. Where the limiter lives, and when Redis is down
 
-One row is one call to `allow`.
+Use two layers: a rough IP limit at the **edge** (a service like Cloudflare, which only knows the IP), and a per-user limit behind it in the app (which knows the user, the route and the plan). Never limit in the browser, because the client controls that code. When Redis is down, **fail open** means let everyone in. **Fail closed** means say no to everyone. Give the Redis call a short timeout, about 5 ms, so a slow Redis acts like a down one.
 
-| Step | Call | Time passed | Tokens after the drip | Decision | Tokens after | Answer |
-|---|---|---|---|---|---|---|
-| 1 | `allow(0)` | 0 ms | 3 (full) | 1 or more, take one | 2 | `true` |
-| 2 | `allow(0)` | 0 ms | 2 | take one | 1 | `true` |
-| 3 | `allow(0)` | 0 ms | 1 | take one | 0 | `true` |
-| 4 | `allow(0)` | 0 ms | 0 | less than 1, refuse | 0 | `false` |
-| 5 | `allow(0)` | 0 ms | 0 | refuse | 0 | `false` |
-| 6 | `allow(1500)` | 1,500 ms, so 1.5 tokens grow | 1.5 | take one | 0.5 | `true` |
-| 7 | `allow(1600)` | 100 ms, so 0.1 grows | 0.6 | less than 1, refuse | 0.6 | `false` |
-| 8 | `allow(10000)` | 8,400 ms, so 8.4 would grow | 3 (the cap) | take one | 2 | `true` |
+| Route | Choice |
+|---|---|
+| Reading products, most API routes | **fail open**, and alert loudly |
+| Login, OTP, money transfers | **fail closed** |
 
-What to see:
+<details class="guess"><summary>🤔 Guess: Redis is down. Do you fail open or closed on (a) reading products, (b) login? Press to check.</summary>
 
-- Steps 1 to 3 are the burst. The bucket size is the biggest burst.
-- Step 6: nobody added tokens at 1,000 ms. The code added 1.5 at 1,500 ms.
-- Step 7: 0.6 is not enough. The answer is `Retry-After: 1` (0.4 s, rounded up).
-- Step 8: 8 quiet seconds do not give 9 tokens. The cap is 3.
+(a) **Open**: a broken limiter should not take the whole app down. (b) **Closed**: here the limiter protects accounts and money.
 
-In a real system, Redis runs this math as a tiny program (a Lua script). Redis runs one script at a time, so nobody cuts in. The script is in section 8's Go deeper box.
+</details>
 
-**Step through it yourself:** [open the stepper](visuals/09-design-a-rate-limiter.html). Story 1 is this bucket. Story 2 is fixed against sliding window. Story 3 is the race. Guess first, then press Next.
+> **Remember:** fail open on most routes, closed on login, OTP and money.
 
-## 6. Why it exists and what it costs
+<details class="more"><summary>📖 More detail: where it lives, when Redis is down, the numbers, and what it costs</summary>
+
+**Why it exists.**
 
 - **Problem:** one client can use up your servers or your money. Bots guess passwords. Bots also ask for thousands of paid one-time codes (OTP).
 - **Fix:** each client gets a fair share. Past it, the server answers `429` at once, before any real work.
 - **Cost:** see the last table in this section.
 
-### The numbers
+**Where the limiter lives.**
+
+| Place | What it is | What it knows |
+|---|---|---|
+| The edge | A service like Cloudflare, in front of your servers. It stops huge floods early | Only the IP address |
+| The gateway (lesson 17) | One front door for all routes | The user, if it checks the login token |
+| The app, as middleware | A step that runs before every route | The user, the route and the plan |
+
+Use two layers: a rough IP limit at the edge, and a per-user limit behind it. Never limit in the browser. The client controls that code.
+
+**When Redis is down.**
+
+**Fail open** means you let everyone in. **Fail closed** means you say no to everyone.
+
+| Route | Choice | Why |
+|---|---|---|
+| Reading products, most API routes | **Fail open**: let requests in, and alert loudly | A broken limiter should not take the whole app down |
+| Login, OTP, money transfers | **Fail closed**: say no | Here the limiter protects accounts and money |
+
+Give the Redis call a short timeout, about 5 ms. Then a slow Redis acts like a down one.
+
+**The numbers.**
 
 A rough estimate with round numbers (interview words: back of the envelope).
 
@@ -286,49 +458,7 @@ A rough estimate with round numbers (interview words: back of the envelope).
 
 Size is easy. The hard part: every request pays, and servers share one count.
 
-### Three ways to count
-
-| Way | What it stores per client | Edge burst? | Allows a short burst? | Best for |
-|---|---|---|---|---|
-| **Fixed window** | 1 counter | Yes, up to 2 times the limit | Yes, by accident | Rough internal limits. Easiest: `INCR` and an end time |
-| **Sliding window counter** | 2 counters | Almost none. It is a guess | A little | "N per minute" on public routes and login |
-| **Token bucket** | 2 numbers: tokens and last time | No | Yes, on purpose. The bucket size sets it | Most API routes. Stripe uses it |
-
-### Where the limiter lives
-
-| Place | What it is | What it knows |
-|---|---|---|
-| The edge | A service like Cloudflare, in front of your servers. It stops huge floods early | Only the IP address |
-| The gateway (lesson 17) | One front door for all routes | The user, if it checks the login token |
-| The app, as middleware | A step that runs before every route | The user, the route and the plan |
-
-Use two layers: a rough IP limit at the edge, and a per-user limit behind it. Never limit in the browser. The client controls that code.
-
-### Where the count lives
-
-Keep it in one shared Redis, changed in one step: `INCR` or a Lua script. Never keep it in each server's memory (picture 2b).
-
-### The answer the client sees
-
-```http
-HTTP/1.1 429 Too Many Requests
-Retry-After: 12
-```
-
-A good client waits that many seconds.
-
-### When Redis is down
-
-**Fail open** means you let everyone in. **Fail closed** means you say no to everyone.
-
-| Route | Choice | Why |
-|---|---|---|
-| Reading products, most API routes | **Fail open**: let requests in, and alert loudly | A broken limiter should not take the whole app down |
-| Login, OTP, money transfers | **Fail closed**: say no | Here the limiter protects accounts and money |
-
-Give the Redis call a short timeout, about 5 ms. Then a slow Redis acts like a down one.
-
-### What it costs
+**What it costs.**
 
 | Cost | What it means | What you do |
 |---|---|---|
@@ -337,25 +467,23 @@ Give the Redis call a short timeout, about 5 ms. Then a slow Redis acts like a d
 | Limits block real people | An office of 200 people shares one IP | Limit by user id after login. Use IP only for logged out routes |
 | A guess is not exact | The sliding window can be off a little | Fine for traffic. For "5 tries", use a log (see Go deeper) |
 
-<details><summary>Go deeper (optional)</summary>
+</details>
 
-**Sliding window log.** A fourth way keeps the time of every request. It is exact, but it stores one entry per request. Use it only for tiny limits, like 5 tries.
+## 6. Three mistakes, and what to say if you get stuck
 
-**How good is the sliding window guess?** Cloudflare checked it on 400 million requests from 270,000 sources. Only 0.003 percent of requests were wrongly allowed or wrongly limited.
+- **Wrong:** read the count, decide, then write it back. **Right:** one step, with `INCR`.
+- **Wrong:** a counter in a JavaScript `Map` in the Express app. **Right:** the count in Redis, because a request can land on any server.
+- **Wrong:** limit everyone by IP address. **Right:** by user id after login, by API key for servers, by IP only before login.
 
-**A few Redis machines.** Put the client key in the key name. Each client then always lands on the same Redis machine, so no count is split.
+<details class="guess"><summary>🤔 Guess: an office of 200 people shares one IP, and you limit by IP. What happens? Press to check.</summary>
 
-**Many regions.** Each region counts by itself. A true world-wide count needs calls between regions, which is slow. Say "the limit is per region" out loud.
-
-**More headers.** Many APIs also send their own headers, like `X-RateLimit-Remaining`. A shared standard, the IETF `RateLimit` header draft, is still a draft (draft 11, May 2026), not an RFC. The section 8 Go deeper box has the details.
-
-**A softer fallback.** When Redis is down, each server can keep a rough local limit: "the limit divided by the number of servers". The short timeout also stops requests from piling up while Redis is slow.
-
-**Clocks differ between servers.** The bucket math uses the time. So use Redis's own clock, the `TIME` command, inside the script.
+Real people **get blocked** because of one busy neighbour. And one attacker can use many IPs. Limit by user id after login. Use IP only for logged out routes.
 
 </details>
 
-## 7. Common mistakes
+> **Remember:** if you get stuck, say "It counts each client's requests and answers 429 past the limit."
+
+<details class="more"><summary>📖 More detail: the three mistakes in full, and the stuck plan</summary>
 
 **Wrong:** read the count, decide, then write it back.
 
@@ -389,26 +517,22 @@ if (used > limit) return res.status(429).set("Retry-After", "60").end();
 
 **Why:** a whole office can share one IP. And one attacker can use many IPs.
 
-<details><summary>Go deeper (optional)</summary>
-
-Even the right way above has a small gap. If the server stops between `INCR` and `EXPIRE`, the key never ends. A Lua script that does both closes that gap. For a bucket, put the whole math in one Lua script (section 8 Go deeper box).
-
-</details>
-
 **If you get stuck,** say these three lines:
 
 1. "It counts each client's requests and answers 429 past the limit."
 2. "I use a token bucket, because short bursts are fine. Login gets a sliding window."
 3. "The count lives in Redis, changed in one step. If Redis is down, I fail open, except on login."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 All links were opened and checked on 2026-10-21. Video details come from YouTube.
 
-- **Video:** [Rate Limiter System Design: Token Bucket, Leaky Bucket, Scaling](https://www.youtube.com/watch?v=YXkOdWBwqaA) ByteByteGo, 7 min 46 s. Compare it with pictures 2c, 2f and 2g.
+- **Video:** [Rate Limiter System Design: Token Bucket, Leaky Bucket, Scaling](https://www.youtube.com/watch?v=YXkOdWBwqaA) ByteByteGo, 7 min 46 s. Compare it with cards 2 and 3.
 - **Play with it:** [the stepper in this folder](visuals/09-design-a-rate-limiter.html). Try all three tabs.
 - **Play with it:** [Rate limiting playground](https://system-design.space/en/visuals/rate-limiting/) on System Design Space. Send a burst to a token bucket.
-- **Read:** [Cloudflare: How we built rate limiting capable of scaling to millions of domains](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/). It has the numbers from picture 2g.
+- **Read:** [Cloudflare: How we built rate limiting capable of scaling to millions of domains](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/). It has the numbers from the sliding window guess in card 3.
 - **Read:** [MDN: 429 Too Many Requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429). The `429` answer and `Retry-After`, with an example.
 
 <details><summary>Go deeper (optional)</summary>
@@ -455,7 +579,7 @@ The end time is "how long a full refill takes". After that, a missing key and a 
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -614,11 +738,11 @@ Checked on 2026-10-21 with Node 24: the 18 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "Our public API gets far too many requests. One customer's script sent 2 million requests in an hour and slowed everyone down. Design a rate limiter. We run 20 API servers."
 
-A common follow-up: "What happens if Redis goes down?" The table in section 6 is the answer.
+A common follow-up: "What happens if Redis goes down?" The table in card 5 is the answer.
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -633,7 +757,7 @@ A common follow-up: "What happens if Redis goes down?" The table in section 6 is
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain a rate limiter out loud in 4 parts: problem, how, tradeoff (what it costs), my example. Use two stories: 3 requests at 12:00:59 and 3 at 12:01:01, and two servers that both read 2. Write it below. Then run `/explain-check design a rate limiter` or ask the `explain-coach` agent.
 
@@ -645,12 +769,12 @@ Close this file. Explain a rate limiter out loud in 4 parts: problem, how, trade
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. 4 servers each count alone, with a limit of 100 a minute. How many get in? What is the fix?
 2. Draw the edge problem of a fixed window. How do the other two ways avoid it?
 3. Redis is down. What happens on the products route, and on OTP? Why?
-4. Draw both pictures from section 2e from memory.
+4. Draw both pictures from card 4 (blue bar) from memory.
 
 <details><summary>Answers</summary>
 
@@ -660,6 +784,35 @@ Close this file. Explain a rate limiter out loud in 4 parts: problem, how, trade
 4. Wrong: server 1 and server 2 both GET the count and get 2. Both decide "under 3". Both SET 3 and allow. Four got in, and the count says 3. Right: server 1 sends INCR and gets 3, so it allows. Server 2 sends INCR and gets 4, so it answers 429. Redis runs one command at a time.
 
 </details>
+
+## 12. Go deeper (optional)
+
+Open these when you are ready. None of them is needed for the cards above.
+
+<details><summary>Go deeper (optional)</summary>
+
+**Sliding window log.** A fourth way keeps the time of every request. It is exact, but it stores one entry per request. Use it only for tiny limits, like 5 tries.
+
+**How good is the sliding window guess?** Cloudflare checked it on 400 million requests from 270,000 sources. Only 0.003 percent of requests were wrongly allowed or wrongly limited.
+
+**A few Redis machines.** Put the client key in the key name. Each client then always lands on the same Redis machine, so no count is split.
+
+**Many regions.** Each region counts by itself. A true world-wide count needs calls between regions, which is slow. Say "the limit is per region" out loud.
+
+**More headers.** Many APIs also send their own headers, like `X-RateLimit-Remaining`. A shared standard, the IETF `RateLimit` header draft, is still a draft (draft 11, May 2026), not an RFC. The Go deeper box in the Watch and play card has the details.
+
+**A softer fallback.** When Redis is down, each server can keep a rough local limit: "the limit divided by the number of servers". The short timeout also stops requests from piling up while Redis is slow.
+
+**Clocks differ between servers.** The bucket math uses the time. So use Redis's own clock, the `TIME` command, inside the script.
+
+</details>
+
+<details><summary>Go deeper (optional)</summary>
+
+Even the right way above has a small gap. If the server stops between `INCR` and `EXPIRE`, the key never ends. A Lua script that does both closes that gap. For a bucket, put the whole math in one Lua script (the Go deeper box in the Watch and play card).
+
+</details>
+
 
 ## Connected lessons
 
