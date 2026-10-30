@@ -1,12 +1,32 @@
 # 17. Proxies and API gateways
 
-> **Subject:** System Design · **Lesson:** 17 · **Made:** 2026-10-17 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 17 · **Made:** 2026-10-17 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+>
 > **You will be able to:** say which side a forward proxy and a reverse proxy speak for, name what an API gateway does and does not do, trace one request through it, tell a gateway from a load balancer and a service mesh, say when a mobile app and a web app each get their own backend for frontend (BFF), and name two ways a gateway goes wrong.
+>
 > **Before this:** [Latency numbers and estimation](16-latency-numbers-and-estimation.md) · **Next:** [Object storage and presigned uploads](18-object-storage-and-presigned-uploads.md)
+>
+> **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
-## 1. The idea in one sentence
+## 1. The idea: one public front door
 
-An API gateway is one public front door for many services. It checks who you are, counts how often you knock, and sends you to the right service.
+An API gateway is one public front door for many services. It checks who you are, counts how often you knock, and sends you to the right service. Like a reception desk in a big office: it checks your badge (the **ticket**), counts how often you came today (the **limit**), points you to the right floor (the **route**), and writes your name in the visitor book (the log).
+
+```mermaid
+graph TB
+    A["Mobile and web apps<br/>know one address"] --> G["API gateway<br/>1 HTTPS ends here<br/>2 check the ticket<br/>3 check the limit<br/>4 pick the service"]
+    G --> S["Orders, Auth and Catalog<br/>services have no<br/>public address"]
+```
+
+<details class="guess"><summary>🤔 Guess: with no gateway, every service is public with its own door code. A bot sends 10,000 calls a minute, and the catalog service forgot the limit. Who suffers, and what does a new ticket rule cost? Press to check.</summary>
+
+Only the **catalog** suffers. A new ticket rule means **3 code changes**, one in each service, and the copies drift apart. With a gateway, the door jobs are done once.
+
+</details>
+
+> **Remember:** a gateway does the door jobs once: HTTPS, ticket, limit, route. Services stay private.
+
+<details class="more"><summary>📖 More detail: new words, the big picture, the problem drawn, the office building, and why it exists</summary>
 
 Lesson [03](03-load-balancers.md) gave you a front door that shares work between copies of one server. This lesson is about a front door that sends each request to a different service.
 
@@ -27,11 +47,7 @@ Also, HTTPS usually ends at the gateway (interview word: TLS termination). The g
 
 Sizes and times in the pictures are example numbers, not measured.
 
-## 2. The pictures
-
-### 2a. The big picture
-
-Notice that the apps know one address only. The services have no public address. The gateway makes the decisions at the door.
+**The big picture.** Notice that the apps know one address only. The services have no public address. The gateway makes the decisions at the door.
 
 ```mermaid
 graph LR
@@ -42,9 +58,7 @@ graph LR
     G -->|path catalog| C["Catalog service<br/>no public address"]
 ```
 
-### 2b. The problem, drawn
-
-This is the system with no gateway. Notice that every service is public and has its own copy of the door code. One copy forgot the limit, and the app must know three addresses.
+**The problem, drawn.** This is the system with no gateway. Notice that every service is public and has its own copy of the door code. One copy forgot the limit, and the app must know three addresses.
 
 ```mermaid
 graph TB
@@ -57,7 +71,42 @@ graph TB
     class C,X,Y bad
 ```
 
-### 2c. How it works over time
+**The office building in full.**
+
+A big office building.
+
+- **Reverse proxy:** the reception desk. Visitors talk to the desk, never to the staff directly. The desk speaks for the company.
+- **Forward proxy:** the mail room. Staff hand letters to the mail room. The outside world sees only the mail room. It speaks for the staff.
+- **API gateway:** a reception desk that also checks your badge (the ticket), counts how often you came today (the limit), and points you to the right floor (the route). It writes your name in the visitor book (the log).
+- **BFF:** a museum has one guide for school groups and one guide for experts. Both show the same collection. Each one tells the story that fits the group.
+
+Where the analogy stops: a receptionist points and you walk alone. A gateway carries the whole request and the whole answer, both ways. A building has one desk, but a gateway can run as two copies. And a gateway writes your badge name on the note it passes on. The staff behind it can trust that note only because nobody else can reach them.
+
+**Why it exists and what it costs.**
+
+- **Problem without it:** every service repeats the door code, and the copies drift apart (card 1). The app must know many addresses. Every service is public, so every service is a target.
+- **How it solves it:** one public door does the shared jobs once (card 1). Services stay private. The app knows one address, and you can move or split services behind it without changing the app.
+- **Cost or tradeoff:** one more hop, one more thing to run, and one more thing that can break everything. The next parts show the five jobs, the neighbours, and the two ways it goes wrong.
+
+</details>
+
+## 2. The three checks, in order
+
+The cheap check goes first. **Check 1:** is the ticket real and not too old? If not, `401`. **Check 2:** is the caller over the limit? If so, `429`. **Check 3:** the start of the path picks the service (`/orders` goes to the orders service). No route gives `404`. A call with a real ticket counts even when it ends in 404. A refused ticket does not count.
+
+Five requests, with a limit of 3 calls: a good ticket to `/orders/42`, a bad ticket to `/orders/42`, a good ticket to `/auth/login`, a good ticket to `/shop`, and a good ticket to `/orders/1`.
+
+<details class="guess"><summary>🤔 Guess: what does each of the five requests get? Press to check.</summary>
+
+`200 sent to orders-service`, `401 bad token`, `200 sent to auth-service`, `404 no route`, `429 too many requests`. The `/shop` request found no route, but it still used up one of the 3 calls. So the next good request got 429. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** bad and too many requests never reach a service. The cheap check goes first.
+
+<details class="more"><summary>📖 More detail: one good request over time, the notebook, the code, the real output, and step by step</summary>
+
+**How it works over time.** This is one good request. Notice that the gateway adds notes to the request (who the user is, a request id) before the service sees it.
 
 This is one good request. Notice that the gateway adds notes to the request (who the user is, a request id) before the service sees it.
 
@@ -77,7 +126,7 @@ sequenceDiagram
     G-->>P: 200 with the order
 ```
 
-### 2d. What is in the gateway's notebook right now
+**What is in the gateway's notebook right now.** Notice what the gateway knows (who, how often, where to) and what it does not know (anything about the business).
 
 This is one moment. Notice what the gateway knows (who, how often, where to) and what it does not know (anything about the business).
 
@@ -93,116 +142,7 @@ graph TB
     class N bad
 ```
 
-### 2e. Right against wrong
-
-The wrong way puts business work in the gateway. Notice who edits the gateway at the end.
-
-```mermaid
-graph LR
-    W1["Gateway checks the ticket"] --> W2["Gateway also applies the price rules"]
-    W2 --> W3["Gateway also joins orders and points"]
-    W3 --> W4["Every team edits the gateway<br/>and every release risks the front door"]
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    class W2,W3,W4 bad
-```
-
-```mermaid
-graph LR
-    R1["Gateway does the door jobs only<br/>ticket and limit and route"] --> R2["A BFF or GraphQL shapes<br/>the data for each app"]
-    R2 --> R3["Services own the business rules"]
-    R3 --> R4["The gateway stays small<br/>and rarely changes"]
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class R1,R2,R3,R4 good
-```
-
-### 2f. Two kinds of proxy
-
-Notice which side each one speaks for. A forward proxy hides the clients. A reverse proxy hides the servers.
-
-```mermaid
-graph LR
-    subgraph FWD["Forward proxy"]
-        L1["Office laptop"] --> FP["Company proxy<br/>speaks for the laptops"]
-        L2["Office laptop"] --> FP
-        FP --> NET1["Websites on the internet"]
-    end
-    subgraph REV["Reverse proxy"]
-        NET2["Users on the internet"] --> RP["Nginx<br/>speaks for the servers"]
-        RP --> S1["App server 1"]
-        RP --> S2["App server 2"]
-    end
-```
-
-### 2g. Where each one sits, and the one door problem
-
-Notice three things. The gateway takes calls from outside. The load balancer sits in front of copies of one service. The helper proxies handle calls between services.
-
-```mermaid
-graph TB
-    U["Users and apps"] -->|calls from outside| G["Gateway<br/>many services<br/>door rules"]
-    G --> LB["Load balancer<br/>for orders"]
-    LB --> O1["Orders copy 1"]
-    LB --> O2["Orders copy 2"]
-    O1 -.->|calls between services| PX1["Helper proxy beside orders"]
-    PX1 -.-> PX2["Helper proxy beside points"]
-    PX2 --> PT["Points service"]
-```
-
-Now the gateway is the only door. Notice what one copy means.
-
-```mermaid
-graph LR
-    subgraph ONE["One gateway copy"]
-        A1["Apps"] --> GW1["Gateway"]
-        GW1 --> DEAD["When it stops<br/>every service is out of reach"]
-    end
-    subgraph TWO["Two copies"]
-        A2["Apps"] --> LB2["Load balancer<br/>health checks"]
-        LB2 --> GA["Gateway A"]
-        LB2 --> GB["Gateway B"]
-    end
-    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
-    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
-    class DEAD bad
-    class LB2,GA,GB good
-```
-
-### 2h. Does the phone app need its own backend?
-
-First, the shape. Notice that each app has a small server of its own, and both use the same services.
-
-```mermaid
-graph LR
-    M["Mobile app"] --> GW["Gateway"]
-    W["Web app"] --> GW
-    GW --> MB["Mobile BFF<br/>few calls and small answers"]
-    GW --> WB["Web BFF<br/>rich pages"]
-    MB --> SV["Orders and catalog and points services"]
-    WB --> SV
-```
-
-Now the choice. Notice that the first answer is often "no".
-
-```mermaid
-graph TB
-    Q["Do the apps need very different<br/>data or a different number of calls?"] -->|no| N1["One gateway is enough<br/>no BFF"]
-    Q -->|yes| Q2["Can each app already pick<br/>its own fields with GraphQL?"]
-    Q2 -->|yes| N2["GraphQL may be your BFF<br/>add nothing"]
-    Q2 -->|no| Y["One thin BFF per app<br/>owned by that app team"]
-```
-
-## 3. Real life analogy
-
-A big office building.
-
-- **Reverse proxy:** the reception desk. Visitors talk to the desk, never to the staff directly. The desk speaks for the company.
-- **Forward proxy:** the mail room. Staff hand letters to the mail room. The outside world sees only the mail room. It speaks for the staff.
-- **API gateway:** a reception desk that also checks your badge (the ticket), counts how often you came today (the limit), and points you to the right floor (the route). It writes your name in the visitor book (the log).
-- **BFF:** a museum has one guide for school groups and one guide for experts. Both show the same collection. Each one tells the story that fits the group.
-
-Where the analogy stops: a receptionist points and you walk alone. A gateway carries the whole request and the whole answer, both ways. A building has one desk, but a gateway can run as two copies. And a gateway writes your badge name on the note it passes on. The staff behind it can trust that note only because nobody else can reach them.
-
-## 4. The smallest code that shows it
+**The smallest code that shows it.** A tiny gateway with the three checks in order. The limit is 3 calls.
 
 A tiny gateway with the three checks in order. The limit is 3 calls. A call with a real ticket counts even when it ends in 404. A refused ticket does not count.
 
@@ -235,9 +175,9 @@ Checked on 2026-10-17 with Node 24.
 
 Look at the last two lines. The `/shop` request found no route, but it still used up one of the 3 calls. So the next good request got 429.
 
-## 5. What really happens, step by step
+Run again on 2026-10-30 with Node 26.12.1: the same output.
 
-### Part 1: the code above
+**What really happens, step by step.**
 
 The machine here is the gateway. The state is the count of the good ticket. One row is one call of `gateway(...)`.
 
@@ -255,7 +195,7 @@ What to see:
 - The 404 in step 4 used a call. A caller who sends junk paths still costs the gateway work.
 - The order of the checks matters. The cheap check (is the ticket real?) goes first.
 
-### Part 2: one request through a real gateway
+**One request through a real gateway.**
 
 | Step | Who does it | What happens | State after |
 |---|---|---|---|
@@ -268,15 +208,114 @@ What to see:
 | 7 | The orders service | Does the real work. It checks that `sam` may see order 42 | Answer 200 |
 | 8 | The gateway | Writes one log line with the request id and the time taken, then sends the answer to the phone | Done in about 1 more hop |
 
-**Step through it yourself:** [open the stepper](visuals/17-proxies-and-api-gateways.html). It has three stories: the five requests from section 4, a gateway that is one door (one copy against two), and a phone screen with and without a BFF. Guess first, then press Next.
+**Step through it yourself:** [open the stepper](visuals/17-proxies-and-api-gateways.html). It has three stories: the five requests from card 2, a gateway that is one door (one copy against two), and a phone screen with and without a BFF. Guess first, then press Next.
 
-## 6. Why it exists and what it costs
+</details>
 
-- **Problem without it:** every service repeats the door code, and the copies drift apart (picture 2b). The app must know many addresses. Every service is public, so every service is a target.
-- **How it solves it:** one public door does the shared jobs once (picture 2a). Services stay private. The app knows one address, and you can move or split services behind it without changing the app.
-- **Cost or tradeoff:** one more hop, one more thing to run, and one more thing that can break everything. The next parts show the five jobs, the neighbours, and the two ways it goes wrong.
+## 3. A gateway must not do business work
 
-### The five jobs of a gateway
+The gateway may know about **requests** (who, how often, where to). It must not know about **the business** (what an order is). Joins and shaping for each app go in a BFF or GraphQL, and rules live in the services. The gateway answers "is this ticket real?". The service answers "may this user do this?".
+
+```mermaid
+graph TB
+    A["Gateway checks the ticket"] --> B["Gateway also applies price rules<br/>and joins orders and points"]
+    B --> C["Every team edits the gateway<br/>every release risks the front door"]
+```
+
+<details class="guess"><summary>🤔 Guess: the gateway sets the user header with `req.headers["x-user-id"] || user`. Mia has a real ticket and sends her own `x-user-id: boss`. What does the service see? Press to check.</summary>
+
+**`boss`.** The gateway believed the header the caller sent, so Mia can act as anyone. Fix: set `"x-user-id": user` last, so it wins. Services behind a gateway must also have **no public route**. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** the gateway must overwrite `x-user-id` on every request, and the service must still check who owns the order.
+
+<details class="more"><summary>📖 More detail: right against wrong, and logic creep</summary>
+
+**Right against wrong.** The wrong way puts business work in the gateway. Notice who edits the gateway at the end.
+
+The wrong way puts business work in the gateway. Notice who edits the gateway at the end.
+
+```mermaid
+graph LR
+    W1["Gateway checks the ticket"] --> W2["Gateway also applies the price rules"]
+    W2 --> W3["Gateway also joins orders and points"]
+    W3 --> W4["Every team edits the gateway<br/>and every release risks the front door"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    class W2,W3,W4 bad
+```
+
+```mermaid
+graph LR
+    R1["Gateway does the door jobs only<br/>ticket and limit and route"] --> R2["A BFF or GraphQL shapes<br/>the data for each app"]
+    R2 --> R3["Services own the business rules"]
+    R3 --> R4["The gateway stays small<br/>and rarely changes"]
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class R1,R2,R3,R4 good
+```
+
+**Way 2 to go wrong: logic creep.**
+
+Every request already passes through the gateway, so it feels like a good home for "just one rule". Price rules, joins, flags. Soon every team edits the gateway, and a mistake in it breaks all traffic. Rule: the gateway may know about **requests** (who, how often, where to). It must not know about **the business** (what an order is).
+
+</details>
+
+## 4. Gateway, load balancer, proxies, mesh
+
+A **forward proxy** speaks for the clients (a company web filter). A **reverse proxy** speaks for the servers (Nginx in front of your app). The next three are all reverse proxies, and they overlap.
+
+| Thing | Main job |
+|---|---|
+| Forward proxy | speaks for the clients: filter, hide, cache |
+| Reverse proxy | speaks for the servers: HTTPS, cache, compress |
+| Load balancer | shares work between copies of one service |
+| API gateway | door rules in front of many services |
+| Service mesh | a helper proxy beside every service, for calls between services |
+
+<details class="guess"><summary>🤔 Guess: which one handles a user's call from outside: the gateway or a service mesh? Press to check.</summary>
+
+The **gateway**. A service mesh handles the calls between your own services, not the calls from users. It costs one more proxy on every call, so with a few services a good HTTP client library is enough.
+
+</details>
+
+> **Remember:** in a design, draw a box for each job you need. Real systems stack them: gateway, then a load balancer per service, then the copies.
+
+<details class="more"><summary>📖 More detail: two kinds of proxy, where each one sits, the five jobs, and the tools</summary>
+
+**Two kinds of proxy.** Notice which side each one speaks for. A forward proxy hides the clients. A reverse proxy hides the servers.
+
+Notice which side each one speaks for. A forward proxy hides the clients. A reverse proxy hides the servers.
+
+```mermaid
+graph LR
+    subgraph FWD["Forward proxy"]
+        L1["Office laptop"] --> FP["Company proxy<br/>speaks for the laptops"]
+        L2["Office laptop"] --> FP
+        FP --> NET1["Websites on the internet"]
+    end
+    subgraph REV["Reverse proxy"]
+        NET2["Users on the internet"] --> RP["Nginx<br/>speaks for the servers"]
+        RP --> S1["App server 1"]
+        RP --> S2["App server 2"]
+    end
+```
+
+**Where each one sits.** Notice three things. The gateway takes calls from outside. The load balancer sits in front of copies of one service. The helper proxies handle calls between services.
+
+Notice three things. The gateway takes calls from outside. The load balancer sits in front of copies of one service. The helper proxies handle calls between services.
+
+```mermaid
+graph TB
+    U["Users and apps"] -->|calls from outside| G["Gateway<br/>many services<br/>door rules"]
+    G --> LB["Load balancer<br/>for orders"]
+    LB --> O1["Orders copy 1"]
+    LB --> O2["Orders copy 2"]
+    O1 -.->|calls between services| PX1["Helper proxy beside orders"]
+    PX1 -.-> PX2["Helper proxy beside points"]
+    PX2 --> PT["Points service"]
+```
+
+**The five jobs of a gateway.**
 
 1. **Route:** pick the service by host or path.
 2. **Check the ticket:** is it real and not old? This is not "may this user do this". The service answers that.
@@ -286,7 +325,7 @@ What to see:
 
 What it must **not** do: business rules, or joining data from many services. That is the next section's first mistake.
 
-### Gateway, load balancer, service mesh
+**Gateway, load balancer, service mesh.**
 
 | Thing | Sits | Main job | Sends requests to |
 |---|---|---|---|
@@ -300,7 +339,7 @@ The middle three are all reverse proxies. They overlap, and one tool such as Ngi
 
 A service mesh is not for users' calls. It helps when many services need the same encryption, retries and numbers. It costs one more proxy on every call and a lot of learning. With a few services, a good HTTP client library is enough.
 
-### Tools people name
+**Tools people name.**
 
 | Tool | What it is | One fact to know |
 |---|---|---|
@@ -309,16 +348,83 @@ A service mesh is not for users' calls. It helps when many services need the sam
 | **AWS API Gateway** | a managed gateway | **REST APIs** have API keys, per-client limits and request checks. **HTTP APIs** have fewer features and cost less |
 | **Cloudflare** | a gateway-like layer at the edge, in front of your servers | its API Shield can check a JWT before the request reaches you. The full API Shield suite is a paid Enterprise add-on |
 
-Facts checked in the vendor docs on 2026-10-17. Section 8 has the links.
+Facts checked in the vendor docs on 2026-10-17. The Watch and play card has the links.
 
-### The backend for frontend (BFF)
+</details>
 
-- **Problem:** a mobile app wants few calls and small answers, because the phone network is slow. A web app wants rich pages. An admin site wants other fields. One general backend gets pulled in all directions (picture 2h, and story 3 of the stepper).
+## 5. The one door problem, and the BFF
+
+The gateway is the only way in. If its only copy stops, every service is out of reach even though they are all running. So run two or more copies behind a load balancer with health checks, and keep the counters in a shared store such as Redis. A **BFF** (backend for frontend) is a small server made for one kind of app, for example the mobile app. Only add one when the apps need very different data.
+
+```mermaid
+graph TB
+    A["Apps"] --> LB["Load balancer<br/>health checks"]
+    LB --> G["Gateway A and Gateway B<br/>one shared counter in Redis"]
+```
+
+<details class="guess"><summary>🤔 Guess: Sam sends 9 requests. A load balancer shares them over 3 gateway copies, and each copy keeps its own count with a limit of 2. How many of the 9 are allowed? Press to check.</summary>
+
+**6 of 9**, not 2. Each copy sees 3 requests and allows 2. The real limit is the limit times the number of copies. One shared counter fixes it. (Real run, Node 26.12.1.)
+
+</details>
+
+> **Remember:** the gateway is the one door. Run two copies, share the counters, and keep it small.
+
+<details class="more"><summary>📖 More detail: one copy against two, the BFF drawn, and the two ways to go wrong</summary>
+
+**The one door problem.** Now the gateway is the only door. Notice what one copy means.
+
+Now the gateway is the only door. Notice what one copy means.
+
+```mermaid
+graph LR
+    subgraph ONE["One gateway copy"]
+        A1["Apps"] --> GW1["Gateway"]
+        GW1 --> DEAD["When it stops<br/>every service is out of reach"]
+    end
+    subgraph TWO["Two copies"]
+        A2["Apps"] --> LB2["Load balancer<br/>health checks"]
+        LB2 --> GA["Gateway A"]
+        LB2 --> GB["Gateway B"]
+    end
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000
+    classDef good fill:#e9f7ef,stroke:#2f9e6b,color:#000
+    class DEAD bad
+    class LB2,GA,GB good
+```
+
+**Does the phone app need its own backend?** First, the shape. Notice that each app has a small server of its own, and both use the same services. Then the choice: notice that the first answer is often "no".
+
+First, the shape. Notice that each app has a small server of its own, and both use the same services.
+
+```mermaid
+graph LR
+    M["Mobile app"] --> GW["Gateway"]
+    W["Web app"] --> GW
+    GW --> MB["Mobile BFF<br/>few calls and small answers"]
+    GW --> WB["Web BFF<br/>rich pages"]
+    MB --> SV["Orders and catalog and points services"]
+    WB --> SV
+```
+
+Now the choice. Notice that the first answer is often "no".
+
+```mermaid
+graph TB
+    Q["Do the apps need very different<br/>data or a different number of calls?"] -->|no| N1["One gateway is enough<br/>no BFF"]
+    Q -->|yes| Q2["Can each app already pick<br/>its own fields with GraphQL?"]
+    Q2 -->|yes| N2["GraphQL may be your BFF<br/>add nothing"]
+    Q2 -->|no| Y["One thin BFF per app<br/>owned by that app team"]
+```
+
+**The backend for frontend (BFF).**
+
+- **Problem:** a mobile app wants few calls and small answers, because the phone network is slow. A web app wants rich pages. An admin site wants other fields. One general backend gets pulled in all directions (card 5, and story 3 of the stepper).
 - **Fix:** one thin server per app, owned by the team that builds that app. It calls the services and shapes the answers. It has **no business rules**.
 - **In your stack:** the Next.js server is often the web BFF. GraphQL can also do the job, because each client picks its own fields. Microsoft's pattern page says so.
 - **Cost:** one more server per app to deploy, some copied code, and one more hop. Do **not** add a BFF when the apps make the same requests, or when only one app uses the backend.
 
-### Way 1 to go wrong: the one door
+**Way 1 to go wrong: the one door.**
 
 The gateway is the only way in. If its only copy stops, every service is out of reach, even though they are all running (story 2 of the stepper).
 
@@ -327,11 +433,24 @@ The gateway is the only way in. If its only copy stops, every service is out of 
 - Roll out gateway config one copy at a time. A bad config can still take both copies down.
 - Set timeouts. A slow service must not hold the gateway's connections for ever (lesson [23](23-timeouts-retries-and-circuit-breakers.md)).
 
-### Way 2 to go wrong: logic creep
+</details>
 
-Every request already passes through the gateway, so it feels like a good home for "just one rule". Price rules, joins, flags. Soon every team edits the gateway, and a mistake in it breaks all traffic. Rule: the gateway may know about **requests** (who, how often, where to). It must not know about **the business** (what an order is).
+## 6. Four mistakes, and what to say if you freeze
 
-## 7. Common mistakes
+- **Wrong:** the gateway joins data and applies business rules. **Right:** door jobs only. A BFF shapes the data.
+- **Wrong:** the service trusts the whole network. **Right:** it checks that this user owns the order.
+- **Wrong:** each gateway copy counts in its own memory. **Right:** one shared counter.
+- **Wrong:** one gateway copy. **Right:** two copies, health checks, config in code.
+
+<details class="guess"><summary>🤔 Guess: a service says "the gateway checked the token, so I trust everyone". A caller reaches the service directly. What can they do? Press to check.</summary>
+
+Send **any `x-user-id`** and read anyone's orders. The service must check ownership itself (`findOne({ id, ownerId })`), and it should have no public route.
+
+</details>
+
+> **Remember:** if you freeze, say "A reverse proxy speaks for the servers. A gateway is a reverse proxy that also checks the ticket, limits requests and picks the service."
+
+<details class="more"><summary>📖 More detail: the four mistakes in full, and the freeze plan</summary>
 
 **Wrong:** the gateway joins data and applies business rules.
 
@@ -396,11 +515,13 @@ app.get("/orders/:id", async (req, res) => {
 2. Say "It does door jobs only. Business rules live in the services, and data shaping lives in a BFF or GraphQL."
 3. Say "It is one door, so I run two copies, share the counters, and keep it small."
 
-## 8. Watch and play
+</details>
+
+## 7. Watch and play
 
 Links were opened with a page fetch tool on 2026-10-17. For the video, I confirmed the title and the channel name from YouTube's embed data. I could not see the length.
 
-- **Video:** [What is an API Gateway?](https://www.youtube.com/watch?v=RbMxB_Cyx6A) - Gaurav Sen, length not checked. Compare what he lists with the five jobs in section 6.
+- **Video:** [What is an API Gateway?](https://www.youtube.com/watch?v=RbMxB_Cyx6A) - Gaurav Sen, length not checked. Compare what he lists with the five jobs in card 4 (blue bar).
 - **Play with it:** [the stepper in this folder](visuals/17-proxies-and-api-gateways.html) - guess first, then press Next. Try all three tabs.
 - **Play with it:** [nginx location tester](https://nginx.viraptor.info/) - paste an nginx config with a few `location` blocks and type a URL. It shows which block wins. This is the "route" check from the code. The page says it does not support sub-locations.
 - **Play with it:** [rate limiting playground on system-design.space](https://system-design.space/en/visuals/rate-limiting/) - run a burst against a token bucket and compare it with a fixed window.
@@ -438,7 +559,7 @@ Links were opened with a page fetch tool on 2026-10-17. For the video, I confirm
 
 </details>
 
-## 9. Practice
+## 8. Practice
 
 **A. Predict the output** (write your answer before opening)
 
@@ -535,11 +656,11 @@ Checked on 2026-10-17 with Node 24: the 15 tests fail on the empty stub and all 
 
 </details>
 
-## 10. Interview question
+## 9. Interview question
 
 **Q:** "You have a mobile app, a web app and five backend services. Would you add an API gateway? What would it do, what would you keep out of it, and what happens when it goes down?"
 
-A common follow-up: "What is the difference between a gateway and a load balancer?" Picture 2g and the table in section 6 are the answer.
+A common follow-up: "What is the difference between a gateway and a load balancer?" Card 4 is the answer.
 
 <details><summary>A strong answer, in four parts</summary>
 
@@ -554,7 +675,7 @@ A common follow-up: "What is the difference between a gateway and a load balance
 
 </details>
 
-## 11. Explain it back
+## 10. Explain it back
 
 Close this file. Explain proxies and gateways out loud like to a new junior, in 4 parts (problem, how, tradeoff, my example). Use the story of the five requests (200, 401, 200, 404, 429) and the story of the one door that stops. Then write your best version below and run `/explain-check proxies and api gateways` or ask the `explain-coach` agent to review it.
 
@@ -566,12 +687,12 @@ Close this file. Explain proxies and gateways out loud like to a new junior, in 
 
 <the explain-coach agent writes here>
 
-## 12. Review questions (day 1, 3, 7, 21)
+## 11. Review questions (day 1, 3, 7, 21)
 
 1. A forward proxy and a reverse proxy: which side does each one speak for, and what does each one hide?
 2. Name four jobs of an API gateway and one job it must not do. Then say what the gateway checks about the user, and what the service checks.
 3. The gateway runs as one copy. What happens when it stops, and what are two fixes?
-4. Draw the picture from section 2c from memory.
+4. Draw one good request over time (card 2, blue bar) from memory.
 
 <details><summary>Answers</summary>
 
