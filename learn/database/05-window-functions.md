@@ -842,5 +842,5 @@ WindowAgg (actual rows=2700.00 loops=1)
 - [Keys and relationships](06-keys-and-relationships.md): the next lesson.
 - [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md): an index on `(store_id, total DESC)` can remove the sort.
 - [Reading EXPLAIN](11-reading-explain.md): how to read the `WindowAgg` plan in the Go deeper box.
-- Lesson 17, pagination (not written yet): `ROW_NUMBER` is one way to page, and why keyset paging is often better.
+- [Pagination](17-pagination.md) (lesson 17): `ROW_NUMBER` is one way to page, and why keyset paging is often better.
 - [PostgreSQL queries and indexing guide](postgresql-queries-interview-guide.md): the dense revision guide. Its window functions part covers the same ideas in less space.

@@ -313,7 +313,7 @@ Fix: sum each child table on its own first, then join the small results (practic
 <details class="more"><summary>📖 More detail: the cost of batches</summary>
 
 - A batch has to be grouped in code, and the batch function must return values in the same order as the keys.
-- A very long id list makes a big query. Paginate the parents ([lesson 17, not written yet](README.md)).
+- A very long id list makes a big query. Paginate the parents ([lesson 17](17-pagination.md)).
 
 </details>
 
@@ -609,6 +609,6 @@ Open these when you are ready. None of them is needed for the cards above.
 - [Indexes and B-trees](09-indexes-and-b-trees.md): an index on `orders.store_id` makes each query fast, but does not remove the trips.
 - [Reading EXPLAIN](11-reading-explain.md): the lesson before. EXPLAIN shows one query. N+1 is about how many queries there are, so you also need the log.
 - [The event loop](../javascript/11-the-event-loop.md) (JavaScript): what a tick is, and why DataLoader can collect keys before it sends.
-- Pagination (lesson 17, not written yet): keep the parent list small, so the batch stays small.
+- [Pagination](17-pagination.md) (lesson 17): keep the parent list small, so the batch stays small.
 - Connection pooling (lesson 20, not written yet): many trips also hold a database connection for longer.
 - [PostgreSQL queries and indexing guide](postgresql-queries-interview-guide.md): the longer guide, for revision.

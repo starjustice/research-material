@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pagination Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/17-pagination" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Pagination: stepper</h1>
+  <p class="sub">Press Next and count the rows each kind of paging reads. Every number on this page came from a real run on PostgreSQL 18.3 with a table of 1 million posts.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The path</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> OFFSET <b>reads and throws away</b> every skipped row, so deep pages are slow and shift when data changes. Keyset says <b>after this row</b>, and the index jumps straight there.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>OFFSET:</b> skip N rows. LIMIT: then take M rows.</li>
+      <li><b>Keyset (seek) pagination:</b> filter with the last row you saw, then LIMIT.</li>
+      <li><b>Cursor:</b> the last row (created_at and id) packed into one value the client sends back.</li>
+      <li><b>Tie-breaker:</b> the unique id at the end of the ORDER BY, so two rows are never equal.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Built from real runs on PostgreSQL 18.3. The lesson and its practice file show the same results.
+const PROGRAMS = [{"name": "OFFSET on page 5000", "stops": ["Open the index", "Read and skip", "Keep 20 rows"], "code": ["SELECT id, created_at, title", "FROM l17_posts", "ORDER BY created_at DESC, id DESC", "LIMIT 20 OFFSET 99980;"], "ask": {"q": "How many rows does Postgres read from the index to give you page 5000?", "opts": ["20", "100000", "1000000"], "answer": "100000", "why": "OFFSET does not jump. Postgres reads the 99,980 rows it has to skip, throws them away, and reads 20 more: 100,000 rows. EXPLAIN ANALYZE shows it as rows=100000 on the Index Scan line."}, "steps": [{"stop": null, "line": null, "note": "The table has 1,000,000 posts and an index in the same order as the ORDER BY. Page 5000 is OFFSET 99980. Guess how many rows are read, then press Next.", "facts": [["Table", "1,000,000 posts"], ["Index", "created_at DESC, id DESC"]]}, {"stop": 0, "line": 2, "note": "<b>Open the index</b> at the newest post. Reading in this order needs no sort.", "facts": [["Position", "post 1 of 1,000,000"]], "count": {"label": "Rows read", "value": "0"}}, {"stop": 1, "line": 3, "note": "<b>Read and skip.</b> The OFFSET step reads one row, counts it, and throws it away. 99,980 times.", "facts": [["Read and thrown away", "99,980"], ["Time so far", "about 10 ms"]], "count": {"label": "Rows read", "value": "99,980"}}, {"stop": 2, "line": 3, "note": "<b>Keep 20 rows.</b> Rows 99,981 to 100,000 are the page. The LIMIT step stops the scan.", "facts": [["Read in total", "100,000"], ["Kept", "20"], ["EXPLAIN says", "rows=100000.00 on the Index Scan"]], "count": {"label": "Rows read", "value": "100,000"}}, {"stop": null, "line": null, "note": "Finished. 10 ms for page 5000, against 0.06 ms for page 1. On the last page (50,000) it read 1,000,000 rows and took 101 ms.", "facts": [["Page 1", "0.06 ms, 20 rows"], ["Page 5000", "10 ms, 100,000 rows"], ["Last page", "101 ms, 1,000,000 rows"]], "count": {"label": "Rows read", "value": "100,000"}, "done": true}]}, {"name": "Keyset on the same page", "stops": ["The cursor", "Jump in the index", "Read 20 rows"], "code": ["SELECT id, created_at, title", "FROM l17_posts", "WHERE (created_at, id) < ($1, $2)", "ORDER BY created_at DESC, id DESC", "LIMIT 20;"], "ask": {"q": "The same page 5000, with a cursor from the last row of page 4999. How many rows does Postgres read?", "opts": ["20", "100000", "99980"], "answer": "20", "why": "The row comparison becomes an Index Cond. The index tree goes straight to the cursor, like a book index to a page, and Postgres reads the next 20 entries. It does not matter if this is page 5000 or page 50,000."}, "steps": [{"stop": null, "line": null, "note": "The app kept the last row of the page it showed: created_at = 2026-01-02 08:00:02, id = 900021. It sends these as the cursor. Guess how many rows are read, then press Next.", "facts": [["Cursor", "(2026-01-02 08:00:02, 900021)"]]}, {"stop": 0, "line": 2, "note": "<b>The cursor</b> goes into the query as $1 and $2. The row comparison <code>(created_at, id) &lt; ($1, $2)</code> is an <b>Index Cond</b>.", "facts": [["Plan", "Index Scan, Index Cond: ROW(created_at, id) < ROW(...)"]], "count": {"label": "Rows read", "value": "0"}}, {"stop": 1, "line": 2, "note": "<b>Jump in the index.</b> The tree goes down from the root to the cursor: a few page reads, not 100,000 rows.", "facts": [["Buffers", "3 hit, 1 read"]], "count": {"label": "Rows read", "value": "0"}}, {"stop": 2, "line": 4, "note": "<b>Read 20 rows.</b> The next 20 entries in the index are the page. LIMIT stops the scan.", "facts": [["Rows read", "20"], ["Time", "0.09 ms"], ["Same rows as OFFSET 99980", "yes"]], "count": {"label": "Rows read", "value": "20"}}, {"stop": null, "line": null, "note": "Finished. 0.09 ms for page 5000, and 0.016 ms at the very end. The cost is the same for every page. The price: no jump to a page number, and the sort must be unique (the id is the tie-breaker).", "facts": [["Page 5000", "0.09 ms, 20 rows"], ["End of table", "0.016 ms"]], "count": {"label": "Rows read", "value": "20"}, "done": true}]}, {"name": "A new post arrives", "stops": ["Page 1", "A new post arrives", "Page 2 with OFFSET", "Page 2 with keyset"], "code": ["-- page 1: ... LIMIT 20 OFFSET 0", "-- post 96 is added (the newest)", "-- page 2: ... LIMIT 20 OFFSET 20", "-- page 2: ... WHERE (created_at, id) < cursor"], "ask": {"q": "With OFFSET, what is the first post on page 2 after post 96 arrived?", "opts": ["75", "76", "96"], "answer": "76", "why": "OFFSET 20 means skip the first 20 rows as they are now. Post 96 is now first, so everything moved down by one. Post 76 was the last of page 1 and is now the 21st row, the first of page 2. The user sees it twice. Keyset says after post 76, so it starts at 75."}, "steps": [{"stop": null, "line": null, "note": "A feed of 95 posts, newest first, 20 per page. Guess what page 2 starts with when a new post arrives between the two page loads, then press Next.", "facts": [["Posts", "1 to 95"]]}, {"stop": 0, "line": 0, "note": "<b>Page 1</b> shows posts 95 down to 76. The app remembers the cursor: the last row is post 76.", "facts": [["Page 1", "95, 94, ... 77, 76"], ["Cursor", "post 76"]]}, {"stop": 1, "line": 1, "note": "<b>A new post arrives.</b> Post 96 is the newest. Every other post is now one place lower in the list.", "facts": [["List now", "96, 95, 94, ... 77, 76, 75 ..."]]}, {"stop": 2, "line": 2, "note": "<b>Page 2 with OFFSET 20.</b> It skips 20 rows: 96 down to 77. The next row is post 76, which the user already saw.", "facts": [["Page 2 (OFFSET)", "76, 75, ... 58, 57"], ["Repeated", "post 76"]], "fail": true}, {"stop": 3, "line": 3, "note": "<b>Page 2 with keyset.</b> It asks for posts after the cursor (post 76). The new post does not matter. It starts at 75.", "facts": [["Page 2 (keyset)", "75, 74, ... 57, 56"], ["Repeated", "none"]]}, {"stop": null, "line": null, "note": "Finished. I ran both with a real table. OFFSET repeated post 76. Keyset repeated nothing. With a delete instead of an insert, OFFSET would have skipped a row.", "facts": [["OFFSET", "1 repeated row"], ["Keyset", "0 repeated rows"]], "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

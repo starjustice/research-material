@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say why an UPDATE in Postgres writes a new row and keeps the old one, read `xmin`, `xmax` and `ctid`, explain why a table grows (bloat), say what VACUUM, VACUUM FULL and autovacuum do, and find the long transaction that stops the cleanup.
 >
-> **Before this:** [Locks and deadlocks](15-locks-and-deadlocks.md) · **Next:** Pagination (lesson 17, not written yet)
+> **Before this:** [Locks and deadlocks](15-locks-and-deadlocks.md) · **Next:** [Pagination](17-pagination.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3. About 25 minutes for the cards.
 

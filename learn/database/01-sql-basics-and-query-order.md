@@ -533,4 +533,4 @@ With an index on `total_cents`, the plan can even skip the sort and stop after 5
 - [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md): how to give a name once and use it in WHERE, by wrapping the query.
 - [Window functions](05-window-functions.md): they run inside SELECT, so WHERE cannot use them either.
 - [Reading EXPLAIN](11-reading-explain.md): the real plan, and the shortcuts Postgres takes while keeping the same result.
-- Pagination (lesson 17, not written yet): LIMIT with OFFSET, and why page 5000 is slow.
+- [Pagination](17-pagination.md) (lesson 17): LIMIT with OFFSET, and why page 5000 is slow.
