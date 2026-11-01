@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say what a transaction is, say what each letter of ACID protects you from using a money transfer, use BEGIN, COMMIT, ROLLBACK and SAVEPOINT, and avoid the connection pool trap in Node.
 >
-> **Before this:** [N+1 queries and ORMs](12-n-plus-1-queries-and-orms.md) · **Next:** Isolation levels (lesson 14, not written yet)
+> **Before this:** [N+1 queries and ORMs](12-n-plus-1-queries-and-orms.md) · **Next:** [Isolation levels](14-isolation-levels.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number and error text was run on PostgreSQL 18.3. About 25 minutes for the cards.
 
@@ -160,7 +160,7 @@ But when B tried to `UPDATE` the same row, B **waited**. After A committed, B's 
 
 <details class="more"><summary>📖 More detail: this is a promise with levels</summary>
 
-Isolation is not all or nothing. Postgres has levels, and they decide **what** a transaction may see when others commit while it is still open. The default level is `READ COMMITTED`: each statement sees what was committed when that statement began. Lesson 14 shows the other levels and what each one stops.
+Isolation is not all or nothing. Postgres has levels, and they decide **what** a transaction may see when others commit while it is still open. The default level is `READ COMMITTED`: each statement sees what was committed when that statement began. [Lesson 14](14-isolation-levels.md) shows the other levels and what each one stops.
 
 Why does B read 400 and not wait? Postgres keeps the old version of the row while A works on a new one (this is called MVCC, lesson 16). Readers use the old version, so reading never blocks. Writers to the same row do block each other, because only one can change the row at a time (lesson 15).
 
@@ -475,7 +475,7 @@ If your app loops over 100 rows and does one `UPDATE` each without a transaction
 
 <details><summary>Read, then write: the lost update</summary>
 
-`SELECT balance` in your app, add 50 in JavaScript, then `UPDATE ... SET balance = <new>`. Even inside a transaction, two sessions can read 100 at the same time and both write 150. One +50 is lost (I ran it: both read 100, the final balance was 150, not 200). The fixes are in lessons 14 and 15: a stricter isolation level, a row lock (`SELECT ... FOR UPDATE`), or doing the arithmetic inside the UPDATE (`balance = balance + 50`).
+`SELECT balance` in your app, add 50 in JavaScript, then `UPDATE ... SET balance = <new>`. Even inside a transaction, two sessions can read 100 at the same time and both write 150. One +50 is lost (I ran it: both read 100, the final balance was 150, not 200). The fixes are in [lesson 14](14-isolation-levels.md) and lesson 15: a stricter isolation level, a row lock (`SELECT ... FOR UPDATE`), or doing the arithmetic inside the UPDATE (`balance = balance + 50`).
 
 </details>
 
@@ -503,5 +503,5 @@ The practice file builds `l13_accounts` with two rows. The Node snippets of card
 - [08. Constraints and data types](08-constraints-and-data-types.md): the rules that give consistency.
 - [24. One query, from start to finish](24-one-query-start-to-finish.md): the write-ahead log and the commit.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide, with the outbox and the four races.
-- Lesson 14, isolation levels (not written yet): what a transaction may see.
+- [14. Isolation levels](14-isolation-levels.md): what a transaction may see.
 - Lesson 15, locks and deadlocks (not written yet): why B waited in card 4.
