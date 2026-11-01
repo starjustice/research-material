@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locks and Deadlocks Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/15-locks-and-deadlocks" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Locks and deadlocks: stepper</h1>
+  <p class="sub">Press Next and watch two or three sessions at the same time. Every result on this page came from a real run with real connections on PostgreSQL 18.3.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The path</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> a row lock stops other <b>writers</b> of that row until the transaction ends. It does not stop readers. A deadlock is a <b>circle of waits</b>, and Postgres breaks it by cancelling one transaction.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Row lock:</b> held by a transaction that changed a row (or used FOR UPDATE), until COMMIT or ROLLBACK.</li>
+      <li><b>Deadlock:</b> A waits for B and B waits for A. Error code 40P01. Run the cancelled transaction again.</li>
+      <li><b>lock_timeout:</b> give up waiting for a lock after a set time.</li>
+      <li><b>ACCESS EXCLUSIVE:</b> the strongest table lock. Most ALTER TABLE statements take it. It conflicts with everything, even a SELECT.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Built from real runs on PostgreSQL 18.3. The lesson and its practice file show the same results.
+const PROGRAMS = [{"name": "B waits for A", "stops": ["A locks row 1", "B reads row 1", "B updates row 2", "B updates row 1", "A commits"], "code": ["A: BEGIN;", "A: UPDATE l15_accounts SET balance = 0 WHERE id = 1;", "B: SELECT balance FROM l15_accounts WHERE id = 1;", "B: UPDATE l15_accounts SET balance = 1 WHERE id = 2;", "B: UPDATE l15_accounts SET balance = 2 WHERE id = 1;", "A: COMMIT;"], "ask": {"q": "A has changed row 1 and not committed. Which of B's three statements waits?", "opts": ["the SELECT of row 1", "the UPDATE of row 2", "the UPDATE of row 1"], "answer": "the UPDATE of row 1", "why": "A row lock stops other writers of the same row. A SELECT never waits for it (B sees the old value, 400), and row 2 has its own lock, which nobody holds. Only B's UPDATE of row 1 has to wait until A commits or rolls back."}, "steps": [{"stop": null, "line": null, "note": "A and B are two sessions on the same table. Row 1 is Ana (400), row 2 is Budi (400). Guess which of B's statements waits, then press Next.", "facts": [["Row 1 lock", "free"], ["Row 2 lock", "free"]]}, {"stop": 0, "line": 1, "note": "<b>A updates row 1.</b> A now holds the lock on row 1 until it commits or rolls back.", "facts": [["Row 1 lock", "held by A"], ["Row 2 lock", "free"]]}, {"stop": 1, "line": 2, "note": "<b>B reads row 1.</b> A plain SELECT ignores row locks. B gets the old committed value, 400, at once.", "facts": [["Row 1 lock", "held by A"], ["B got", "400, no wait"]], "count": {"label": "B's waiting time", "value": "0 ms"}}, {"stop": 2, "line": 3, "note": "<b>B updates row 2.</b> Row 2 has its own lock, and nobody holds it. B goes through at once.", "facts": [["Row 1 lock", "held by A"], ["Row 2 lock", "held by B"], ["B got", "UPDATE 1, no wait"]], "count": {"label": "B's waiting time", "value": "0 ms"}}, {"stop": 3, "line": 4, "note": "<b>B updates row 1.</b> A holds the lock. B <b>waits</b>. In <code>pg_stat_activity</code> B shows <code>wait_event_type = Lock</code>.", "facts": [["Row 1 lock", "held by A"], ["B", "waiting for A"], ["pg_blocking_pids", "B is blocked by A"]], "count": {"label": "B's waiting time", "value": "still waiting"}}, {"stop": 4, "line": 5, "note": "<b>A commits.</b> The lock is released, and B's UPDATE of row 1 goes through right away.", "facts": [["Row 1 lock", "held by B"], ["B got", "UPDATE 1 after the wait"]], "count": {"label": "B's waiting time", "value": "until A ended"}}, {"stop": null, "line": null, "note": "Finished. Only one of B's three statements waited: the write to the row A had locked.", "facts": [["Waited", "the UPDATE of row 1"]], "done": true}]}, {"name": "Deadlock", "stops": ["Both begin", "Each locks a row", "Each wants the other's", "One second passes", "Postgres cancels one"], "code": ["A: BEGIN;", "B: BEGIN;", "A: UPDATE l15_accounts SET balance = balance - 10 WHERE id = 1;", "B: UPDATE l15_accounts SET balance = balance - 10 WHERE id = 2;", "A: UPDATE l15_accounts SET balance = balance + 10 WHERE id = 2;", "B: UPDATE l15_accounts SET balance = balance + 10 WHERE id = 1;"], "ask": {"q": "A waits for B, and B waits for A. What happens in the end?", "opts": ["Both wait for ever", "Postgres cancels one of them after about 1 second", "Both are cancelled"], "answer": "Postgres cancels one of them after about 1 second", "why": "After deadlock_timeout (1 second by default) a waiting session checks if the waits form a circle. It does, so Postgres cancels one transaction with error 40P01. The other one is free to go on. Your code must run the cancelled one again."}, "steps": [{"stop": null, "line": null, "note": "A moves 10 from Ana to Budi. B moves 10 from Budi to Ana. They lock the rows in opposite order. Guess what happens, then press Next.", "facts": [["Row 1 (Ana)", "free"], ["Row 2 (Budi)", "free"]]}, {"stop": 0, "line": 1, "note": "<b>Both begin.</b>", "facts": [["Row 1 (Ana)", "free"], ["Row 2 (Budi)", "free"]]}, {"stop": 1, "line": 3, "note": "<b>Each locks a row.</b> A updates Ana (row 1). B updates Budi (row 2). No conflict yet.", "facts": [["Row 1 (Ana)", "held by A"], ["Row 2 (Budi)", "held by B"]]}, {"stop": 2, "line": 5, "note": "<b>Each wants the other's row.</b> A wants row 2, which B holds. B wants row 1, which A holds. Both wait. Nobody can move.", "facts": [["A", "waits for B"], ["B", "waits for A"], ["Shape", "a circle"]]}, {"stop": 3, "line": 5, "note": "<b>One second passes.</b> This is <code>deadlock_timeout</code>. A waiting session checks the waits and finds the circle.", "facts": [["Time waited", "about 1000 ms"], ["Circle found", "yes"]], "count": {"label": "Time waited", "value": "1000 ms"}}, {"stop": 4, "line": 4, "note": "<b>Postgres cancels one.</b> In my run it was A. A's transaction is rolled back, and B's UPDATE goes through at once.", "facts": [["ERROR", "deadlock detected"], ["DETAIL", "Process 52904 waits for ShareLock on transaction 1039; blocked by process 52905. Process 52905 waits for ShareLock on transaction 1038; blocked by process 52904."], ["HINT", "See server log for query details."]], "count": {"label": "Time waited", "value": "1000 ms"}, "fail": true}, {"stop": null, "line": null, "note": "Finished. One transfer is lost and must be run again (error code <code>40P01</code>). The fix: both transfers lock the rows in id order, so no circle can form.", "facts": [["Cancelled", "A, code 40P01"], ["Went through", "B"], ["Ana, Budi, Citra", "410, 390, 400"]], "count": {"label": "Time waited", "value": "1000 ms"}, "fail": true, "done": true}]}, {"name": "ALTER blocks a reader", "stops": ["A reads and stays open", "B asks for ALTER", "C reads", "A commits"], "code": ["A: BEGIN;", "A: SELECT count(*) FROM l15_orders;", "B: ALTER TABLE l15_orders ADD COLUMN l15_new int;", "C: SELECT count(*) FROM l15_orders;", "A: COMMIT;"], "ask": {"q": "B's ALTER TABLE is waiting for A. Does C's plain SELECT have to wait too?", "opts": ["No, it only reads", "Yes, behind B's ALTER", "Only if the table is big"], "answer": "Yes, behind B's ALTER", "why": "Locks are served in order. The ALTER needs the strongest lock (ACCESS EXCLUSIVE), which conflicts even with a SELECT. C's lock conflicts with the ALTER that is already waiting, so C queues behind it, although C only reads."}, "steps": [{"stop": null, "line": null, "note": "A opens a transaction, does one plain read, and leaves the transaction open. Guess what happens to B and C, then press Next.", "facts": [["Lock queue", "empty"]]}, {"stop": 0, "line": 1, "note": "<b>A reads</b> the table and does not commit. A holds a light lock on the table (<code>ACCESS SHARE</code>) until it commits.", "facts": [["Granted", "A: ACCESS SHARE"]]}, {"stop": 1, "line": 2, "note": "<b>B asks for the ALTER.</b> It needs <code>ACCESS EXCLUSIVE</code>. A holds a lock that conflicts, so B waits.", "facts": [["Granted", "A: ACCESS SHARE"], ["Waiting", "B: ACCESS EXCLUSIVE"]]}, {"stop": 2, "line": 3, "note": "<b>C reads.</b> A SELECT would normally go right through, next to A. But B is already waiting for a stronger lock, so C waits behind B.", "facts": [["Granted", "A: ACCESS SHARE"], ["Waiting", "B: ACCESS EXCLUSIVE"], ["Waiting", "C: ACCESS SHARE"]], "count": {"label": "C waited", "value": "1 s and more"}}, {"stop": 3, "line": 4, "note": "<b>A commits.</b> B's ALTER runs at once, and C is answered right after.", "facts": [["Queue", "empty again"], ["C got", "its answer, after the wait"]], "count": {"label": "C waited", "value": "until A ended"}}, {"stop": null, "line": null, "note": "Finished. One forgotten open transaction plus one ALTER closed the table for every reader. The fix: <code>SET lock_timeout = '300ms'</code> before the ALTER. It gave up after 300 ms, and C did not wait at all.", "facts": [["With lock_timeout", "ALTER fails after 300 ms"], ["C", "no wait"]], "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

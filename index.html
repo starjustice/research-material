@@ -479,7 +479,7 @@
   <span>Runnable: docker compose up → track tables → row permission → Action (10 minutes)</span>
 </a>
 </details>
-<details class="subject"><summary><b>Database</b><small>17 lessons, 6 guides, 17 visuals, 6 cheatsheets</small></summary>
+<details class="subject"><summary><b>Database</b><small>18 lessons, 6 guides, 18 visuals, 6 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/database/README">
   <span class="tag map">MAP</span>
   <b>Database: map and lesson list</b>
@@ -554,6 +554,11 @@
   <span class="tag lesson">LESSON 14</span>
   <b>14. Isolation levels</b>
   <span>name the problems two sessions can cause each other (non-repeatable read, phantom read, lost update, write skew), say which isolation level stops which one in Postgres, and write the retry loop that SERIALIZABLE needs.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/15-locks-and-deadlocks">
+  <span class="tag lesson">LESSON 15</span>
+  <b>15. Locks and deadlocks</b>
+  <span>say which statements wait for a row lock and which do not, use `SELECT ... FOR UPDATE`, `NOWAIT`, `SKIP LOCKED` and `lock_timeout`, explain how a deadlock happens and how to avoid it, find who is blocking whom, and say why a waiting `ALTER TABLE` can stop a whole site.</span>
 </a>
 <a class="card" href="viewer.html?note=learn/database/24-one-query-start-to-finish">
   <span class="tag lesson">LESSON 24</span>
@@ -638,6 +643,11 @@
 <a class="card" href="learn/database/visuals/14-isolation-levels.html">
   <span class="tag app">VISUAL</span>
   <b>14-isolation-levels.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/15-locks-and-deadlocks.html">
+  <span class="tag app">VISUAL</span>
+  <b>15-locks-and-deadlocks.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="learn/database/visuals/24-one-query-start-to-finish.html">

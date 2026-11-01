@@ -4,7 +4,7 @@
 >
 > **You will be able to:** name the problems two sessions can cause each other (non-repeatable read, phantom read, lost update, write skew), say which isolation level stops which one in Postgres, and write the retry loop that SERIALIZABLE needs.
 >
-> **Before this:** [Transactions and ACID](13-transactions-and-acid.md) · **Next:** Locks and deadlocks (lesson 15, not written yet)
+> **Before this:** [Transactions and ACID](13-transactions-and-acid.md) · **Next:** [Locks and deadlocks](15-locks-and-deadlocks.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run with two real connections on PostgreSQL 18.3. About 25 minutes for the cards.
 
@@ -174,7 +174,7 @@ All three give **500** in my test.
    COMMIT;
    ```
 
-   The second session's `SELECT ... FOR UPDATE` waits. When it gets its answer, it is 450 (A read 400, B read 450). Lesson 15 covers locks.
+   The second session's `SELECT ... FOR UPDATE` waits. When it gets its answer, it is 450 (A read 400, B read 450). [Lesson 15](15-locks-and-deadlocks.md) covers locks.
 
 3. **Use `REPEATABLE READ` and retry** on the error (card 6).
 
@@ -272,7 +272,7 @@ async function withRetry(pool, work, tries = 3) {
 Three rules:
 
 - Retry the **whole** transaction, including the reads. The decision must be made again on new data.
-- Only retry error code `40001` (and `40P01`, a deadlock, lesson 15). Do not retry other errors.
+- Only retry error code `40001` (and `40P01`, a deadlock, [lesson 15](15-locks-and-deadlocks.md)). Do not retry other errors.
 - Do nothing outside the database inside `work` (no emails, no HTTP calls), because it may run more than once. See lesson 13, card 6.
 
 The error can also come from the `COMMIT`, not only from a statement. Put the `COMMIT` inside the `try`, as above.
@@ -495,6 +495,6 @@ The practice file builds the three small tables. The results in this lesson came
 
 - [13. Transactions and ACID](13-transactions-and-acid.md): the I in ACID. This lesson is that letter in full.
 - [08. Constraints and data types](08-constraints-and-data-types.md): the `CHECK` that is the second guard in practice B.
-- Lesson 15, locks and deadlocks (not written yet): `SELECT ... FOR UPDATE` and why B waited.
+- [15. Locks and deadlocks](15-locks-and-deadlocks.md): `SELECT ... FOR UPDATE` and why B waited.
 - Lesson 16, MVCC and VACUUM (not written yet): how Postgres keeps the old picture.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide, the four races.

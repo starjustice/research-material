@@ -725,7 +725,7 @@ SELECT id, points_balance FROM stores WHERE id = 1;   -- 120, and the real sum i
 
 - This trigger handles inserts only. That is enough if history rows are never changed or deleted (an *append-only ledger*). If you allow updates or deletes, the trigger must handle them too. The PostgreSQL docs page "Trigger Functions" has a full example that keeps a summary table right on insert, update and delete.
 - The trigger runs inside the same transaction as the insert. If the trigger fails, the insert is undone too. [Lesson 13](13-transactions-and-acid.md) (transactions) explains this.
-- Two inserts for the same store at the same moment both update the same store row. Postgres makes the second one wait for the first. Lesson 15 (locks, not written yet) shows this.
+- Two inserts for the same store at the same moment both update the same store row. Postgres makes the second one wait for the first. [Lesson 15](15-locks-and-deadlocks.md) (locks) shows this.
 
 **Refresh without blocking readers.** A plain `REFRESH MATERIALIZED VIEW` can block other sessions that read the view while it runs. `REFRESH MATERIALIZED VIEW CONCURRENTLY` lets readers keep reading. It needs a unique index on the view that covers all rows, for example `CREATE UNIQUE INDEX ON store_sales (store_id)`. (PostgreSQL docs, "REFRESH MATERIALIZED VIEW".) Postgres has no built-in automatic refresh. You run it from a cron job or a queue job.
 
