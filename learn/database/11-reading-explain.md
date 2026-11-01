@@ -604,7 +604,7 @@ Open these when you are ready. None of them is needed for the cards above.
 
 **Time of one node alone.** `actual time` includes the children. To get the node's own time, subtract its children's times. explain.dalibo.com does this for you.
 
-**Index Only Scan needs VACUUM.** It skips the table only for pages marked "all visible". `VACUUM` marks them. Lesson 16 (MVCC and VACUUM, not written yet) explains why.
+**Index Only Scan needs VACUUM.** It skips the table only for pages marked "all visible". `VACUUM` marks them. [Lesson 16](16-mvcc-and-vacuum.md) (MVCC and VACUUM) explains why.
 
 **auto_explain.** A Postgres module that writes the plan of every slow query into the log. Useful when a query is slow only in production. Read the [auto_explain docs](https://www.postgresql.org/docs/current/auto-explain.html).
 
@@ -616,5 +616,5 @@ Open these when you are ready. None of them is needed for the cards above.
 - [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md): the previous lesson. Use EXPLAIN to prove which index the planner picks, and to see an Index Only Scan.
 - [N+1 queries and ORMs](12-n-plus-1-queries-and-orms.md): the next lesson. Sometimes each query is fast, but there are 101 of them. `pg_stat_statements` shows that as a high `calls` count.
 - [Joins](02-joins.md): the SQL side of Nested Loop and Hash Join.
-- MVCC and VACUUM (lesson 16, not written yet): why Index Only Scan needs `VACUUM`, and how autovacuum also runs `ANALYZE`.
+- MVCC and VACUUM ([lesson 16](16-mvcc-and-vacuum.md)): why Index Only Scan needs `VACUUM`, and how autovacuum also runs `ANALYZE`.
 - [PostgreSQL queries and indexing guide](postgresql-queries-interview-guide.md): the longer guide, for revision after the lessons.

@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say which statements wait for a row lock and which do not, use `SELECT ... FOR UPDATE`, `NOWAIT`, `SKIP LOCKED` and `lock_timeout`, explain how a deadlock happens and how to avoid it, find who is blocking whom, and say why a waiting `ALTER TABLE` can stop a whole site.
 >
-> **Before this:** [Isolation levels](14-isolation-levels.md) · **Next:** MVCC and VACUUM (lesson 16, not written yet)
+> **Before this:** [Isolation levels](14-isolation-levels.md) · **Next:** [MVCC and VACUUM](16-mvcc-and-vacuum.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run with two or three real connections on PostgreSQL 18.3. About 25 minutes for the cards.
 
@@ -487,7 +487,7 @@ The practice file builds the two small tables. The results in this lesson came f
 - [13. Transactions and ACID](13-transactions-and-acid.md): why B waited in card 4. Locks live until the transaction ends.
 - [14. Isolation levels](14-isolation-levels.md): the lost update that `FOR UPDATE` fixes, and the retry loop for `40001`.
 - [06. Keys and relationships](06-keys-and-relationships.md): a foreign key check also takes a lock.
-- Lesson 16, MVCC and VACUUM (not written yet): why readers do not need locks.
+- [16. MVCC and VACUUM](16-mvcc-and-vacuum.md): why readers do not need locks.
 - Lesson 18, upsert and job queues (not written yet): `SKIP LOCKED` as a queue.
 - Lesson 19, zero-downtime migrations (not written yet): card 6 in practice.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide.

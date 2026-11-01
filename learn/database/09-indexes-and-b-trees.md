@@ -288,7 +288,7 @@ About **5 to 8 times slower** (a second run on 2026-10-22 gave 75 ms and 633 ms)
 
 - Each INSERT adds one entry to **every** index.
 - An UPDATE usually adds new index entries too (Go deeper has the exception).
-- A DELETE leaves old index entries behind. The cleaner (interview word: VACUUM, lesson 16, not written yet) removes them from every index later.
+- A DELETE leaves old index entries behind. The cleaner (interview word: VACUUM, [lesson 16](16-mvcc-and-vacuum.md)) removes them from every index later.
 
 **Disk space.** Indexes are real files:
 

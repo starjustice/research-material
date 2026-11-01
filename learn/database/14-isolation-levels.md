@@ -310,7 +310,7 @@ A higher level is not "safer for free":
 
 - At `REPEATABLE READ` and `SERIALIZABLE`, your code **must** handle error `40001`. If it does not, it fails at random under load.
 - `SERIALIZABLE` needs more memory and CPU to track what each transaction read. The docs advise not to put more into one serializable transaction than you need, and more of them can be cancelled when many run at once.
-- A long `REPEATABLE READ` transaction keeps its picture. Old row versions cannot be cleaned up while it is open (lesson 16).
+- A long `REPEATABLE READ` transaction keeps its picture. Old row versions cannot be cleaned up while it is open ([lesson 16](16-mvcc-and-vacuum.md)).
 
 Many teams choose: default level, atomic `UPDATE` statements, `FOR UPDATE` where needed, and `SERIALIZABLE` only for the one or two places where a rule spans many rows.
 
@@ -469,7 +469,7 @@ None of this is needed for the cards above.
 
 <details><summary>Postgres does not lock readers</summary>
 
-In the tests of this lesson, reading never waited. Only two writers on the same row waited for each other. The reason is that Postgres keeps old row versions for readers (MVCC, lesson 16). That is the main difference from databases that use read locks.
+In the tests of this lesson, reading never waited. Only two writers on the same row waited for each other. The reason is that Postgres keeps old row versions for readers (MVCC, [lesson 16](16-mvcc-and-vacuum.md)). That is the main difference from databases that use read locks.
 
 </details>
 
@@ -496,5 +496,5 @@ The practice file builds the three small tables. The results in this lesson came
 - [13. Transactions and ACID](13-transactions-and-acid.md): the I in ACID. This lesson is that letter in full.
 - [08. Constraints and data types](08-constraints-and-data-types.md): the `CHECK` that is the second guard in practice B.
 - [15. Locks and deadlocks](15-locks-and-deadlocks.md): `SELECT ... FOR UPDATE` and why B waited.
-- Lesson 16, MVCC and VACUUM (not written yet): how Postgres keeps the old picture.
+- [16. MVCC and VACUUM](16-mvcc-and-vacuum.md): how Postgres keeps the old picture.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide, the four races.

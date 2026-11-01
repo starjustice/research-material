@@ -162,7 +162,7 @@ But when B tried to `UPDATE` the same row, B **waited**. After A committed, B's 
 
 Isolation is not all or nothing. Postgres has levels, and they decide **what** a transaction may see when others commit while it is still open. The default level is `READ COMMITTED`: each statement sees what was committed when that statement began. [Lesson 14](14-isolation-levels.md) shows the other levels and what each one stops.
 
-Why does B read 400 and not wait? Postgres keeps the old version of the row while A works on a new one (this is called MVCC, lesson 16). Readers use the old version, so reading never blocks. Writers to the same row do block each other, because only one can change the row at a time ([lesson 15](15-locks-and-deadlocks.md)).
+Why does B read 400 and not wait? Postgres keeps the old version of the row while A works on a new one (this is called MVCC, [lesson 16](16-mvcc-and-vacuum.md)). Readers use the old version, so reading never blocks. Writers to the same row do block each other, because only one can change the row at a time ([lesson 15](15-locks-and-deadlocks.md)).
 
 </details>
 
@@ -318,7 +318,7 @@ Interview words: *transaction*, *ACID*, *atomicity*, *rollback*, *savepoint*, *w
 **The costs:**
 
 - A transaction holds its locks until the end. A long one makes others wait ([lesson 15](15-locks-and-deadlocks.md)).
-- A transaction that stays open also makes cleanup of old rows wait (lesson 16).
+- A transaction that stays open also makes cleanup of old rows wait ([lesson 16](16-mvcc-and-vacuum.md)).
 - The commit waits for the log to reach the disk. That is the price of durability.
 - It cannot undo anything outside the database (card 6).
 
@@ -481,7 +481,7 @@ If your app loops over 100 rows and does one `UPDATE` each without a transaction
 
 <details><summary>Transaction ids and the "old rows" problem</summary>
 
-Every write transaction gets a number, the transaction id. The row versions carry the ids of the transactions that made and deleted them. This is how isolation can show you old rows while others write new ones. Lesson 16 (MVCC) draws it.
+Every write transaction gets a number, the transaction id. The row versions carry the ids of the transactions that made and deleted them. This is how isolation can show you old rows while others write new ones. [Lesson 16](16-mvcc-and-vacuum.md) (MVCC) draws it.
 
 </details>
 

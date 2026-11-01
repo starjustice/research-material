@@ -491,7 +491,7 @@ Then `UPDATE l24_orders SET status = 'CANCELLED' WHERE id = 7;` and ask again.
 
 No. It is now at `(540,103)`, near the end of the table. (Yours may be a few slots different.)
 
-The old copy stays, marked dead, until **VACUUM** cleans it. Other transactions that started earlier may still need to see it (lesson 16, not written yet).
+The old copy stays, marked dead, until **VACUUM** cleans it. Other transactions that started earlier may still need to see it ([lesson 16](16-mvcc-and-vacuum.md)).
 
 Two costs follow. The table grows until VACUUM runs. And every index must learn the new address (lessons 25 and 26).
 
@@ -522,7 +522,7 @@ WHERE lp = 7;
 - **xmax:** the transaction that deleted or replaced it. 0 means nobody did.
 - **ctid:** the row's own address. For an old version it is the address of the newer one.
 
-Transaction 748 is the UPDATE. A query that started before 748 committed still sees the old version. This is how readers and writers do not block each other (MVCC, lesson 16, not written yet). In this run the new row landed at (540,101). In the card it was (540,103). The last number changes from run to run.
+Transaction 748 is the UPDATE. A query that started before 748 committed still sees the old version. This is how readers and writers do not block each other (MVCC, [lesson 16](16-mvcc-and-vacuum.md)). In this run the new row landed at (540,101). In the card it was (540,103). The last number changes from run to run.
 
 **What happens to the old version?** On the next read of that page, Postgres does a cheap clean-up called *pruning*. It frees the old row's data, but keeps the 4-byte line pointer as a "dead" stub, because an index entry still points to it. Later, **VACUUM** removes the index entry and frees the stub. (By default VACUUM skips the index clean-up when there is very little to do. I used `VACUUM (INDEX_CLEANUP ON)` to see the stub freed.)
 
