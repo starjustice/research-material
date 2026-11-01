@@ -277,7 +277,7 @@ I ran it with a good transfer (Ana 300, Budi 500) and a failing one (the CHECK r
 
 <details class="more"><summary>📖 More detail: the three things people forget</summary>
 
-1. **`finally { client.release() }`.** If an error skips the release, the pool loses that connection for good. After a few errors, requests can hang waiting for a free connection (lesson 20).
+1. **`finally { client.release() }`.** If an error skips the release, the pool loses that connection for good. After a few errors, requests can hang waiting for a free connection ([lesson 20](20-connection-pooling.md)).
 2. **`ROLLBACK` in the `catch`.** Without it, the released connection goes back into the pool still inside the failed transaction. I tested a pool with one connection: the next request's first query got `current transaction is aborted, commands ignored until end of transaction block`, even for `SELECT 1`. A transaction that stays open also keeps its locks.
 3. **A transaction that waits for user input.** Never keep a transaction open while you wait for an HTTP call or a person. See card 6.
 

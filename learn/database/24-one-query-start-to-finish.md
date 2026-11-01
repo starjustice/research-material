@@ -68,7 +68,7 @@ The host is called the **postmaster**. Your helper is a **backend process**. Ten
 
 500 backend processes, plus a few helpers of its own.
 
-Each one uses memory, and the computer must switch between them. So people keep connections few and put a **pool** in front (PgBouncer, lesson 20, not written yet).
+Each one uses memory, and the computer must switch between them. So people keep connections few and put a **pool** in front (PgBouncer, [lesson 20](20-connection-pooling.md)).
 
 </details>
 

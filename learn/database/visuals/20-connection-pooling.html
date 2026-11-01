@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connection Pooling Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/20-connection-pooling" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Connection pooling: stepper</h1>
+  <p class="sub">Press Next and watch the pool, the line and the limit. The first two tabs come from real runs on PostgreSQL 18.3. The third tab comes from the PgBouncer docs, because I did not run PgBouncer.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The path</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> a connection is a <b>process</b> on the server. Keep a <b>few</b> open, lend them out, and make sure instances × pool size stays <b>under max_connections</b>.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Pool:</b> connections kept open and lent out one at a time.</li>
+      <li><b>max_connections:</b> how many connections the server allows in total (typically 100).</li>
+      <li><b>connectionTimeoutMillis:</b> how long a request waits for a free connection before it fails.</li>
+      <li><b>PgBouncer:</b> a pooler between your apps and Postgres. In transaction mode a server connection is lent for one transaction only.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Tabs 1 and 2: real runs on PostgreSQL 18.3 (max_connections = 100). Tab 3: the PgBouncer docs, not run.
+const PROGRAMS = [{"name": "Pool of 2, five requests", "stops": ["Requests arrive", "Two run", "Two finish", "Request 5 gives up", "Last two finish"], "code": ["const pool = new Pool({", "  max: 2, connectionTimeoutMillis: 700 });", "// five requests, each: SELECT pg_sleep(0.5)"], "ask": {"q": "A pool of 2, a 700 ms limit, five requests of 500 ms each. How many requests finish successfully?", "opts": ["5", "4", "2"], "answer": "4", "why": "Requests 1 and 2 run at once and finish at 500 ms. Requests 3 and 4 get the freed connections at 500 ms and finish at 1000 ms. Request 5 is still waiting at 700 ms, so its connection timeout fires and it fails. It never ran."}, "steps": [{"stop": null, "line": null, "note": "Five requests arrive at the same moment. The pool has only 2 connections. Guess how many succeed, then press Next.", "facts": [["Pool", "2 connections"], ["Requests", "5"]]}, {"stop": 0, "line": 2, "note": "<b>Requests arrive.</b> All five ask the pool for a connection at once.", "facts": [["In use", "0 of 2"], ["Waiting", "5"]], "count": {"label": "Waiting in line", "value": "5"}}, {"stop": 1, "line": 2, "note": "<b>Two run.</b> Requests 1 and 2 get a connection each. Requests 3, 4 and 5 wait in line. At 21 ms my script printed: lines in use 2, waiting in line 3.", "facts": [["In use", "2 of 2"], ["Running", "request 1, request 2"], ["In line", "3, 4, 5"]], "count": {"label": "Waiting in line", "value": "3"}}, {"stop": 2, "line": 2, "note": "<b>Two finish.</b> At about 506 ms requests 1 and 2 are done and give their connections back. Requests 3 and 4 take them. Request 5 keeps waiting.", "facts": [["Done", "request 1, request 2"], ["Running", "request 3, request 4"], ["In line", "5"]], "count": {"label": "Waiting in line", "value": "1"}}, {"stop": 3, "line": 1, "note": "<b>Request 5 gives up.</b> At 700 ms it has waited as long as the limit allows. <code>timeout exceeded when trying to connect</code>. It fails at 702 ms, and never ran.", "facts": [["ERROR", "timeout exceeded when trying to connect"], ["Request 5", "failed at 702 ms"]], "count": {"label": "Waiting in line", "value": "0"}, "fail": true}, {"stop": 4, "line": 2, "note": "<b>Last two finish.</b> Requests 3 and 4 are done at about 1009 ms.", "facts": [["Done", "1, 2, 3, 4"], ["Failed", "5"]], "count": {"label": "Waiting in line", "value": "0"}}, {"stop": null, "line": null, "note": "Finished. 4 of 5 worked. With <code>max: 5</code> all five run at once, and the last finishes at about 505 ms. Without a connection timeout, request 5 would have waited and then run. With a leaked connection it would wait for ever.", "facts": [["Pool of 2", "4 worked, 1 failed"], ["Pool of 5", "5 worked, nobody waited"]], "count": {"label": "Waiting in line", "value": "0"}, "fail": true, "done": true}]}, {"name": "12 instances, limit 100", "stops": ["Each instance opens", "The server fills up", "Slots run out", "Result"], "code": ["// 12 function instances, each:", "const pool = new Pool({ max: 10 });", "// each sends 10 queries at once", "// server: max_connections = 100"], "ask": {"q": "12 instances each want 10 connections (120). The server allows 100. How many of the 120 queries work?", "opts": ["120", "100", "60"], "answer": "100", "why": "Each pool opens up to 10 connections, and the pools do not know about each other. The server gives out 100 and then refuses the rest with 'sorry, too many clients already'. So 100 queries worked and 20 failed. The pool of each instance is fine on its own. The sum is the problem."}, "steps": [{"stop": null, "line": null, "note": "Each function instance has its own small pool, and the pools do not know about each other. Guess how many of the 120 queries work, then press Next.", "facts": [["Instances", "12"], ["Pool max each", "10"], ["Server limit", "100"]]}, {"stop": 0, "line": 1, "note": "<b>Each instance opens</b> its pool: up to 10 connections each. 12 × 10 = 120 connections wanted.", "facts": [["Wanted", "120"], ["Allowed", "100"]], "count": {"label": "Connections open", "value": "0 of 100"}}, {"stop": 1, "line": 3, "note": "<b>The server fills up.</b> It forks a process for each connection, one after the other, until it has 100.", "facts": [["Open", "100 of 100"]], "count": {"label": "Connections open", "value": "100 of 100"}}, {"stop": 2, "line": 3, "note": "<b>Slots run out.</b> The next 20 connection attempts are refused by Postgres. The queries that needed them fail.", "facts": [["ERROR", "sorry, too many clients already"], ["Refused", "20 connection attempts"]], "count": {"label": "Connections open", "value": "100 of 100"}, "fail": true}, {"stop": 3, "line": 3, "note": "<b>Result.</b> 100 queries worked, 20 failed. I got the same on three runs. With <code>max: 5</code> per instance there are only 60 connections, and all 120 queries worked.", "facts": [["max: 10 each", "100 worked, 20 failed"], ["max: 5 each", "120 worked, 0 failed"]], "count": {"label": "Connections open", "value": "100 of 100"}, "fail": true}, {"stop": null, "line": null, "note": "Finished. The rule: connections = instances × pool size, over all servers, workers and jobs. Keep the sum under the limit, with room for admin and for a deploy, when old and new servers run together.", "facts": [["Sum", "instances × pool size"], ["Fix", "smaller pools, or PgBouncer"]], "count": {"label": "Connections open", "value": "100 of 100"}, "fail": true, "done": true}]}, {"name": "A pooler in front", "stops": ["Clients connect", "The pooler lends", "Transaction ends", "Next transaction"], "code": ["-- app: 500 connections to PgBouncer", "BEGIN; SELECT ...; COMMIT;", "-- PgBouncer: pool_mode = transaction", "-- Postgres: 20 real connections"], "ask": {"q": "In transaction pooling mode, you run SET in one transaction and a SELECT in the next. Is the SET still in effect?", "opts": ["Yes, always", "Not reliably", "Only for LISTEN"], "answer": "Not reliably", "why": "In transaction mode the server connection goes back to the pool when the transaction ends. The next transaction may run on a different server connection, which never saw your SET. The PgBouncer docs list SET / RESET as never working in transaction pooling. Use SET LOCAL inside the transaction."}, "steps": [{"stop": null, "line": null, "note": "500 app connections talk to PgBouncer. PgBouncer keeps only 20 real connections to Postgres. This tab follows one client. Guess whether a SET survives, then press Next.", "facts": [["Clients", "500 connections to PgBouncer"], ["Server side", "20 connections to Postgres"]]}, {"stop": 0, "line": 0, "note": "<b>Clients connect.</b> Connecting to PgBouncer is cheap. Postgres does not start a process for each client.", "facts": [["Postgres processes", "20, not 500"]], "count": {"label": "Postgres connections", "value": "20"}}, {"stop": 1, "line": 1, "note": "<b>The pooler lends.</b> BEGIN arrives. PgBouncer gives the client a free server connection, say number 7, for this transaction.", "facts": [["Server connection 7", "lent to this client"]], "count": {"label": "Postgres connections", "value": "20"}}, {"stop": 2, "line": 1, "note": "<b>Transaction ends.</b> At COMMIT the server connection goes back to the pool. Any <code>SET</code> done on it stays on connection 7.", "facts": [["Server connection 7", "back in the pool"]], "count": {"label": "Postgres connections", "value": "20"}}, {"stop": 3, "line": 1, "note": "<b>Next transaction.</b> The client may get connection 12 this time. Connection 12 never saw the SET. Session things such as SET, LISTEN, PREPARE and session advisory locks do not carry over.", "facts": [["Server connection 12", "lent to this client"], ["SET from before", "not seen"]], "count": {"label": "Postgres connections", "value": "20"}}, {"stop": null, "line": null, "note": "Finished. A pooler lets 500 clients share 20 connections. The price: session features do not work in transaction mode. This tab comes from the PgBouncer docs. I did not run PgBouncer.", "facts": [["Never in transaction mode", "SET, LISTEN, PREPARE, session advisory locks"], ["Use instead", "SET LOCAL inside the transaction"]], "count": {"label": "Postgres connections", "value": "20"}, "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

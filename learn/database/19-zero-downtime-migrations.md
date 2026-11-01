@@ -4,7 +4,7 @@
 >
 > **You will be able to:** tell which `ALTER TABLE` changes rewrite the whole table, protect a live site with `lock_timeout` and a retry, add a NOT NULL rule, a foreign key or an index without blocking writes, fill a new column in batches, and plan a rename with expand and contract.
 >
-> **Before this:** [Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md) · **Next:** Connection pooling (lesson 20, not written yet)
+> **Before this:** [Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md) · **Next:** [Connection pooling](20-connection-pooling.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3 on a table of 2 million rows. About 25 minutes for the cards.
 

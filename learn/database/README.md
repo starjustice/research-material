@@ -76,7 +76,7 @@ Short cards with a guess before each answer. Every number was run on PostgreSQL 
 | 17 | [Pagination](17-pagination.md) | OFFSET against keyset pagination, and why page 5000 is slow | ready |
 | 18 | [Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md) | ON CONFLICT, handling a webhook twice safely, and a queue with SKIP LOCKED | ready |
 | 19 | [Zero-downtime migrations](19-zero-downtime-migrations.md) | changing a live table without locking it, expand and contract, Prisma migrate in production | ready |
-| 20 | Connection pooling `20-connection-pooling.md` | why connections are expensive, PgBouncer, and serverless with Postgres | planned |
+| 20 | [Connection pooling](20-connection-pooling.md) | why connections are expensive, PgBouncer, and serverless with Postgres | ready |
 | 21 | Replication and read replicas `21-replication-and-read-replicas.md` | scaling reads, replication lag, and reading your own writes | planned |
 | 22 | Partitioning and sharding `22-partitioning-and-sharding.md` | splitting big tables and databases, and why sharding is the last step | planned |
 | 23 | SQL vs NoSQL and Redis `23-sql-vs-nosql-and-redis.md` | when each fits, and caching with Redis | planned |

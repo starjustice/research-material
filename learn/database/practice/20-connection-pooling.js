@@ -21,7 +21,7 @@
 //   3. Part 2 prints how many different Postgres processes served the 100 queries. What number?
 //   4. Part 3 has a pool of 2 and 5 slow requests. How many requests must wait in line?
 //   5. Part 4 starts 12 "function instances", each with its own pool of 10. What breaks?
-// The lesson, section 9C, has the answers. Your times will differ. The shape will not.
+// The lesson, in card 11 (Practice), part C, has the answers. Your times will differ. The shape will not.
 
 const { Client, Pool } = require("pg");
 
