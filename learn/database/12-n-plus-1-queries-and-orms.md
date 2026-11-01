@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say why one page can send 101 queries, find it in a query log, and fix it with a JOIN, an `= ANY($1)` batch, Prisma `include`, a GraphQL DataLoader, or Hasura.
 >
-> **Before this:** [Reading EXPLAIN](11-reading-explain.md) · **Next:** Transactions and ACID (lesson 13, not written yet)
+> **Before this:** [Reading EXPLAIN](11-reading-explain.md) · **Next:** [Transactions and ACID](13-transactions-and-acid.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The numbers come from the practice database, so yours will differ a little. About 25 minutes for the cards.
 

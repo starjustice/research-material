@@ -35,7 +35,7 @@ WHERE status = 'CANCELLED';
 ROLLBACK;
 ```
 
-`ROLLBACK` throws the changes away (lesson 13, not written yet).
+`ROLLBACK` throws the changes away ([lesson 13](13-transactions-and-acid.md)).
 
 </details>
 

@@ -64,7 +64,7 @@ Short cards with a guess before each answer. Every number was run on PostgreSQL 
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 13 | Transactions and ACID `13-transactions-and-acid.md` | what each letter protects you from, with a money transfer | planned |
+| 13 | [Transactions and ACID](13-transactions-and-acid.md) | what each letter protects you from, with a money transfer | ready |
 | 14 | Isolation levels `14-isolation-levels.md` | dirty read, non-repeatable read, phantom read, and which level stops which | planned |
 | 15 | Locks and deadlocks `15-locks-and-deadlocks.md` | row locks, SELECT FOR UPDATE, how deadlocks happen, how to avoid them | planned |
 | 16 | MVCC and VACUUM `16-mvcc-and-vacuum.md` | how Postgres lets readers and writers not block each other, and why old rows must be cleaned | planned |

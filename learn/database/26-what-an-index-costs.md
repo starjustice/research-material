@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say what an INSERT and an UPDATE do to every index (including the page split and the HOT shortcut), say why the planner sometimes ignores an index, and pick a better index type for a huge table.
 >
-> **Before this:** [An index, built and searched](25-an-index-built-and-searched.md). · **Next:** none yet. Transactions come later (lessons 13 to 16, not written yet).
+> **Before this:** [An index, built and searched](25-an-index-built-and-searched.md). · **Next:** [Transactions and ACID](13-transactions-and-acid.md) (lesson 13). Isolation, locks and MVCC (lessons 14 to 16) come after it, not written yet.
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
