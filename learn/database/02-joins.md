@@ -124,7 +124,7 @@ INSERT INTO l02_orders VALUES
 ```
 
 - In psql, type `\pset null NULL` first. Otherwise NULL shows as an empty cell.
-- Nothing stops order 13 from pointing to a missing store. A later lesson (06, not written yet) adds the rule that does (a *foreign key*).
+- Nothing stops order 13 from pointing to a missing store. [Lesson 06](06-keys-and-relationships.md) adds the rule that does (a *foreign key*).
 - `FROM l02_stores s` gives the table a short name, `s`, for this query.
 
 Checked on 2026-10-28 with PostgreSQL 17.5 (PGlite). An earlier check on PostgreSQL 18.3 gave the same results. Your Docker playground runs 16. Join results are the same.
@@ -715,7 +715,7 @@ It is a LEFT JOIN, so Store 1, which nobody referred, still appears. Practice ta
 - [SQL basics and the order a query runs](01-sql-basics-and-query-order.md): joins run before WHERE. That is why the trap happens.
 - [Grouping and aggregation](03-grouping-and-aggregation.md): next. Counts and sums after a join.
 - [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md): "has an order" without fan-out.
-- Keys and relationships (lesson 06, not written yet): the foreign key that would stop order 13.
+- [Keys and relationships](06-keys-and-relationships.md) (lesson 06): the foreign key that would stop order 13.
 - [Normalization](07-normalization.md): why we split tables.
 - [Indexes and B-trees](09-indexes-and-b-trees.md): an index on `orders.store_id`.
 - [Reading EXPLAIN](11-reading-explain.md): how Postgres really finds matches.

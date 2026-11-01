@@ -20,7 +20,7 @@
 --      Compare what Postgres prints with the "Expected" comments.
 --      If an insert that should fail is accepted, a key is missing in your design.
 --   Error texts show the main words only. Your constraint names may differ.
---   The answers are in the lesson, in section 9C, inside "One possible answer".
+--   The answers are in the lesson, in card 11 (Practice), part C, inside "One possible answer".
 --   Draw the tables and the arrows on paper first.
 
 -- ---------------------------------------------------------------------------

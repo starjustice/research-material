@@ -37,7 +37,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 06 | Keys and relationships `06-keys-and-relationships.md` | primary and foreign keys, one to many, many to many, and id choices like serial against UUID | planned |
+| 06 | [Keys and relationships](06-keys-and-relationships.md) | primary and foreign keys, one to many, many to many, and id choices like serial against UUID | ready |
 | 07 | [Normalization](07-normalization.md) | why we split tables, the problems duplicates cause, and when to copy data on purpose | ready |
 | 08 | [Constraints and data types](08-constraints-and-data-types.md) | NOT NULL, UNIQUE, CHECK, money as cents, timestamptz, and JSONB against normal columns | ready |
 

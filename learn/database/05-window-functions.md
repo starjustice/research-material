@@ -4,7 +4,7 @@
 >
 > **You will be able to:** number, rank and add up rows inside each group without losing any row, and write "top 3 orders per store" while explaining why the filter needs an outer query.
 >
-> **Before this:** [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md) · **Next:** Keys and relationships (lesson 06, not written yet)
+> **Before this:** [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md) · **Next:** [Keys and relationships](06-keys-and-relationships.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
@@ -839,7 +839,7 @@ WindowAgg (actual rows=2700.00 loops=1)
 - [SQL basics and query order](01-sql-basics-and-query-order.md): the order of the query parts. It explains why `WHERE` cannot see a window value.
 - [Grouping and aggregation](03-grouping-and-aggregation.md): `GROUP BY` squashes rows. This lesson keeps them.
 - [Subqueries, CTEs and EXISTS](04-subqueries-ctes-and-exists.md): the lesson before. The `WITH` you need for top N per group.
-- Keys and relationships (lesson 06, not written yet): the next lesson.
+- [Keys and relationships](06-keys-and-relationships.md): the next lesson.
 - [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md): an index on `(store_id, total DESC)` can remove the sort.
 - [Reading EXPLAIN](11-reading-explain.md): how to read the `WindowAgg` plan in the Go deeper box.
 - Lesson 17, pagination (not written yet): `ROW_NUMBER` is one way to page, and why keyset paging is often better.
