@@ -669,5 +669,5 @@ Open these when you are ready. None of them is needed for the cards above.
 - [Keys and relationships](06-keys-and-relationships.md): PRIMARY KEY and FOREIGN KEY are constraints too. A foreign key gives the error `is not present in table "stores"`.
 - [Indexes and B-trees](09-indexes-and-b-trees.md): the next lesson. A UNIQUE rule builds an index under the hood, and a GIN index speeds up JSONB searches.
 - [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md): the partial index from the soft delete example.
-- Lesson 18, upsert and idempotency (not written yet): `ON CONFLICT` needs a UNIQUE rule to work.
+- [Upsert and idempotency](18-upsert-idempotency-and-job-queues.md) (lesson 18): `ON CONFLICT` needs a UNIQUE rule to work.
 - Lesson 19, zero-downtime migrations (not written yet): adding a rule to a big live table with `NOT VALID`.

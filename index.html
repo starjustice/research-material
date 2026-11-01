@@ -479,7 +479,7 @@
   <span>Runnable: docker compose up → track tables → row permission → Action (10 minutes)</span>
 </a>
 </details>
-<details class="subject"><summary><b>Database</b><small>20 lessons, 6 guides, 20 visuals, 6 cheatsheets</small></summary>
+<details class="subject"><summary><b>Database</b><small>21 lessons, 6 guides, 21 visuals, 6 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/database/README">
   <span class="tag map">MAP</span>
   <b>Database: map and lesson list</b>
@@ -569,6 +569,11 @@
   <span class="tag lesson">LESSON 17</span>
   <b>17. Pagination</b>
   <span>explain why `OFFSET` gets slower on deep pages and shows the wrong rows when data changes, write keyset pagination with `(created_at, id)`, say why you need a tie-breaker, build a cursor in Node, and choose between the two.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/database/18-upsert-idempotency-and-job-queues">
+  <span class="tag lesson">LESSON 18</span>
+  <b>18. Upsert, idempotency and job queues</b>
+  <span>write an upsert with `ON CONFLICT`, explain why &quot;check, then insert&quot; breaks when two requests run at the same time, handle a webhook that arrives twice with an idempotency key, and build a safe job queue with `FOR UPDATE SKIP LOCKED`.</span>
 </a>
 <a class="card" href="viewer.html?note=learn/database/24-one-query-start-to-finish">
   <span class="tag lesson">LESSON 24</span>
@@ -668,6 +673,11 @@
 <a class="card" href="learn/database/visuals/17-pagination.html">
   <span class="tag app">VISUAL</span>
   <b>17-pagination.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/database/visuals/18-upsert-idempotency-and-job-queues.html">
+  <span class="tag app">VISUAL</span>
+  <b>18-upsert-idempotency-and-job-queues.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="learn/database/visuals/24-one-query-start-to-finish.html">

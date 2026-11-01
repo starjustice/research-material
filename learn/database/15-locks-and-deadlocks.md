@@ -114,7 +114,7 @@ graph TB
 <details class="more"><summary>📖 More detail: when to use each</summary>
 
 - **`NOWAIT`:** when waiting is useless. "Someone else is already editing this order. Tell the user."
-- **`SKIP LOCKED`:** when any free row will do. This is how a **job queue** works: many workers each take the next job that nobody has locked. Lesson 18 builds a queue with it.
+- **`SKIP LOCKED`:** when any free row will do. This is how a **job queue** works: many workers each take the next job that nobody has locked. [Lesson 18](18-upsert-idempotency-and-job-queues.md) builds a queue with it.
 - **`lock_timeout`:** a safety net for any statement. `SET lock_timeout = '2s'` makes a statement fail if it waits more than 2 seconds for a lock. It does not limit how long the statement **runs**, only how long it **waits**. (That is `statement_timeout`.) The error code is the same, `55P03`, so your code can retry.
 
 For a web request, a short `lock_timeout` is almost always better than waiting for a minute while the user's browser spins.
@@ -488,6 +488,6 @@ The practice file builds the two small tables. The results in this lesson came f
 - [14. Isolation levels](14-isolation-levels.md): the lost update that `FOR UPDATE` fixes, and the retry loop for `40001`.
 - [06. Keys and relationships](06-keys-and-relationships.md): a foreign key check also takes a lock.
 - [16. MVCC and VACUUM](16-mvcc-and-vacuum.md): why readers do not need locks.
-- Lesson 18, upsert and job queues (not written yet): `SKIP LOCKED` as a queue.
+- [18. Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md): `SKIP LOCKED` as a queue.
 - Lesson 19, zero-downtime migrations (not written yet): card 6 in practice.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide.

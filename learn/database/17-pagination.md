@@ -4,7 +4,7 @@
 >
 > **You will be able to:** explain why `OFFSET` gets slower on deep pages and shows the wrong rows when data changes, write keyset pagination with `(created_at, id)`, say why you need a tie-breaker, build a cursor in Node, and choose between the two.
 >
-> **Before this:** [MVCC and VACUUM](16-mvcc-and-vacuum.md) · **Next:** Upsert, idempotency and job queues (lesson 18, not written yet)
+> **Before this:** [MVCC and VACUUM](16-mvcc-and-vacuum.md) · **Next:** [Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3. About 25 minutes for the cards.
 

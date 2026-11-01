@@ -509,4 +509,4 @@ Open these when you are ready. None of them is needed for the cards above.
 - [PostgreSQL queries interview guide](postgresql-queries-interview-guide.md): the "burn topic" section has the `tenor, plafon` story in full.
 - MVCC and VACUUM ([lesson 16](16-mvcc-and-vacuum.md)): why an Index Only Scan needs `VACUUM` to mark pages as clean.
 - [Pagination](17-pagination.md) (lesson 17): keyset pagination needs exactly this kind of composite index.
-- Upsert, idempotency and job queues (lesson 18, not written yet): the PENDING worker query is where a partial index shines.
+- [Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md) (lesson 18): the PENDING worker query is where a partial index shines.
