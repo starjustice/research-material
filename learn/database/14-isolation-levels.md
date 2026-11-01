@@ -353,7 +353,7 @@ Interview words: *isolation level*, *READ COMMITTED*, *REPEATABLE READ*, *SERIAL
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The isolation stepper](visuals/14-isolation-levels.html) in this folder. Guess first, then press Next.
 - **Video:** [Isolation levels (REPEATABLE READ won't save you)](https://www.youtube.com/watch?v=_6ef7AQ83rc) from the channel Hello Interview. Cards 4 and 5.

@@ -346,7 +346,7 @@ Interview words: *primary key*, *foreign key*, *referential integrity*, *surroga
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The keys stepper](visuals/06-keys-and-relationships.html) in this folder. Guess first, then press Next.
 - **Play with it:** [dbdiagram.io](https://dbdiagram.io/). Draw stores, orders, products and order_items with arrows. It turns the picture into `CREATE TABLE` lines.
@@ -502,7 +502,7 @@ A foreign key can be made `DEFERRABLE`. Then `SET CONSTRAINTS ALL DEFERRED` insi
 
 <details><summary>Add the rule later without a long lock</summary>
 
-`ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY` checks every row while it holds a lock. On a big live table, add it as `NOT VALID` first, then run `VALIDATE CONSTRAINT`, which takes a weaker lock. Lesson 19 (zero-downtime migrations, not written yet) covers this.
+`ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY` checks every row while it holds a lock. On a big live table, add it as `NOT VALID` first, then run `VALIDATE CONSTRAINT`, which takes a weaker lock. [Lesson 19](19-zero-downtime-migrations.md) (zero-downtime migrations) covers this, with timings.
 
 </details>
 

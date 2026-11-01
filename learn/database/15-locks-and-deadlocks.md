@@ -246,7 +246,7 @@ There are eight table lock modes. You do not need all of them. These three are e
 | `INSERT` / `UPDATE` / `DELETE` | `ROW EXCLUSIVE` | `SHARE` and stronger (for example a normal `CREATE INDEX`) |
 | most `ALTER TABLE` | `ACCESS EXCLUSIVE` | everything |
 
-The full table is in the docs (see card 10). Lesson 19 (zero-downtime migrations, not written yet) builds on this card: how to change a live table in small steps, each with a short `lock_timeout`.
+The full table is in the docs (see card 10). [Lesson 19](19-zero-downtime-migrations.md) (zero-downtime migrations) builds on this card: how to change a live table in small steps, each with a short `lock_timeout`.
 
 </details>
 
@@ -333,7 +333,7 @@ Interview words: *row lock*, *SELECT FOR UPDATE*, *deadlock*, *lock ordering*, *
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The lock stepper](visuals/15-locks-and-deadlocks.html) in this folder. Guess first, then press Next.
 - **Video:** [All Postgres Locks Explained | A Deep Dive](https://www.youtube.com/watch?v=URwmzTeuHdk) from the channel Hussein Nasser. Cards 1 and 6.
@@ -489,5 +489,5 @@ The practice file builds the two small tables. The results in this lesson came f
 - [06. Keys and relationships](06-keys-and-relationships.md): a foreign key check also takes a lock.
 - [16. MVCC and VACUUM](16-mvcc-and-vacuum.md): why readers do not need locks.
 - [18. Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md): `SKIP LOCKED` as a queue.
-- Lesson 19, zero-downtime migrations (not written yet): card 6 in practice.
+- [19. Zero-downtime migrations](19-zero-downtime-migrations.md): card 6 in practice.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide.

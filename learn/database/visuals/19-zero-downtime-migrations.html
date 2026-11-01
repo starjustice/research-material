@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zero-Downtime Migrations Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/19-zero-downtime-migrations" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Zero-downtime migrations: stepper</h1>
+  <p class="sub">Press Next and watch the lock and the work. Every number on this page came from a real run on PostgreSQL 18.3 with a table of 2 million rows.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The path</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> ask <b>two questions</b> about every ALTER TABLE: how long does it <b>hold</b> the strong lock, and does it <b>rewrite</b> the table? Make the lock short, and do big work in small steps.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Rewrite:</b> Postgres writes a new copy of the whole table (a new file).</li>
+      <li><b>lock_timeout:</b> give up waiting for a lock after a set time, then retry.</li>
+      <li><b>Batch:</b> a small slice of rows (10,000) changed in its own transaction.</li>
+      <li><b>Backfill:</b> filling a new column for the old rows.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Built from real runs on PostgreSQL 18.3. The lesson and its practice file show the same results.
+const PROGRAMS = [{"name": "ADD COLUMN, constant default", "stops": ["Ask for the lock", "Change the catalog", "Release the lock"], "code": ["SET lock_timeout = '200ms';", "ALTER TABLE l19_orders", "  ADD COLUMN status text NOT NULL DEFAULT 'new';"], "ask": {"q": "The table has 2 million rows (130 MB). How long does this ALTER TABLE take?", "opts": ["6.7 ms", "4.5 s", "1 minute"], "answer": "6.7 ms", "why": "A constant default is stored once in the catalog. Postgres 11 and later do not write it into the 2 million rows. Old rows get the value when they are read. The table file stays the same (I checked pg_relation_filenode), and the strong lock is held for a few milliseconds."}, "steps": [{"stop": null, "line": null, "note": "The table has 2 million rows. You add a column with a constant default. Guess how long the table is locked, then press Next.", "facts": [["Table", "2,000,000 rows, 130 MB"], ["File", "unchanged so far"]]}, {"stop": 0, "line": 1, "note": "<b>Ask for the lock.</b> The ALTER TABLE needs <code>ACCESS EXCLUSIVE</code>. No old transaction holds the table, so it gets the lock at once. (With an old transaction, <code>lock_timeout</code> would make it give up after 200 ms.)", "facts": [["Lock", "ACCESS EXCLUSIVE, granted"]], "count": {"label": "Time the table is locked", "value": "0 ms"}}, {"stop": 1, "line": 2, "note": "<b>Change the catalog.</b> Postgres records the new column and its default <code>'new'</code>. It does <b>not</b> touch the 2 million rows.", "facts": [["Rows written", "0"], ["File", "same file"]], "count": {"label": "Time the table is locked", "value": "6.7 ms"}}, {"stop": 2, "line": 2, "note": "<b>Release the lock.</b> Readers and writers go on. Every old row now shows <code>status = 'new'</code>, as if it had been written.", "facts": [["SELECT status", "'new' for all rows"], ["pg_relation_filenode", "same_file = true"]], "count": {"label": "Time the table is locked", "value": "6.7 ms"}}, {"stop": null, "line": null, "note": "Finished. 6.7 ms on 2 million rows. Widening a varchar (0.6 ms) and DROP COLUMN (0.3 ms) are also quick.", "facts": [["ADD COLUMN, constant default", "6.7 ms"], ["varchar(100) to varchar(300)", "0.6 ms"], ["DROP COLUMN", "0.3 ms"]], "done": true}]}, {"name": "ADD COLUMN, random() default", "stops": ["Ask for the lock", "Write every row again", "Swap the files", "Release the lock"], "code": ["SET lock_timeout = '200ms';", "ALTER TABLE l19_orders", "  ADD COLUMN token double precision DEFAULT random();"], "ask": {"q": "The same table, but the default is random(). How long is the table locked?", "opts": ["6.7 ms", "4.5 s", "0.3 s"], "answer": "4.5 s", "why": "random() gives a different value to every row, so Postgres cannot store one default in the catalog. It writes a new copy of all 2 million rows, and holds the strong lock the whole time. Even reads wait. The file changed, and the table grew from 130 MB to 161 MB."}, "steps": [{"stop": null, "line": null, "note": "Same table, but the default is <code>random()</code>. Guess how long the table is locked, then press Next.", "facts": [["Table", "2,000,000 rows, 130 MB"]]}, {"stop": 0, "line": 1, "note": "<b>Ask for the lock.</b> <code>ACCESS EXCLUSIVE</code>, granted. From now on, every other query on this table waits.", "facts": [["Lock", "ACCESS EXCLUSIVE, granted"], ["Other queries", "start to wait"]], "count": {"label": "Time the table is locked", "value": "0 ms"}}, {"stop": 1, "line": 2, "note": "<b>Write every row again.</b> Postgres builds a new copy of the table. Each row gets its own random number.", "facts": [["Rows written", "2,000,000"], ["New copy", "161 MB"]], "count": {"label": "Time the table is locked", "value": "still locked"}}, {"stop": 2, "line": 2, "note": "<b>Swap the files.</b> The new copy replaces the old one (the file number changes: <code>same_file = false</code>).", "facts": [["pg_relation_filenode", "changed"]], "count": {"label": "Time the table is locked", "value": "4.5 s"}}, {"stop": 3, "line": 2, "note": "<b>Release the lock.</b> 4.5 seconds later. Every request that came in during this time was waiting.", "facts": [["Total", "4515 ms"], ["Table size", "130 MB to 161 MB"]], "count": {"label": "Time the table is locked", "value": "4515 ms"}, "fail": true}, {"stop": null, "line": null, "note": "Finished. Same ALTER TABLE shape, 670 times longer. Changing <code>int</code> to <code>bigint</code> did the same (4229 ms). On 200 million rows it would take minutes.", "facts": [["random() default", "4515 ms, rewrite"], ["int to bigint", "4229 ms, rewrite"]], "count": {"label": "Time the table is locked", "value": "4515 ms"}, "fail": true, "done": true}]}, {"name": "Backfill in batches", "stops": ["Batch 1", "Batch 2", "Batch 201", "Done"], "code": ["UPDATE l19_orders SET title = name", "WHERE id > $1 AND id <= $1 + 10000", "  AND title IS NULL;", "COMMIT;"], "ask": {"q": "While the batches run, another session updates one single row (id 5), again and again. What is the longest it waits?", "opts": ["12.7 s", "4 ms", "1 s"], "answer": "4 ms", "why": "Each batch locks only its own 10,000 rows, and releases them at COMMIT a few milliseconds later. Row 5 is in the first batch only, so it waits at most one batch. The single big UPDATE locked all 2 million rows until its end, and the same update of row 5 waited 12.7 seconds."}, "steps": [{"stop": null, "line": null, "note": "The new column <code>title</code> is empty in 2 million rows. You fill it from <code>name</code>. Guess the longest wait of a single-row update, then press Next.", "facts": [["Rows to fill", "2,000,000"], ["Batch size", "10,000"]]}, {"stop": 0, "line": 0, "note": "<b>Batch 1.</b> ids 1 to 10,000. Postgres locks these 10,000 rows, copies the value, and the <code>COMMIT</code> releases the locks.", "facts": [["Rows locked", "10,000, for a few ms"], ["Rows done", "10,000"]], "count": {"label": "Rows done", "value": "10,000"}}, {"stop": 1, "line": 3, "note": "<b>Batch 2.</b> ids 10,001 to 20,000. Only these rows are locked now. An update of row 5 goes straight through.", "facts": [["Rows locked", "10,000, for a few ms"], ["Update of row 5", "waits 0 to 4 ms"]], "count": {"label": "Rows done", "value": "20,000"}}, {"stop": 2, "line": 3, "note": "<b>Batch 201.</b> The last 10,000 rows. In my test, 201 batches took 6.1 seconds in all, and 942 probes of row 5 never waited more than 4 ms.", "facts": [["Batches", "201"], ["Total time", "6133 ms"], ["Longest wait of the probes", "4 ms"]], "count": {"label": "Rows done", "value": "2,000,000"}}, {"stop": 3, "line": 3, "note": "<b>Done.</b> No row is missing a title. Dead copies of the old rows remain until VACUUM (the table grew to 430 MB in my test).", "facts": [["Rows without title", "0"], ["Dead rows", "cleaned later by VACUUM"]], "count": {"label": "Rows done", "value": "2,000,000"}}, {"stop": null, "line": null, "note": "Finished. One big UPDATE took 13 seconds, and it made the update of row 5 wait 12.7 seconds. The batches were faster in total and never made anyone wait more than 4 ms.", "facts": [["One big UPDATE", "13,038 ms, row 5 waited 12,736 ms"], ["Batches", "6,133 ms, row 5 waited 4 ms"]], "count": {"label": "Rows done", "value": "2,000,000"}, "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

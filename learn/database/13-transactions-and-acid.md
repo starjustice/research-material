@@ -324,7 +324,7 @@ Interview words: *transaction*, *ACID*, *atomicity*, *rollback*, *savepoint*, *w
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The transaction stepper](visuals/13-transactions-and-acid.html) in this folder. Guess first, then press Next.
 - **Video:** [Relational Database ACID Transactions (Explained by Example)](https://www.youtube.com/watch?v=pomxJOFVcQs) from the channel Hussein Nasser. Cards 1 to 5.

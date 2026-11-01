@@ -360,7 +360,7 @@ Interview words: *pagination*, *OFFSET*, *keyset pagination*, *cursor*, *seek me
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The pagination stepper](visuals/17-pagination.html) in this folder. Guess first, then press Next.
 - **Video:** [API Pagination: Making Billions of Products Scrolling Possible](https://www.youtube.com/watch?v=14K_a2kKTxU) from the channel ByteByteGo. Cards 1 to 7 in a few minutes.

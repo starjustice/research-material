@@ -4,7 +4,7 @@
 >
 > **You will be able to:** write an upsert with `ON CONFLICT`, explain why "check, then insert" breaks when two requests run at the same time, handle a webhook that arrives twice with an idempotency key, and build a safe job queue with `FOR UPDATE SKIP LOCKED`.
 >
-> **Before this:** [Pagination](17-pagination.md) · **Next:** Zero-downtime migrations (lesson 19, not written yet)
+> **Before this:** [Pagination](17-pagination.md) · **Next:** [Zero-downtime migrations](19-zero-downtime-migrations.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run with real connections on PostgreSQL 18.3. About 25 minutes for the cards.
 
@@ -363,7 +363,7 @@ Interview words: *idempotent*, *upsert*, *ON CONFLICT*, *idempotency key*, *at-l
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The upsert and queue stepper](visuals/18-upsert-idempotency-and-job-queues.html) in this folder. Guess first, then press Next.
 - **Video:** [Idempotency - What it is and How to Implement it](https://www.youtube.com/watch?v=XAccGbtl3Z8) from the channel Alex Hyett. Cards 1 and 4.

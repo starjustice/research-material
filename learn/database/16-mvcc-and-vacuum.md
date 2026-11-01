@@ -347,7 +347,7 @@ Interview words: *MVCC*, *dead tuple*, *bloat*, *VACUUM*, *autovacuum*, *xmin*, 
 
 ## 10. Watch and play
 
-Links checked on 2026-11-01. Each page was opened. For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
+Links checked on 2026-11-01. Each page loaded (HTTP 200). For each video, the title and channel were confirmed through YouTube's oEmbed data. The video lengths were not checked.
 
 - **Play with it:** [The MVCC stepper](visuals/16-mvcc-and-vacuum.html) in this folder. Guess first, then press Next.
 - **Video:** [Postgres Transactions and MVCC Explained - Every Row Is a Ghost](https://www.youtube.com/watch?v=GEztokgB9N0) from the channel Pattern Repetition. Cards 1 and 2.

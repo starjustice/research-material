@@ -647,7 +647,7 @@ Open these when you are ready. None of them is needed for the cards above.
 - **CHECK and NULL.** A CHECK rule passes when the answer is NULL. So `CHECK (n > 0)` lets a NULL in. Add NOT NULL too. The PostgreSQL docs say this in "Check Constraints".
 - **UNIQUE and NULL.** Two NULLs do not count as the same, so a UNIQUE column can hold many NULLs. Since Postgres 15 you can write `UNIQUE NULLS NOT DISTINCT` to allow only one.
 - **Order of the errors.** When a row breaks two rules, you see only one error. The practice row `('Paid', -500)` showed only the status error.
-- **Adding a rule to a big live table.** `ADD CONSTRAINT ... CHECK` reads every row while it holds a lock. `ADD CONSTRAINT ... NOT VALID` skips old rows, then `VALIDATE CONSTRAINT` checks them later with a weaker lock. Lesson 19 (zero-downtime migrations, not written yet) covers this.
+- **Adding a rule to a big live table.** `ADD CONSTRAINT ... CHECK` reads every row while it holds a lock. `ADD CONSTRAINT ... NOT VALID` skips old rows, then `VALIDATE CONSTRAINT` checks them later with a weaker lock. [Lesson 19](19-zero-downtime-migrations.md) (zero-downtime migrations) covers this.
 - **The money type.** Postgres has a `money` type. The PostgreSQL wiki page "Don't Do This" says not to use it. It does not store a currency, and it depends on a server setting.
 - **Int is too small for some currencies.** `int` stops at 2,147,483,647. As cents, that is about 21 million. In rupiah that is a normal order size. Use `bigint` for cents.
 - **Enum in a transaction.** Postgres can run `ALTER TYPE ... ADD VALUE` inside a transaction. You cannot use the new value until that transaction commits. To remove a value, you make a new type and move the column to it.
@@ -670,4 +670,4 @@ Open these when you are ready. None of them is needed for the cards above.
 - [Indexes and B-trees](09-indexes-and-b-trees.md): the next lesson. A UNIQUE rule builds an index under the hood, and a GIN index speeds up JSONB searches.
 - [Composite, partial and covering indexes](10-composite-partial-and-covering-indexes.md): the partial index from the soft delete example.
 - [Upsert and idempotency](18-upsert-idempotency-and-job-queues.md) (lesson 18): `ON CONFLICT` needs a UNIQUE rule to work.
-- Lesson 19, zero-downtime migrations (not written yet): adding a rule to a big live table with `NOT VALID`.
+- [Zero-downtime migrations](19-zero-downtime-migrations.md) (lesson 19): adding a rule to a big live table with `NOT VALID`.
