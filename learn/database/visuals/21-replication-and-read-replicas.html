@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Replication Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/21-replication-and-read-replicas" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Replication and read replicas: stepper</h1>
+  <p class="sub">Press Next and watch a primary and a replica. Every number and message on this page came from a real primary and a real streaming replica on PostgreSQL 18.3.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The path</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> a replica is a <b>read-only copy that is a little behind</b>. A user may not see their own write there. After a write, read from the primary or wait for the replica to catch up.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>WAL / LSN:</b> the write-ahead log, and a position in it. The replica replays the log.</li>
+      <li><b>Replication lag:</b> how far the replica is behind. Measure it with <code>replay_lag</code> on the primary.</li>
+      <li><b>Asynchronous / synchronous:</b> the primary does not wait for the replica / it waits for it before it answers COMMIT.</li>
+      <li><b>Failover:</b> promote a replica to be the new primary.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Built from real runs on PostgreSQL 18.3 with a primary and a streaming replica. The lesson and its practice files show the same results.
+const PROGRAMS = [{"name": "A write reaches the replica", "stops": ["Write on the primary", "The log is sent", "The replica replays", "Readable"], "code": ["primary: INSERT INTO l21_notes (body) VALUES ('x');", "primary: COMMIT;   -- the change is in the log", "replica:  replays the log", "replica:  SELECT ... WHERE id = $1;"], "ask": {"q": "On one laptop, about how long until a committed row can be read on the replica?", "opts": ["under 10 ms", "2 seconds", "1 minute"], "answer": "under 10 ms", "why": "The replica is connected to the primary and gets the log as it is written, then replays it. In my 50 tries the median was 0.6 ms and the slowest was 8 ms. Over a real network it is more, and under load it can be seconds."}, "steps": [{"stop": null, "line": null, "note": "A primary and a streaming replica run on one laptop. A row is written on the primary. Guess how long until the replica can show it, then press Next.", "facts": [["Primary", "accepts reads and writes"], ["Replica", "read only, follows the log"]]}, {"stop": 0, "line": 0, "note": "<b>Write on the primary.</b> The primary writes the change into its write-ahead log (WAL), as for any write.", "facts": [["Primary", "row written, log record created"]], "count": {"label": "Time since the write", "value": "0 ms"}}, {"stop": 1, "line": 1, "note": "<b>The log is sent.</b> At COMMIT the log is flushed on the primary. A sender process streams it to the replica, which is already connected.", "facts": [["Primary", "COMMIT"], ["Log", "streaming to the replica"]], "count": {"label": "Time since the write", "value": "under 1 ms"}}, {"stop": 2, "line": 2, "note": "<b>The replica replays.</b> The replica applies the log record to its own copy of the table.", "facts": [["Replica", "replaying"], ["pg_stat_replication", "state = streaming, sync_state = async"]], "count": {"label": "Time since the write", "value": "about 0.6 ms"}}, {"stop": 3, "line": 3, "note": "<b>Readable.</b> A SELECT on the replica finds the row. A write on the replica would fail: <code>cannot execute INSERT in a read-only transaction</code>.", "facts": [["Replica SELECT", "row found"]], "count": {"label": "Time since the write", "value": "median 0.6 ms"}}, {"stop": null, "line": null, "note": "Finished. 50 tries: min 0.3 ms, median 0.6 ms, max 8 ms. The replica is always a little behind. Most of the time you cannot see it. The next tab shows when you can.", "facts": [["min / median / max", "0.3 / 0.6 / 8 ms"]], "done": true}]}, {"name": "A replica 2 seconds behind", "stops": ["Save on the primary", "Read at 0.5 s", "Read at 1.5 s", "Read at 2.0 s"], "code": ["primary: INSERT ... ('profile saved');  COMMIT;", "replica: SELECT ... -- 0.5 s after the write", "replica: SELECT ... -- 1.5 s after the write", "replica: SELECT ... -- 2.0 s after the write"], "ask": {"q": "The replica is 2 seconds behind. A user saves a profile on the primary and the page reads it from the replica 1 second later. What does the page show?", "opts": ["the new profile", "the old profile (row not found)", "an error"], "answer": "the old profile (row not found)", "why": "The replica has the log but is replaying it 2 seconds late (I forced this with recovery_min_apply_delay). At 1 second it has not applied the change yet, so the row is not found. This is a read-your-writes failure. The fix is to read from the primary after a write, or to wait for the write's LSN."}, "steps": [{"stop": null, "line": null, "note": "I made the replica replay the log 2 seconds late. A user saves a profile on the primary, and the page reads it from the replica. Guess what the page shows at 1 second, then press Next.", "facts": [["Replica", "replays 2 s late"], ["Primary", "has the new profile"]]}, {"stop": 0, "line": 0, "note": "<b>Save on the primary.</b> The user sees \"Saved\". The log reaches the replica, but the replica holds it for 2 seconds before it applies it.", "facts": [["Primary", "new profile, committed"], ["Replica", "log received, not applied"]]}, {"stop": 1, "line": 1, "note": "<b>Read at 0.5 s.</b> The page asks the replica. The row is <b>not found</b> (my test: 507 ms, NOT found).", "facts": [["Replica", "old data"], ["User sees", "the old profile"]], "count": {"label": "Replica has the row?", "value": "no"}, "fail": true}, {"stop": 2, "line": 2, "note": "<b>Read at 1.5 s.</b> Still <b>not found</b> (1513 ms in my test). The user thinks the save did not work, and saves again.", "facts": [["Replica", "still old"], ["User", "clicks Save again"]], "count": {"label": "Replica has the row?", "value": "no"}, "fail": true}, {"stop": 3, "line": 3, "note": "<b>Read at 2.0 s.</b> The replica has replayed it. <b>Found</b> (2016 ms in my test).", "facts": [["Replica", "new profile"]], "count": {"label": "Replica has the row?", "value": "yes"}}, {"stop": null, "line": null, "note": "Finished. Two fixes. (1) After a write, read from the primary for some seconds. (2) Ask the primary for its log position (<code>pg_current_wal_lsn()</code>), and wait until the replica's <code>pg_last_wal_replay_lsn()</code> reaches it. In my test that wait took 2006 ms, and then the row was there.", "facts": [["Fix 1", "read the primary after a write"], ["Fix 2", "wait for the LSN, 2006 ms here"]], "count": {"label": "Replica has the row?", "value": "yes"}, "done": true}]}, {"name": "Sync commit, replica down", "stops": ["Make it synchronous", "Commit with the replica up", "The replica stops", "The INSERT waits", "Cancel the wait"], "code": ["ALTER SYSTEM SET synchronous_standby_names = 'walreceiver';", "INSERT INTO l21_notes (body) VALUES ('sync');   -- replica is up", "-- the replica server stops", "INSERT INTO l21_notes (body) VALUES ('sync, replica down');", "SELECT pg_cancel_backend(pid);"], "ask": {"q": "The replica is a synchronous standby and its server is stopped. What does the next INSERT on the primary do?", "opts": ["commits at once", "waits for the replica", "fails with an error"], "answer": "waits for the replica", "why": "In synchronous mode COMMIT does not answer until the standby confirms. With the standby gone, there is nothing to confirm, so the INSERT waits, and every other write waits too. pg_stat_activity shows wait_event SyncRep. A cancel makes it return with a warning: the transaction is already committed locally."}, "steps": [{"stop": null, "line": null, "note": "Replication is asynchronous by default. I made the replica a synchronous standby. Guess what happens to a write when that replica is gone, then press Next.", "facts": [["sync_state", "async"]]}, {"stop": 0, "line": 0, "note": "<b>Make it synchronous.</b> The primary now waits for the standby named <code>walreceiver</code> before it answers COMMIT. <code>pg_stat_replication</code> shows <code>sync_state = sync</code>.", "facts": [["sync_state", "sync"]]}, {"stop": 1, "line": 1, "note": "<b>Commit with the replica up.</b> The INSERT commits in <b>1 ms</b>. (Async took 2 ms. On one laptop the wait is tiny.)", "facts": [["INSERT", "1 ms, confirmed by the replica"]]}, {"stop": 2, "line": 2, "note": "<b>The replica stops.</b> The server of the standby is shut down.", "facts": [["Replica", "down"], ["sync_state", "no standby to confirm"]]}, {"stop": 3, "line": 3, "note": "<b>The INSERT waits.</b> After 2.5 seconds it has not returned. <code>pg_stat_activity</code>: <code>active / IPC / SyncRep</code>. Every write on this server would wait the same way.", "facts": [["INSERT", "waiting for the standby"], ["wait_event", "SyncRep"]], "count": {"label": "Waited", "value": "2.5 s and more"}, "fail": true}, {"stop": 4, "line": 4, "note": "<b>Cancel the wait.</b> The INSERT returns after 2508 ms with a warning: <code>canceling wait for synchronous replication due to user request</code>. The row <b>is</b> on the primary, but may not be on the standby.", "facts": [["WARNING", "canceling wait for synchronous replication due to user request"], ["DETAIL", "The transaction has already committed locally, but might not have been replicated to the standby."]], "count": {"label": "Waited", "value": "2508 ms"}, "fail": true}, {"stop": null, "line": null, "note": "Finished. Sync replication loses no confirmed commit, but a dead standby can freeze all writes. With two standbys (<code>ANY 1 (a, b)</code>), one can be down and writes go on.", "facts": [["Async", "may lose the last commits"], ["Sync", "may freeze writes"]], "fail": true, "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>
