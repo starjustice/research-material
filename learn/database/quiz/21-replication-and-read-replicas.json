@@ -1,0 +1,79 @@
+[
+  {
+    "q": "What is a read replica?",
+    "options": [
+      "A read only copy that replays the primary's log, and is a little behind",
+      "A second primary that accepts writes",
+      "A backup file on disk",
+      "A cache that stores query results"
+    ],
+    "answer": 0,
+    "why": "It is read only, and it is a little behind."
+  },
+  {
+    "q": "A user saves a change, the page reloads from a replica, and the old value shows. What is this bug called?",
+    "options": [
+      "A deadlock",
+      "A read-your-writes failure",
+      "A dirty write",
+      "A phantom read"
+    ],
+    "answer": 1,
+    "why": "A replica can be behind. A user may not see their own write there."
+  },
+  {
+    "q": "How can you fix that bug?",
+    "options": [
+      "Add more replicas",
+      "Turn off replication",
+      "After a write, read from the primary, or wait until the replica has reached the write's LSN",
+      "Retry the page after 10 minutes"
+    ],
+    "answer": 2,
+    "why": "The LSN is the position in the log. When the replica has replayed it, the write is there."
+  },
+  {
+    "q": "How should you measure how far behind a replica is?",
+    "options": [
+      "Look at the table size on the replica",
+      "Compare row counts every second",
+      "Use now() minus the last replay time on the replica",
+      "Use `replay_lag` on the primary, and do not alarm on now() minus the last replay time"
+    ],
+    "answer": 3,
+    "why": "now() minus the last replay time grows when nobody writes, even when the replica is fully caught up."
+  },
+  {
+    "q": "A long report query on a replica is cancelled with error 40001. What is the cause?",
+    "options": [
+      "The replica must apply the primary's cleanup, and that conflicts with the long query. Retry, or give long reports their own replica",
+      "The replica ran out of disk",
+      "Reports are not allowed on replicas",
+      "The primary crashed"
+    ],
+    "answer": 0,
+    "why": "The replica applies the primary's cleanup."
+  },
+  {
+    "q": "What is the risk of asynchronous replication?",
+    "options": [
+      "Writes become slower",
+      "If the primary dies, the last commits may be lost because the replica did not receive them yet",
+      "The replica can write data too",
+      "The primary stops accepting reads"
+    ],
+    "answer": 1,
+    "why": "Sync cannot lose commits, but writes wait for the replica, and they stop if the replica is gone."
+  },
+  {
+    "q": "During failover you promote a replica. What must you make sure of?",
+    "options": [
+      "The old primary keeps running as normal",
+      "All replicas are turned off",
+      "The old primary can never accept writes again",
+      "The new primary has fewer connections"
+    ],
+    "answer": 2,
+    "why": "Two primaries that both accept writes split the data. Also check for replication slots nobody reads."
+  }
+]

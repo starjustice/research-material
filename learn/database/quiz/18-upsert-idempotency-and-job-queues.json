@@ -1,0 +1,68 @@
+[
+  {
+    "q": "`INSERT ... ON CONFLICT DO NOTHING` meets a row that already exists. What happens?",
+    "options": [
+      "The new row is skipped, with no error (the result says INSERT 0 0)",
+      "An error is raised",
+      "The old row is deleted",
+      "Both rows are saved"
+    ],
+    "answer": 0,
+    "why": "DO NOTHING skips the row. DO UPDATE changes the old row."
+  },
+  {
+    "q": "What does ON CONFLICT need in order to work?",
+    "options": [
+      "A foreign key",
+      "A unique rule (a unique index or constraint) on the columns",
+      "A transaction at SERIALIZABLE level",
+      "An ORDER BY"
+    ],
+    "answer": 1,
+    "why": "Without a unique rule, the database cannot know what a conflict is."
+  },
+  {
+    "q": "Your code does: SELECT to check if the event exists, then INSERT if not. Two requests run at the same moment. What can happen?",
+    "options": [
+      "Postgres puts them in a line, so it is safe",
+      "One request gets an error from SELECT",
+      "Both see 'not found' and both insert, so there is a duplicate",
+      "The second INSERT is ignored automatically"
+    ],
+    "answer": 2,
+    "why": "The database must enforce 'only one'. A unique rule stops the duplicate. ON CONFLICT makes the loser quiet."
+  },
+  {
+    "q": "You process a payment webhook that may arrive twice. How do you make it safe?",
+    "options": [
+      "Add a sleep before handling it",
+      "Remember the event id in a variable in memory",
+      "Ask the sender not to send it twice",
+      "Save the event id with a unique rule, in the same transaction as the work. The unique id decides who goes first"
+    ],
+    "answer": 3,
+    "why": "That is an idempotency key. Assume every event, request and job can arrive twice."
+  },
+  {
+    "q": "Several workers take jobs with `SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1`. What does SKIP LOCKED do?",
+    "options": [
+      "A worker skips jobs that another worker has locked, and takes the next one instead of waiting",
+      "It deletes locked jobs",
+      "It makes all workers take the same job",
+      "It stops the queue until the lock is free"
+    ],
+    "answer": 0,
+    "why": "FOR UPDATE makes the job yours. SKIP LOCKED makes the others look at the next job."
+  },
+  {
+    "q": "A worker dies in the middle of a job. What happens to the job in a database queue?",
+    "options": [
+      "The job is lost for ever",
+      "Its transaction is rolled back and the job goes back to pending, so the work must be safe to run twice",
+      "The job is marked done",
+      "The database restarts the worker"
+    ],
+    "answer": 1,
+    "why": "Make the work safe to run twice, because it may run again."
+  }
+]

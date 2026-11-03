@@ -1,0 +1,57 @@
+[
+  {
+    "q": "The store's phone number is saved on every one of its 10,000 order rows. The phone changes, and a script updates only 9,000 of them. What is this problem called?",
+    "options": [
+      "The update problem: a fact saved many times will one day disagree with itself",
+      "The insert problem",
+      "A phantom read",
+      "A deadlock"
+    ],
+    "answer": 0,
+    "why": "One fact, one place. If you copy it, you must decide who keeps the copy right."
+  },
+  {
+    "q": "A single table holds orders with the store details inside. What goes wrong when you delete a store's last order?",
+    "options": [
+      "Nothing, the store stays in the table",
+      "The store itself disappears from the data",
+      "Postgres blocks the delete",
+      "The next order gets the same id"
+    ],
+    "answer": 1,
+    "why": "A table with the store inside the order cannot hold a store with no orders. Deleting the last order deletes the store."
+  },
+  {
+    "q": "Which of these breaks 1NF (first normal form)?",
+    "options": [
+      "A column that holds a number",
+      "A table that has a primary key",
+      "A column that holds a list, like 'red,blue,green'",
+      "Two tables that point to each other"
+    ],
+    "answer": 2,
+    "why": "1NF means no lists. 2NF means no half of a key. 3NF means no facts about another column."
+  },
+  {
+    "q": "Why save the price paid on the order line, instead of reading the product's current price?",
+    "options": [
+      "It makes the order table smaller",
+      "Postgres cannot join the product table",
+      "It is required by third normal form",
+      "A price paid is a fact about a moment. The product price can change later, but the order must not"
+    ],
+    "answer": 3,
+    "why": "This is a copy on purpose. Save it on the order line and never update it."
+  },
+  {
+    "q": "A report query is slow. What should you try BEFORE you save a copy of the data?",
+    "options": [
+      "Add an index, and measure the slow read. Copy only if it is still too slow",
+      "Copy the data right away, because copies are always faster",
+      "Move the table to another database",
+      "Turn off foreign keys"
+    ],
+    "answer": 0,
+    "why": "Every copy needs an owner and a check that compares the copy with the truth. So try an index first."
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Which change rewrites the whole table (and so blocks it for a long time on a big table)?",
+    "options": [
+      "Adding a column with a volatile default, like `DEFAULT random()`",
+      "Adding a column with a constant default",
+      "Dropping a column",
+      "Making a varchar column wider"
+    ],
+    "answer": 0,
+    "why": "A constant default, a wider varchar and a DROP COLUMN are instant. A volatile default and a type change of a different size rewrite the table."
+  },
+  {
+    "q": "Why run a migration with a short `lock_timeout`?",
+    "options": [
+      "It makes the migration run faster",
+      "If it cannot get its lock quickly, it gives up instead of blocking everyone behind it. You then retry",
+      "It lets the migration skip checks",
+      "It is required by Prisma"
+    ],
+    "answer": 1,
+    "why": "It is better to fail fast than to block the site."
+  },
+  {
+    "q": "How do you add a CHECK rule to a huge live table safely?",
+    "options": [
+      "Add it normally and wait",
+      "Lock the table for writes first",
+      "Add it NOT VALID (fast), then VALIDATE it later (checks old rows without blocking writes)",
+      "Copy the table and rename it"
+    ],
+    "answer": 2,
+    "why": "NOT VALID adds the rule fast. VALIDATE checks the old rows with a lock that lets writes through."
+  },
+  {
+    "q": "What is true about `CREATE INDEX CONCURRENTLY`?",
+    "options": [
+      "It is always faster than a normal CREATE INDEX",
+      "It must run inside a transaction",
+      "It blocks writes, but not reads",
+      "It does not block writes, it cannot run inside BEGIN, and a failed build leaves an INVALID index to drop"
+    ],
+    "answer": 3,
+    "why": "On a live table, always use CONCURRENTLY."
+  },
+  {
+    "q": "You must fill a new column for 50 million rows. What is the safe way?",
+    "options": [
+      "Update in small batches, each in its own transaction",
+      "One UPDATE for all rows in one transaction",
+      "Lock the table and run it overnight",
+      "Drop the old column first"
+    ],
+    "answer": 0,
+    "why": "Never one UPDATE for millions of rows. It holds locks long and makes a huge pile of dead rows."
+  },
+  {
+    "q": "What is the safe way to rename a column that live code uses?",
+    "options": [
+      "Run ALTER TABLE RENAME and deploy at the same moment",
+      "Expand and contract: add the new column, sync, backfill, switch the code, then drop the old one last",
+      "Drop the column and add it again",
+      "Rename it during a short maintenance window only"
+    ],
+    "answer": 1,
+    "why": "Each step must work with the old code and the new code."
+  }
+]

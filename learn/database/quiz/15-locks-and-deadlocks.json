@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Transaction A updates row 1 and has not committed. What can another transaction do with row 1?",
+    "options": [
+      "Read it with a plain SELECT. It cannot update the row until A finishes",
+      "Nothing at all, even reading waits",
+      "Update it at the same time",
+      "Delete it, but not update it"
+    ],
+    "answer": 0,
+    "why": "A row lock stops other writers of that row. It does not stop readers, and it does not stop writers of other rows."
+  },
+  {
+    "q": "What does `SELECT ... FOR UPDATE` do?",
+    "options": [
+      "Updates the rows to a new value",
+      "Locks the selected rows, so nobody else can change them until you finish",
+      "Blocks every plain SELECT on the table",
+      "Makes the query faster"
+    ],
+    "answer": 1,
+    "why": "Use it when you read a row and then decide what to write."
+  },
+  {
+    "q": "Which option makes a query skip rows that another transaction has locked?",
+    "options": [
+      "`NOWAIT`",
+      "`lock_timeout`",
+      "`SKIP LOCKED`",
+      "`FOR SHARE`"
+    ],
+    "answer": 2,
+    "why": "NOWAIT fails at once. SKIP LOCKED skips locked rows. lock_timeout gives up after a time."
+  },
+  {
+    "q": "Transaction A locks row 1 then row 2. Transaction B locks row 2 then row 1. What happens?",
+    "options": [
+      "Both finish normally",
+      "Both wait for ever",
+      "Postgres merges the two transactions",
+      "A deadlock. Postgres cancels one of them, and your code must retry it"
+    ],
+    "answer": 3,
+    "why": "A deadlock is a circle of waiting."
+  },
+  {
+    "q": "How do you avoid most deadlocks?",
+    "options": [
+      "Lock rows in one fixed order (for example ORDER BY id) and keep transactions short",
+      "Use a bigger connection pool",
+      "Run every query twice",
+      "Use READ UNCOMMITTED"
+    ],
+    "answer": 0,
+    "why": "If everyone locks in the same order, nobody can wait in a circle."
+  },
+  {
+    "q": "An `ALTER TABLE` is waiting for a lock. Why can plain reads of that table get stuck behind it?",
+    "options": [
+      "ALTER TABLE rewrites all indexes at once",
+      "The waiting ALTER TABLE is in the line, and new readers queue behind it",
+      "Reads are always blocked by DDL",
+      "Postgres closes all connections"
+    ],
+    "answer": 1,
+    "why": "Run migrations with a short lock_timeout, so a waiting ALTER gives up instead of blocking the site."
+  }
+]

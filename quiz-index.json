@@ -1,0 +1,194 @@
+[
+ {
+  "slug": "learn/database/01-sql-basics-and-query-order",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "01",
+  "title": "SQL basics and the order a query runs",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/02-joins",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "02",
+  "title": "Joins",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/03-grouping-and-aggregation",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "03",
+  "title": "Grouping and aggregation",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/04-subqueries-ctes-and-exists",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "04",
+  "title": "Subqueries, CTEs and EXISTS",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/05-window-functions",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "05",
+  "title": "Window functions",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/06-keys-and-relationships",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "06",
+  "title": "Keys and relationships",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/07-normalization",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "07",
+  "title": "Normalization",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/08-constraints-and-data-types",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "08",
+  "title": "Constraints and data types",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/09-indexes-and-b-trees",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "09",
+  "title": "Indexes and B-trees",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/10-composite-partial-and-covering-indexes",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "10",
+  "title": "Composite, partial and covering indexes",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/11-reading-explain",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "11",
+  "title": "Reading EXPLAIN",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/12-n-plus-1-queries-and-orms",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "12",
+  "title": "N+1 queries and ORMs",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/13-transactions-and-acid",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "13",
+  "title": "Transactions and ACID",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/14-isolation-levels",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "14",
+  "title": "Isolation levels",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/15-locks-and-deadlocks",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "15",
+  "title": "Locks and deadlocks",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/16-mvcc-and-vacuum",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "16",
+  "title": "MVCC and VACUUM",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/17-pagination",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "17",
+  "title": "Pagination",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/18-upsert-idempotency-and-job-queues",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "18",
+  "title": "Upsert, idempotency and job queues",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/19-zero-downtime-migrations",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "19",
+  "title": "Zero-downtime migrations",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/20-connection-pooling",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "20",
+  "title": "Connection pooling",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/21-replication-and-read-replicas",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "21",
+  "title": "Replication and read replicas",
+  "count": 7
+ },
+ {
+  "slug": "learn/database/24-one-query-start-to-finish",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "24",
+  "title": "One query, from start to finish",
+  "count": 6
+ },
+ {
+  "slug": "learn/database/25-an-index-built-and-searched",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "25",
+  "title": "An index, built and searched",
+  "count": 5
+ },
+ {
+  "slug": "learn/database/26-what-an-index-costs",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "26",
+  "title": "What an index costs, and when Postgres ignores it",
+  "count": 7
+ }
+]

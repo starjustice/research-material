@@ -180,6 +180,8 @@ def main():
 """]
     parts.append(card("study.html", "START HERE", "map", *DESC.get("study.html", ["Study Route", ""])))
     parts.append(card("speak.html", "PRACTICE", "note", *DESC.get("speak.html", ["Say it out loud", ""])))
+    parts.append(card("progress.html", "PRACTICE", "note", "My quiz scores",
+                      "Your score on each lesson quiz, and the questions to look at again"))
     parts.append(card(viewer("my-learning/learner-profile.md"), "ME", "note", "How I learn",
                       "The rules every skill and agent follows when teaching me"))
     parts.append('\n<h2>Learn</h2>\n<p>One folder per subject. Open a subject to see its map, lessons, guides, cheatsheets and code.</p>\n')

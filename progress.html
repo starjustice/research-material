@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My quiz scores</title>
+<script src="quiz-helpers.js"></script>
+<style>
+:root {
+  --bg: #faf6ee; --card: #fffdf8; --ink: #1b1b1b; --muted: #5d6670; --line: #e6dfd2;
+  --strong: #2f9e6a; --ok: #d99a1b; --weak: #d1495b; --none: #c9c2b4;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #11161c; --card: #1a222b; --ink: #e8edf3; --muted: #9aa7b4; --line: #2b3643; --strong: #4cc38a; --ok: #f2b631; --weak: #ff7b6f; --none: #3a4552; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 0 16px 60px; }
+.top { display: flex; gap: 12px; align-items: center; padding: 12px 16px; max-width: 760px; margin: 0 auto; }
+.top a { color: var(--ink); font-weight: 600; text-decoration: none; font-size: .9rem; }
+h1 { font-size: 1.9rem; margin: 8px 0 4px; line-height: 1.15; }
+h2 { font-size: 1.1rem; margin: 30px 0 10px; }
+.sub { color: var(--muted); margin: 0 0 18px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tile b { display: block; font-size: 1.8rem; line-height: 1.2; }
+.tile span { color: var(--muted); font-size: .85rem; }
+.lessons { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.row { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.row .head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.row a.name { color: var(--ink); font-weight: 650; text-decoration: none; }
+.row .meta { color: var(--muted); font-size: .85rem; }
+.meter { height: 10px; border-radius: 999px; background: var(--line); margin: 8px 0 2px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--none); }
+.strong .meter i { background: var(--strong); }
+.ok .meter i { background: var(--ok); }
+.weak .meter i { background: var(--weak); }
+.chip { font-size: .78rem; font-weight: 700; border-radius: 8px; padding: 1px 8px; border: 1px solid var(--line); white-space: nowrap; }
+.strong .chip { color: var(--strong); } .ok .chip { color: var(--ok); } .weak .chip { color: var(--weak); }
+.up { color: var(--strong); } .down { color: var(--weak); }
+.weaklist { margin: 0; padding-left: 20px; }
+.weaklist li { margin: 8px 0; }
+.weaklist small { display: block; color: var(--muted); }
+.weaklist a { color: inherit; }
+.empty { color: var(--muted); }
+button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 6px 12px; }
+.danger { margin-top: 30px; }
+</style>
+<link rel="stylesheet" href="calm.css">
+</head>
+<body class="calm page-progress can-dark">
+<div class="top"><a href="index.html">← Study Hub</a></div>
+<main>
+  <h1>My quiz scores</h1>
+  <p class="sub">Every quiz you take in a lesson is saved here, in this browser. Nothing is sent anywhere.</p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Questions to look at again</h2>
+  <div id="weak"></div>
+
+  <h2>By lesson</h2>
+  <ul class="lessons" id="lessons"></ul>
+
+  <p class="danger"><button type="button" id="reset">Erase all my scores</button></p>
+</main>
+<script>
+(async function () {
+  const H = QuizHelpers;
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const noteHref = slug => "viewer.html?note=" + slug + "#quiz-check-yourself";
+
+  let manifest = [];
+  try { manifest = await (await fetch("quiz-index.json")).json(); } catch (e) { /* shown below */ }
+
+  function readStore() {
+    try { return H.normalizeStore(JSON.parse(localStorage.getItem(H.STORE_KEY))); } catch (e) { return H.emptyStore(); }
+  }
+
+  function draw() {
+    const store = readStore();
+    const ov = H.overview(store, manifest);
+
+    $("tiles").replaceChildren();
+    [[ov.lessonsTried + " / " + ov.lessonsTotal, "lessons tried"],
+     [ov.average === null ? "–" : ov.average + "%", "average of your last scores"],
+     [String(ov.answered), "questions answered"]].forEach(([big, small]) => {
+      const t = el("div", "tile");
+      t.appendChild(el("b", "", big));
+      t.appendChild(el("span", "", small));
+      $("tiles").appendChild(t);
+    });
+
+    const weak = H.weakQuestions(store, 8);
+    $("weak").replaceChildren();
+    if (!weak.length) {
+      $("weak").appendChild(el("p", "empty", ov.answered ? "Nothing right now. Your latest answer to every question was right." : "Take a quiz in a lesson and the questions you miss will show up here."));
+    } else {
+      const ol = el("ol", "weaklist");
+      weak.forEach(w => {
+        const li = el("li");
+        li.appendChild(el("span", "", w.q.replace(/`/g, "")));
+        const small = el("small");
+        const a = el("a", "", w.title);
+        a.href = noteHref(w.slug);
+        small.appendChild(a);
+        small.appendChild(document.createTextNode(" · missed " + w.wrong + (w.wrong === 1 ? " time" : " times")));
+        li.appendChild(small);
+        ol.appendChild(li);
+      });
+      $("weak").appendChild(ol);
+    }
+
+    $("lessons").replaceChildren();
+    if (!manifest.length) {
+      $("lessons").appendChild(el("li", "empty", "Could not load the list of quizzes."));
+    }
+    manifest.forEach(m => {
+      const sum = H.summarizeLesson(store.lessons[m.slug]);
+      const li = el("li", "row " + (sum ? sum.level : "none"));
+      const head = el("div", "head");
+      const a = el("a", "name", (m.num ? m.num + ". " : "") + m.title);
+      a.href = noteHref(m.slug);
+      head.appendChild(a);
+      head.appendChild(el("span", "chip", sum ? sum.last.score + "/" + sum.last.total + " · " + sum.lastPct + "%" : "not tried"));
+      li.appendChild(head);
+      const meter = el("div", "meter");
+      const bar = el("i");
+      bar.style.width = (sum ? sum.lastPct : 0) + "%";
+      meter.appendChild(bar);
+      li.appendChild(meter);
+      const meta = el("div", "meta");
+      if (sum) {
+        meta.appendChild(document.createTextNode("Best " + sum.bestPct + "% · tried " + sum.tries + (sum.tries === 1 ? " time" : " times")));
+        if (sum.change !== null && sum.change !== 0) {
+          const ch = el("span", sum.change > 0 ? "up" : "down", " · " + (sum.change > 0 ? "▲ +" : "▼ ") + sum.change + " since the time before");
+          meta.appendChild(ch);
+        }
+      } else meta.textContent = m.count + " questions";
+      li.appendChild(meta);
+      $("lessons").appendChild(li);
+    });
+  }
+
+  $("reset").addEventListener("click", () => {
+    if (!confirm("Erase every quiz score saved in this browser? This cannot be undone.")) return;
+    try { localStorage.removeItem(H.STORE_KEY); } catch (e) { /* nothing to erase */ }
+    draw();
+  });
+
+  draw();
+})();
+</script>
+</body>
+</html>

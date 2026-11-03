@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What does a transaction promise about several writes?",
+    "options": [
+      "All of them happen, or none of them",
+      "They run faster",
+      "They run on separate servers",
+      "They can be undone any time later"
+    ],
+    "answer": 0,
+    "why": "A transaction turns several writes into one."
+  },
+  {
+    "q": "An error happens in the middle of a transaction. You then run COMMIT. What happens?",
+    "options": [
+      "The steps before the error are saved",
+      "The transaction is already aborted, so COMMIT rolls everything back",
+      "Only the failed step is undone",
+      "Postgres asks you to confirm"
+    ],
+    "answer": 1,
+    "why": "An error aborts the whole transaction."
+  },
+  {
+    "q": "What does the D in ACID (durability) mean?",
+    "options": [
+      "Data is deleted after a day",
+      "Data is stored twice in memory",
+      "After COMMIT, the data survives a crash, because the log is already on disk",
+      "Data is encrypted on disk"
+    ],
+    "answer": 2,
+    "why": "After a crash, Postgres replays the log: committed work stays, unfinished work goes."
+  },
+  {
+    "q": "Your code sends an email inside a transaction, and then the transaction rolls back. What went wrong?",
+    "options": [
+      "Nothing, the email is recalled automatically",
+      "The email is sent again at the next commit",
+      "Postgres blocks all emails",
+      "The email was already sent. A rollback cannot undo the outside world"
+    ],
+    "answer": 3,
+    "why": "Write an outbox row inside the transaction, and send after the commit."
+  },
+  {
+    "q": "In Node with a `pg` pool, you run BEGIN, an UPDATE and COMMIT with `pool.query` three times. What is wrong?",
+    "options": [
+      "Each call may use a different connection, so they are not one transaction. Use one client for all steps",
+      "Nothing, pool.query keeps the transaction open",
+      "COMMIT must be written in lower case",
+      "The pool must have only one connection"
+    ],
+    "answer": 0,
+    "why": "BEGIN, every step and COMMIT must go through the same client. Always release it in finally."
+  }
+]

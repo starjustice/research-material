@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Why add NOT NULL, UNIQUE and CHECK rules in the database when your app already validates?",
+    "options": [
+      "Every path into the table goes through the same rules, and app code will have bugs",
+      "Database rules make queries run faster",
+      "App validation does not work with Postgres",
+      "Postgres requires at least one rule per table"
+    ],
+    "answer": 0,
+    "why": "Scripts, other services and bugs all write to your tables. Postgres says no to bad data itself."
+  },
+  {
+    "q": "How should you store money?",
+    "options": [
+      "As float, because it has decimals",
+      "As bigint cents, or numeric",
+      "As text, so nothing is rounded",
+      "As real, because it uses less space"
+    ],
+    "answer": 1,
+    "why": "Floats guess. Cents in a bigint are exact."
+  },
+  {
+    "q": "What does `timestamptz` store?",
+    "options": [
+      "The date and time exactly as typed, with no zone",
+      "Only the time zone name",
+      "One moment in time, kept in UTC and shown in your session's time zone",
+      "A text label that you must convert yourself"
+    ],
+    "answer": 2,
+    "why": "Use timestamptz by default. In Prisma, ask for `@db.Timestamptz(3)` on purpose, because the default has no time zone."
+  },
+  {
+    "q": "A column has `DEFAULT 'pending'`. Your code runs `INSERT ... VALUES (NULL)` for that column. What is saved?",
+    "options": [
+      "'pending', because NULL means no value",
+      "An empty text ''",
+      "The previous row's value",
+      "NULL, or an error if the column is NOT NULL. The default is not used"
+    ],
+    "answer": 3,
+    "why": "No value means DEFAULT. NULL is a value. In Prisma, `undefined` leaves the field out, and `null` sends NULL."
+  },
+  {
+    "q": "You will filter, sort and add up a field. Should it live inside a JSONB column?",
+    "options": [
+      "No. Use a normal column. JSONB is for shapes that change",
+      "Yes, JSONB is always faster",
+      "Yes, because JSONB is indexed automatically",
+      "No, because JSONB cannot store numbers"
+    ],
+    "answer": 0,
+    "why": "Filter, sort, join or add it up? Use a normal column."
+  },
+  {
+    "q": "An INSERT is refused by a CHECK rule. Does the id counter (the sequence) go back?",
+    "options": [
+      "Yes, the counter goes back by one",
+      "No. The row is not saved, but the counter has already moved, so ids can have gaps",
+      "Yes, but only inside a transaction",
+      "The counter resets to 1"
+    ],
+    "answer": 1,
+    "why": "A refused row saves nothing, but the id counter still moves. So never expect ids without gaps."
+  }
+]

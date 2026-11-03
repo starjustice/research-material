@@ -20,9 +20,17 @@
     }).join("\n");
   }
 
+  // Puts the quiz card in front of "Review questions", or at the end when the lesson has no such section.
+  // The card is an empty box. quiz.js fills it after the page is drawn.
+  function addQuizSection(md) {
+    const card = '## Quiz: check yourself\n\n<div id="quiz-root"></div>\n\n';
+    const at = md.search(/^## \d*\.?\s*Review questions/m);
+    return at === -1 ? md.replace(/\s*$/, "\n\n") + card : md.slice(0, at) + card + md.slice(at);
+  }
+
   // The first pattern that matches a section title decides its kind (and its header color in calm.css).
   const KINDS = [
-    [/idea/i, "idea"], [/picture/i, "picture"], [/analogy/i, "analogy"], [/code/i, "code"],
+    [/quiz/i, "quiz"], [/idea/i, "idea"], [/picture/i, "picture"], [/analogy/i, "analogy"], [/code/i, "code"],
     [/step by step|really happens/i, "trace"], [/why it exists|cost/i, "why"], [/mistake/i, "mistake"],
     [/watch|play/i, "watch"], [/practice/i, "practice"], [/interview/i, "interview"],
     [/explain/i, "explain"], [/review/i, "review"],
@@ -79,7 +87,7 @@
     return REPO_URL + (path.endsWith("/") ? "/tree/main/" : "/blob/main/") + resolveFrom(baseDir, path);
   }
 
-  const api = { escapePlaceholders, sectionKind, fitDiagram, columnWidths, resolveFrom, repoLinkFor };
+  const api = { escapePlaceholders, addQuizSection, sectionKind, fitDiagram, columnWidths, resolveFrom, repoLinkFor };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else window.ViewerHelpers = api;
 })();

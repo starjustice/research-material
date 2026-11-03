@@ -1,0 +1,57 @@
+[
+  {
+    "q": "`SELECT * FROM users WHERE email = 'a@b.com'` has no index on email. What does Postgres do?",
+    "options": [
+      "Reads the whole table, row by row (a Seq Scan), even though you want one row",
+      "Jumps straight to the row, because email is unique",
+      "Builds a temporary index first, then uses it",
+      "Refuses to run the query"
+    ],
+    "answer": 0,
+    "why": "Without an index, the work grows with the table, even when you want 1 row."
+  },
+  {
+    "q": "Which of these can a B-tree index help with?",
+    "options": [
+      "Only `=`",
+      "`=`, `<`, `>`, BETWEEN and ORDER BY",
+      "Only text columns",
+      "Only the primary key"
+    ],
+    "answer": 1,
+    "why": "A B-tree keeps values sorted, so it helps with order and ranges, not only equality."
+  },
+  {
+    "q": "What is the cost of adding an index?",
+    "options": [
+      "Reads get slower",
+      "The table can no longer be updated",
+      "Every INSERT gets slower, and the index takes disk space",
+      "Nothing, indexes are free"
+    ],
+    "answer": 2,
+    "why": "Index only what your real slow queries use."
+  },
+  {
+    "q": "You made an index, but EXPLAIN shows a Seq Scan, and the filter matches 60% of the table. What is the right conclusion?",
+    "options": [
+      "Postgres has a bug. Run REINDEX",
+      "The index is broken and must be dropped",
+      "You must force the index with a hint",
+      "The Seq Scan is the correct, faster choice here. Reading the table is cheaper than jumping back and forth"
+    ],
+    "answer": 3,
+    "why": "An index helps when few rows match. When most rows match, reading the table is cheaper. Run EXPLAIN and check."
+  },
+  {
+    "q": "Which column gets an index automatically in Postgres?",
+    "options": [
+      "The primary key, and UNIQUE columns",
+      "Every foreign key column",
+      "Every column in a WHERE",
+      "Every column named id_something"
+    ],
+    "answer": 0,
+    "why": "A foreign key does NOT get an index. Add that index yourself."
+  }
+]

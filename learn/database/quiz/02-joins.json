@@ -1,0 +1,57 @@
+[
+  {
+    "q": "Stores A, B and C exist. Only A and B have orders. What does `stores LEFT JOIN orders` do with store C?",
+    "options": [
+      "Keeps it, with NULL in every order column",
+      "Drops it, because it has no matching order",
+      "Raises an error about the missing match",
+      "Shows it twice, once for each other store"
+    ],
+    "answer": 0,
+    "why": "LEFT JOIN keeps every left row. When the right side is empty, its columns are NULL."
+  },
+  {
+    "q": "Which join keeps the lonely rows from BOTH tables?",
+    "options": [
+      "INNER JOIN",
+      "FULL JOIN",
+      "LEFT JOIN",
+      "CROSS JOIN"
+    ],
+    "answer": 1,
+    "why": "INNER keeps only the pairs. LEFT, RIGHT and FULL also keep lonely rows from one side or both. FULL does both sides."
+  },
+  {
+    "q": "`FROM stores s LEFT JOIN orders o ON o.store_id = s.id WHERE o.status = 'PAID'` drops stores that have no orders. Why?",
+    "options": [
+      "LEFT JOIN cannot be used together with WHERE",
+      "'PAID' must be written in lower case",
+      "WHERE runs after the join, and NULL = 'PAID' is never true, so those rows are removed",
+      "The ON part must come after the WHERE part"
+    ],
+    "answer": 2,
+    "why": "The lonely rows have NULL in o.status. WHERE throws them away, so the LEFT JOIN behaves like an INNER JOIN."
+  },
+  {
+    "q": "You want every store, and only the PAID orders next to it. Where should the status check go?",
+    "options": [
+      "In WHERE, after the join",
+      "In HAVING",
+      "In ORDER BY",
+      "In the ON part of the join"
+    ],
+    "answer": 3,
+    "why": "To keep every left row, filter the right table in ON, not in WHERE."
+  },
+  {
+    "q": "You join users to their orders and run `COUNT(*)` to count users. A user with 3 orders is counted 3 times. What is a good fix?",
+    "options": [
+      "Use `COUNT(DISTINCT users.id)`, or `EXISTS` if you only need yes or no",
+      "Add LIMIT 1 to the query",
+      "Change LEFT JOIN to RIGHT JOIN",
+      "Remove the ON part"
+    ],
+    "answer": 0,
+    "why": "A join can multiply rows. Count each user once with DISTINCT, or ask a yes or no question with EXISTS."
+  }
+]

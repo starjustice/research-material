@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What is the main difference between GROUP BY and a window function?",
+    "options": [
+      "GROUP BY squashes many rows into one. A window function keeps every row and adds a column",
+      "A window function can only be used on numbers",
+      "GROUP BY keeps all rows and a window function removes them",
+      "There is no difference, only the name"
+    ],
+    "answer": 0,
+    "why": "That is why you can show each order next to its store total with a window function."
+  },
+  {
+    "q": "Scores are 100, 90, 90, 80. What does RANK() give to the score 80?",
+    "options": [
+      "3",
+      "4",
+      "2",
+      "1"
+    ],
+    "answer": 1,
+    "why": "RANK repeats on a tie and then skips, so it gives 1, 2, 2, 4. DENSE_RANK would give 1, 2, 2, 3. ROW_NUMBER gives 1, 2, 3, 4."
+  },
+  {
+    "q": "What does `SUM(amount) OVER (PARTITION BY store_id ORDER BY created_at)` give for each row?",
+    "options": [
+      "The total of the whole table",
+      "The same store total on every row",
+      "A running total for that store, from the first row down to this row",
+      "Only the amount of the previous row"
+    ],
+    "answer": 2,
+    "why": "ORDER BY inside OVER makes SUM add from the top down to this row. Without the ORDER BY it would be one total per store."
+  },
+  {
+    "q": "You want the top 3 orders per store. Why does `WHERE rn <= 3` fail in the same query that makes `rn` with ROW_NUMBER?",
+    "options": [
+      "ROW_NUMBER cannot be compared with a number",
+      "WHERE only works on text columns",
+      "You must use HAVING for every window value",
+      "Window values are made after WHERE runs, so rn does not exist yet in WHERE"
+    ],
+    "answer": 3,
+    "why": "Make the number in an inner query (a CTE or a subquery in FROM), then filter in the outer query."
+  },
+  {
+    "q": "You write `SUM(amount) OVER ()` with no PARTITION BY. What do you get?",
+    "options": [
+      "One big window for all rows: the same grand total on every row",
+      "One total per store",
+      "A running total",
+      "An error asking for PARTITION BY"
+    ],
+    "answer": 0,
+    "why": "No PARTITION BY means one big window for all rows."
+  }
+]

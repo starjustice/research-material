@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Query: `WHERE store_id = 42 ORDER BY created_at DESC LIMIT 20`. Which index fits best?",
+    "options": [
+      "`(store_id, created_at)`",
+      "`(created_at, store_id)`",
+      "Two single indexes: one on store_id, one on created_at",
+      "`(store_id)` only, because created_at is a date"
+    ],
+    "answer": 0,
+    "why": "Equality columns first, then the sort or range column. Postgres jumps with the first column, reads in order, and stops early."
+  },
+  {
+    "q": "You have an index on `(a, b)`. Your query filters only on `b`. What usually happens?",
+    "options": [
+      "The index works the same as an index on b",
+      "Postgres cannot jump into the index with `b` alone, so it usually will not use it well",
+      "Postgres swaps the columns by itself",
+      "The query fails"
+    ],
+    "answer": 1,
+    "why": "This is the leftmost column rule. An index on (a, b) can jump with a. (Postgres 18 can skip scan when a has few distinct values.)"
+  },
+  {
+    "q": "Where should a range column (like `created_at >= ...`) go in a composite index?",
+    "options": [
+      "First, because ranges are the hardest",
+      "In the middle, to balance the index",
+      "Last, after the columns you test with `=`",
+      "Anywhere, the order does not matter"
+    ],
+    "answer": 2,
+    "why": "Put columns you test with = first. Put the sort or range column last."
+  },
+  {
+    "q": "`CREATE INDEX ON jobs (created_at) WHERE status = 'pending'` is a partial index. When does it help?",
+    "options": [
+      "For every query on the jobs table",
+      "Only for queries that sort by status",
+      "It helps nothing, because indexes must cover all rows",
+      "Only for queries that repeat the same WHERE (`status = 'pending'`). It is small because it holds only those rows"
+    ],
+    "answer": 3,
+    "why": "A partial index is small, but only for queries that repeat its WHERE."
+  },
+  {
+    "q": "`WHERE date(created_at) = '2026-01-01'` does not use a plain index on `created_at`. Why?",
+    "options": [
+      "The column is wrapped in a function, so Postgres cannot search the sorted values",
+      "date() is not allowed in WHERE",
+      "Indexes only work on integers",
+      "created_at must be unique for an index to work"
+    ],
+    "answer": 0,
+    "why": "Do not wrap the indexed column in a function or a cast. Compare the plain column (a range), or index the expression."
+  },
+  {
+    "q": "What does `INCLUDE (col)` in an index let Postgres do?",
+    "options": [
+      "Make the index unique",
+      "Answer from the index alone, without reading the table, for pages that VACUUM has marked clean",
+      "Skip the WHERE part of the query",
+      "Store the column twice in the table"
+    ],
+    "answer": 1,
+    "why": "This is an index-only scan. It needs the pages to be marked clean by VACUUM."
+  }
+]

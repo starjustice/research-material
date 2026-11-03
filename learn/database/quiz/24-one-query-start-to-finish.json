@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What are the six stops of a query, in order?",
+    "options": [
+      "Connect, parse, plan, run, memory, disk",
+      "Parse, connect, run, plan, disk, memory",
+      "Plan, parse, connect, memory, run, disk",
+      "Connect, plan, parse, disk, memory, run"
+    ],
+    "answer": 0,
+    "why": "Only 'run' reads rows."
+  },
+  {
+    "q": "You misspell a column name. Where does the query fail?",
+    "options": [
+      "In the executor, after reading all rows",
+      "In the parser, before any row is read",
+      "On disk",
+      "At COMMIT"
+    ],
+    "answer": 1,
+    "why": "Typos and unknown names fail early. Bad math, like dividing by zero, fails late."
+  },
+  {
+    "q": "What is the planner's cost number?",
+    "options": [
+      "The exact time in milliseconds",
+      "The size of the result",
+      "A score for comparing ways to run the query. It is a guess, not a time",
+      "The memory used"
+    ],
+    "answer": 2,
+    "why": "Wrong notes make a wrong plan. After a big load, run ANALYZE."
+  },
+  {
+    "q": "In EXPLAIN (BUFFERS) output, what does `shared hit` mean?",
+    "options": [
+      "The page was read from disk",
+      "The page was written to the log",
+      "The page was locked",
+      "The page was found in memory, with no disk read"
+    ],
+    "answer": 3,
+    "why": "hit is memory, read is not. A page is always 8 KB."
+  },
+  {
+    "q": "For a write, what happens first, and what does COMMIT wait for?",
+    "options": [
+      "The log is written first, and COMMIT waits for the log to be safe on disk. The table can be written later",
+      "The table is written first, then the log",
+      "Both are written at the same time with no waiting",
+      "Only the table, the log is optional"
+    ],
+    "answer": 0,
+    "why": "Log first, table later."
+  },
+  {
+    "q": "What does an UPDATE do to the row on disk?",
+    "options": [
+      "Changes the bytes in place",
+      "Writes a new row and leaves a dead old row, so the row moves",
+      "Deletes the old row at once and frees the space",
+      "Writes only the changed column"
+    ],
+    "answer": 1,
+    "why": "This is why dead rows and VACUUM exist (lesson 16)."
+  }
+]

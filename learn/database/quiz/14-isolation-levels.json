@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What is the default isolation level in Postgres, and can a dirty read happen?",
+    "options": [
+      "READ COMMITTED, and a dirty read never happens in Postgres",
+      "SERIALIZABLE, and dirty reads happen sometimes",
+      "READ UNCOMMITTED, and dirty reads happen often",
+      "REPEATABLE READ, and dirty reads happen only on replicas"
+    ],
+    "answer": 0,
+    "why": "A dirty read means seeing someone's unfinished work. Postgres does not allow it at any level."
+  },
+  {
+    "q": "In READ COMMITTED, you run the same SELECT twice in one transaction and get different answers. What is this called?",
+    "options": [
+      "A dirty read",
+      "A non-repeatable read",
+      "A deadlock",
+      "A write skew"
+    ],
+    "answer": 1,
+    "why": "READ COMMITTED takes a new picture for each statement. REPEATABLE READ takes one picture per transaction."
+  },
+  {
+    "q": "Two people each read balance 100, add 50 in code, and write back 150. What is lost?",
+    "options": [
+      "Nothing, the balance is 200",
+      "The whole row is deleted",
+      "One of the two additions. This is a lost update",
+      "The transaction is aborted"
+    ],
+    "answer": 2,
+    "why": "Do the math in the UPDATE (`balance = balance + 50`) or take a lock."
+  },
+  {
+    "q": "Two transactions each check that at least 2 doctors are on call, and each takes a different doctor off call. Now nobody is on call. What is this, and what stops it?",
+    "options": [
+      "A phantom read. READ COMMITTED stops it",
+      "A dirty read. Locks stop it",
+      "A deadlock. A shorter timeout stops it",
+      "Write skew. Only SERIALIZABLE stops it"
+    ],
+    "answer": 3,
+    "why": "Both transactions read the same rows and each write a different row. Both checks were right, and the rule broke."
+  },
+  {
+    "q": "A SERIALIZABLE transaction fails with error 40001. What should your code do?",
+    "options": [
+      "Run the whole transaction again from BEGIN, and give up after a few tries",
+      "Ignore the error and continue",
+      "Retry only the last statement",
+      "Switch to READ UNCOMMITTED"
+    ],
+    "answer": 0,
+    "why": "A serialization error means: this one lost. You must retry."
+  }
+]

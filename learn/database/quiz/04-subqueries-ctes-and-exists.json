@@ -1,0 +1,57 @@
+[
+  {
+    "q": "Which inner answer fits after `price > (...)`?",
+    "options": [
+      "One single value",
+      "A list of values",
+      "A whole table",
+      "Any of these, Postgres picks one"
+    ],
+    "answer": 0,
+    "why": "One value goes after `>` or `=`. A list goes after IN. A table goes in FROM."
+  },
+  {
+    "q": "`WHERE id NOT IN (SELECT manager_id FROM employees)` returns no rows at all, and some manager_id values are NULL. What happened?",
+    "options": [
+      "Postgres ignored the NULL, so the answer is correct",
+      "NOT IN with a NULL in the list is never true, so every row is rejected",
+      "The subquery ran too slowly and timed out",
+      "NOT IN only works with numbers"
+    ],
+    "answer": 1,
+    "why": "Never use NOT IN on a list that can hold a NULL. Use NOT EXISTS."
+  },
+  {
+    "q": "What is a correlated subquery?",
+    "options": [
+      "A subquery that is saved and shared between queries",
+      "A subquery that always returns exactly one row",
+      "A subquery that uses a column of the outer row, so it runs once for each outer row",
+      "A subquery inside a WITH"
+    ],
+    "answer": 2,
+    "why": "Without an index on what it looks up, running once per outer row can be slow."
+  },
+  {
+    "q": "You write a JOIN and then add DISTINCT to remove copies, only because you want stores that have at least one order. What fits better?",
+    "options": [
+      "UNION",
+      "A second DISTINCT",
+      "GROUP BY on every column",
+      "EXISTS"
+    ],
+    "answer": 3,
+    "why": "If you add DISTINCT after a JOIN to remove copies, you probably wanted EXISTS. It answers yes or no and makes no copies."
+  },
+  {
+    "q": "What does `WITH recent AS (SELECT ...)` give you?",
+    "options": [
+      "A named step that the later parts of the query can read like a table",
+      "A table saved on disk for other queries",
+      "A faster index on the result",
+      "A lock on the rows inside it"
+    ],
+    "answer": 0,
+    "why": "A CTE is a list of named steps. It lives only for that one query."
+  }
+]

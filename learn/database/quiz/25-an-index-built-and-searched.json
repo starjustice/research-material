@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What is an index, in one sentence?",
+    "options": [
+      "A second, sorted copy of one column, with the address of each row",
+      "A cache of query results",
+      "A rule that makes values unique",
+      "A copy of the whole table in memory"
+    ],
+    "answer": 0,
+    "why": "The card catalog in a library: sorted cards that tell you where the book is."
+  },
+  {
+    "q": "What is the address of a row, and what does Postgres read?",
+    "options": [
+      "A byte number. Postgres reads single rows",
+      "(page, slot). Postgres always reads whole pages",
+      "A row number. Postgres reads single columns",
+      "A file name. Postgres reads whole files"
+    ],
+    "answer": 1,
+    "why": "A page is 8 KB. Reading one row means reading its page."
+  },
+  {
+    "q": "About how many levels does a B-tree need for 1 million rows?",
+    "options": [
+      "About 20",
+      "About 1000",
+      "About 3, so a lookup reads about 4 pages",
+      "Just 1"
+    ],
+    "answer": 2,
+    "why": "The tree is short and wide. Without an index, you would read every page."
+  },
+  {
+    "q": "What two things does an index-only scan need?",
+    "options": [
+      "A primary key and a foreign key",
+      "A partial index and a unique rule",
+      "A recent ANALYZE and an open transaction",
+      "Every column the query needs is in the index, and the pages are marked clean by VACUUM"
+    ],
+    "answer": 3,
+    "why": "Otherwise Postgres must visit the table to check if the row is visible."
+  },
+  {
+    "q": "You must build an index on a busy live table. What do you use, and what do you check after?",
+    "options": [
+      "`CREATE INDEX CONCURRENTLY`, then check that it is not INVALID",
+      "A normal CREATE INDEX inside BEGIN, then COMMIT",
+      "VACUUM FULL, then ANALYZE",
+      "REINDEX, then restart"
+    ],
+    "answer": 0,
+    "why": "A failed concurrent build leaves an INVALID index. Drop it and try again."
+  }
+]

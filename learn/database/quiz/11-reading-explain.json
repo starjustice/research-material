@@ -1,0 +1,57 @@
+[
+  {
+    "q": "In what order should you read an EXPLAIN plan?",
+    "options": [
+      "From the inside out: go to the deepest nodes and walk up",
+      "Top line first, then down",
+      "Bottom line only",
+      "Alphabetically by node name"
+    ],
+    "answer": 0,
+    "why": "The first line of a plan is the last step."
+  },
+  {
+    "q": "The plan says `rows=10` (the guess) but `actual rows=500000`. What is the first thing to try?",
+    "options": [
+      "Add more RAM",
+      "Run `ANALYZE` on the table so the planner has fresh notes, then read the plan again",
+      "Drop all indexes on the table",
+      "Rewrite the query with a subquery"
+    ],
+    "answer": 1,
+    "why": "A guess far from the truth means old notes."
+  },
+  {
+    "q": "What does `EXPLAIN ANALYZE` do that plain `EXPLAIN` does not?",
+    "options": [
+      "It makes the query faster",
+      "It only shows the cost in dollars",
+      "It really runs the query and shows real times and row counts",
+      "It rebuilds the table statistics only"
+    ],
+    "answer": 2,
+    "why": "Plain EXPLAIN is the map (a guess). ANALYZE adds the dashcam (the truth). Careful: it really runs an INSERT, UPDATE or DELETE too."
+  },
+  {
+    "q": "Is a Seq Scan always bad?",
+    "options": [
+      "Yes, always add an index",
+      "Yes, it means the table is corrupt",
+      "No, but only on tables with fewer than 10 rows",
+      "No. It is fine when it keeps most of what it reads. It is bad when it throws away almost everything"
+    ],
+    "answer": 3,
+    "why": "A Seq Scan that throws away 99.9% of rows is the one to fix."
+  },
+  {
+    "q": "What are the steps of the slow query workflow?",
+    "options": [
+      "Find it, explain it, find the hot node, fix it, measure again",
+      "Add an index, add another index, restart Postgres",
+      "Guess, change, deploy",
+      "VACUUM FULL, then ANALYZE, then done"
+    ],
+    "answer": 0,
+    "why": "Always measure again after the fix. Without that you do not know it worked."
+  }
+]

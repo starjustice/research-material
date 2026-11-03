@@ -1,0 +1,79 @@
+[
+  {
+    "q": "A table has 8 indexes. What does that do to an INSERT?",
+    "options": [
+      "The row is written into the table and into all 8 indexes, so the INSERT is slower",
+      "Nothing, indexes are updated later",
+      "Only the primary key index is written",
+      "The INSERT is faster, because the data is sorted"
+    ],
+    "answer": 0,
+    "why": "Every index is written on every INSERT. More indexes, slower writes."
+  },
+  {
+    "q": "What happens when a B-tree page is full and a new key must go in?",
+    "options": [
+      "The insert is refused",
+      "The page splits in two",
+      "The old keys are deleted",
+      "The tree is rebuilt from scratch"
+    ],
+    "answer": 1,
+    "why": "Keys that arrive in order split only on the right edge, which is cheap."
+  },
+  {
+    "q": "An UPDATE changes one non-indexed column, but it is not a HOT update. What does it write?",
+    "options": [
+      "Nothing in the indexes",
+      "Only an entry in the primary key index",
+      "A new entry in every index of the table, even for columns you did not change",
+      "A new copy of every index"
+    ],
+    "answer": 2,
+    "why": "The new row version has a new address, so every index must learn it."
+  },
+  {
+    "q": "What does a HOT update need?",
+    "options": [
+      "A unique index on the changed column",
+      "A transaction at SERIALIZABLE level",
+      "An open cursor",
+      "No indexed column changed, and room on the same page. A lower fillfactor leaves room"
+    ],
+    "answer": 3,
+    "why": "HOT skips the index writes."
+  },
+  {
+    "q": "Postgres ignores your index for `WHERE country = 'US'` when most rows are US. Why is that fine?",
+    "options": [
+      "When most rows match, reading the table once is cheaper than jumping through the index",
+      "The index was corrupted",
+      "Postgres cannot index text",
+      "The planner is broken"
+    ],
+    "answer": 0,
+    "why": "An index helps when few rows match."
+  },
+  {
+    "q": "Which index kind suits a huge table whose rows arrive in the order of one column, like a timestamp?",
+    "options": [
+      "A B-tree on every column",
+      "BRIN",
+      "GIN",
+      "A unique index"
+    ],
+    "answer": 1,
+    "why": "Default to B-tree. Think BRIN for huge tables that grow in the order of one column."
+  },
+  {
+    "q": "How can you find indexes nobody uses?",
+    "options": [
+      "Look at the index file size",
+      "Count the columns in the index",
+      "Check `idx_scan` in the statistics. An index with zero scans costs on every write for no reason",
+      "Run VACUUM FULL"
+    ],
+    "answer": 2,
+    "why": "Check idx_scan over a long enough time, then drop with care."
+  }
+]

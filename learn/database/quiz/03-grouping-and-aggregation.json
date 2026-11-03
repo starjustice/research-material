@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What is the difference between WHERE and HAVING?",
+    "options": [
+      "WHERE removes rows before grouping. HAVING removes whole groups after the totals are made",
+      "WHERE is for numbers and HAVING is for text",
+      "They are the same, HAVING is just the older name",
+      "WHERE removes groups and HAVING removes rows"
+    ],
+    "answer": 0,
+    "why": "WHERE throws away rows before the buckets. HAVING throws away buckets after the totals are done."
+  },
+  {
+    "q": "`SELECT store_id, customer_name, SUM(amount) FROM orders GROUP BY store_id` fails. Why?",
+    "options": [
+      "SUM cannot be used with GROUP BY",
+      "customer_name is not in GROUP BY and not inside a summary function",
+      "store_id must be the last column in SELECT",
+      "GROUP BY needs an ORDER BY next to it"
+    ],
+    "answer": 1,
+    "why": "A bucket keeps only a note. Every column in SELECT must be in GROUP BY or inside a summary function."
+  },
+  {
+    "q": "A table has 5 rows. In 2 of them `email` is NULL. What do `COUNT(*)` and `COUNT(email)` return?",
+    "options": [
+      "5 and 5",
+      "3 and 3",
+      "5 and 3",
+      "3 and 5"
+    ],
+    "answer": 2,
+    "why": "`COUNT(*)` counts rows. `COUNT(column)` skips NULL."
+  },
+  {
+    "q": "What does `COUNT(*) FILTER (WHERE status = 'PAID')` do?",
+    "options": [
+      "Removes all rows that are not PAID before grouping",
+      "Sorts the rows so PAID comes first",
+      "Makes a separate table of PAID rows",
+      "Counts only the PAID rows in each bucket, while every row still reaches its bucket"
+    ],
+    "answer": 3,
+    "why": "FILTER is a small WHERE for one summary function. It lets you make many counts in one read."
+  },
+  {
+    "q": "After `stores LEFT JOIN orders`, a store with no orders shows a count of 1 when you use `COUNT(*)`. What is the fix?",
+    "options": [
+      "Count a column from the right table, such as `COUNT(o.id)`",
+      "Use COUNT(DISTINCT *)",
+      "Change to an INNER JOIN and keep COUNT(*)",
+      "Add HAVING COUNT(*) > 1"
+    ],
+    "answer": 0,
+    "why": "The lonely store makes one row with NULLs. `COUNT(*)` counts that row. `COUNT(o.id)` skips the NULL."
+  }
+]

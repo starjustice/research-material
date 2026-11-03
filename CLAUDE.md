@@ -79,6 +79,7 @@ learn/<subject>/        understand concepts, one folder per subject
   <guide>.md            longer guides covering many concepts
   <guide>-cheatsheet.html  visual one page cheatsheets
   practice/             small runnable exercises for lessons (with node:test tests)
+  quiz/                 multiple choice quiz per lesson, <lesson file name>.json (shown in the lesson, scores saved in the browser)
   examples/             bigger example projects
 interview/              interview preparation only
   companies/<company>/  prep notes, cheatsheet and mock reports for one company
@@ -105,6 +106,7 @@ Rules:
 - A new concept lesson goes in `learn/<subject>/` with the number and file name from that subject's README lesson table. Update the row to a link and set its status.
 - A company or job-description note goes in `interview/companies/<company>/`, with the company prefix in the file name.
 - General interview reports go in `interview/practice-reports/`. Company reports go in the company folder.
+- A lesson can have a quiz: `learn/<subject>/quiz/<same name as the lesson>.json`, 5 or 6 questions `{q, options, answer, why}` (see `quiz-helpers.js` `validateQuiz`). Write the questions from the lesson's Remember lines. After adding one run `node scripts/build-quiz-index.js`, then `node --test tests/*.test.js`. Scores show on `progress.html`.
 - After adding or moving files, run `python3 scripts/build-hub.py` to rebuild `index.html`. If a new general guide should appear on the Study Route site, add it to the `ITEMS` list in `study.html`. Company folders are deliberately not listed there.
 - A new step-by-step page (`learn/<subject>/visuals/*.html`) or cheatsheet (`*-cheatsheet.html`) must use the Calm look. Run `node scripts/calm-apply.js page-step <file>` (or `page-sheet`), then `node --test tests/*.test.js`. The test fails for any page without it. Keep a page's own colors for meaning (kept, dropped, error); calm.css only changes shape.
 

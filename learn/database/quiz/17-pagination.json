@@ -1,0 +1,68 @@
+[
+  {
+    "q": "`SELECT ... ORDER BY id LIMIT 20 OFFSET 100000`. What does Postgres do with the first 100000 rows?",
+    "options": [
+      "Reads them and throws them away",
+      "Skips them instantly with the index",
+      "Caches them for the next page",
+      "Never touches them"
+    ],
+    "answer": 0,
+    "why": "OFFSET does not jump. The deeper the page, the slower the query."
+  },
+  {
+    "q": "While a user is on page 2, new rows are added at the top of the list. They press 'next'. What can happen with OFFSET?",
+    "options": [
+      "Nothing, pages are fixed",
+      "Rows can repeat, or be skipped, because the pages shift",
+      "Postgres raises an error",
+      "The next page is always empty"
+    ],
+    "answer": 1,
+    "why": "OFFSET counts rows from the top. When rows are added or deleted above you, the pages shift."
+  },
+  {
+    "q": "What does keyset pagination ask the database?",
+    "options": [
+      "Skip N rows, then give me 20",
+      "Give me page number 5",
+      "Give me 20 rows after the last row I saw",
+      "Give me every row, and I will slice it"
+    ],
+    "answer": 2,
+    "why": "Keyset says after this row. The cost is the same for every page."
+  },
+  {
+    "q": "In keyset pagination you sort by `created_at`. Why add `id` as the last sort column?",
+    "options": [
+      "id makes the query shorter",
+      "Postgres needs id to read the index",
+      "Without id the cursor becomes text",
+      "Many rows can share the same created_at, and the sort must be unique so no row is skipped or repeated"
+    ],
+    "answer": 3,
+    "why": "Add the primary key as the last column, in the ORDER BY and in the cursor."
+  },
+  {
+    "q": "When is OFFSET still a fine choice?",
+    "options": [
+      "Small tables where you need page numbers",
+      "Infinite feeds with millions of rows",
+      "Public APIs with deep pages",
+      "Never"
+    ],
+    "answer": 0,
+    "why": "OFFSET for small tables and page numbers. Keyset for big tables, feeds and APIs."
+  },
+  {
+    "q": "How can your API know if there is a next page without a second query?",
+    "options": [
+      "Run COUNT(*) on every request",
+      "Ask for size + 1 rows. If you get the extra one, there is a next page",
+      "Always return a next page link",
+      "Look at the table size in the catalog"
+    ],
+    "answer": 1,
+    "why": "The cursor is the last row, packed into text."
+  }
+]

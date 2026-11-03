@@ -1,0 +1,57 @@
+[
+  {
+    "q": "You load 100 users, then in a loop you `await` one query per user for their orders. How many queries run?",
+    "options": [
+      "101: one for the list and one for each user",
+      "2",
+      "100",
+      "1"
+    ],
+    "answer": 0,
+    "why": "A loop with await inside looks innocent, but it sends one trip per item. Count the trips, not the speed of one query."
+  },
+  {
+    "q": "What is the usual fix for N+1?",
+    "options": [
+      "Make the loop run in parallel",
+      "Two queries: one for the list, one for all the children with `WHERE user_id IN (...)`, then group in code",
+      "Add an index on every column",
+      "Cache the first result in a global variable"
+    ],
+    "answer": 1,
+    "why": "Give empty lists to parents with no children."
+  },
+  {
+    "q": "In GraphQL with DataLoader, why create the loader once per request and not once for the whole server?",
+    "options": [
+      "DataLoader can only be used once",
+      "It saves memory",
+      "A shared loader keeps a cache across users and can show one user's data to another",
+      "GraphQL forbids global objects"
+    ],
+    "answer": 2,
+    "why": "A per-request loader batches within one request and then is thrown away."
+  },
+  {
+    "q": "A page got slower, but nobody changed the code. What is a likely cause of N+1?",
+    "options": [
+      "Postgres got older",
+      "The network cable is bad",
+      "The indexes expired",
+      "The data grew, so the loop now runs many more times. Look at the query log"
+    ],
+    "answer": 3,
+    "why": "N+1 hides because it is fast with 5 rows and slow with 5000."
+  },
+  {
+    "q": "To fix N+1 you write one giant JOIN of users, orders and payments, and your sums come out too big. Why?",
+    "options": [
+      "Two child lists in one join multiply each other, so each row is counted several times",
+      "JOIN cannot use SUM",
+      "Payments must be fetched before orders",
+      "The index is missing on users"
+    ],
+    "answer": 0,
+    "why": "One giant join with two child lists fans out and gives wrong sums. Use separate queries, then group in code."
+  }
+]

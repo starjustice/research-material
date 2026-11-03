@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What does a foreign key promise?",
+    "options": [
+      "The value points to a row that really exists (or is NULL, if you allow that)",
+      "The value is unique in its own table",
+      "The value is always a number",
+      "The row can never be deleted"
+    ],
+    "answer": 0,
+    "why": "A foreign key must point to a real row. Add NOT NULL when the pointer is required."
+  },
+  {
+    "q": "You delete a store that still has orders. The foreign key has no ON DELETE rule. What happens?",
+    "options": [
+      "The orders are deleted too",
+      "Postgres refuses the delete with an error",
+      "The orders keep a pointer to a store that no longer exists",
+      "The store's orders get NULL in store_id"
+    ],
+    "answer": 1,
+    "why": "The default is refuse. CASCADE is for parts of the parent. SET NULL is for an optional link."
+  },
+  {
+    "q": "How do you store a many to many link, like students and classes?",
+    "options": [
+      "With a list of ids in one column",
+      "With a foreign key on one side only",
+      "In a middle table that holds a foreign key to each side",
+      "With a UNIQUE column on both tables"
+    ],
+    "answer": 2,
+    "why": "The foreign key sits on the many side. Many to many needs a middle table."
+  },
+  {
+    "q": "What is a good default for an id column?",
+    "options": [
+      "The user's email address",
+      "A UUID v4 for every table",
+      "A text column the app fills in",
+      "A bigint identity. Use a UUID when ids are made outside the database, and prefer v7 over v4"
+    ],
+    "answer": 3,
+    "why": "The key should never change and mean nothing. Keep real data like an email as a UNIQUE column."
+  },
+  {
+    "q": "You delete a store and it takes a long time, because `orders.store_id` has no index. Why?",
+    "options": [
+      "Postgres must scan the whole orders table to check for orders of that store",
+      "Foreign keys lock the whole database during a delete",
+      "Postgres rebuilds the primary key first",
+      "Deletes only work on indexed tables"
+    ],
+    "answer": 0,
+    "why": "A primary key gets an index. A foreign key does not. Index every foreign key column you delete through or filter by."
+  }
+]

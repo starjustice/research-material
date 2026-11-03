@@ -1,0 +1,57 @@
+[
+  {
+    "q": "Why is opening a new connection for every query slow?",
+    "options": [
+      "Postgres starts a new process for each connection, and it also checks the password and may set up TLS",
+      "Postgres has to rebuild every index before it can answer the first query",
+      "The query text must be compiled into machine code each time",
+      "The operating system limits you to one query per second per client"
+    ],
+    "answer": 0,
+    "why": "A connection is a whole server process. Setting it up costs time before any query runs. A pool pays that cost once and reuses the connection."
+  },
+  {
+    "q": "Your pool has 10 connections and 25 requests ask for one at the same moment. What happens to the extra 15?",
+    "options": [
+      "They fail at once with an error",
+      "They wait in line until a connection is given back",
+      "Postgres opens 15 more connections on its own",
+      "They are sent to a replica"
+    ],
+    "answer": 1,
+    "why": "A pool is a queue. If the line is long, requests wait. That is why you set a connection timeout, so a request fails instead of hanging for ever."
+  },
+  {
+    "q": "You run 8 app servers. Each has a pool of 20. `max_connections` on Postgres is 100. What is the problem?",
+    "options": [
+      "There is no problem, because pools share connections between servers",
+      "8 × 20 = 160 connections can be opened, which is more than 100",
+      "Each pool should be exactly 100 to match max_connections",
+      "Pools only count when they are busy, so idle servers use none"
+    ],
+    "answer": 1,
+    "why": "Total connections = app instances × pool size. Add them up and keep the sum under max_connections, with room left for admin work."
+  },
+  {
+    "q": "In PgBouncer transaction mode, which of these breaks?",
+    "options": [
+      "Running a normal INSERT",
+      "Using BEGIN and COMMIT",
+      "Session state that you expect to stay between transactions, such as a SET or a session lock",
+      "Running more than one query per request"
+    ],
+    "answer": 2,
+    "why": "In transaction mode your next transaction may run on a different server connection. Anything that lives in the session does not follow you."
+  },
+  {
+    "q": "A good first guess for pool size is...",
+    "options": [
+      "As big as possible, so nothing ever waits",
+      "Equal to the number of users online",
+      "Small: a few times the CPU cores of the database, split across all app servers",
+      "Always exactly 100"
+    ],
+    "answer": 2,
+    "why": "More connections than the database can work on at once only adds waiting and memory use. A small pool with a queue is usually faster."
+  }
+]

@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { escapePlaceholders, sectionKind, fitDiagram, columnWidths, repoLinkFor } = require("../viewer-helpers");
+const { escapePlaceholders, addQuizSection, sectionKind, fitDiagram, columnWidths, repoLinkFor } = require("../viewer-helpers");
 
 test("escapePlaceholders shows a standalone placeholder as text", () => {
   assert.strictEqual(escapePlaceholders("a\n\n<write here>\n\n## Next"), "a\n\n&lt;write here&gt;\n\n## Next");
@@ -25,7 +25,7 @@ test("sectionKind names the kind of each lesson section", () => {
     "4. The smallest code that shows it": "code", "5. What really happens, step by step": "trace",
     "6. Why it exists and what it costs": "why", "7. Common mistakes": "mistake", "8. Watch and play": "watch",
     "9. Practice": "practice", "10. Interview question": "interview", "11. Explain it back": "explain",
-    "12. Review questions (day 1, 3, 7, 21)": "review", "Connected lessons": "", "How to get this lesson": "",
+    "12. Review questions (day 1, 3, 7, 21)": "review", "Quiz: check yourself": "quiz", "Connected lessons": "", "How to get this lesson": "",
   };
   for (const [title, kind] of Object.entries(cases)) assert.strictEqual(sectionKind(title), kind, title);
 });
@@ -74,4 +74,14 @@ test("repoLinkFor leaves every other kind of link alone", () => {
 
 test("repoLinkFor cannot climb out of the repo", () => {
   assert.strictEqual(repoLinkFor("learn/database", "../../../../x.sql"), GH + "/blob/main/x.sql");
+});
+
+test("addQuizSection puts the quiz card before Review questions", () => {
+  const out = addQuizSection("## 9. Practice\n\nx\n\n## 14. Review questions (day 1, 3, 7, 21)\n\n1. a\n");
+  assert.match(out, /## 9\. Practice\n\nx\n\n## Quiz: check yourself\n\n<div id="quiz-root"><\/div>\n\n## 14\. Review questions/);
+});
+
+test("addQuizSection adds the card at the end when there is no Review questions section", () => {
+  const out = addQuizSection("## 1. Idea\n\ntext\n");
+  assert.match(out, /text\n\n## Quiz: check yourself\n\n<div id="quiz-root"><\/div>\n\n$/);
 });

@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script src="viewer-helpers.js"></script>
+<script src="quiz-helpers.js"></script>
+<script src="quiz.js"></script>
 <style>
   :root {
     --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86;
@@ -154,6 +156,7 @@
 <nav class="top">
   <button id="menuBtn" type="button" aria-label="Open lesson menu">☰ Lessons</button>
   <a href="index.html">← Study Hub</a>
+  <a href="progress.html">My scores</a>
   <a class="gh" id="ghLink" href="#" target="_blank" rel="noopener">View on GitHub ↗</a>
 </nav>
 
@@ -225,6 +228,18 @@
   const subjectPromise = !subject ? Promise.resolve(null)
     : slug === subjectReadmeSlug ? Promise.resolve(md)
     : getText(subjectReadmeSlug + ".md").catch(() => null);
+
+  // A lesson can have a quiz file next to it: learn/<subject>/quiz/<same file name>.json. It becomes a card before "Review questions".
+  let quizQuestions = null;
+  if (subject && slug !== subjectReadmeSlug) {
+    try {
+      const list = JSON.parse(await getText(subjectDir + "/quiz/" + slug.split("/").pop() + ".json"));
+      const problems = QuizHelpers.validateQuiz(list);
+      if (problems.length) console.warn("Quiz file has problems:", problems);
+      else quizQuestions = list;
+    } catch (e) { /* no quiz for this lesson yet */ }
+  }
+  if (quizQuestions) md = ViewerHelpers.addQuizSection(md);
 
   // Template placeholders like <write here> look like HTML tags and swallow the rest of the page. Show them as text.
   content.innerHTML = marked.parse(ViewerHelpers.escapePlaceholders(md));
@@ -304,6 +319,12 @@
     }
     if (chunk) chunk.appendChild(node);
   });
+
+  // ---- The quiz card ----
+  const quizRoot = content.querySelector("#quiz-root");
+  if (quizRoot && quizQuestions) {
+    Quiz.mount(quizRoot, { slug, title: h1 ? h1.textContent.replace(/^\s*\d+\.\s*/, "").trim() : slug, questions: quizQuestions });
+  }
 
   // ---- Parse the subject README into groups of lessons and a few link lists ----
   function parseSubject(text) {

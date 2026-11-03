@@ -1,0 +1,57 @@
+[
+  {
+    "q": "What does an UPDATE do inside Postgres?",
+    "options": [
+      "Writes a new version of the row and marks the old version as ended",
+      "Changes the row in place",
+      "Deletes the row and removes the space",
+      "Writes the change only to the log"
+    ],
+    "answer": 0,
+    "why": "The old version stays until it is cleaned. That is how readers can still see the old row."
+  },
+  {
+    "q": "In `xmin`, `xmax` and `ctid`, what does `xmin` tell you?",
+    "options": [
+      "The smallest value in the column",
+      "Which transaction created this version of the row",
+      "Which transaction ended this version",
+      "Where the row lives on disk"
+    ],
+    "answer": 1,
+    "why": "xmin made it, xmax ended it, ctid is where it lives."
+  },
+  {
+    "q": "A table gets many updates and its file keeps growing. What is the cause?",
+    "options": [
+      "Postgres compresses badly",
+      "Indexes are copied into the table",
+      "Dead rows pile up and nobody has cleaned them yet",
+      "Each connection keeps its own copy"
+    ],
+    "answer": 2,
+    "why": "Every UPDATE and DELETE leaves a dead row. Dead rows take space until someone cleans them."
+  },
+  {
+    "q": "What is the difference between VACUUM and VACUUM FULL?",
+    "options": [
+      "VACUUM FULL is faster and safer",
+      "VACUUM deletes the table's indexes",
+      "They are the same, FULL just prints more text",
+      "VACUUM makes space reusable and keeps the file size. VACUUM FULL shrinks the file but rewrites the table and blocks it"
+    ],
+    "answer": 3,
+    "why": "Before you use VACUUM FULL, find out why autovacuum could not clean."
+  },
+  {
+    "q": "A transaction has been open for two days. How does it hurt the table?",
+    "options": [
+      "It keeps every dead row that appeared since it started, so cleanup cannot remove them",
+      "It locks the whole table for writes",
+      "It makes all indexes invalid",
+      "It deletes old rows by accident"
+    ],
+    "answer": 0,
+    "why": "Find it with backend_xmin, and end it."
+  }
+]

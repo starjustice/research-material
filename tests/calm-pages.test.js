@@ -23,6 +23,7 @@ const GROUPS = [
   { name: "record", pageClass: "page-speak", files: all.filter(f => f === "speak.html") },
   { name: "cheatsheet", pageClass: "page-sheet", files: all.filter(f => /-cheatsheet\.html$/.test(f)) },
   { name: "study route", pageClass: "page-study", files: all.filter(f => f === "study.html") },
+  { name: "quiz scores", pageClass: "page-progress", files: all.filter(f => f === "progress.html") },
   { name: "step-by-step", pageClass: "page-step", files: all.filter(f => /^learn\/[^/]+\/visuals\/[^/]+\.html$/.test(f)) },
 ];
 

@@ -1,0 +1,57 @@
+[
+  {
+    "q": "In which order does Postgres work through the parts of a query?",
+    "options": [
+      "FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, LIMIT",
+      "SELECT, FROM, WHERE, GROUP BY, ORDER BY, LIMIT",
+      "FROM, SELECT, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT",
+      "WHERE, FROM, SELECT, GROUP BY, HAVING, LIMIT, ORDER BY"
+    ],
+    "answer": 0,
+    "why": "You write SELECT first, but Postgres works on it almost last. A part can only use what the parts before it made."
+  },
+  {
+    "q": "This query fails: `SELECT price * 2 AS double_price FROM items WHERE double_price > 100`. Why?",
+    "options": [
+      "AS can only be used with COUNT or SUM",
+      "WHERE runs before SELECT, so the name double_price does not exist yet",
+      "double_price is a reserved word in SQL",
+      "WHERE can only compare columns, never numbers"
+    ],
+    "answer": 1,
+    "why": "A new name from SELECT works in ORDER BY, but not in WHERE. In WHERE, write the full expression: `WHERE price * 2 > 100`."
+  },
+  {
+    "q": "A table has 5 rows where `status` is NULL. What does `WHERE status = NULL` return?",
+    "options": [
+      "The 5 rows with a NULL status",
+      "An error, because = cannot be used with NULL",
+      "No rows. Comparing with NULL is never true",
+      "All rows in the table"
+    ],
+    "answer": 2,
+    "why": "NULL means unknown, and `unknown = unknown` is not true. Test for it with `IS NULL`."
+  },
+  {
+    "q": "`SELECT * FROM orders LIMIT 10` has no ORDER BY. Which 10 rows do you get?",
+    "options": [
+      "The first 10 rows that were inserted",
+      "The 10 rows with the smallest id",
+      "The 10 newest rows",
+      "Any 10 rows. The database does not promise which ones"
+    ],
+    "answer": 3,
+    "why": "LIMIT without ORDER BY gives any rows. When you mean first, top or cheapest, add ORDER BY."
+  },
+  {
+    "q": "Which part of a query CAN use a new name that you made in SELECT?",
+    "options": [
+      "ORDER BY",
+      "WHERE",
+      "FROM",
+      "GROUP BY, in every case"
+    ],
+    "answer": 0,
+    "why": "ORDER BY runs after SELECT, so the new name exists by then. WHERE runs before SELECT."
+  }
+]

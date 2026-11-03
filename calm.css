@@ -67,6 +67,8 @@ body.look-calm {
 .look-calm nav.top a { white-space: nowrap; font-size: .82rem; }
 .look-calm #menuBtn { border: var(--line); box-shadow: var(--shadow-s); white-space: nowrap; font-size: .82rem; }
 @media (max-width: 480px) { .look-calm nav.top a.gh { font-size: .74rem; } }
+/* on a phone the top bar has room for the menu, the hub and My scores, so the GitHub link steps aside */
+@media (max-width: 420px) { .look-calm nav.top a.gh { display: none; } }
 
 /* sidebar */
 .look-calm .s-item { border: 2px solid transparent; }
@@ -181,6 +183,43 @@ body.look-calm {
 .look-calm #pager a:active, .look-calm a.rec-btn:active { transform: translate(3px, 3px); box-shadow: none; }
 .look-calm a.rec-btn { border: var(--line); box-shadow: var(--shadow-s); }
 .look-calm .error { border: var(--line); border-radius: var(--radius); }
+
+/* The quiz card in a lesson (quiz.js draws it into #quiz-root). */
+.look-calm .chunk[data-kind="quiz"] > h2 { background: var(--c-violet); }
+.look-calm .quiz-last { font-size: .92rem; color: var(--muted); margin: 4px 0 12px; }
+.look-calm .quiz-bar { height: 12px; border: var(--line); border-radius: 999px; background: #fff; overflow: hidden; }
+.look-calm .quiz-bar i { display: block; height: 100%; background: #6fcf97; transition: width .2s; }
+.look-calm .quiz-count { font-size: .82rem; font-weight: 700; color: var(--muted); margin: 10px 0 2px; }
+.look-calm article .quiz-q { font-size: 1.05rem; font-weight: 600; margin: 4px 0 10px; }
+.look-calm .quiz-code { margin: 0 0 12px; }
+.look-calm .quiz-options { display: grid; gap: 10px; }
+.look-calm .quiz-opt, .look-calm .quiz-btn {
+  display: block; width: 100%; text-align: left; cursor: pointer; color: var(--ink); background: #fff;
+  border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); padding: 10px 14px;
+  font-size: .95rem; line-height: 1.5; text-decoration: none;
+}
+.look-calm .quiz-opt:hover:not(:disabled), .look-calm .quiz-btn:hover { background: var(--c-yellow); }
+.look-calm .quiz-opt:active:not(:disabled), .look-calm .quiz-btn:active { transform: translate(3px, 3px); box-shadow: none; }
+.look-calm .quiz-opt:disabled { cursor: default; opacity: .75; }
+.look-calm .quiz-opt.right { background: var(--c-green); opacity: 1; }
+.look-calm .quiz-opt.wrong { background: var(--c-pink); opacity: 1; }
+.look-calm .quiz-opt code { background: rgba(255, 255, 255, .7); }
+.look-calm .quiz-why { margin-top: 12px; padding: 10px 14px; border: var(--line); border-radius: 10px; font-size: .95rem; line-height: 1.6; }
+.look-calm .quiz-why.good { background: var(--c-green); }
+.look-calm .quiz-why.bad { background: var(--c-pink); }
+.look-calm .quiz-btn { display: inline-block; width: auto; text-align: center; font-weight: 700; margin: 12px 10px 0 0; }
+.look-calm .quiz-btn.primary { background: var(--accent); }
+.look-calm .quiz-btn.primary:hover { background: var(--c-yellow); }
+.look-calm .quiz-score { border: var(--line); border-radius: var(--radius); box-shadow: var(--shadow-s); padding: 6px 16px 10px; text-align: center; background: var(--c-orange); }
+.look-calm .quiz-score.strong { background: var(--c-green); }
+.look-calm .quiz-score.weak { background: var(--c-pink); }
+.look-calm .quiz-big { font-family: var(--font-head); font-size: 2.4rem; font-weight: 800; line-height: 1.2; margin: 0; }
+.look-calm .quiz-note { font-size: .88rem; color: var(--muted); }
+.look-calm .quiz-note.warn { color: #9a2c2c; font-weight: 600; }
+.look-calm .quiz-miss { border-left: 6px solid #e06377; padding: 2px 0 2px 12px; margin: 12px 0; }
+.look-calm .quiz-miss p { margin: 4px 0; }
+.look-calm .quiz-answer { font-weight: 700; }
+.look-calm .quiz-actions { display: flex; flex-wrap: wrap; }
 
 /* ===== 3. Hub (index.html, built by scripts/build-hub.py) =====
    build-hub.py keeps the palette; everything about the look is here. */
@@ -466,3 +505,22 @@ body.page-study .md pre { border: var(--calm-line); border-radius: 10px; box-sha
 body.page-study .md h2 { border-top: var(--calm-line); }
 /* a long command chip such as "/explain-check Design workbook part 2" must wrap, not push the page wide on a phone */
 body.page-study .cmd { white-space: normal; overflow-wrap: anywhere; }
+
+/* ===== 8. My quiz scores (progress.html) =====
+   The page keeps its own colors, including the strong, ok and weak colors that mean how well you did, and its dark mode.
+   Calm adds the two fonts, outline, hard shadow and corners. */
+body.page-progress h1 { font-family: var(--calm-font-head); font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
+body.page-progress h2 {
+  display: inline-block; font-size: 1rem; font-weight: 800; margin: 30px 0 12px; padding: 4px 14px;
+  border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); background: var(--calm-yellow); color: var(--calm-on-accent);
+}
+body.page-progress .top a {
+  display: inline-block; background: var(--card); border: var(--calm-line); border-radius: 10px;
+  box-shadow: var(--calm-shadow-s); padding: 3px 12px;
+}
+body.page-progress .top a:active, body.page-progress button:active { transform: translate(3px, 3px); box-shadow: none; }
+body.page-progress .tile, body.page-progress .row { border: var(--calm-line); border-radius: var(--calm-radius); box-shadow: var(--calm-shadow-s); }
+body.page-progress .tile b { font-family: var(--calm-font-head); }
+body.page-progress .meter { height: 12px; border: 2px solid var(--calm-edge); }
+body.page-progress .chip { border: 2px solid var(--calm-edge); }
+body.page-progress button { border: var(--calm-line); border-radius: 10px; box-shadow: var(--calm-shadow-s); font-weight: 700; }
