@@ -1,0 +1,79 @@
+[
+  {
+    "q": "A table is partitioned by month on `created_at`. Which query opens only ONE partition?",
+    "options": [
+      "`WHERE created_at >= '2026-05-01' AND created_at < '2026-06-01'`",
+      "`WHERE user_id = 5`",
+      "`WHERE date_trunc('month', created_at) = '2026-05-01'`",
+      "`WHERE payload LIKE 'a%'`"
+    ],
+    "answer": 0,
+    "why": "The WHERE must compare the plain partition column. A function around it, or another column, leaves Postgres no way to skip drawers (I tested all three)."
+  },
+  {
+    "q": "Why does a `PRIMARY KEY (id)` fail on a table partitioned by `created_at`?",
+    "options": [
+      "id cannot be a bigint on a partitioned table",
+      "Each partition has its own index, so a unique rule must include the partition column",
+      "Partitioned tables cannot have primary keys at all",
+      "The key must be a text column"
+    ],
+    "answer": 1,
+    "why": "The fix is `PRIMARY KEY (id, created_at)`. The cost: id alone is no longer unique for the whole table."
+  },
+  {
+    "q": "You must remove 100,000 old rows from a huge partitioned table. What is the best way?",
+    "options": [
+      "Run a big DELETE, then VACUUM FULL right away",
+      "Run a big DELETE and let autovacuum shrink the file",
+      "Drop the old partition (DETACH, then DROP)",
+      "Run UPDATE to set the rows to NULL"
+    ],
+    "answer": 2,
+    "why": "Dropping a partition deletes its file at once, in milliseconds, with no dead rows. A DELETE leaves dead rows and a file that stays the same size."
+  },
+  {
+    "q": "An insert fails with `no partition of relation ... found for row`. What is a fix?",
+    "options": [
+      "Set `max_connections` higher",
+      "Add an index on the partition column",
+      "Run ANALYZE on the table",
+      "Create the missing partition (ahead of time with a job), or add a DEFAULT partition as a safety net"
+    ],
+    "answer": 3,
+    "why": "No drawer fits the row's date. Watch a default partition: if it fills up, your monthly job stopped."
+  },
+  {
+    "q": "What is the main difference between partitioning and sharding?",
+    "options": [
+      "Partitioning splits a table on ONE server. Sharding puts the parts on DIFFERENT servers",
+      "Partitioning is for writes, sharding is for reads",
+      "Sharding keeps JOINs working, partitioning does not",
+      "There is no difference, the words mean the same"
+    ],
+    "answer": 0,
+    "why": "On one server, JOINs, transactions and unique rules still work. Across servers, they break."
+  },
+  {
+    "q": "You shard by `hash(user_id) % 4` and add a 5th shard. About how many rows must move?",
+    "options": [
+      "About 20%",
+      "About 80% of them",
+      "None, only the new shard's rows",
+      "About 1%"
+    ],
+    "answer": 1,
+    "why": "The remainder changes for almost every id (80,017 of 100,000 in my test). Hash into many buckets with an owner table instead: only about 20% moved."
+  },
+  {
+    "q": "A table has one slow query and 800 GB of data. What do you try BEFORE sharding?",
+    "options": [
+      "Shard it into 8 servers at once",
+      "Move everything to JSONB columns",
+      "Read the plan and add an index, then a cache or a replica, then partition, then a bigger machine",
+      "Turn off autovacuum"
+    ],
+    "answer": 2,
+    "why": "Sharding is the last step. It takes away cross-shard JOINs, transactions and unique rules, and moving data is slow."
+  }
+]

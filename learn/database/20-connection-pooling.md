@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say why a database connection is expensive, use a pool in Node, say what happens when all connections are busy, choose a pool size, work out how many connections a deployment really opens, and say what PgBouncer adds and what it breaks.
 >
-> **Before this:** [Zero-downtime migrations](19-zero-downtime-migrations.md) · **Next:** Replication and read replicas (lesson 21, not written yet)
+> **Before this:** [Zero-downtime migrations](19-zero-downtime-migrations.md) · **Next:** [Replication and read replicas](21-replication-and-read-replicas.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3 on one laptop, with the `pg` library for Node. The PgBouncer facts come from its docs: I did not run PgBouncer. About 25 minutes for the cards.
 
@@ -476,5 +476,5 @@ Parts 1 to 4 of the numbers come from `practice/20-connection-pooling.js`. The p
 - [15. Locks and deadlocks](15-locks-and-deadlocks.md): `idle in transaction`, and the timeouts.
 - [19. Zero-downtime migrations](19-zero-downtime-migrations.md): `lock_timeout` for the migration connection.
 - [16. MVCC and VACUUM](16-mvcc-and-vacuum.md): a long transaction on a pooled connection holds back the cleanup.
-- Lesson 21, replication and read replicas (not written yet): more servers, more pools.
+- [21. Replication and read replicas](21-replication-and-read-replicas.md): more servers, more pools.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide, "Step 2: Connection pooling".

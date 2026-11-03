@@ -4,7 +4,7 @@
 >
 > **You will be able to:** explain how a replica copies the primary, send reads to a replica, explain replication lag and the "my write disappeared" bug, fix it with read-your-writes, say why a long query on a replica can be cancelled, and say what synchronous replication, failover and replication slots cost.
 >
-> **Before this:** [Connection pooling](20-connection-pooling.md) · **Next:** Partitioning and sharding (lesson 22, not written yet)
+> **Before this:** [Connection pooling](20-connection-pooling.md) · **Next:** [Partitioning and sharding](22-partitioning-and-sharding.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run on a real primary and a real streaming replica on one laptop, with PostgreSQL 18.3. About 25 minutes for the cards.
 
@@ -343,7 +343,7 @@ Interview words: *read replica*, *streaming replication*, *replication lag*, *re
 
 - Lag: a user can miss their own write (card 2), so the code needs a rule (card 3).
 - Long queries on a replica can be cancelled, or they hold back the primary's cleanup (card 5).
-- Writes still go to one primary. A replica does not scale writes (lesson 22 is about that).
+- Writes still go to one primary. A replica does not scale writes ([lesson 22](22-partitioning-and-sharding.md) is about that).
 - More servers, more connections to budget (lesson 20), more to monitor.
 
 ## 10. Watch and play
@@ -504,5 +504,5 @@ I did not test how Hasura or Prisma use read replicas. Check their docs for your
 - [16. MVCC and VACUUM](16-mvcc-and-vacuum.md): why the primary's cleanup conflicts with a replica's query, and `hot_standby_feedback`.
 - [18. Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md): make the retry after a lost write safe.
 - [20. Connection pooling](20-connection-pooling.md): each replica has its own connection budget.
-- Lesson 22, partitioning and sharding (not written yet): replicas do not scale writes.
+- [22. Partitioning and sharding](22-partitioning-and-sharding.md): replicas do not scale writes.
 - [Database scaling and correctness](database-scaling-and-correctness.md): the long guide, "Step 4: Read replicas".

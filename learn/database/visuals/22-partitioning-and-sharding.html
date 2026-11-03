@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partitioning Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+  .ln.err { background: var(--drop-bg); border-left-color: var(--drop); font-weight: 700; }
+
+  .pipe { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .st {
+    border: 2px solid var(--border); background: #fff; color: var(--muted); border-radius: 10px;
+    padding: 5px 9px; font-size: .78rem; font-weight: 700; font-family: ui-monospace, Menlo, monospace;
+  }
+  .st.past { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .st.now { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); transform: scale(1.08); }
+  .st.bad { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .arrow { color: var(--muted); font-size: .8rem; }
+  .pipenote { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+  table.facts { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  table.facts td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+  table.facts td:first-child { color: var(--muted); width: 38%; }
+  table.facts td.err { color: var(--drop); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 6px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/database/README" id="back">← Database lessons</a>
+    <a href="../../../viewer.html?note=learn/database/22-partitioning-and-sharding" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Partitioning: stepper</h1>
+  <p class="sub">Press Next and watch Postgres open (and skip) the drawers of a partitioned table. Every number on this page came from a real run on PostgreSQL 18.3, one laptop.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your statement</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+      <div class="panel">
+        <h2>The path</h2>
+        <div class="pipe" id="pipe"></div>
+        <div class="pipenote">Blue is the stop running now. Green stops are done. Red is where it failed.</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What Postgres has right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="facts"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> partitioning splits <b>one table into drawers on one server</b>. A query that names the partition column opens only the drawers it needs. Old data goes away with one DROP.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Partition (drawer):</b> one of the smaller tables a partitioned table is stored as.</li>
+      <li><b>Pruning:</b> leaving out the drawers that cannot hold the rows you asked for.</li>
+      <li><b>DETACH / DROP:</b> take a drawer out of the table / delete it.</li>
+      <li><b>Dead rows:</b> deleted rows that still take space until they are cleaned (lesson 16).</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Built from real runs on PostgreSQL 18.3, one laptop (practice/22-partitioning.sql). The lesson shows the same results.
+const PROGRAMS = [{"name": "One month: one drawer", "stops": ["Read the query", "Leave drawers out", "Open the drawer", "Answer"], "code": ["SELECT count(*) FROM l22_events", "WHERE created_at >= '2026-03-01'", "  AND created_at <  '2026-04-01';", "-- the answer: 101928"], "ask": {"q": "The table is stored as 12 monthly drawers. This query asks for March. How many drawers does Postgres open?", "opts": ["1", "6", "12"], "answer": "1", "why": "The WHERE names the column the table is split by (created_at). Each drawer has a date range, so Postgres can see that only March can match, and it leaves the other 11 out of the plan before the query starts. This is called pruning. In the plan there is one scan, on l22_events_2026_03."}, "steps": [{"stop": null, "line": null, "note": "One table, <code>l22_events</code>, 1.2 million rows. Behind the scenes it is 12 smaller tables, one per month. Guess how many Postgres opens for a query about March, then press Next.", "facts": [["Table", "l22_events (looks like one table)"], ["Drawers", "12, one per month"]]}, {"stop": 0, "line": 0, "note": "<b>Read the query.</b> Your SQL names only <code>l22_events</code>. It does not know about the drawers. That is the point: your code stays the same.", "facts": [["Your query", "SELECT count(*) FROM l22_events"], ["Drawers in the plan so far", "12"]], "count": {"label": "Drawers to open", "value": "12 of 12"}}, {"stop": 1, "line": 1, "note": "<b>Leave drawers out.</b> The WHERE uses <code>created_at</code>, the column the table is split by. Each drawer has a date range, so Postgres can tell that only March can have these rows. The other 11 are removed from the plan. This is <b>partition pruning</b>.", "facts": [["Range asked for", "2026-03-01 up to 2026-04-01"], ["Drawers left", "l22_events_2026_03"]], "count": {"label": "Drawers to open", "value": "1 of 12"}}, {"stop": 2, "line": 2, "note": "<b>Open the drawer.</b> The plan has one scan: <code>Seq Scan on l22_events_2026_03</code>. It reads 101,928 rows. No other drawer is touched.", "facts": [["Plan", "Seq Scan on l22_events_2026_03"], ["Rows read", "101,928"]], "count": {"label": "Drawers opened", "value": "1"}}, {"stop": 3, "line": 3, "note": "<b>Answer.</b> 101,928. The median of 9 runs was <b>10.8 ms</b> on the partitioned table, and 18.1 ms on the plain table with an index on created_at.", "facts": [["Partitioned table", "10.8 ms (median of 9)"], ["Plain table", "18.1 ms (median of 9)"]], "count": {"label": "Drawers opened", "value": "1"}}, {"stop": null, "line": null, "note": "Finished. The query that names the partition column opens one drawer. The next tab shows a query that does not.", "facts": [["Rule", "name the partition column in WHERE"]], "done": true}]}, {"name": "No date: every drawer opens", "stops": ["Read the query", "Nothing to leave out", "Open 12 drawers", "Add them up"], "code": ["SELECT count(*) FROM l22_events", "WHERE user_id = 77;", "-- 12 drawers, 12 index lookups", "-- the answer: 121"], "ask": {"q": "Now the query asks for one user, with no date. There is an index on user_id in every drawer. How many drawers does Postgres open?", "opts": ["1", "12", "It cannot run"], "answer": "12", "why": "The drawers are split by date, not by user. Any month can hold rows of user 77, so nothing can be left out. Postgres looks in all 12 drawers (one index lookup in each) and adds the answers. It is correct, but it is more work than one lookup in one big index: planning took 1.7 ms against 0.24 ms, and the run took 0.44 ms against 0.18 ms."}, "steps": [{"stop": null, "line": null, "note": "Same table. This time the question is about a user, not a date. Guess how many drawers open, then press Next.", "facts": [["Table", "l22_events, 12 drawers"], ["Indexes", "one on user_id in every drawer"]]}, {"stop": 0, "line": 0, "note": "<b>Read the query.</b> <code>WHERE user_id = 77</code>. The table is split by <code>created_at</code>, and the WHERE does not mention it.", "facts": [["Partition column", "created_at"], ["WHERE uses", "user_id"]], "count": {"label": "Drawers to open", "value": "12 of 12"}}, {"stop": 1, "line": 1, "note": "<b>Nothing to leave out.</b> User 77 can have rows in any month. Postgres cannot skip a drawer without looking. The pruning step removes <b>zero</b> drawers.", "facts": [["Drawers left out", "0"]], "count": {"label": "Drawers to open", "value": "12 of 12"}}, {"stop": 2, "line": 2, "note": "<b>Open 12 drawers.</b> The plan has one index lookup per drawer, and one table read per drawer: 24 scan lines in all. Each lookup is fast, but there are 12.", "facts": [["Scan lines in the plan", "24"], ["Planning time", "1.7 ms (plain table: 0.24 ms)"]], "count": {"label": "Drawers opened", "value": "12"}, "fail": true}, {"stop": 3, "line": 3, "note": "<b>Add them up.</b> 121 rows, 0.44 ms (plain table: 0.18 ms). It works, and it is a little slower than the plain table.", "facts": [["Partitioned", "0.44 ms"], ["Plain", "0.18 ms"]], "count": {"label": "Drawers opened", "value": "12"}}, {"stop": null, "line": null, "note": "Finished. Partitioning helps the queries that name the partition column. For every other query, the table is 12 small tables that all get asked. Choose the column by looking at your real queries.", "facts": [["Rule", "partition by the column your queries filter on"]], "fail": true, "done": true}]}, {"name": "Remove a month of data", "stops": ["DELETE", "Dead rows wait", "VACUUM", "DETACH", "DROP"], "code": ["DELETE FROM l22_plain WHERE created_at < '2026-02-01';", "-- 101927 rows are marked dead. The file is still 107 MB.", "VACUUM l22_plain;   -- file is still 107 MB", "ALTER TABLE l22_events DETACH PARTITION l22_events_2026_01;", "DROP TABLE l22_events_2026_01;"], "ask": {"q": "You must remove all of January (about 100,000 rows) from a big table. Which one gives the disk space back at once?", "opts": ["DELETE on the plain table", "VACUUM after the DELETE", "DROP of the January drawer"], "answer": "DROP of the January drawer", "why": "A DELETE only marks rows dead (lesson 16). A normal VACUUM makes the space reusable, but the file stays 107 MB. Dropping a drawer removes its whole file, so the space is back at once, and it took about 2 to 4 ms for the DETACH and about 3 to 4 ms for the DROP."}, "steps": [{"stop": null, "line": null, "note": "Two tables hold the same 1.2 million rows. One is plain. One is split into monthly drawers. January must go. Guess which way gives the disk space back at once, then press Next.", "facts": [["Plain table", "107 MB"], ["Partitioned table", "12 drawers"]]}, {"stop": 0, "line": 0, "note": "<b>DELETE.</b> On the plain table, the DELETE finds 101,927 rows and marks each one as dead. It took <b>80 ms</b> on one run and <b>480 ms</b> on another.", "facts": [["DELETE", "101927 rows"], ["Time", "80 ms and 480 ms on two runs"]], "count": {"label": "Table file", "value": "107 MB"}}, {"stop": 1, "line": 1, "note": "<b>Dead rows wait.</b> The rows are still in the file. <code>n_dead_tup</code> says <b>101,927</b>. The file did not get smaller: <b>107 MB</b>.", "facts": [["n_dead_tup", "101927"], ["File size", "107 MB"]], "count": {"label": "Table file", "value": "107 MB"}, "fail": true}, {"stop": 2, "line": 2, "note": "<b>VACUUM.</b> It makes the space reusable for new rows. The file is <b>still 107 MB</b>. Only VACUUM FULL would shrink it, and that rewrites the table and blocks it (lesson 16).", "facts": [["File size after VACUUM", "107 MB"]], "count": {"label": "Table file", "value": "107 MB"}, "fail": true}, {"stop": 3, "line": 3, "note": "<b>DETACH.</b> On the partitioned table, January stops being a drawer of <code>l22_events</code>. It is now a normal table. About <b>2 to 4 ms</b>. You could back it up first.", "facts": [["l22_events_2026_01", "now a separate table"], ["Time", "about 2 to 4 ms"]], "count": {"label": "Rows left in l22_events", "value": "1,098,073"}}, {"stop": 4, "line": 4, "note": "<b>DROP.</b> The whole January file is deleted. About <b>3 to 4 ms</b>. The space is back at once, and there are no dead rows to clean.", "facts": [["Time", "about 3 to 4 ms"], ["Dead rows", "none"]], "count": {"label": "Rows left in l22_events", "value": "1,098,073"}}, {"stop": null, "line": null, "note": "Finished. This is the best reason to partition by date: removing old data is one cheap command, not a big DELETE followed by cleanup. (DETACH, then DROP, is shown. DROP alone also works.)", "facts": [["DELETE", "dead rows, file stays the same size"], ["DROP a drawer", "space back, a few ms"]], "done": true}]}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) => {
+    let c = "";
+    if (i === s.line) c = s.fail ? " err" : " now";
+    return '<span class="ln' + c + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>";
+  }).join("");
+}
+
+function renderTrack() {
+  const p = PROGRAMS[cur], s = steps[idx];
+  const seen = new Set();
+  for (let i = 0; i <= idx; i++) if (steps[i].stop !== null && steps[i].stop !== undefined) seen.add(steps[i].stop);
+  const failed = steps.slice(0, idx + 1).find(x => x.fail && x.stop !== null && x.stop !== undefined);
+  $("pipe").innerHTML = p.stops.map((name, i) => {
+    let c = "st";
+    if (failed && failed.stop === i) c += " bad";
+    else if (s.stop === i && !s.done) c += " now";
+    else if (seen.has(i)) c += " past";
+    return '<span class="' + c + '">' + esc(name) + "</span>";
+  }).join('<span class="arrow">→</span>');
+}
+
+function renderFacts(s) {
+  const f = s.facts || [];
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  if (!f.length) { $("facts").innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  $("facts").innerHTML = '<table class="facts">' + f.map(r => "<tr><td>" + esc(r[0]) + '</td><td class="' + (r[0] === "ERROR" ? "err" : "") + '">' + esc(r[1]) + "</td></tr>").join("") + "</table>";
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderTrack(); renderFacts(s);
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch which stop does the work.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>
