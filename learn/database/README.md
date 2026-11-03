@@ -77,9 +77,9 @@ Short cards with a guess before each answer. Every number was run on PostgreSQL 
 | 18 | [Upsert, idempotency and job queues](18-upsert-idempotency-and-job-queues.md) | ON CONFLICT, handling a webhook twice safely, and a queue with SKIP LOCKED | ready |
 | 19 | [Zero-downtime migrations](19-zero-downtime-migrations.md) | changing a live table without locking it, expand and contract, Prisma migrate in production | ready |
 | 20 | [Connection pooling](20-connection-pooling.md) | why connections are expensive, PgBouncer, and serverless with Postgres | ready |
-| 21 | Replication and read replicas `21-replication-and-read-replicas.md` | scaling reads, replication lag, and reading your own writes | planned |
-| 22 | Partitioning and sharding `22-partitioning-and-sharding.md` | splitting big tables and databases, and why sharding is the last step | planned |
-| 23 | SQL vs NoSQL and Redis `23-sql-vs-nosql-and-redis.md` | when each fits, and caching with Redis | planned |
+| 21 | [Replication and read replicas](21-replication-and-read-replicas.md) | scaling reads, replication lag, and reading your own writes | ready |
+| 22 | [Partitioning and sharding](22-partitioning-and-sharding.md) | splitting a big table into drawers, dropping old data fast, and why sharding is the last step | ready |
+| 23 | [SQL vs NoSQL and Redis](23-sql-vs-nosql-and-redis.md) | which box fits the job, documents in Postgres, and a cache in front of Postgres (cache-aside, stale data, stampede) | ready |
 
 **To make the next lesson:** in a chat with this folder open, say `/learn database 04` to learn it live with Claude, or ask "make lesson database 04" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

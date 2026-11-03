@@ -168,6 +168,22 @@
   "count": 7
  },
  {
+  "slug": "learn/database/22-partitioning-and-sharding",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "22",
+  "title": "Partitioning and sharding",
+  "count": 7
+ },
+ {
+  "slug": "learn/database/23-sql-vs-nosql-and-redis",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "23",
+  "title": "SQL vs NoSQL and Redis",
+  "count": 8
+ },
+ {
   "slug": "learn/database/24-one-query-start-to-finish",
   "subject": "database",
   "subjectTitle": "Database",

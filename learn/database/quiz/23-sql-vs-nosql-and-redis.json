@@ -1,0 +1,90 @@
+[
+  {
+    "q": "You need the total quantity sold for each product across ALL orders. In a test, which was faster?",
+    "options": [
+      "Tables with a GROUP BY (100 ms), against documents (338 ms)",
+      "Documents, because everything is in one place",
+      "They were exactly the same",
+      "Documents, because a GIN index makes every question fast"
+    ],
+    "answer": 0,
+    "why": "A question across everything is what tables are made for. Postgres had to open and unpack every document. A GIN index helps a search like `@>`, not a total over all rows."
+  },
+  {
+    "q": "You save `{\"stauts\": \"PAID\"}` (a typo in the key) into a JSONB column. What happens?",
+    "options": [
+      "Postgres refuses it, because the key is unknown",
+      "It is saved with no error, and nobody knows until a query finds the status empty",
+      "Postgres fixes the typo by itself",
+      "Postgres saves it but logs a warning"
+    ],
+    "answer": 1,
+    "why": "A plain JSON column accepts any JSON. A table with a CHECK or a foreign key says no. With documents, your app must do these checks."
+  },
+  {
+    "q": "A new app has users, orders and payments, needs reports, and a payment must point to an order. Which box do you start with?",
+    "options": [
+      "A document database, because it scales better",
+      "Redis, because it is the fastest",
+      "Tables (Postgres), with jsonb for any part that changes shape",
+      "A graph database, because the data is connected"
+    ],
+    "answer": 2,
+    "why": "Related data, rules, transactions and reports all point to tables. Add another box later for a clear job."
+  },
+  {
+    "q": "What are the three steps of cache-aside?",
+    "options": [
+      "Write to the cache first, then copy it to the database later",
+      "Ask the database first, then check the cache for errors",
+      "Copy the whole database into the cache at start-up",
+      "Look in the cache. On a miss, ask the database. Keep the answer in the cache with a time to live"
+    ],
+    "answer": 3,
+    "why": "Cache-aside fills the cache on a read. It pays when the same answer is read many times."
+  },
+  {
+    "q": "Postgres is updated, but the cache still returns the old value. What is the usual fix?",
+    "options": [
+      "Delete the cache key after the write, and use a short time to live as a safety net",
+      "Restart Postgres",
+      "Make the time to live very long",
+      "Read from the cache twice and compare"
+    ],
+    "answer": 0,
+    "why": "The cache is a copy and nobody told it. Write to Postgres first, then delete the key, so the next read loads the new value."
+  },
+  {
+    "q": "A popular cache key expires and 100 requests miss at the same moment. What stops 100 identical queries?",
+    "options": [
+      "Add more indexes to the table",
+      "Share one load: the first request loads, the other 99 wait for its answer",
+      "Raise the pool size to 100",
+      "Turn off the time to live"
+    ],
+    "answer": 1,
+    "why": "This is a cache stampede. In my test: 100 queries (83 ms) without sharing, 1 query (5 ms) with it."
+  },
+  {
+    "q": "Redis is set to take snapshots only (RDB), and the power is cut. What can you lose?",
+    "options": [
+      "Nothing, because Redis writes to disk on every command",
+      "Only the keys that have a time to live",
+      "The latest writes since the last snapshot, which the docs say can be the latest minutes",
+      "Everything, always"
+    ],
+    "answer": 2,
+    "why": "With an append-only log (AOF) and the default, you can lose about one second. With no persistence, everything on a restart. That is why a cache is not the place for the only copy."
+  },
+  {
+    "q": "Which read should you NOT take from a cache?",
+    "options": [
+      "A dashboard total that may be a minute old",
+      "A product list shown to many users",
+      "A slow report that 500 people open every minute",
+      "A balance that you read to decide whether a payment is allowed"
+    ],
+    "answer": 3,
+    "why": "Never decide a write from a cache. Read it from Postgres, with a lock if needed (lesson 15)."
+  }
+]
