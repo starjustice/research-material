@@ -1,0 +1,68 @@
+[
+  {
+    "q": "How many looks does binary search need for 1,000,000 sorted items?",
+    "options": [
+      "About 20",
+      "About 1,000",
+      "About 500,000",
+      "About 10"
+    ],
+    "answer": 0,
+    "why": "Each look drops half of what is left. I counted 20 for the worst case. Doubling the list adds one look."
+  },
+  {
+    "q": "In the exact-match shape, why do we write `lo = mid + 1` and not `lo = mid`?",
+    "options": [
+      "It makes the search faster by one step",
+      "With `lo = mid` the area may not shrink and the loop can run for ever",
+      "JavaScript does not allow `lo = mid`",
+      "It keeps the array sorted"
+    ],
+    "answer": 1,
+    "why": "With `[1, 2]` and target 2, `lo = mid` stays at 0 for ever. Every turn must make the search area smaller."
+  },
+  {
+    "q": "`lowerBound([1, 2, 2, 2, 5], 2)` returns…",
+    "options": [
+      "3, the last 2",
+      "2, the middle 2",
+      "1, the first position that is >= 2",
+      "-1"
+    ],
+    "answer": 2,
+    "why": "The lower bound is the first position where the value is at least the target. That is why it also gives \"where to insert\"."
+  },
+  {
+    "q": "What makes \"search the answer\" (like the banana speed) possible?",
+    "options": [
+      "A sorted array of inputs",
+      "A recursive function",
+      "A hash map of answers",
+      "A yes/no check that flips only once: no, no, no, yes, yes, yes"
+    ],
+    "answer": 3,
+    "why": "If \"does speed k work?\" flips once, we can binary search the speeds without any list."
+  },
+  {
+    "q": "What does `[10, 9, 1, 100].sort()` return?",
+    "options": [
+      "`[1, 10, 100, 9]`",
+      "`[1, 9, 10, 100]`",
+      "`[100, 10, 9, 1]`",
+      "`[10, 9, 1, 100]`"
+    ],
+    "answer": 0,
+    "why": "With no comparer, `sort` turns the items into text. Use `(a, b) => a - b`."
+  },
+  {
+    "q": "How does merge sort work, and what does it cost?",
+    "options": [
+      "Pick a pivot and swap: always O(n)",
+      "Split in half, sort each half, merge: O(n log n) time and O(n) extra space",
+      "Compare neighbours until no swap is left: O(n)",
+      "Count each value: O(n log n) with O(1) space"
+    ],
+    "answer": 1,
+    "why": "About log n levels of halving, and each level merges n items. The merged lists need extra memory."
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What does Big O measure?",
+    "options": [
+      "How fast the number of steps grows when the input grows",
+      "How many seconds the code takes on your laptop",
+      "How much memory the file takes on disk",
+      "How many lines the function has"
+    ],
+    "answer": 0,
+    "why": "Seconds change with the computer. Steps and their growth do not. 10 times more items with O(n²) means about 100 times more steps."
+  },
+  {
+    "q": "A function with a loop inside a loop over the same list of n items is…",
+    "options": [
+      "O(n)",
+      "O(n²)",
+      "O(log n)",
+      "O(1)"
+    ],
+    "answer": 1,
+    "why": "A loop inside a loop multiplies: n × n. Two loops one after the other are added: O(n) + O(n) is still O(n)."
+  },
+  {
+    "q": "`for (const x of a) { if (a.includes(x + 1)) count++; }` is O(n²). Why?",
+    "options": [
+      "`count++` is slow",
+      "`for...of` is always O(n²)",
+      "`includes` is a hidden loop, so it is a loop inside a loop",
+      "`includes` is O(1) but runs twice"
+    ],
+    "answer": 2,
+    "why": "`includes` walks the array, so it is O(n) per call. Put it inside a loop over n items and you get O(n²). A Set lookup is about one step."
+  },
+  {
+    "q": "At 100,000 items, the nested-loop duplicate check took about 3,899 ms and the Set version about 8 ms. What does the Set version cost in return?",
+    "options": [
+      "Nothing, it is free",
+      "It needs sorted input",
+      "It only works for numbers",
+      "O(n) extra memory"
+    ],
+    "answer": 3,
+    "why": "Most speed-ups spend memory. The Set can hold every item, so the space is O(n). Always say both the time and the space."
+  },
+  {
+    "q": "Which line hides a loop and makes a loop around it O(n²)?",
+    "options": [
+      "`list.shift()` on a big array",
+      "`list.push(x)`",
+      "`list[0]`",
+      "`list.length`"
+    ],
+    "answer": 0,
+    "why": "`shift` moves every item one place left: O(n) per call. 100,000 shifts took about 1,049 ms; with a head index it took 0.2 ms."
+  },
+  {
+    "q": "The interviewer asks for a solution. What do you say first?",
+    "options": [
+      "Nothing until you have the best answer",
+      "The simple brute force, with its cost, then what repeats and how to improve it",
+      "That you cannot solve it without a hint",
+      "Only the final O(n) solution, no brute force"
+    ],
+    "answer": 1,
+    "why": "Brute force first, say its cost, find the repeated work, improve, and say the new cost. Saying the simple way is a good start, not a failure."
+  }
+]

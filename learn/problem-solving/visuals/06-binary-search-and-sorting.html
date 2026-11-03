@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Binary Search Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+    --hit: #b7791f; --hit-bg: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+
+  svg.gr { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto 8px; }
+  svg.gr line { stroke: #b9c2c9; stroke-width: 2; }
+  svg.gr line.hot { stroke: var(--stage); stroke-width: 3.5; }
+  svg.gr circle { fill: #fff; stroke: #b9c2c9; stroke-width: 2.5; }
+  svg.gr circle.cur { fill: var(--stage-bg); stroke: var(--stage); }
+  svg.gr circle.done { fill: var(--keep-bg); stroke: var(--keep); }
+  svg.gr circle.seen { fill: var(--hit-bg); stroke: var(--hit); }
+  svg.gr circle.dim { fill: #f7f4ec; stroke: #e6dfd2; }
+  svg.gr circle.bad { fill: var(--drop-bg); stroke: var(--drop); }
+  svg.gr text { font: 700 15px ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  svg.gr text.tag { font: 600 11px -apple-system, sans-serif; fill: var(--muted); }
+  svg.gr marker path { fill: #b9c2c9; }
+  svg.gr marker.hotm path { fill: var(--stage); }
+
+  .row { margin-bottom: 12px; }
+  .row h3 { font-size: .8rem; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+  .cells { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cell { display: flex; flex-direction: column; align-items: center; min-width: 38px; }
+  .cell small { font-size: .68rem; color: var(--muted); height: 1em; line-height: 1; margin-bottom: 2px; }
+  .cell b {
+    display: block; min-width: 38px; padding: 6px 6px; text-align: center; border: 2px solid var(--border); background: #fff;
+    border-radius: 8px; font: 700 .9rem ui-monospace, Menlo, monospace;
+  }
+  .cell em { font-style: normal; font-size: .72rem; font-weight: 700; color: var(--stage); height: 1em; line-height: 1; margin-top: 3px; white-space: nowrap; }
+  .cell.on b { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); }
+  .cell.ok b { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .cell.hit b { background: var(--hit-bg); border-color: var(--hit); color: var(--hit); }
+  .cell.bad b { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .cell.dim b { background: #f1eee6; color: #a4abb1; border-color: #e6dfd2; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 4px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/problem-solving/README" id="back">← Problem solving lessons</a>
+    <a href="../../../viewer.html?note=learn/problem-solving/06-binary-search-and-sorting" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Binary search: cut the problem in half</h1>
+  <p class="sub">Press Next and watch lo, mid and hi close in on the answer.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What it looks like right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="graphbox"></div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> Binary search throws away half of the options at every look. It needs sorted data, or a yes/no check that flips only once.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>lo and hi:</b> the two ends of the part we still have to look at.</li>
+      <li><b>mid:</b> the middle of lo and hi. We look here.</li>
+      <li><b>Sorted:</b> in order from small to big. Binary search needs it.</li>
+      <li><b>O(log n):</b> the steps grow very slowly: 1,000,000 items need about 20.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Every step below was recorded from a real run of the code shown (see the lesson's practice file).
+const PROGRAMS = [{"name":"Find 23","code":["function search(a, target) {","  let lo = 0, hi = a.length - 1;","  while (lo <= hi) {","    const mid = Math.floor((lo + hi) / 2);","    if (a[mid] === target) return mid;","    if (a[mid] < target) lo = mid + 1;","    else hi = mid - 1;","  }","  return -1;","}"],"steps":[{"line":1,"note":"Look for <code>23</code>. <code>lo</code> and <code>hi</code> cover the whole array. The target, if it exists, is between them.","count":{"value":0,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"","i":0,"p":"lo"},{"t":"5","c":"","i":1,"p":""},{"t":"8","c":"","i":2,"p":""},{"t":"12","c":"","i":3,"p":""},{"t":"16","c":"","i":4,"p":""},{"t":"23","c":"","i":5,"p":""},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"","i":7,"p":""},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":3,"note":"<code>mid = (0 + 9) / 2 = 4</code>. Look at <code>16</code>.","count":{"value":1,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"","i":0,"p":"lo"},{"t":"5","c":"","i":1,"p":""},{"t":"8","c":"","i":2,"p":""},{"t":"12","c":"","i":3,"p":""},{"t":"16","c":"on","i":4,"p":"mid"},{"t":"23","c":"","i":5,"p":""},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"","i":7,"p":""},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":5,"note":"<code>16</code> is too small, and so is everything on its left. <code>lo = mid + 1 = 5</code>. Half of the array is gone.","count":{"value":1,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"on","i":4,"p":"mid"},{"t":"23","c":"","i":5,"p":"lo"},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"","i":7,"p":""},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":3,"note":"<code>mid = (5 + 9) / 2 = 7</code>. Look at <code>56</code>.","count":{"value":2,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"","i":5,"p":"lo"},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"on","i":7,"p":"mid"},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":6,"note":"<code>56</code> is too big, and so is everything on its right. <code>hi = mid - 1 = 6</code>. Half of the array is gone.","count":{"value":2,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"","i":5,"p":"lo"},{"t":"38","c":"","i":6,"p":"hi"},{"t":"56","c":"on","i":7,"p":"mid"},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":3,"note":"<code>mid = (5 + 6) / 2 = 5</code>. Look at <code>23</code>.","count":{"value":3,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"on","i":5,"p":"lo mid"},{"t":"38","c":"","i":6,"p":"hi"},{"t":"56","c":"dim","i":7,"p":""},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":4,"note":"<code>23</code> is the target. Return index <b>5</b>. Found after 3 looks, in an array of 10.","count":{"value":3,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 23)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"on","i":5,"p":"lo mid"},{"t":"38","c":"","i":6,"p":"hi"},{"t":"56","c":"dim","i":7,"p":""},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]}],"ask":{"q":"How many looks does it take to find 23 in this array of 10?","opts":["3","5","10"],"answer":"3","why":"Each look removes half of what is left: 10 → 4 → 1. For 1,000,000 numbers the worst case is 20 looks, because 2 to the power 20 is about a million."},"result":5,"n":3},{"name":"Find 40 (not there)","code":["function search(a, target) {","  let lo = 0, hi = a.length - 1;","  while (lo <= hi) {","    const mid = Math.floor((lo + hi) / 2);","    if (a[mid] === target) return mid;","    if (a[mid] < target) lo = mid + 1;","    else hi = mid - 1;","  }","  return -1;","}"],"steps":[{"line":1,"note":"Look for <code>40</code>. <code>lo</code> and <code>hi</code> cover the whole array. The target, if it exists, is between them.","count":{"value":0,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"","i":0,"p":"lo"},{"t":"5","c":"","i":1,"p":""},{"t":"8","c":"","i":2,"p":""},{"t":"12","c":"","i":3,"p":""},{"t":"16","c":"","i":4,"p":""},{"t":"23","c":"","i":5,"p":""},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"","i":7,"p":""},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":3,"note":"<code>mid = (0 + 9) / 2 = 4</code>. Look at <code>16</code>.","count":{"value":1,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"","i":0,"p":"lo"},{"t":"5","c":"","i":1,"p":""},{"t":"8","c":"","i":2,"p":""},{"t":"12","c":"","i":3,"p":""},{"t":"16","c":"on","i":4,"p":"mid"},{"t":"23","c":"","i":5,"p":""},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"","i":7,"p":""},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":5,"note":"<code>16</code> is too small, and so is everything on its left. <code>lo = mid + 1 = 5</code>. Half of the array is gone.","count":{"value":1,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"on","i":4,"p":"mid"},{"t":"23","c":"","i":5,"p":"lo"},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"","i":7,"p":""},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":3,"note":"<code>mid = (5 + 9) / 2 = 7</code>. Look at <code>56</code>.","count":{"value":2,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"","i":5,"p":"lo"},{"t":"38","c":"","i":6,"p":""},{"t":"56","c":"on","i":7,"p":"mid"},{"t":"72","c":"","i":8,"p":""},{"t":"91","c":"","i":9,"p":"hi"}]}]},{"line":6,"note":"<code>56</code> is too big, and so is everything on its right. <code>hi = mid - 1 = 6</code>. Half of the array is gone.","count":{"value":2,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"","i":5,"p":"lo"},{"t":"38","c":"","i":6,"p":"hi"},{"t":"56","c":"on","i":7,"p":"mid"},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":3,"note":"<code>mid = (5 + 6) / 2 = 5</code>. Look at <code>23</code>.","count":{"value":3,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"on","i":5,"p":"lo mid"},{"t":"38","c":"","i":6,"p":"hi"},{"t":"56","c":"dim","i":7,"p":""},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":5,"note":"<code>23</code> is too small, and so is everything on its left. <code>lo = mid + 1 = 6</code>. Half of the array is gone.","count":{"value":3,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"on","i":5,"p":"mid"},{"t":"38","c":"","i":6,"p":"lo hi"},{"t":"56","c":"dim","i":7,"p":""},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":3,"note":"<code>mid = (6 + 6) / 2 = 6</code>. Look at <code>38</code>.","count":{"value":4,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"dim","i":5,"p":""},{"t":"38","c":"on","i":6,"p":"lo mid hi"},{"t":"56","c":"dim","i":7,"p":""},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":5,"note":"<code>38</code> is too small, and so is everything on its left. <code>lo = mid + 1 = 7</code>. Half of the array is gone.","count":{"value":4,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"dim","i":5,"p":""},{"t":"38","c":"on","i":6,"p":"mid hi"},{"t":"56","c":"dim","i":7,"p":"lo"},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]},{"line":8,"note":"<code>lo</code> (7) is now bigger than <code>hi</code> (6). Nothing is left between them, so 40 is not in the array. Return <b>-1</b>. Still only 4 looks.","count":{"value":4,"label":"looks at the array"},"panels":[{"title":"Sorted array (looking for 40)","cells":[{"t":"2","c":"dim","i":0,"p":""},{"t":"5","c":"dim","i":1,"p":""},{"t":"8","c":"dim","i":2,"p":""},{"t":"12","c":"dim","i":3,"p":""},{"t":"16","c":"dim","i":4,"p":""},{"t":"23","c":"dim","i":5,"p":""},{"t":"38","c":"dim","i":6,"p":"hi"},{"t":"56","c":"dim","i":7,"p":"lo"},{"t":"72","c":"dim","i":8,"p":""},{"t":"91","c":"dim","i":9,"p":""}]}]}],"ask":{"q":"40 is not in the array. What does the search return?","opts":["-1","0","It never stops"],"answer":"-1","why":"When lo passes hi, no part of the array is left. Returning -1 is the usual \"not found\". The loop always stops, because every step moves lo up or hi down."},"result":-1,"n":4},{"name":"Search the answer","code":["function minSpeed(piles, h) {","  let lo = 1, hi = Math.max(...piles);","  while (lo < hi) {","    const mid = Math.floor((lo + hi) / 2);","    const hours = piles.reduce(","      (s, p) => s + Math.ceil(p / mid), 0);","    if (hours <= h) hi = mid;","    else lo = mid + 1;","  }","  return lo;","}"],"steps":[{"line":1,"note":"Piles are 3, 6, 7, 11 and she has <b>8 hours</b>. What is the slowest speed that still finishes? A speed of 11 surely works. We do not know about smaller ones. Slower speed means more hours, so we can binary search the <b>speed</b>.","count":{"value":0,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"","p":"lo"},{"t":"2","c":"","p":""},{"t":"3","c":"","p":""},{"t":"4","c":"","p":""},{"t":"5","c":"","p":""},{"t":"6","c":"","p":""},{"t":"7","c":"","p":""},{"t":"8","c":"","p":""},{"t":"9","c":"","p":""},{"t":"10","c":"","p":""},{"t":"11","c":"","p":"hi"}]}]},{"line":5,"note":"Try speed <code>6</code>. Hours needed: ⌈3/6⌉=1 + ⌈6/6⌉=1 + ⌈7/6⌉=2 + ⌈11/6⌉=2 = <b>6</b>.","count":{"value":1,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"","p":"lo"},{"t":"2","c":"","p":""},{"t":"3","c":"","p":""},{"t":"4","c":"","p":""},{"t":"5","c":"","p":""},{"t":"6","c":"on","p":"mid"},{"t":"7","c":"","p":""},{"t":"8","c":"","p":""},{"t":"9","c":"","p":""},{"t":"10","c":"","p":""},{"t":"11","c":"","p":"hi"}]}]},{"line":6,"note":"6 is at most 8, so speed 6 works. Maybe a slower one works too: <code>hi = 6</code>.","count":{"value":1,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"","p":"lo"},{"t":"2","c":"","p":""},{"t":"3","c":"","p":""},{"t":"4","c":"","p":""},{"t":"5","c":"","p":""},{"t":"6","c":"on","p":"mid hi"},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":5,"note":"Try speed <code>3</code>. Hours needed: ⌈3/3⌉=1 + ⌈6/3⌉=2 + ⌈7/3⌉=3 + ⌈11/3⌉=4 = <b>10</b>.","count":{"value":2,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"","p":"lo"},{"t":"2","c":"","p":""},{"t":"3","c":"on","p":"mid"},{"t":"4","c":"","p":""},{"t":"5","c":"","p":""},{"t":"6","c":"","p":"hi"},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":7,"note":"10 is more than 8, so speed 3 is too slow, and so is every slower speed: <code>lo = 4</code>.","count":{"value":2,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"dim","p":""},{"t":"2","c":"dim","p":""},{"t":"3","c":"on","p":"mid"},{"t":"4","c":"","p":"lo"},{"t":"5","c":"","p":""},{"t":"6","c":"","p":"hi"},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":5,"note":"Try speed <code>5</code>. Hours needed: ⌈3/5⌉=1 + ⌈6/5⌉=2 + ⌈7/5⌉=2 + ⌈11/5⌉=3 = <b>8</b>.","count":{"value":3,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"dim","p":""},{"t":"2","c":"dim","p":""},{"t":"3","c":"dim","p":""},{"t":"4","c":"","p":"lo"},{"t":"5","c":"on","p":"mid"},{"t":"6","c":"","p":"hi"},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":6,"note":"8 is at most 8, so speed 5 works. Maybe a slower one works too: <code>hi = 5</code>.","count":{"value":3,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"dim","p":""},{"t":"2","c":"dim","p":""},{"t":"3","c":"dim","p":""},{"t":"4","c":"","p":"lo"},{"t":"5","c":"on","p":"mid hi"},{"t":"6","c":"dim","p":""},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":5,"note":"Try speed <code>4</code>. Hours needed: ⌈3/4⌉=1 + ⌈6/4⌉=2 + ⌈7/4⌉=2 + ⌈11/4⌉=3 = <b>8</b>.","count":{"value":4,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"dim","p":""},{"t":"2","c":"dim","p":""},{"t":"3","c":"dim","p":""},{"t":"4","c":"on","p":"lo mid"},{"t":"5","c":"","p":"hi"},{"t":"6","c":"dim","p":""},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":6,"note":"8 is at most 8, so speed 4 works. Maybe a slower one works too: <code>hi = 4</code>.","count":{"value":4,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"dim","p":""},{"t":"2","c":"dim","p":""},{"t":"3","c":"dim","p":""},{"t":"4","c":"on","p":"lo mid hi"},{"t":"5","c":"dim","p":""},{"t":"6","c":"dim","p":""},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]},{"line":9,"note":"<code>lo</code> and <code>hi</code> meet at <b>4</b>. The slowest speed that finishes in 8 hours is 4. We tried only 4 speeds, not 11.","count":{"value":4,"label":"speeds tried"},"panels":[{"title":"Speeds to try (bananas per hour)","cells":[{"t":"1","c":"dim","p":""},{"t":"2","c":"dim","p":""},{"t":"3","c":"dim","p":""},{"t":"4","c":"","p":"lo hi"},{"t":"5","c":"dim","p":""},{"t":"6","c":"dim","p":""},{"t":"7","c":"dim","p":""},{"t":"8","c":"dim","p":""},{"t":"9","c":"dim","p":""},{"t":"10","c":"dim","p":""},{"t":"11","c":"dim","p":""}]}]}],"ask":{"q":"Piles 3, 6, 7, 11 and 8 hours. What is the slowest speed that finishes in time?","opts":["3","4","6"],"answer":"4","why":"At speed 4 the hours are 1 + 2 + 2 + 3 = 8. At speed 3 they are 1 + 2 + 3 + 4 = 10, too many. The check \"does speed k work?\" flips from no to yes exactly once, so we can binary search it."}}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === s.line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+
+function renderGraph(s) {
+  const g = PROGRAMS[cur].graph;
+  if (!g) { $("graphbox").innerHTML = ""; return; }
+  const R = 19, edges = s.edges || g.edges, cls = s.nodeCls || {}, lab = s.labels || {}, hot = s.hot || [];
+  const pos = {}; g.nodes.forEach(n => pos[n.id] = n);
+  let svg = '<svg class="gr" viewBox="0 0 ' + g.w + " " + g.h + '"><defs>' +
+    '<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker>' +
+    '<marker class="hotm" id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker></defs>';
+  edges.forEach(e => {
+    const a = pos[e[0]], b = pos[e[1]], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const x1 = a.x + dx / len * R, y1 = a.y + dy / len * R;
+    const tail = g.directed ? R + 3 : R;
+    const x2 = b.x - dx / len * tail, y2 = b.y - dy / len * tail;
+    const isHot = hot.some(h => h[0] === e[0] && h[1] === e[1]);
+    svg += '<line class="' + (isHot ? "hot" : "") + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"' +
+      (g.directed ? ' marker-end="url(#' + (isHot ? "arh" : "ar") + ')"' : "") + "/>";
+  });
+  g.nodes.forEach(n => {
+    const label = lab[n.id] !== undefined ? lab[n.id] : n.label;
+    svg += '<circle class="' + (cls[n.id] || "") + '" cx="' + n.x + '" cy="' + n.y + '" r="' + R + '"/><text x="' + n.x + '" y="' + n.y + '">' + esc(label) + "</text>";
+    if (n.tag) svg += '<text class="tag" x="' + n.x + '" y="' + (n.y + R + 11) + '">' + esc(n.tag) + "</text>";
+  });
+  (s.tags || []).forEach(t => { const n = pos[t[0]]; svg += '<text class="tag" x="' + n.x + '" y="' + (n.y - R - 9) + '">' + esc(t[1]) + "</text>"; });
+  $("graphbox").innerHTML = svg + "</svg>";
+}
+
+function renderRows(s) {
+  $("rows").innerHTML = (s.panels || []).map(p => {
+    const body = p.cells.length ? '<div class="cells">' + p.cells.map(c =>
+      '<div class="cell ' + (c.c || "") + '"><small>' + (c.i === undefined ? "" : esc(c.i)) + "</small><b>" + esc(c.t) + "</b><em>" + (c.p ? esc(c.p) : "") + "</em></div>").join("") + "</div>"
+      : '<div class="empty">' + esc(p.empty || "(empty)") + "</div>";
+    return '<div class="row"><h3>' + esc(p.title) + "</h3>" + body + "</div>";
+  }).join("");
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderGraph(s); renderRows(s);
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch what changes at each step.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

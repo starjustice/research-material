@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Which is the strength of an array and the weakness of a linked list?",
+    "options": [
+      "Reading item number i in one step",
+      "Adding at the front in one step",
+      "Never needing memory",
+      "Keeping items sorted"
+    ],
+    "answer": 0,
+    "why": "An array can jump to index i: O(1). A linked list must follow the arrows from the head: O(i)."
+  },
+  {
+    "q": "In JavaScript, what is slow about `arr.shift()` on a big array?",
+    "options": [
+      "It also copies the whole array to a new place",
+      "Every other item moves one place, so it is O(n) per call",
+      "It throws an error when the array is empty",
+      "It sorts the array first"
+    ],
+    "answer": 1,
+    "why": "200,000 shifts took about 4,597 ms; a queue with a head index took about 5 ms. Small arrays look fine, big ones do not."
+  },
+  {
+    "q": "When you reverse a linked list, why do you save `curr.next` before changing it?",
+    "options": [
+      "JavaScript requires it",
+      "To keep the list sorted",
+      "The only way to reach the rest of the list is through `curr.next`",
+      "To make the code shorter"
+    ],
+    "answer": 2,
+    "why": "Flip the arrow first and nothing points to the rest of the list any more. Save next, flip the arrow, move both pointers forward."
+  },
+  {
+    "q": "How do the slow and fast pointers find a cycle in a linked list?",
+    "options": [
+      "Both move 1 step and we count the nodes",
+      "Fast goes to the end and back",
+      "They compare the values of the nodes",
+      "Slow moves 1 step, fast moves 2 steps, and they meet only if there is a loop"
+    ],
+    "answer": 3,
+    "why": "Inside a loop the fast pointer gains one step on the slow one each turn, so they must meet. It costs O(n) time and O(1) space."
+  },
+  {
+    "q": "Which problem is a natural fit for a stack?",
+    "options": [
+      "Checking that brackets are matched in the right order",
+      "Serving customers in the order they arrived",
+      "Looking up a user by id",
+      "Finding the middle of a sorted list"
+    ],
+    "answer": 0,
+    "why": "A stack gives back the newest item first. The last bracket opened must be the first one closed."
+  },
+  {
+    "q": "`isValid('((')` returns false. Which line catches it?",
+    "options": [
+      "`if (!pairs[ch]) stack.push(ch)`",
+      "`return stack.length === 0`",
+      "`const stack = []`",
+      "`for (const ch of s)`"
+    ],
+    "answer": 1,
+    "why": "Both characters are openers, so nothing fails in the loop. The last line catches brackets that were opened and never closed."
+  }
+]

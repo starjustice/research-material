@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What does a priority queue give you that a plain queue does not?",
+    "options": [
+      "The best item (for example the smallest) comes out first, not the oldest",
+      "Items stay sorted at all times",
+      "Any item can be read in O(1)",
+      "No extra memory is used"
+    ],
+    "answer": 0,
+    "why": "A shop line serves the oldest first. An emergency room sees the most urgent first."
+  },
+  {
+    "q": "What is the rule of a min-heap?",
+    "options": [
+      "The whole array is sorted",
+      "Every parent is smaller than or equal to its children",
+      "The left child is always smaller than the right child",
+      "Every child is bigger than all items above it"
+    ],
+    "answer": 1,
+    "why": "Only the top is known to be the smallest. A heap is not sorted."
+  },
+  {
+    "q": "In the array form of a heap, where are the children of index `i`?",
+    "options": [
+      "At `i + 1` and `i + 2`",
+      "At `i / 2` and `i / 2 + 1`",
+      "At `2i + 1` and `2i + 2`",
+      "At `2i` and `2i + 1` only for i > 0"
+    ],
+    "answer": 2,
+    "why": "The parent of `i` is `(i - 1) >> 1`. A full tree fits in an array with no pointers."
+  },
+  {
+    "q": "What do push and pop cost in a heap?",
+    "options": [
+      "O(1) each",
+      "O(n) each",
+      "O(n log n) each",
+      "O(log n) each"
+    ],
+    "answer": 3,
+    "why": "Each one walks one path of about log n levels: bubble up after push, sink down after pop."
+  },
+  {
+    "q": "To find the k BIGGEST numbers, why keep a MIN-heap of size k?",
+    "options": [
+      "Its top is the smallest of the k best, the one a new number must beat",
+      "Min-heaps are faster than max-heaps",
+      "A max-heap cannot hold k items",
+      "The biggest numbers sink to the bottom of a min-heap"
+    ],
+    "answer": 0,
+    "why": "A new number only has to beat the weakest of the current best k. That is exactly the top."
+  },
+  {
+    "q": "Top 10 of 1,000,000 numbers: heap of size 10 against sorting everything. What did I measure?",
+    "options": [
+      "They took the same time",
+      "The heap took about 14 to 25 ms, the sort about 200 to 250 ms",
+      "The heap was much slower",
+      "The heap ran out of memory"
+    ],
+    "answer": 1,
+    "why": "The heap is O(n log k) and the sort is O(n log n). With a small k it is about 10 times faster here."
+  }
+]

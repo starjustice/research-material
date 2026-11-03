@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What two things does every recursive function need?",
+    "options": [
+      "A base case that stops it, and a call on a smaller problem",
+      "A loop and a counter",
+      "A Map and a Set",
+      "A return type and a name"
+    ],
+    "answer": 0,
+    "why": "Without the base case it never stops. Without a smaller problem it never gets closer to the base case."
+  },
+  {
+    "q": "Why is plain recursive `fib(40)` slow, and what fixes it?",
+    "options": [
+      "The numbers get too big; use BigInt",
+      "It solves the same sub-problems again and again; remember each answer (memoization)",
+      "Recursion is always slow; use a loop only",
+      "The call stack is too small; raise the limit"
+    ],
+    "answer": 1,
+    "why": "`fib(30)` made 2,692,537 calls. With a memo it made 59."
+  },
+  {
+    "q": "For dynamic programming, what must you say first about the table?",
+    "options": [
+      "How big the computer memory is",
+      "Which loop to write",
+      "What one cell means (the state)",
+      "Which language to use"
+    ],
+    "answer": 2,
+    "why": "State, start, rule, answer. If you cannot say what `dp[i]` means in words, the rule will be wrong."
+  },
+  {
+    "q": "Coins `[1, 3, 4]`, amount 6. What does greedy (biggest coin first) give, and what is the best?",
+    "options": [
+      "Both give 2 coins",
+      "Both give 3 coins",
+      "Greedy gives 2, the best is 1",
+      "Greedy gives 3 coins (4+1+1); the best is 2 coins (3+3)"
+    ],
+    "answer": 3,
+    "why": "Greedy looks only at the best choice now. DP tries every choice, so it finds 3 + 3."
+  },
+  {
+    "q": "In backtracking subsets, why `result.push([...path])` and not `result.push(path)`?",
+    "options": [
+      "`path` is one array that keeps changing, so every result would point at the same array",
+      "Spread makes it faster",
+      "`push(path)` throws an error",
+      "`path` is a string"
+    ],
+    "answer": 0,
+    "why": "I ran the wrong version on `[1, 2]` and got `[[],[],[],[]]`."
+  },
+  {
+    "q": "A question asks for the NUMBER of ways (or the fewest). A different one asks to LIST all ways. Which tools?",
+    "options": [
+      "Number: backtracking. List: DP",
+      "Number: DP. List: backtracking",
+      "Both: greedy",
+      "Both: binary search"
+    ],
+    "answer": 1,
+    "why": "Backtracking lists everything, so it costs O(2ⁿ) or O(n!) at worst. A count can often be done with a small table."
+  }
+]

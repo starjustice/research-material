@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+    --hit: #b7791f; --hit-bg: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+
+  svg.gr { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto 8px; }
+  svg.gr line { stroke: #b9c2c9; stroke-width: 2; }
+  svg.gr line.hot { stroke: var(--stage); stroke-width: 3.5; }
+  svg.gr circle { fill: #fff; stroke: #b9c2c9; stroke-width: 2.5; }
+  svg.gr circle.cur { fill: var(--stage-bg); stroke: var(--stage); }
+  svg.gr circle.done { fill: var(--keep-bg); stroke: var(--keep); }
+  svg.gr circle.seen { fill: var(--hit-bg); stroke: var(--hit); }
+  svg.gr circle.dim { fill: #f7f4ec; stroke: #e6dfd2; }
+  svg.gr circle.bad { fill: var(--drop-bg); stroke: var(--drop); }
+  svg.gr text { font: 700 15px ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  svg.gr text.tag { font: 600 11px -apple-system, sans-serif; fill: var(--muted); }
+  svg.gr marker path { fill: #b9c2c9; }
+  svg.gr marker.hotm path { fill: var(--stage); }
+
+  .row { margin-bottom: 12px; }
+  .row h3 { font-size: .8rem; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+  .cells { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cell { display: flex; flex-direction: column; align-items: center; min-width: 38px; }
+  .cell small { font-size: .68rem; color: var(--muted); height: 1em; line-height: 1; margin-bottom: 2px; }
+  .cell b {
+    display: block; min-width: 38px; padding: 6px 6px; text-align: center; border: 2px solid var(--border); background: #fff;
+    border-radius: 8px; font: 700 .9rem ui-monospace, Menlo, monospace;
+  }
+  .cell em { font-style: normal; font-size: .72rem; font-weight: 700; color: var(--stage); height: 1em; line-height: 1; margin-top: 3px; white-space: nowrap; }
+  .cell.on b { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); }
+  .cell.ok b { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .cell.hit b { background: var(--hit-bg); border-color: var(--hit); color: var(--hit); }
+  .cell.bad b { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .cell.dim b { background: #f1eee6; color: #a4abb1; border-color: #e6dfd2; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 4px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/problem-solving/README" id="back">← Problem solving lessons</a>
+    <a href="../../../viewer.html?note=learn/problem-solving/05-graphs-bfs-dfs-and-cycles" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Graphs: BFS, DFS and ordering</h1>
+  <p class="sub">Press Next and watch a queue, a stack and a counter walk through a graph.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What it looks like right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="graphbox"></div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> A graph is dots and lines. BFS uses a queue and finds the fewest steps. DFS uses a stack and explores one path fully. Always remember what you have already seen.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Node:</b> a dot in the graph.</li>
+      <li><b>Edge:</b> a line (or arrow) between two nodes.</li>
+      <li><b>Neighbour:</b> a node you can reach by one edge.</li>
+      <li><b>Cycle:</b> a path that leads back to where it started.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Every step below was recorded from a real run of the code shown (see the lesson's practice file).
+const PROGRAMS = [{"name":"BFS","code":["function bfs(graph, start) {","  const seen = new Set([start]);","  const queue = [start];","  while (queue.length) {","    const node = queue.shift();","    for (const nb of graph[node]) {","      if (seen.has(nb)) continue;","      seen.add(nb); queue.push(nb);","    }","  }","}"],"graph":{"w":340,"h":270,"directed":false,"nodes":[{"id":"A","x":170,"y":30,"label":"A"},{"id":"B","x":70,"y":100,"label":"B"},{"id":"C","x":270,"y":100,"label":"C"},{"id":"D","x":170,"y":165,"label":"D"},{"id":"E","x":100,"y":235,"label":"E"},{"id":"F","x":240,"y":235,"label":"F"}],"edges":[["A","B"],["A","C"],["B","D"],["C","D"],["D","E"],["D","F"]]},"steps":[{"line":2,"note":"Start at <code>A</code>. Mark it as seen the moment it goes in the queue. <code>dist</code> is the number of edges from A.","nodeCls":{"A":"cur"},"hot":[],"tags":[["A","dist 0"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"A","c":"on"}],"empty":"(empty)"},{"title":"Visited in order","cells":[],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>A</code> from the front of the queue.","nodeCls":{"A":"cur"},"hot":[],"tags":[["A","dist 0"]],"panels":[{"title":"Queue (front on the left)","cells":[],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Look at the neighbours of <code>A</code>. New: <code>B, C</code> go to the back of the queue.","nodeCls":{"A":"cur","B":"seen","C":"seen"},"hot":[["A","B"],["A","C"]],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"B","c":"on"},{"t":"C","c":""}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>B</code> from the front of the queue.","nodeCls":{"A":"done","B":"cur","C":"seen"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"C","c":"on"}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Look at the neighbours of <code>B</code>. New: <code>D</code> go to the back of the queue. Already seen, skipped: <code>A</code>.","nodeCls":{"A":"done","B":"cur","C":"seen","D":"seen"},"hot":[["B","D"]],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"C","c":"on"},{"t":"D","c":""}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>C</code> from the front of the queue.","nodeCls":{"A":"done","B":"done","C":"cur","D":"seen"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"D","c":"on"}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Look at the neighbours of <code>C</code>. No new ones. Already seen, skipped: <code>A, D</code>.","nodeCls":{"A":"done","B":"done","C":"cur","D":"seen"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"D","c":"on"}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>D</code> from the front of the queue.","nodeCls":{"A":"done","B":"done","C":"done","D":"cur"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"]],"panels":[{"title":"Queue (front on the left)","cells":[],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Look at the neighbours of <code>D</code>. New: <code>E, F</code> go to the back of the queue. Already seen, skipped: <code>B, C</code>.","nodeCls":{"A":"done","B":"done","C":"done","D":"cur","E":"seen","F":"seen"},"hot":[["D","E"],["D","F"]],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"],["E","dist 3"],["F","dist 3"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"E","c":"on"},{"t":"F","c":""}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>E</code> from the front of the queue.","nodeCls":{"A":"done","B":"done","C":"done","D":"done","E":"cur","F":"seen"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"],["E","dist 3"],["F","dist 3"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"F","c":"on"}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"},{"t":"E","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Look at the neighbours of <code>E</code>. No new ones. Already seen, skipped: <code>D</code>.","nodeCls":{"A":"done","B":"done","C":"done","D":"done","E":"cur","F":"seen"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"],["E","dist 3"],["F","dist 3"]],"panels":[{"title":"Queue (front on the left)","cells":[{"t":"F","c":"on"}],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"},{"t":"E","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>F</code> from the front of the queue.","nodeCls":{"A":"done","B":"done","C":"done","D":"done","E":"done","F":"cur"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"],["E","dist 3"],["F","dist 3"]],"panels":[{"title":"Queue (front on the left)","cells":[],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"},{"t":"E","c":"ok"},{"t":"F","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Look at the neighbours of <code>F</code>. No new ones. Already seen, skipped: <code>D</code>.","nodeCls":{"A":"done","B":"done","C":"done","D":"done","E":"done","F":"cur"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"],["E","dist 3"],["F","dist 3"]],"panels":[{"title":"Queue (front on the left)","cells":[],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"},{"t":"E","c":"ok"},{"t":"F","c":"ok"}],"empty":"(none yet)"}]},{"line":9,"note":"Queue empty. Order: <code>A B C D E F</code>. The distances are the shortest paths when every edge counts as 1: BFS finds them because it visits closer nodes first.","nodeCls":{"A":"done","B":"done","C":"done","D":"done","E":"done","F":"done"},"hot":[],"tags":[["A","dist 0"],["B","dist 1"],["C","dist 1"],["D","dist 2"],["E","dist 3"],["F","dist 3"]],"panels":[{"title":"Queue (front on the left)","cells":[],"empty":"(empty)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"D","c":"ok"},{"t":"E","c":"ok"},{"t":"F","c":"ok"}],"empty":"(none yet)"}]}],"ask":{"q":"What is the shortest path from A to F, counted in edges?","opts":["2","3","4"],"answer":"3","why":"A to B (or C), then D, then F: 3 edges. BFS reached F at level 3, and it always reaches a node by the fewest edges first."}},{"name":"DFS","code":["function dfs(graph, node, seen) {","  seen.add(node);","  for (const nb of graph[node]) {","    if (!seen.has(nb)) dfs(graph, nb, seen);","  }","}"],"graph":{"w":340,"h":270,"directed":false,"nodes":[{"id":"A","x":170,"y":30,"label":"A"},{"id":"B","x":70,"y":100,"label":"B"},{"id":"C","x":270,"y":100,"label":"C"},{"id":"D","x":170,"y":165,"label":"D"},{"id":"E","x":100,"y":235,"label":"E"},{"id":"F","x":240,"y":235,"label":"F"}],"edges":[["A","B"],["A","C"],["B","D"],["C","D"],["D","E"],["D","F"]]},"steps":[{"line":1,"note":"Start at <code>A</code>. Mark it seen.","nodeCls":{"A":"cur"},"hot":[],"panels":[{"title":"Calls waiting (the stack)","cells":[{"t":"A","c":"on"}],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":1,"note":"Go from <code>A</code> into <code>B</code>. Mark it seen and go deeper before looking at the other neighbours.","nodeCls":{"A":"seen","B":"cur"},"hot":[["A","B"]],"panels":[{"title":"Calls waiting (the stack)","cells":[{"t":"A","c":""},{"t":"B","c":"on"}],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"}],"empty":"(none yet)"}]},{"line":1,"note":"Go from <code>B</code> into <code>D</code>. Mark it seen and go deeper before looking at the other neighbours.","nodeCls":{"A":"seen","B":"seen","D":"cur"},"hot":[["B","D"]],"panels":[{"title":"Calls waiting (the stack)","cells":[{"t":"A","c":""},{"t":"B","c":""},{"t":"D","c":"on"}],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"D","c":"ok"}],"empty":"(none yet)"}]},{"line":1,"note":"Go from <code>D</code> into <code>C</code>. Mark it seen and go deeper before looking at the other neighbours.","nodeCls":{"A":"seen","B":"seen","D":"seen","C":"cur"},"hot":[["D","C"]],"panels":[{"title":"Calls waiting (the stack)","cells":[{"t":"A","c":""},{"t":"B","c":""},{"t":"D","c":""},{"t":"C","c":"on"}],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"D","c":"ok"},{"t":"C","c":"ok"}],"empty":"(none yet)"}]},{"line":1,"note":"Go from <code>D</code> into <code>E</code>. Mark it seen and go deeper before looking at the other neighbours.","nodeCls":{"A":"seen","B":"seen","D":"seen","E":"cur","C":"done"},"hot":[["D","E"]],"panels":[{"title":"Calls waiting (the stack)","cells":[{"t":"A","c":""},{"t":"B","c":""},{"t":"D","c":""},{"t":"E","c":"on"}],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"D","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"}],"empty":"(none yet)"}]},{"line":1,"note":"Go from <code>D</code> into <code>F</code>. Mark it seen and go deeper before looking at the other neighbours.","nodeCls":{"A":"seen","B":"seen","D":"seen","F":"cur","C":"done","E":"done"},"hot":[["D","F"]],"panels":[{"title":"Calls waiting (the stack)","cells":[{"t":"A","c":""},{"t":"B","c":""},{"t":"D","c":""},{"t":"F","c":"on"}],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"D","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"},{"t":"F","c":"ok"}],"empty":"(none yet)"}]},{"line":5,"note":"All done. Order: <code>A B D C E F</code>. DFS dives down one path (A, B, D) before it comes back to C. It does not find shortest paths, but it uses very little memory and is perfect for \"can I reach it?\" and \"count the groups\".","nodeCls":{"A":"done","B":"done","D":"done","C":"done","E":"done","F":"done"},"hot":[],"panels":[{"title":"Calls waiting (the stack)","cells":[],"empty":"(none)"},{"title":"Visited in order","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"D","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"},{"t":"F","c":"ok"}],"empty":"(none yet)"}]}],"ask":{"q":"After A, which node does DFS visit next (neighbours are tried in the order listed)?","opts":["B","C","D"],"answer":"B","why":"A's first neighbour is B. DFS goes into B at once, then into B's neighbour D, before it ever looks at C."}},{"name":"Order tasks (no cycle)","code":["function topo(graph, indeg, nodes) {","  const queue = nodes.filter(n => indeg[n] === 0);","  const order = [];","  while (queue.length) {","    const node = queue.shift();","    order.push(node);","    for (const nb of graph[node])","      if (--indeg[nb] === 0) queue.push(nb);","  }","  // fewer than all nodes means a cycle","  return order.length === nodes.length ? order : null;","}"],"graph":{"w":340,"h":215,"directed":true,"nodes":[{"id":"A","x":90,"y":30,"label":"A"},{"id":"B","x":250,"y":30,"label":"B"},{"id":"C","x":90,"y":105,"label":"C"},{"id":"E","x":250,"y":105,"label":"E"},{"id":"D","x":170,"y":175,"label":"D"}],"edges":[["A","C"],["B","C"],["B","E"],["C","D"],["E","D"]]},"steps":[{"line":1,"note":"<code>in</code> is the number of arrows pointing at a node: what it still waits for. Nodes with <code>in 0</code> can go first.","nodeCls":{"A":"seen","B":"seen"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 2"],["E","in 1"],["D","in 2"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"A","c":"on"},{"t":"B","c":""}],"empty":"(empty)"},{"title":"Order so far","cells":[],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>A</code> and put it in the order.","nodeCls":{"A":"cur","B":"seen"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 2"],["E","in 1"],["D","in 2"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"B","c":"on"}],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Remove <code>A</code>'s arrows: each neighbour waits for one less. None reached 0 yet.","nodeCls":{"A":"cur","B":"seen"},"hot":[["A","C"]],"tags":[["A","in 0"],["B","in 0"],["C","in 1"],["E","in 1"],["D","in 2"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"B","c":"on"}],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>B</code> and put it in the order.","nodeCls":{"A":"done","B":"cur"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 1"],["E","in 1"],["D","in 2"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Remove <code>B</code>'s arrows: each neighbour waits for one less. <code>C, E</code> reached 0, so they join the queue.","nodeCls":{"A":"done","B":"cur","C":"seen","E":"seen"},"hot":[["B","C"],["B","E"]],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 2"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"C","c":"on"},{"t":"E","c":""}],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>C</code> and put it in the order.","nodeCls":{"A":"done","B":"done","C":"cur","E":"seen"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 2"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"E","c":"on"}],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Remove <code>C</code>'s arrows: each neighbour waits for one less. None reached 0 yet.","nodeCls":{"A":"done","B":"done","C":"cur","E":"seen"},"hot":[["C","D"]],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 1"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"E","c":"on"}],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>E</code> and put it in the order.","nodeCls":{"A":"done","B":"done","C":"done","E":"cur"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 1"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Remove <code>E</code>'s arrows: each neighbour waits for one less. <code>D</code> reached 0, so it joins the queue.","nodeCls":{"A":"done","B":"done","C":"done","E":"cur","D":"seen"},"hot":[["E","D"]],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 0"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"D","c":"on"}],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"}],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>D</code> and put it in the order.","nodeCls":{"A":"done","B":"done","C":"done","E":"done","D":"cur"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 0"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"},{"t":"D","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"<code>D</code> has no arrows out.","nodeCls":{"A":"done","B":"done","C":"done","E":"done","D":"cur"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 0"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"},{"t":"D","c":"ok"}],"empty":"(none yet)"}]},{"line":10,"note":"The order has all 5 nodes: <code>A B C E D</code>. There is no cycle.","nodeCls":{"A":"done","B":"done","C":"done","E":"done","D":"done"},"hot":[],"tags":[["A","in 0"],["B","in 0"],["C","in 0"],["E","in 0"],["D","in 0"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"},{"t":"B","c":"ok"},{"t":"C","c":"ok"},{"t":"E","c":"ok"},{"t":"D","c":"ok"}],"empty":"(none yet)"}]}],"ask":{"q":"Task D needs both C and E first. Can D come before C?","opts":["Yes","No"],"answer":"No","why":"An arrow X → Y means X must come before Y. D waits for C and E, so it can only go after both."}},{"name":"Order tasks (a cycle)","code":["function topo(graph, indeg, nodes) {","  const queue = nodes.filter(n => indeg[n] === 0);","  const order = [];","  while (queue.length) {","    const node = queue.shift();","    order.push(node);","    for (const nb of graph[node])","      if (--indeg[nb] === 0) queue.push(nb);","  }","  // fewer than all nodes means a cycle","  return order.length === nodes.length ? order : null;","}"],"graph":{"w":340,"h":215,"directed":true,"nodes":[{"id":"A","x":60,"y":100,"label":"A"},{"id":"B","x":170,"y":100,"label":"B"},{"id":"C","x":280,"y":100,"label":"C"}],"edges":[["A","B"],["B","C"],["C","B"]]},"steps":[{"line":1,"note":"<code>in</code> is the number of arrows pointing at a node: what it still waits for. Nodes with <code>in 0</code> can go first.","nodeCls":{"A":"seen"},"hot":[],"tags":[["A","in 0"],["B","in 2"],["C","in 1"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[{"t":"A","c":"on"}],"empty":"(empty)"},{"title":"Order so far","cells":[],"empty":"(none yet)"}]},{"line":4,"note":"Take <code>A</code> and put it in the order.","nodeCls":{"A":"cur"},"hot":[],"tags":[["A","in 0"],["B","in 2"],["C","in 1"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":7,"note":"Remove <code>A</code>'s arrows: each neighbour waits for one less. None reached 0 yet.","nodeCls":{"A":"cur"},"hot":[["A","B"]],"tags":[["A","in 0"],["B","in 1"],["C","in 1"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]},{"line":10,"note":"The order has only 1 of 3 nodes. The rest wait for each other forever. That is a <b>cycle</b>: the answer is \"no valid order\".","nodeCls":{"A":"done"},"hot":[],"tags":[["A","in 0"],["B","in 1"],["C","in 1"]],"panels":[{"title":"Queue (nodes with nothing left to wait for)","cells":[],"empty":"(empty)"},{"title":"Order so far","cells":[{"t":"A","c":"ok"}],"empty":"(none yet)"}]}],"ask":{"q":"B needs C, and C needs B. Can the sort finish all three?","opts":["Yes","No"],"answer":"No","why":"B and C each wait for the other, so neither ever reaches 0. The order stops at A. Fewer nodes than expected means a cycle."}}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === s.line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+
+function renderGraph(s) {
+  const g = PROGRAMS[cur].graph;
+  if (!g) { $("graphbox").innerHTML = ""; return; }
+  const R = 19, edges = s.edges || g.edges, cls = s.nodeCls || {}, lab = s.labels || {}, hot = s.hot || [];
+  const pos = {}; g.nodes.forEach(n => pos[n.id] = n);
+  let svg = '<svg class="gr" viewBox="0 0 ' + g.w + " " + g.h + '"><defs>' +
+    '<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker>' +
+    '<marker class="hotm" id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker></defs>';
+  edges.forEach(e => {
+    const a = pos[e[0]], b = pos[e[1]], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const x1 = a.x + dx / len * R, y1 = a.y + dy / len * R;
+    const tail = g.directed ? R + 3 : R;
+    const x2 = b.x - dx / len * tail, y2 = b.y - dy / len * tail;
+    const isHot = hot.some(h => h[0] === e[0] && h[1] === e[1]);
+    svg += '<line class="' + (isHot ? "hot" : "") + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"' +
+      (g.directed ? ' marker-end="url(#' + (isHot ? "arh" : "ar") + ')"' : "") + "/>";
+  });
+  g.nodes.forEach(n => {
+    const label = lab[n.id] !== undefined ? lab[n.id] : n.label;
+    svg += '<circle class="' + (cls[n.id] || "") + '" cx="' + n.x + '" cy="' + n.y + '" r="' + R + '"/><text x="' + n.x + '" y="' + n.y + '">' + esc(label) + "</text>";
+    if (n.tag) svg += '<text class="tag" x="' + n.x + '" y="' + (n.y + R + 11) + '">' + esc(n.tag) + "</text>";
+  });
+  (s.tags || []).forEach(t => { const n = pos[t[0]]; svg += '<text class="tag" x="' + n.x + '" y="' + (n.y - R - 9) + '">' + esc(t[1]) + "</text>"; });
+  $("graphbox").innerHTML = svg + "</svg>";
+}
+
+function renderRows(s) {
+  $("rows").innerHTML = (s.panels || []).map(p => {
+    const body = p.cells.length ? '<div class="cells">' + p.cells.map(c =>
+      '<div class="cell ' + (c.c || "") + '"><small>' + (c.i === undefined ? "" : esc(c.i)) + "</small><b>" + esc(c.t) + "</b><em>" + (c.p ? esc(c.p) : "") + "</em></div>").join("") + "</div>"
+      : '<div class="empty">' + esc(p.empty || "(empty)") + "</div>";
+    return '<div class="row"><h3>' + esc(p.title) + "</h3>" + body + "</div>";
+  }).join("");
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderGraph(s); renderRows(s);
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch what changes at each step.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

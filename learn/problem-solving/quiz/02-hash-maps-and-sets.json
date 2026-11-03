@@ -1,0 +1,68 @@
+[
+  {
+    "q": "How does a hash map find a value without looking at every item?",
+    "options": [
+      "A hash function turns the key into a bucket number and it jumps to that bucket",
+      "It sorts the keys and does a binary search",
+      "It keeps the keys in a linked list",
+      "It reads the items in the order they were added"
+    ],
+    "answer": 0,
+    "why": "The key becomes a number, the number picks the bucket, and we look only inside that bucket. That is O(1) on average."
+  },
+  {
+    "q": "What is a collision?",
+    "options": [
+      "Two equal keys are stored twice",
+      "Two different keys land in the same bucket",
+      "The table is full",
+      "A key is deleted by mistake"
+    ],
+    "answer": 1,
+    "why": "It is normal. The bucket keeps both keys in a short list and checks them until the key matches. Many collisions make lookups slow."
+  },
+  {
+    "q": "When can a hash map lookup become O(n)?",
+    "options": [
+      "When the keys are numbers",
+      "When the map has more than 10 keys",
+      "When most keys land in the same bucket",
+      "Every time you call `has`"
+    ],
+    "answer": 2,
+    "why": "If every key lands in one bucket, that bucket is a long list and we walk all of it. A good hash and a table that grows keep buckets short."
+  },
+  {
+    "q": "`const counts = {}; counts['constructor'] = (counts['constructor'] || 0) + 1;` goes wrong. Why?",
+    "options": [
+      "`||` does not work with strings",
+      "Object keys cannot contain letters only",
+      "`constructor` is a reserved word that throws",
+      "`counts.constructor` already exists on a plain object (it is a function)"
+    ],
+    "answer": 3,
+    "why": "The prototype names are already there, so you add 1 to a function and get a string. A `Map` has no such trap."
+  },
+  {
+    "q": "In Two Sum with a Map, why do we store `nums[i]` AFTER checking for `target - nums[i]`?",
+    "options": [
+      "So a number cannot be paired with itself",
+      "To make the Map smaller",
+      "Because `Map.set` is slow",
+      "To keep the numbers sorted"
+    ],
+    "answer": 0,
+    "why": "Checking first means we only match against numbers that came earlier. With target 10, a lone 5 must not pair with itself."
+  },
+  {
+    "q": "What does `new Set([1, '1', 1]).size` give?",
+    "options": [
+      "1",
+      "2",
+      "3",
+      "0"
+    ],
+    "answer": 1,
+    "why": "The same number twice is one member. The number 1 and the string '1' are different values."
+  }
+]

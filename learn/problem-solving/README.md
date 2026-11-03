@@ -4,6 +4,60 @@ Pattern based coding practice. The goal is not to collect solved problems. The g
 
 Part of the plan in [`my-learning/study-method-and-weekly-plan.md`](../../my-learning/study-method-and-weekly-plan.md).
 
+**Why it matters in interviews:** most coding rounds are about a few data structures (array, hash map, stack, queue, tree, graph, heap) and a few ideas (Big O, binary search, recursion, dynamic programming). If you can see the picture and say the cost, you can solve the new problem in front of you.
+
+## The map
+
+How the lessons connect. Learn top to bottom. The first lesson gives you the words to say the cost of everything after it.
+
+```mermaid
+graph TB
+    A["01 Big O: say the cost"] --> B["02 to 05 Data structures<br/>hash map, list, tree, graph"]
+    B --> C["06 and 07 Tools<br/>binary search, sorting, heap"]
+    C --> D["08 Recursion, backtracking, DP"]
+```
+
+## Lessons, one concept per file
+
+Each lesson is one file made from [the lesson template](../../templates/lesson-template.md): picture first, code you can run, a step-by-step page, practice with tests, a quiz, links to watch and play, and an explain it back section. Every number in the lessons came from a real run (Node 26.12.1).
+
+Status: `planned` (not written yet), `ready` (written, not studied), `learning`, `can explain` (passed explain-check). This is a first set: the topics asked most in interviews. It is not the whole subject.
+
+### Foundations
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 01 | [Big O: time and space](01-big-o-time-and-space.md) | count the steps, read O(1), O(log n), O(n), O(n²) in code, and the hidden slow calls in JavaScript | ready |
+
+### Data structures
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 02 | [Hash maps and sets](02-hash-maps-and-sets.md) | buckets and collisions, Map against object, and the three jobs: seen before, count, group | ready |
+| 03 | [Arrays, linked lists, stacks and queues](03-arrays-linked-lists-stacks-and-queues.md) | what each costs, reverse a list, find a cycle, brackets with a stack, a fast queue | ready |
+| 04 | [Trees and traversal](04-trees-and-traversal.md) | DFS (three orders) and BFS, search trees, and the validate BST trap | ready |
+| 05 | [Graphs: BFS, DFS and cycles](05-graphs-bfs-dfs-and-cycles.md) | adjacency lists, fewest steps with BFS, number of islands, ordering tasks and finding a cycle | ready |
+
+### Tools and ideas
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 06 | [Binary search and sorting](06-binary-search-and-sorting.md) | halve the work, search the answer, the sort number trap, merge sort | ready |
+| 07 | [Heaps and top k](07-heaps-and-top-k.md) | a priority queue as an array tree, push and pop, k-th largest in O(n log k) | ready |
+| 08 | [Recursion, backtracking and dynamic programming](08-recursion-backtracking-and-dynamic-programming.md) | base case, memoization, a DP table, choose-explore-undo | ready |
+| 09 | Two pointers and sliding window `09-two-pointers-and-sliding-window.md` | the two array patterns, with the cost of each | planned |
+| 10 | Intervals and greedy choices `10-intervals-and-greedy.md` | merge intervals, and when "best choice now" is safe | planned |
+| 11 | Tries and union-find `11-tries-and-union-find.md` | autocomplete trees and "are these in the same group" | planned |
+
+**Read the lesson, then write the code.** The practice files for the lessons are in [`practice/`](practice/) (an empty function and a test file for each, run with `node --test`). The older pattern folders below (`00-warmup` to `04-stack`) are extra problems to solve after the matching lesson:
+
+| Lesson | Then do the folder |
+|---|---|
+| 01 Big O, 08 Recursion | `00-warmup` (Fibonacci, Climbing Stairs) |
+| 02 Hash maps | `01-hash-map` (Two Sum, Valid Anagram, Group Anagrams) |
+| 03 Lists, stacks, queues | `04-stack` (Valid Parentheses, Daily Temperatures) |
+| 06 Binary search | `02-two-pointers` works on sorted data too |
+
 ## How to use it
 
 1. Pick the next folder in order. Read the problem comment at the top of the file.
@@ -15,6 +69,7 @@ npm run test:hash-map        # 01-hash-map
 npm run test:two-pointers    # 02-two-pointers
 npm run test:sliding-window  # 03-sliding-window
 npm run test:stack           # 04-stack
+npm run test:lessons         # practice/ for lessons 01 to 08
 npm test                     # everything
 ```
 
@@ -67,7 +122,7 @@ Fix 1: remember each answer after the first time (memoization). Fix 2: notice yo
 
 ## Pattern roadmap
 
-Do them in this order. A new pattern builds on the ones before it. The first five folders are ready. Ask Claude to add the next folder when you finish the current one.
+Do them in this order. A new pattern builds on the ones before it. The first five folders are ready. Ask Claude to add the next folder when you finish the current one. The concept lessons above cover patterns 5 to 10 (binary search, backtracking, trees, graphs, dynamic programming, heaps) as lessons with practice files, but not yet as folders of problems.
 
 | # | Pattern | Use it when | Ready | Problems |
 |---|---|---|---|---|

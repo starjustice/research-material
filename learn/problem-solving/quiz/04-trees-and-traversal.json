@@ -1,0 +1,68 @@
+[
+  {
+    "q": "In a recursive function on a tree, what is the base case?",
+    "options": [
+      "An empty spot (`null`) returns at once",
+      "The root returns first",
+      "A node with two children",
+      "The longest path"
+    ],
+    "answer": 0,
+    "why": "Without `if (!node) return ...` the code reads a property of null and crashes. Write the base case first."
+  },
+  {
+    "q": "What is the difference between preorder, inorder and postorder?",
+    "options": [
+      "Whether you use a stack or a queue",
+      "When the node is visited: before its children, between them, or after them",
+      "Whether you start at the left or the right leaf",
+      "How many children each node has"
+    ],
+    "answer": 1,
+    "why": "All three are depth first. Only the moment of the visit changes."
+  },
+  {
+    "q": "What does an inorder walk of a binary search tree give?",
+    "options": [
+      "The values in the order they were inserted",
+      "The values level by level",
+      "The values in sorted order",
+      "The largest value first"
+    ],
+    "answer": 2,
+    "why": "Left side is smaller, then the node, then the right side is bigger, so the walk comes out sorted."
+  },
+  {
+    "q": "Which data structure does BFS (level order) use, and which does DFS use?",
+    "options": [
+      "BFS a stack, DFS a queue",
+      "Both use a Set",
+      "Both use a heap",
+      "BFS a queue, DFS a stack (often the call stack)"
+    ],
+    "answer": 3,
+    "why": "A queue gives back the oldest first, so it finishes a level before the next. A stack goes deep first."
+  },
+  {
+    "q": "Why is checking only that each node fits its parent NOT enough to validate a BST?",
+    "options": [
+      "A value deep on one side can break the rule for a far ancestor",
+      "Parents are never compared with children",
+      "Trees can have two roots",
+      "Equal values are always allowed"
+    ],
+    "answer": 0,
+    "why": "In my test tree 3 sat on the right of 5 and the parent-only check said valid. Pass down a lower and an upper limit."
+  },
+  {
+    "q": "You insert 1, 2, 3, ... 1000 in this order into a plain BST. How tall is the tree?",
+    "options": [
+      "About 10",
+      "1000, it becomes a chain",
+      "About 25",
+      "500"
+    ],
+    "answer": 1,
+    "why": "Each new value is bigger than all before, so it always goes right. Search becomes O(n). The same numbers in a shuffled order gave a height of 25."
+  }
+]

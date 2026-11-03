@@ -206,5 +206,69 @@
   "num": "26",
   "title": "What an index costs, and when Postgres ignores it",
   "count": 7
+ },
+ {
+  "slug": "learn/problem-solving/01-big-o-time-and-space",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "01",
+  "title": "Big O: time and space",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/02-hash-maps-and-sets",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "02",
+  "title": "Hash maps and sets",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/03-arrays-linked-lists-stacks-and-queues",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "03",
+  "title": "Arrays, linked lists, stacks and queues",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/04-trees-and-traversal",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "04",
+  "title": "Trees and traversal",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/05-graphs-bfs-dfs-and-cycles",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "05",
+  "title": "Graphs: BFS, DFS and cycles",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/06-binary-search-and-sorting",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "06",
+  "title": "Binary search and sorting",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/07-heaps-and-top-k",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "07",
+  "title": "Heaps and top k",
+  "count": 6
+ },
+ {
+  "slug": "learn/problem-solving/08-recursion-backtracking-and-dynamic-programming",
+  "subject": "problem-solving",
+  "subjectTitle": "Problem Solving Practice (JavaScript)",
+  "num": "08",
+  "title": "Recursion, backtracking and dynamic programming",
+  "count": 6
  }
 ]

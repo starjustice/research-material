@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heap Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+    --hit: #b7791f; --hit-bg: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+
+  svg.gr { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto 8px; }
+  svg.gr line { stroke: #b9c2c9; stroke-width: 2; }
+  svg.gr line.hot { stroke: var(--stage); stroke-width: 3.5; }
+  svg.gr circle { fill: #fff; stroke: #b9c2c9; stroke-width: 2.5; }
+  svg.gr circle.cur { fill: var(--stage-bg); stroke: var(--stage); }
+  svg.gr circle.done { fill: var(--keep-bg); stroke: var(--keep); }
+  svg.gr circle.seen { fill: var(--hit-bg); stroke: var(--hit); }
+  svg.gr circle.dim { fill: #f7f4ec; stroke: #e6dfd2; }
+  svg.gr circle.bad { fill: var(--drop-bg); stroke: var(--drop); }
+  svg.gr text { font: 700 15px ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  svg.gr text.tag { font: 600 11px -apple-system, sans-serif; fill: var(--muted); }
+  svg.gr marker path { fill: #b9c2c9; }
+  svg.gr marker.hotm path { fill: var(--stage); }
+
+  .row { margin-bottom: 12px; }
+  .row h3 { font-size: .8rem; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+  .cells { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cell { display: flex; flex-direction: column; align-items: center; min-width: 38px; }
+  .cell small { font-size: .68rem; color: var(--muted); height: 1em; line-height: 1; margin-bottom: 2px; }
+  .cell b {
+    display: block; min-width: 38px; padding: 6px 6px; text-align: center; border: 2px solid var(--border); background: #fff;
+    border-radius: 8px; font: 700 .9rem ui-monospace, Menlo, monospace;
+  }
+  .cell em { font-style: normal; font-size: .72rem; font-weight: 700; color: var(--stage); height: 1em; line-height: 1; margin-top: 3px; white-space: nowrap; }
+  .cell.on b { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); }
+  .cell.ok b { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .cell.hit b { background: var(--hit-bg); border-color: var(--hit); color: var(--hit); }
+  .cell.bad b { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .cell.dim b { background: #f1eee6; color: #a4abb1; border-color: #e6dfd2; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 4px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/problem-solving/README" id="back">← Problem solving lessons</a>
+    <a href="../../../viewer.html?note=learn/problem-solving/07-heaps-and-top-k" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Heaps: smallest on top</h1>
+  <p class="sub">Press Next and watch a heap fix itself after a push and after a pop, then find the top 3 numbers.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What it looks like right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="graphbox"></div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> A min-heap keeps the smallest value on top, and fixes itself in O(log n) after every push or pop. For "top k", keep a heap of size k.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Heap:</b> a tree where every parent is smaller than its children (min-heap).</li>
+      <li><b>Priority queue:</b> a line where the smallest (or biggest) value always leaves first.</li>
+      <li><b>Bubble up / down:</b> swap a value with its parent / child until the rule holds again.</li>
+      <li><b>Top k:</b> the k biggest or smallest values.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Every step below was recorded from a real run of the code shown (see the lesson's practice file).
+const PROGRAMS = [{"name":"Push (bubble up)","code":["push(x) {","  this.a.push(x);","  let i = this.a.length - 1;","  while (i > 0) {","    const p = (i - 1) >> 1;","    if (this.a[p] <= this.a[i]) break;","    swap(this.a, p, i);","    i = p;","  }","}"],"graph":{"w":340,"h":195,"directed":false,"nodes":[{"id":"i0","x":170,"y":30,"label":""},{"id":"i1","x":90,"y":95,"label":""},{"id":"i2","x":250,"y":95,"label":""},{"id":"i3","x":50,"y":160,"label":""},{"id":"i4","x":130,"y":160,"label":""},{"id":"i5","x":210,"y":160,"label":""},{"id":"i6","x":290,"y":160,"label":""}],"edges":[]},"steps":[{"line":1,"note":"Add <code>5</code> at the end (index 0). The tree stays full, left to right.","nodeCls":{"i0":"cur","i1":"dim","i2":"dim","i3":"dim","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"5","i1":"","i2":"","i3":"","i4":"","i5":"","i6":""},"edges":[],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"5","c":"on","i":0}],"empty":"(empty)"}]},{"line":1,"note":"Add <code>3</code> at the end (index 1). The tree stays full, left to right.","nodeCls":{"i0":"","i1":"cur","i2":"dim","i3":"dim","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"5","i1":"3","i2":"","i3":"","i4":"","i5":"","i6":""},"edges":[["i0","i1"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"5","c":"","i":0},{"t":"3","c":"on","i":1}],"empty":"(empty)"}]},{"line":6,"note":"Parent is bigger than the new value. Swap them: <code>3</code> moves up to index 0.","nodeCls":{"i0":"cur","i1":"","i2":"dim","i3":"dim","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"","i3":"","i4":"","i5":"","i6":""},"edges":[["i0","i1"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"on","i":0},{"t":"5","c":"","i":1}],"empty":"(empty)"}]},{"line":1,"note":"Add <code>8</code> at the end (index 2). The tree stays full, left to right.","nodeCls":{"i0":"","i1":"","i2":"cur","i3":"dim","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"8","i3":"","i4":"","i5":"","i6":""},"edges":[["i0","i1"],["i0","i2"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"5","c":"","i":1},{"t":"8","c":"on","i":2}],"empty":"(empty)"}]},{"line":5,"note":"Parent (index 0) is <code>3</code>, not bigger than <code>8</code>. The rule \"parent ≤ child\" holds. Stop.","nodeCls":{"i0":"","i1":"","i2":"cur","i3":"dim","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"8","i3":"","i4":"","i5":"","i6":""},"edges":[["i0","i1"],["i0","i2"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"5","c":"","i":1},{"t":"8","c":"on","i":2}],"empty":"(empty)"}]},{"line":1,"note":"Add <code>1</code> at the end (index 3). The tree stays full, left to right.","nodeCls":{"i0":"","i1":"","i2":"","i3":"cur","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"8","i3":"1","i4":"","i5":"","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"5","c":"","i":1},{"t":"8","c":"","i":2},{"t":"1","c":"on","i":3}],"empty":"(empty)"}]},{"line":6,"note":"Parent is bigger than the new value. Swap them: <code>1</code> moves up to index 1.","nodeCls":{"i0":"","i1":"cur","i2":"","i3":"","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"3","i1":"1","i2":"8","i3":"5","i4":"","i5":"","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"1","c":"on","i":1},{"t":"8","c":"","i":2},{"t":"5","c":"","i":3}],"empty":"(empty)"}]},{"line":6,"note":"Parent is bigger than the new value. Swap them: <code>1</code> moves up to index 0.","nodeCls":{"i0":"cur","i1":"","i2":"","i3":"","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"1","i1":"3","i2":"8","i3":"5","i4":"","i5":"","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"1","c":"on","i":0},{"t":"3","c":"","i":1},{"t":"8","c":"","i":2},{"t":"5","c":"","i":3}],"empty":"(empty)"}]},{"line":9,"note":"The smallest value, <code>1</code>, is at the top. Every parent is smaller than its children. Each push climbs at most the height of the tree: O(log n).","nodeCls":{"i0":"cur","i1":"","i2":"","i3":"","i4":"dim","i5":"dim","i6":"dim"},"labels":{"i0":"1","i1":"3","i2":"8","i3":"5","i4":"","i5":"","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"1","c":"on","i":0},{"t":"3","c":"","i":1},{"t":"8","c":"","i":2},{"t":"5","c":"","i":3}],"empty":"(empty)"}]}],"ask":{"q":"Push 5, 3, 8, then 1 into an empty min-heap. What is at the top?","opts":["5","3","1"],"answer":"1","why":"The new 1 is smaller than its parent 3, swaps up, is smaller than 3 again, and swaps to the top. The top of a min-heap is always the smallest value."}},{"name":"Pop (bubble down)","code":["pop() {","  const top = this.a[0];","  const last = this.a.pop();","  this.a[0] = last;","  let i = 0;","  for (;;) {","    // pick the smaller child","    if (no child is smaller) break;","    swap(this.a, i, smallerChild);","  }","  return top;","}"],"graph":{"w":340,"h":195,"directed":false,"nodes":[{"id":"i0","x":170,"y":30,"label":""},{"id":"i1","x":90,"y":95,"label":""},{"id":"i2","x":250,"y":95,"label":""},{"id":"i3","x":50,"y":160,"label":""},{"id":"i4","x":130,"y":160,"label":""},{"id":"i5","x":210,"y":160,"label":""},{"id":"i6","x":290,"y":160,"label":""}],"edges":[]},"steps":[{"line":0,"note":"A min-heap with 7 values. The smallest, <code>1</code>, is at the top. We want to remove it.","nodeCls":{"i0":"cur","i1":"","i2":"","i3":"","i4":"","i5":"","i6":""},"labels":{"i0":"1","i1":"3","i2":"8","i3":"5","i4":"9","i5":"10","i6":"11"},"edges":[["i0","i1"],["i0","i2"],["i1","i3"],["i1","i4"],["i2","i5"],["i2","i6"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"1","c":"on","i":0},{"t":"3","c":"","i":1},{"t":"8","c":"","i":2},{"t":"5","c":"","i":3},{"t":"9","c":"","i":4},{"t":"10","c":"","i":5},{"t":"11","c":"","i":6}],"empty":"(empty)"}]},{"line":3,"note":"Take <code>1</code> out. Move the <b>last</b> value, <code>11</code>, to the top so there is no hole. Now the top may be too big.","nodeCls":{"i0":"cur","i1":"","i2":"","i3":"","i4":"","i5":"","i6":"dim"},"labels":{"i0":"11","i1":"3","i2":"8","i3":"5","i4":"9","i5":"10","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"],["i1","i4"],["i2","i5"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"11","c":"on","i":0},{"t":"3","c":"","i":1},{"t":"8","c":"","i":2},{"t":"5","c":"","i":3},{"t":"9","c":"","i":4},{"t":"10","c":"","i":5}],"empty":"(empty)"}]},{"line":8,"note":"Swap with the smaller child: <code>3</code> moves up to index 0, and the big <code>11</code> sinks to index 1.","nodeCls":{"i0":"","i1":"cur","i2":"","i3":"","i4":"","i5":"","i6":"dim"},"labels":{"i0":"3","i1":"11","i2":"8","i3":"5","i4":"9","i5":"10","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"],["i1","i4"],["i2","i5"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"11","c":"on","i":1},{"t":"8","c":"","i":2},{"t":"5","c":"","i":3},{"t":"9","c":"","i":4},{"t":"10","c":"","i":5}],"empty":"(empty)"}]},{"line":8,"note":"Swap with the smaller child: <code>5</code> moves up to index 1, and the big <code>11</code> sinks to index 3.","nodeCls":{"i0":"","i1":"","i2":"","i3":"cur","i4":"","i5":"","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"8","i3":"11","i4":"9","i5":"10","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"],["i1","i4"],["i2","i5"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"5","c":"","i":1},{"t":"8","c":"","i":2},{"t":"11","c":"on","i":3},{"t":"9","c":"","i":4},{"t":"10","c":"","i":5}],"empty":"(empty)"}]},{"line":7,"note":"No child is smaller than <code>11</code>. It has found its place. Stop.","nodeCls":{"i0":"","i1":"","i2":"","i3":"cur","i4":"","i5":"","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"8","i3":"11","i4":"9","i5":"10","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"],["i1","i4"],["i2","i5"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"","i":0},{"t":"5","c":"","i":1},{"t":"8","c":"","i":2},{"t":"11","c":"on","i":3},{"t":"9","c":"","i":4},{"t":"10","c":"","i":5}],"empty":"(empty)"}]},{"line":10,"note":"Returned <code>1</code>. The new top is <code>3</code>, the next smallest. A pop goes down at most the height of the tree: O(log n).","nodeCls":{"i0":"cur","i1":"","i2":"","i3":"","i4":"","i5":"","i6":"dim"},"labels":{"i0":"3","i1":"5","i2":"8","i3":"11","i4":"9","i5":"10","i6":""},"edges":[["i0","i1"],["i0","i2"],["i1","i3"],["i1","i4"],["i2","i5"]],"panels":[{"title":"The array behind the tree (index above)","cells":[{"t":"3","c":"on","i":0},{"t":"5","c":"","i":1},{"t":"8","c":"","i":2},{"t":"11","c":"","i":3},{"t":"9","c":"","i":4},{"t":"10","c":"","i":5}],"empty":"(empty)"}]}],"ask":{"q":"After removing 1, which value becomes the top?","opts":["3","5","11"],"answer":"3","why":"11 is moved to the top, then it sinks: it swaps with the smaller child 3, and then with 5. The old second smallest, 3, ends on top."}},{"name":"Top 3 numbers","code":["function topK(nums, k) {","  const heap = new MinHeap();","  for (const x of nums) {","    if (heap.size() < k) heap.push(x);","    else if (x > heap.peek()) {","      heap.pop(); heap.push(x);","    }","  }","  return heap.toArray();","}"],"steps":[{"line":1,"note":"Find the 3 biggest numbers. Keep a min-heap that never holds more than 3. Its top is the <b>smallest of the 3 biggest</b>, the one to beat.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"","i":0,"p":""},{"t":"1","c":"","i":1,"p":""},{"t":"9","c":"","i":2,"p":""},{"t":"3","c":"","i":3,"p":""},{"t":"7","c":"","i":4,"p":""},{"t":"8","c":"","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[],"empty":"(empty)"}]},{"line":3,"note":"The heap has room (1 of 3). Push <code>5</code>.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"on","i":0,"p":"x"},{"t":"1","c":"","i":1,"p":""},{"t":"9","c":"","i":2,"p":""},{"t":"3","c":"","i":3,"p":""},{"t":"7","c":"","i":4,"p":""},{"t":"8","c":"","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"5","c":"hit"}],"empty":"(empty)"}]},{"line":3,"note":"The heap has room (2 of 3). Push <code>1</code>.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"ok","i":0,"p":""},{"t":"1","c":"on","i":1,"p":"x"},{"t":"9","c":"","i":2,"p":""},{"t":"3","c":"","i":3,"p":""},{"t":"7","c":"","i":4,"p":""},{"t":"8","c":"","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"1","c":"hit"},{"t":"5","c":"ok"}],"empty":"(empty)"}]},{"line":3,"note":"The heap has room (3 of 3). Push <code>9</code>.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"ok","i":0,"p":""},{"t":"1","c":"ok","i":1,"p":""},{"t":"9","c":"on","i":2,"p":"x"},{"t":"3","c":"","i":3,"p":""},{"t":"7","c":"","i":4,"p":""},{"t":"8","c":"","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"1","c":"hit"},{"t":"5","c":"ok"},{"t":"9","c":"ok"}],"empty":"(empty)"}]},{"line":5,"note":"<code>3</code> beats the top (<code>1</code>). Remove <code>1</code> and push <code>3</code>. The heap still has 3.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"ok","i":0,"p":""},{"t":"1","c":"ok","i":1,"p":""},{"t":"9","c":"ok","i":2,"p":""},{"t":"3","c":"on","i":3,"p":"x"},{"t":"7","c":"","i":4,"p":""},{"t":"8","c":"","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"3","c":"hit"},{"t":"9","c":"ok"},{"t":"5","c":"ok"}],"empty":"(empty)"}]},{"line":5,"note":"<code>7</code> beats the top (<code>3</code>). Remove <code>3</code> and push <code>7</code>. The heap still has 3.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"ok","i":0,"p":""},{"t":"1","c":"ok","i":1,"p":""},{"t":"9","c":"ok","i":2,"p":""},{"t":"3","c":"ok","i":3,"p":""},{"t":"7","c":"on","i":4,"p":"x"},{"t":"8","c":"","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"5","c":"hit"},{"t":"9","c":"ok"},{"t":"7","c":"ok"}],"empty":"(empty)"}]},{"line":5,"note":"<code>8</code> beats the top (<code>5</code>). Remove <code>5</code> and push <code>8</code>. The heap still has 3.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"ok","i":0,"p":""},{"t":"1","c":"ok","i":1,"p":""},{"t":"9","c":"ok","i":2,"p":""},{"t":"3","c":"ok","i":3,"p":""},{"t":"7","c":"ok","i":4,"p":""},{"t":"8","c":"on","i":5,"p":"x"}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"7","c":"hit"},{"t":"9","c":"ok"},{"t":"8","c":"ok"}],"empty":"(empty)"}]},{"line":8,"note":"Done: the heap holds <code>9, 8, 7</code>, the 3 biggest. We never sorted all 6 numbers. Each number costs at most O(log k), so O(n log k) in all.","panels":[{"title":"Numbers (k = 3)","cells":[{"t":"5","c":"ok","i":0,"p":""},{"t":"1","c":"ok","i":1,"p":""},{"t":"9","c":"ok","i":2,"p":""},{"t":"3","c":"ok","i":3,"p":""},{"t":"7","c":"ok","i":4,"p":""},{"t":"8","c":"ok","i":5,"p":""}]},{"title":"Heap: the 3 biggest so far (smallest of them on the left)","cells":[{"t":"7","c":"hit"},{"t":"9","c":"ok"},{"t":"8","c":"ok"}],"empty":"(empty)"}]}],"ask":{"q":"Why keep a MIN-heap to find the biggest 3?","opts":["Its top is the weakest of the current top 3, so it is easy to kick out","Min-heaps are faster than max-heaps","Because the numbers are small"],"answer":"Its top is the weakest of the current top 3, so it is easy to kick out","why":"A new number only has to beat the smallest of the current best 3. A min-heap hands you exactly that number in one step."}}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === s.line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+
+function renderGraph(s) {
+  const g = PROGRAMS[cur].graph;
+  if (!g) { $("graphbox").innerHTML = ""; return; }
+  const R = 19, edges = s.edges || g.edges, cls = s.nodeCls || {}, lab = s.labels || {}, hot = s.hot || [];
+  const pos = {}; g.nodes.forEach(n => pos[n.id] = n);
+  let svg = '<svg class="gr" viewBox="0 0 ' + g.w + " " + g.h + '"><defs>' +
+    '<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker>' +
+    '<marker class="hotm" id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker></defs>';
+  edges.forEach(e => {
+    const a = pos[e[0]], b = pos[e[1]], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const x1 = a.x + dx / len * R, y1 = a.y + dy / len * R;
+    const tail = g.directed ? R + 3 : R;
+    const x2 = b.x - dx / len * tail, y2 = b.y - dy / len * tail;
+    const isHot = hot.some(h => h[0] === e[0] && h[1] === e[1]);
+    svg += '<line class="' + (isHot ? "hot" : "") + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"' +
+      (g.directed ? ' marker-end="url(#' + (isHot ? "arh" : "ar") + ')"' : "") + "/>";
+  });
+  g.nodes.forEach(n => {
+    const label = lab[n.id] !== undefined ? lab[n.id] : n.label;
+    svg += '<circle class="' + (cls[n.id] || "") + '" cx="' + n.x + '" cy="' + n.y + '" r="' + R + '"/><text x="' + n.x + '" y="' + n.y + '">' + esc(label) + "</text>";
+    if (n.tag) svg += '<text class="tag" x="' + n.x + '" y="' + (n.y + R + 11) + '">' + esc(n.tag) + "</text>";
+  });
+  (s.tags || []).forEach(t => { const n = pos[t[0]]; svg += '<text class="tag" x="' + n.x + '" y="' + (n.y - R - 9) + '">' + esc(t[1]) + "</text>"; });
+  $("graphbox").innerHTML = svg + "</svg>";
+}
+
+function renderRows(s) {
+  $("rows").innerHTML = (s.panels || []).map(p => {
+    const body = p.cells.length ? '<div class="cells">' + p.cells.map(c =>
+      '<div class="cell ' + (c.c || "") + '"><small>' + (c.i === undefined ? "" : esc(c.i)) + "</small><b>" + esc(c.t) + "</b><em>" + (c.p ? esc(c.p) : "") + "</em></div>").join("") + "</div>"
+      : '<div class="empty">' + esc(p.empty || "(empty)") + "</div>";
+    return '<div class="row"><h3>' + esc(p.title) + "</h3>" + body + "</div>";
+  }).join("");
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderGraph(s); renderRows(s);
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch what changes at each step.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What is an adjacency list?",
+    "options": [
+      "For each node, the list of nodes it connects to",
+      "A sorted list of all edges by weight",
+      "A table of every pair of nodes",
+      "The order a DFS visits the nodes"
+    ],
+    "answer": 0,
+    "why": "It is the usual way to write a graph in code: `{ A: ['B', 'C'], ... }`."
+  },
+  {
+    "q": "Why does graph code need a `seen` set?",
+    "options": [
+      "To sort the nodes",
+      "A graph can have loops, and without it the search never stops",
+      "To make the search find the shortest path",
+      "Graphs cannot be stored without it"
+    ],
+    "answer": 1,
+    "why": "In my test, with no `seen` the queue held 105 entries after 40 steps and kept growing."
+  },
+  {
+    "q": "Which search finds the fewest edges between two nodes when every edge counts as 1?",
+    "options": [
+      "DFS",
+      "Either one, the same way",
+      "BFS",
+      "Neither, you need sorting"
+    ],
+    "answer": 2,
+    "why": "BFS visits the closest nodes first, so the first time it reaches a node it used the fewest edges."
+  },
+  {
+    "q": "In BFS, when should you mark a node as seen?",
+    "options": [
+      "When you take it out of the queue",
+      "After the whole search is finished",
+      "Never, the queue is enough",
+      "When you add it to the queue"
+    ],
+    "answer": 3,
+    "why": "If you wait until you take it out, the same node can be added twice (7 pushes instead of 6 in my test)."
+  },
+  {
+    "q": "How do you count the islands in a grid?",
+    "options": [
+      "Scan the cells. At each new land cell count 1, then spread over the joined land and mark it",
+      "Count all the land cells",
+      "Sort the rows and count the groups",
+      "Count the water cells next to land"
+    ],
+    "answer": 0,
+    "why": "The grid is a graph. Each new unseen land cell starts one island, and the search marks the rest of it."
+  },
+  {
+    "q": "Course schedule with a counter of waiting tasks: how do you know there is a cycle?",
+    "options": [
+      "The queue is full at the start",
+      "The order ends up with fewer nodes than the graph",
+      "A node has indegree 0",
+      "The graph has more edges than nodes"
+    ],
+    "answer": 1,
+    "why": "Nodes in a cycle wait for each other, so they never reach 0 and never join the order."
+  }
+]

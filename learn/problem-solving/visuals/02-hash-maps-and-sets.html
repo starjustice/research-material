@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hash Map Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --keep: #1f7a4d; --keep-bg: #e3f5ea;
+    --drop: #c0392b; --drop-bg: #fdecea;
+    --stage: #3b82f6; --stage-bg: #e3eefe;
+    --hit: #b7791f; --hit-bg: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .predict label { cursor: pointer; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 14px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  pre.code { margin: 0; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: .86rem; line-height: 1.8; overflow-x: auto; }
+  .ln { display: block; padding: 0 8px; border-radius: 6px; white-space: pre; border-left: 4px solid transparent; }
+  .ln i { color: var(--muted); font-style: normal; display: inline-block; width: 2em; user-select: none; }
+  .ln.now { background: #fff1bf; border-left-color: var(--accent); font-weight: 700; }
+
+  .counter { display: none; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .counter.show { display: flex; }
+  .counter b { font-size: 1.9rem; line-height: 1; }
+  .counter span { color: var(--muted); font-size: .85rem; }
+
+  svg.gr { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto 8px; }
+  svg.gr line { stroke: #b9c2c9; stroke-width: 2; }
+  svg.gr line.hot { stroke: var(--stage); stroke-width: 3.5; }
+  svg.gr circle { fill: #fff; stroke: #b9c2c9; stroke-width: 2.5; }
+  svg.gr circle.cur { fill: var(--stage-bg); stroke: var(--stage); }
+  svg.gr circle.done { fill: var(--keep-bg); stroke: var(--keep); }
+  svg.gr circle.seen { fill: var(--hit-bg); stroke: var(--hit); }
+  svg.gr circle.dim { fill: #f7f4ec; stroke: #e6dfd2; }
+  svg.gr circle.bad { fill: var(--drop-bg); stroke: var(--drop); }
+  svg.gr text { font: 700 15px ui-monospace, Menlo, monospace; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  svg.gr text.tag { font: 600 11px -apple-system, sans-serif; fill: var(--muted); }
+  svg.gr marker path { fill: #b9c2c9; }
+  svg.gr marker.hotm path { fill: var(--stage); }
+
+  .row { margin-bottom: 12px; }
+  .row h3 { font-size: .8rem; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+  .cells { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cell { display: flex; flex-direction: column; align-items: center; min-width: 38px; }
+  .cell small { font-size: .68rem; color: var(--muted); height: 1em; line-height: 1; margin-bottom: 2px; }
+  .cell b {
+    display: block; min-width: 38px; padding: 6px 6px; text-align: center; border: 2px solid var(--border); background: #fff;
+    border-radius: 8px; font: 700 .9rem ui-monospace, Menlo, monospace;
+  }
+  .cell em { font-style: normal; font-size: .72rem; font-weight: 700; color: var(--stage); height: 1em; line-height: 1; margin-top: 3px; white-space: nowrap; }
+  .cell.on b { background: var(--stage-bg); border-color: var(--stage); color: var(--stage); }
+  .cell.ok b { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+  .cell.hit b { background: var(--hit-bg); border-color: var(--hit); color: var(--hit); }
+  .cell.bad b { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+  .cell.dim b { background: #f1eee6; color: #a4abb1; border-color: #e6dfd2; }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; padding: 4px 0; }
+
+  .note {
+    margin-top: 4px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .note code, .result code, .legend code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .stepno { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--keep); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: #fdecea; border-color: #f2b8b2; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/problem-solving/README" id="back">← Problem solving lessons</a>
+    <a href="../../../viewer.html?note=learn/problem-solving/02-hash-maps-and-sets" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Hash maps: buckets, collisions and Two Sum</h1>
+  <p class="sub">Press Next and watch keys go into buckets, and a Map turn a nested loop into one loop.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Your code</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>What it looks like right now</h2>
+        <div class="counter" id="counter"><b id="cnum"></b><span id="clabel"></span></div>
+        <div id="graphbox"></div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="stepno" id="stepno"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend">
+    <p><b>The rule to remember:</b> A hash map turns a key into a bucket number, so it can jump to the right place. "Have I seen this before?" costs about one step.</p>
+    <p><b>Words on this page:</b></p>
+    <ul>
+      <li><b>Hash function:</b> turns a key (like a word) into a number.</li>
+      <li><b>Bucket:</b> one slot of the table. The key's number picks the bucket.</li>
+      <li><b>Collision:</b> two keys that land in the same bucket.</li>
+      <li><b>Map:</b> the JavaScript hash map: key → value.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Every step below was recorded from a real run of the code shown (see the lesson's practice file).
+const PROGRAMS = [{"name":"Buckets and collisions","code":["function put(key, value) {","  const b = hash(key) % buckets.length;","  buckets[b].push([key, value]);","}","function get(key) {","  const b = hash(key) % buckets.length;","  for (const [k, v] of buckets[b])","    if (k === key) return v;","}"],"steps":[{"line":0,"note":"A table with 4 buckets. <code>hash(key)</code> turns a word into a number: here we add up the letter codes. The bucket is that number % 4.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[]},{"title":"bucket 1","empty":"(empty)","cells":[]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[]}]},{"line":1,"note":"<code>hash(\"ann\")</code> = 317. 317 % 4 = <b>1</b>. So \"ann\" goes in bucket 1.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[]},{"title":"bucket 1","empty":"(empty)","cells":[]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[]}]},{"line":2,"note":"Bucket 1 was empty. Store <code>ann→31</code> there.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":"ok"}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[]}]},{"line":1,"note":"<code>hash(\"bob\")</code> = 307. 307 % 4 = <b>3</b>. So \"bob\" goes in bucket 3.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":""}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[]}]},{"line":2,"note":"Bucket 3 was empty. Store <code>bob→25</code> there.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":""}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":"ok"}]}]},{"line":1,"note":"<code>hash(\"cy\")</code> = 220. 220 % 4 = <b>0</b>. So \"cy\" goes in bucket 0.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":""}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]},{"line":2,"note":"Bucket 0 was empty. Store <code>cy→40</code> there.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[{"t":"cy→40","c":"ok"}]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":""}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]},{"line":1,"note":"<code>hash(\"kim\")</code> = 321. 321 % 4 = <b>1</b>. So \"kim\" goes in bucket 1.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[{"t":"cy→40","c":""}]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":"on"}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]},{"line":2,"note":"Bucket 1 already holds <code>ann</code>. That is a <b>collision</b>. The table keeps both, one after the other, in the same bucket.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[{"t":"cy→40","c":""}]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":"on"},{"t":"kim→19","c":"ok"}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]},{"line":5,"note":"Now <code>get(\"kim\")</code>. Same hash, same bucket: 1.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[{"t":"cy→40","c":""}]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":"on"},{"t":"kim→19","c":"on"}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]},{"line":7,"note":"Look at <code>ann</code>. Not \"kim\". Keep walking the bucket.","panels":[{"title":"bucket 0","empty":"(empty)","cells":[{"t":"cy→40","c":""}]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":"bad"},{"t":"kim→19","c":"on"}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]},{"line":7,"note":"Found <code>kim</code>, the value is <b>19</b>. A short bucket is fast. If everything landed in one bucket, a lookup would walk all n items: O(n). A good hash function and a bigger table keep the buckets short, so the average is O(1).","panels":[{"title":"bucket 0","empty":"(empty)","cells":[{"t":"cy→40","c":""}]},{"title":"bucket 1","empty":"(empty)","cells":[{"t":"ann→31","c":"on"},{"t":"kim→19","c":"ok"}]},{"title":"bucket 2","empty":"(empty)","cells":[]},{"title":"bucket 3","empty":"(empty)","cells":[{"t":"bob→25","c":""}]}]}],"ask":{"q":"Two different keys land in the same bucket. What does the table do?","opts":["It throws an error","It overwrites the first key","It keeps both in that bucket"],"answer":"It keeps both in that bucket","why":"This is called a collision. Real tables keep a short chain in the bucket (or probe for the next free slot). Lookup hashes to the bucket, then checks the few items inside."}},{"name":"Two Sum with a Map","code":["function twoSum(nums, target) {","  const seen = new Map();","  for (let i = 0; i < nums.length; i++) {","    const need = target - nums[i];","    if (seen.has(need))","      return [seen.get(need), i];","    seen.set(nums[i], i);","  }","}"],"steps":[{"line":1,"note":"We want two numbers that add up to 10. Keep a Map of the numbers we have already read.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"","i":0,"p":""},{"t":"2","c":"","i":1,"p":""},{"t":"4","c":"","i":2,"p":""},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[],"empty":"(empty)"}]},{"line":4,"note":"<code>need = 10 - 3 = 7</code>. Is 7 in the Map? No.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"on","i":0,"p":"i"},{"t":"2","c":"","i":1,"p":""},{"t":"4","c":"","i":2,"p":""},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[],"empty":"(empty)"}]},{"line":6,"note":"Remember <code>3→0</code> for later.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"on","i":0,"p":"i"},{"t":"2","c":"","i":1,"p":""},{"t":"4","c":"","i":2,"p":""},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"}],"empty":"(empty)"}]},{"line":4,"note":"<code>need = 10 - 2 = 8</code>. Is 8 in the Map? No.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"on","i":1,"p":"i"},{"t":"4","c":"","i":2,"p":""},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"}],"empty":"(empty)"}]},{"line":6,"note":"Remember <code>2→1</code> for later.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"on","i":1,"p":"i"},{"t":"4","c":"","i":2,"p":""},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"}],"empty":"(empty)"}]},{"line":4,"note":"<code>need = 10 - 4 = 6</code>. Is 6 in the Map? No.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"ok","i":1,"p":""},{"t":"4","c":"on","i":2,"p":"i"},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"}],"empty":"(empty)"}]},{"line":6,"note":"Remember <code>4→2</code> for later.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"ok","i":1,"p":""},{"t":"4","c":"on","i":2,"p":"i"},{"t":"5","c":"","i":3,"p":""},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"},{"t":"4→2","c":"ok"}],"empty":"(empty)"}]},{"line":4,"note":"<code>need = 10 - 5 = 5</code>. Is 5 in the Map? No (the number is not paired with itself: we store it only after the check).","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"ok","i":1,"p":""},{"t":"4","c":"ok","i":2,"p":""},{"t":"5","c":"on","i":3,"p":"i"},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"},{"t":"4→2","c":"ok"}],"empty":"(empty)"}]},{"line":6,"note":"Remember <code>5→3</code> for later.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"ok","i":1,"p":""},{"t":"4","c":"ok","i":2,"p":""},{"t":"5","c":"on","i":3,"p":"i"},{"t":"6","c":"","i":4,"p":""}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"},{"t":"4→2","c":"ok"},{"t":"5→3","c":"ok"}],"empty":"(empty)"}]},{"line":4,"note":"<code>need = 10 - 6 = 4</code>. Is 4 in the Map? <b>Yes</b>, at index 2.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"ok","i":1,"p":""},{"t":"4","c":"ok","i":2,"p":""},{"t":"5","c":"ok","i":3,"p":""},{"t":"6","c":"on","i":4,"p":"i"}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"},{"t":"4→2","c":"ok"},{"t":"5→3","c":"ok"}],"empty":"(empty)"}]},{"line":5,"note":"Return <code>[2,4]</code>: 4 + 6 = 10. We read the list once. Each lookup was about one step.","panels":[{"title":"nums (target is 10)","cells":[{"t":"3","c":"ok","i":0,"p":""},{"t":"2","c":"ok","i":1,"p":""},{"t":"4","c":"ok","i":2,"p":""},{"t":"5","c":"ok","i":3,"p":""},{"t":"6","c":"on","i":4,"p":"i"}]},{"title":"seen (number → index)","cells":[{"t":"3→0","c":"ok"},{"t":"2→1","c":"ok"},{"t":"4→2","c":"ok"},{"t":"5→3","c":"ok"}],"empty":"(empty)"}]}],"ask":{"q":"How many times does the code go through the array?","opts":["Once","Twice","Once for every number (n times)"],"answer":"Once","why":"One loop. For each number it asks the Map one question. The nested-loop version compares every pair: O(n²). This one is O(n) time and O(n) space for the Map."}}];
+
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = {};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function renderCode(s) {
+  $("code").innerHTML = PROGRAMS[cur].code.map((t, i) =>
+    '<span class="ln' + (i === s.line ? " now" : "") + '"><i>' + (i + 1) + "</i>" + esc(t) + "</span>").join("");
+}
+
+function renderGraph(s) {
+  const g = PROGRAMS[cur].graph;
+  if (!g) { $("graphbox").innerHTML = ""; return; }
+  const R = 19, edges = s.edges || g.edges, cls = s.nodeCls || {}, lab = s.labels || {}, hot = s.hot || [];
+  const pos = {}; g.nodes.forEach(n => pos[n.id] = n);
+  let svg = '<svg class="gr" viewBox="0 0 ' + g.w + " " + g.h + '"><defs>' +
+    '<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker>' +
+    '<marker class="hotm" id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z"/></marker></defs>';
+  edges.forEach(e => {
+    const a = pos[e[0]], b = pos[e[1]], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const x1 = a.x + dx / len * R, y1 = a.y + dy / len * R;
+    const tail = g.directed ? R + 3 : R;
+    const x2 = b.x - dx / len * tail, y2 = b.y - dy / len * tail;
+    const isHot = hot.some(h => h[0] === e[0] && h[1] === e[1]);
+    svg += '<line class="' + (isHot ? "hot" : "") + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"' +
+      (g.directed ? ' marker-end="url(#' + (isHot ? "arh" : "ar") + ')"' : "") + "/>";
+  });
+  g.nodes.forEach(n => {
+    const label = lab[n.id] !== undefined ? lab[n.id] : n.label;
+    svg += '<circle class="' + (cls[n.id] || "") + '" cx="' + n.x + '" cy="' + n.y + '" r="' + R + '"/><text x="' + n.x + '" y="' + n.y + '">' + esc(label) + "</text>";
+    if (n.tag) svg += '<text class="tag" x="' + n.x + '" y="' + (n.y + R + 11) + '">' + esc(n.tag) + "</text>";
+  });
+  (s.tags || []).forEach(t => { const n = pos[t[0]]; svg += '<text class="tag" x="' + n.x + '" y="' + (n.y - R - 9) + '">' + esc(t[1]) + "</text>"; });
+  $("graphbox").innerHTML = svg + "</svg>";
+}
+
+function renderRows(s) {
+  $("rows").innerHTML = (s.panels || []).map(p => {
+    const body = p.cells.length ? '<div class="cells">' + p.cells.map(c =>
+      '<div class="cell ' + (c.c || "") + '"><small>' + (c.i === undefined ? "" : esc(c.i)) + "</small><b>" + esc(c.t) + "</b><em>" + (c.p ? esc(c.p) : "") + "</em></div>").join("") + "</div>"
+      : '<div class="empty">' + esc(p.empty || "(empty)") + "</div>";
+    return '<div class="row"><h3>' + esc(p.title) + "</h3>" + body + "</div>";
+  }).join("");
+}
+
+function render() {
+  const s = steps[idx];
+  renderCode(s); renderGraph(s); renderRows(s);
+  if (s.count) { $("counter").className = "counter show"; $("cnum").textContent = s.count.value; $("clabel").textContent = s.count.label; }
+  else $("counter").className = "counter";
+  $("note").innerHTML = s.note;
+  $("stepno").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("back1").disabled = idx === 0;
+  $("next1").disabled = idx === steps.length - 1;
+  showResult();
+}
+
+function showResult() {
+  const r = $("result"), a = PROGRAMS[cur].ask;
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const g = guess[cur];
+  const why = "<br><b>Why:</b> " + a.why;
+  if (g === undefined) { r.className = "result show"; r.innerHTML = "<b>Answer: " + esc(a.answer) + "</b>" + why + "<br>Next time, pick your guess first. Guessing first is what makes it stick."; return; }
+  const ok = g === a.answer;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You picked <code>" + esc(g) + "</code>. The real answer is <code>" + esc(a.answer) + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch what changes at each step.");
+}
+
+function renderPredict() {
+  const a = PROGRAMS[cur].ask;
+  $("predict").innerHTML = "<b>Predict first.</b> " + esc(a.q) + '<div class="opts">' +
+    a.opts.map((o, i) => '<label><input type="radio" name="g" value="' + i + '"' + (guess[cur] === o ? " checked" : "") + "> " + esc(o) + "</label>").join("") + "</div>";
+  $("predict").querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => { guess[cur] = a.opts[+inp.value]; showResult(); }));
+}
+
+function pick(i) {
+  stop(); cur = i; steps = PROGRAMS[i].steps; idx = 0;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function go(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); go(1); }, 2400);
+}
+
+PROGRAMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + ". " + p.name;
+  b.onclick = () => pick(i);
+  $("tabs").appendChild(b);
+});
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); } else if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+window.__programs = PROGRAMS;
+pick(0);
+</script>
+</body>
+</html>

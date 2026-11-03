@@ -8,6 +8,7 @@
     "test:hash-map": "node --test \"01-hash-map/*.test.js\"",
     "test:two-pointers": "node --test \"02-two-pointers/*.test.js\"",
     "test:sliding-window": "node --test \"03-sliding-window/*.test.js\"",
-    "test:stack": "node --test \"04-stack/*.test.js\""
+    "test:stack": "node --test \"04-stack/*.test.js\"",
+    "test:lessons": "node --test \"practice/*.test.js\""
   }
 }
