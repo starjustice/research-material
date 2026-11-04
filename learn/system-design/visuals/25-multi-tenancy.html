@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-tenancy: a forgotten filter, three models, and a noisy neighbour</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --gw: #8b5cf6; --gw-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --gw: #b79cf8; --gw-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.gate { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.gate, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.gw    { border-color: var(--gw);    background: var(--gw-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.gw h3 { color: var(--gw); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .84rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); word-break: break-word; }
+  .req.now { border-color: var(--user); background: var(--user-bg); color: var(--ink); }
+  .check { border-radius: 10px; border: 2px solid var(--border); background: var(--card); padding: 6px 10px; margin-bottom: 8px; font-size: .82rem; }
+  .check b { display: block; font-size: .78rem; }
+  .check span { color: var(--muted); font-size: .74rem; }
+  .check.run  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .check.pass { border-color: var(--srv); background: var(--srv-bg); }
+  .check.fail { border-color: var(--bad); background: var(--bad-bg); }
+  .check.skip { opacity: .45; border-style: dashed; }
+  .routes { font-size: .76rem; margin-top: 4px; }
+  .routes div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .routes div:last-child { border-bottom: 0; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .counters { display: grid; gap: 2px; font-size: .84rem; margin-top: 8px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.gw { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stage.three { grid-template-columns: 1fr 1fr 1fr; }
+  .stage.one { grid-template-columns: 1fr; }
+  @media (max-width: 860px) { .stage.three { grid-template-columns: 1fr; } }
+  .tl { height: 16px; background: var(--code-bg); border-radius: 8px; position: relative; overflow: hidden; margin: 6px 0 4px; border: 1px solid var(--border); }
+  .tl i { position: absolute; top: 0; bottom: 0; min-width: 3px; }
+  .tl i.trip { background: var(--user); } .tl i.work { background: var(--srv); }
+  .tl-note { font-size: .72rem; color: var(--muted); }
+  .rows { display: grid; gap: 6px; margin-top: 4px; }
+  .rowx { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; border: 2px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--card); }
+  .rowx.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .rowx.skip { opacity: .4; border-style: dashed; }
+  .rowx .lab { font-size: .8rem; font-weight: 650; }
+  .rowx .lab small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+  .rowx .val { font-size: 1.05rem; font-weight: 800; text-align: right; }
+  .meter { margin-top: 8px; }
+  .meter .m { height: 14px; background: var(--code-bg); border-radius: 7px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .meter .m i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); }
+  .meter .m i.over { background: var(--bad); }
+  .meter .m b { position: absolute; top: -1px; bottom: -1px; width: 3px; background: var(--ink); }
+  .meter small { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+  .tablewrap { overflow-x: auto; }
+  table.sc { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  table.sc th, table.sc td { border-bottom: 1px dashed var(--border); padding: 5px 6px; text-align: center; }
+  table.sc th { font-size: .7rem; color: var(--muted); font-weight: 700; }
+  table.sc td:first-child, table.sc th:first-child { text-align: left; font-weight: 700; }
+  table.sc tr.wrow td { font-size: .78rem; color: var(--gw); font-weight: 800; background: var(--gw-bg); }
+  table.sc td.hot, table.sc th.hot { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+  table.sc td .x { color: var(--muted); font-size: .68rem; display: block; }
+  .tbar { height: 12px; background: var(--code-bg); border-radius: 6px; overflow: hidden; min-width: 70px; }
+  .tbar i { display: block; height: 100%; background: var(--user); }
+  .tbar i.win { background: var(--srv); }
+  .tot { font-weight: 800; font-size: .95rem; }
+  .say { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: .86rem; }
+  .say.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .say.weak { border-color: var(--bad); background: var(--bad-bg); }
+  .say b.n { display: inline-block; background: var(--ink); color: var(--on-ink); border-radius: 999px; padding: 0 8px; font-size: .72rem; margin-right: 6px; }
+  .tick { font-size: .86rem; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .tick.on { color: var(--srv); font-weight: 700; }
+  .tick.off { color: var(--muted); }
+  .mrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .mc { min-width: 62px; border: 2px solid var(--border); border-radius: 10px; padding: 3px 6px; background: var(--card); text-align: center; font-size: .78rem; font-weight: 700; }
+  .mc small { display: block; color: var(--muted); font-weight: 600; font-size: .66rem; }
+  .mc.done { background: var(--srv-bg); border-color: var(--srv); }
+  .mc.new { box-shadow: 0 0 0 3px var(--accent); }
+  .mc.gone { opacity: .35; text-decoration: line-through; border-style: dashed; }
+  .mc.k0 { border-left: 6px solid var(--user); } .mc.k1 { border-left: 6px solid var(--gw); } .mc.k2 { border-left: 6px solid var(--store); }
+  .grp { font-size: .8rem; margin-top: 6px; }
+  .grp .mrow { margin: 2px 0 6px; }
+  .grp .mc { min-width: 40px; padding: 1px 4px; font-size: .7rem; }
+  .lbl { font-weight: 800; font-size: .74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
+  table.sc tr.hit td { background: var(--bad-bg); }
+  table.sc tr.hotrow td { background: var(--predict-bg); }
+  table.sc td { text-align: left; font-size: .76rem; vertical-align: top; }
+  .log { list-style: none; margin: 6px 0 0; padding: 0; font-size: .8rem; }
+  .log li { padding: 2px 0; } .log li.ok { color: var(--srv); } .log li.bad { color: var(--bad); font-weight: 700; } .log li.empty { color: var(--muted); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">← System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/25-multi-tenancy" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Multi-tenancy</h1>
+  <p class="sub">Press Next to see tenants share a table, a schema or a database, and one loud tenant.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the tenant id is required on every call and comes from the checked token, never from the body.</p>
+</div>
+
+<script>
+// ---- The same code as the answer to practice C in the lesson (the store, tenantOf and the limiter). ----
+function hashString(text) {
+  let h = 0;
+  for (const ch of String(text)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h;
+}
+
+function need(tenantId) {
+  if (tenantId === undefined || tenantId === null || tenantId === "") throw new Error("tenant required");
+}
+
+// A shared table: every row has a tenantId, and every method needs one.
+function createTenantStore() {
+  const rows = new Map();                 // id -> row, rows of all tenants together
+  let nextId = 1;
+  const copy = (row) => ({ ...row });
+  const mine = (tenantId, id) => {
+    const row = rows.get(id);
+    return row && row.tenantId === tenantId ? row : undefined;     // another tenant's row looks the same as no row
+  };
+  return {
+    add(tenantId, row) {
+      need(tenantId);
+      const saved = { ...row, id: nextId++, tenantId };             // the tenant comes from the argument, never from the row
+      rows.set(saved.id, saved);
+      return copy(saved);
+    },
+    get(tenantId, id) {
+      need(tenantId);
+      const row = mine(tenantId, id);
+      return row ? copy(row) : undefined;
+    },
+    list(tenantId, filter = {}) {
+      need(tenantId);
+      return [...rows.values()]
+        .filter((r) => r.tenantId === tenantId)                     // the tenant filter is always there
+        .filter((r) => Object.entries(filter).every(([k, v]) => k === "tenantId" || r[k] === v))
+        .sort((a, b) => a.id - b.id)
+        .map(copy);
+    },
+    update(tenantId, id, changes) {
+      need(tenantId);
+      const row = mine(tenantId, id);
+      if (!row) return null;
+      Object.assign(row, changes, { id: row.id, tenantId: row.tenantId });
+      return copy(row);
+    },
+    remove(tenantId, id) {
+      need(tenantId);
+      return mine(tenantId, id) ? rows.delete(id) : false;
+    },
+    count(tenantId) {
+      need(tenantId);
+      return [...rows.values()].filter((r) => r.tenantId === tenantId).length;
+    },
+  };
+}
+
+// The tenant comes from the checked token, never from the body or the query.
+function tenantOf(request) {
+  const tenantId = request && request.auth && request.auth.tenantId;
+  if (!tenantId) {
+    const err = new Error("not signed in");
+    err.code = "UNAUTHENTICATED";
+    throw err;
+  }
+  return tenantId;
+}
+
+function createRouter({ shards, dedicated = {} }) {
+  const own = new Map(Object.entries(dedicated));
+  const router = {
+    route(tenantId) {
+      need(tenantId);
+      if (own.has(tenantId)) return own.get(tenantId);              // a big tenant with its own database
+      return shards[hashString(tenantId) % shards.length];
+    },
+    move(tenantId, db) { own.set(tenantId, db); },
+    tenantsOn(db, ids) { return ids.filter((id) => router.route(id) === db); },
+  };
+  return router;
+}
+
+function createTenantLimiter(options = {}) {
+  const { limit = 100, windowMs = 1000, limits = {}, now = Date.now } = options;
+  const windows = new Map();              // tenantId -> { start, count }, one window for each tenant
+  function current(tenantId) {
+    const w = windows.get(tenantId);
+    return w && now() - w.start < windowMs ? w : null;
+  }
+  return {
+    allow(tenantId) {
+      need(tenantId);
+      let w = current(tenantId);
+      if (!w) { w = { start: now(), count: 0 }; windows.set(tenantId, w); }
+      const max = tenantId in limits ? limits[tenantId] : limit;
+      if (w.count >= max) return false;
+      w.count++;
+      return true;
+    },
+    usage(tenantId) {
+      const w = current(tenantId);
+      return w ? w.count : 0;
+    },
+  };
+}
+
+
+const STORIES = [
+  { name: "1. A forgotten filter", simulate: simulateLeak,
+    why: "A shared table holds every company's rows. A query with no tenant filter returns all of them, and nothing warns you. The fix is to make the tenant id impossible to forget: every call needs it, it comes from the checked token, and a row of another tenant looks the same as no row.",
+    predict: { q: "The table has 4 rows from 3 companies (2 for acme). A developer lists acme's orders but forgets the tenant filter. How many rows does acme see?",
+               options: ["2, only its own", "4, every company's rows", "0, the database blocks it"], answer: "4, every company's rows" } },
+  { name: "2. Three models", simulate: simulateModels,
+    why: "Shared tables are the cheapest and the easiest to change, but one forgotten filter leaks data. A schema per tenant gives a wall between tenants but every migration runs once per tenant. A database per tenant is the strongest wall and the most to run: 87 ms and 7.8 MB to start each empty one in my test.",
+    predict: { q: "You use one schema for each of your 1,000 tenants. You ship a migration that adds a column. How many times must it run?",
+               options: ["Once", "1,000 times, once in each schema", "Three times, once for each kind of table"], answer: "1,000 times, once in each schema" } },
+  { name: "3. A noisy neighbour", simulate: simulateNoisy,
+    why: "With one shared limit, the loud tenant uses all of it and the quiet tenant is refused for something it did not do. With a limit for each tenant, the loud tenant hits its own wall and the quiet tenant is not affected.",
+    predict: { q: "The whole system has ONE shared limit of 5 calls per second. Tenant 'noisy' sends 8 calls, and then tenant 'quiet' sends 1. What happens to quiet's call?",
+               options: ["It works", "It is refused", "It waits for noisy to finish"], answer: "It is refused" } }
+];
+
+const ORDERS = [["acme", "pen"], ["acme", "ink"], ["globex", "book"], ["initech", "lamp"]];
+const tbl = (rows, mark) => '<table class="sc"><tr><th>id</th><th>tenant</th><th>item</th></tr>' + rows.map((r, i) => '<tr class="' + (mark(r) ? "hit" : "") + '"><td>' + (i + 1) + "</td><td>" + r.tenantId + "</td><td>" + r.item + "</td></tr>").join("") + "</table>";
+
+// ---- Story 1: a forgotten filter ----
+function simulateLeak() {
+  const steps = [], store = createTenantStore();
+  for (const [t, item] of ORDERS) store.add(t, { item });
+  const all = ORDERS.map(([tenantId, item]) => ({ tenantId, item }));
+  const snap = (note, hop, phase, html) => steps.push({ cls: "one", note, hop, phase, stage: html });
+  const panel = (title, cls, inner) => '<div class="panel"><h2>' + title + '</h2><div class="comp ' + cls + '">' + inner + "</div></div>";
+  snap("One <b>shared table</b>. Rows of three companies live together, and each row has a <b>tenant</b> column. Tenant <b>acme</b> logs in and opens its order list.", "The setup", "setup",
+    panel("The orders table", "srv", tbl(all, () => false)));
+  snap("The handler runs <code>SELECT * FROM orders</code> and <b>forgets</b> <code>WHERE tenant = 'acme'</code>. The database does not complain. All <b>4 rows</b> come back, including the rows of <b>globex</b> and <b>initech</b>. acme can read other companies' orders. This is the biggest risk of shared tables.", "A query with no filter", "bad",
+    panel("What acme sees", "bad", tbl(all, () => true) + '<div class="line"><b>4 of 4 rows</b>, 2 belong to other companies.</div>'));
+  const mine = store.list("acme");
+  snap("The fix in code: <code>store.list(tenantId)</code>. The function <b>requires</b> a tenant id, so the call cannot be written without one, and it always filters. acme sees <b>" + mine.length + " rows</b>: only its own. (Real run of the practice code.)", "Every call needs a tenant", "srv",
+    panel("What acme sees now", "srv", tbl(mine, () => true) + '<div class="line"><b>' + mine.length + ' of 4 rows</b>, all acme\'s.</div>'));
+  const req = { auth: { userId: "u1", tenantId: "acme" }, body: { tenantId: "globex" } };
+  snap("A caller sends <code>{ tenantId: \"globex\" }</code> in the request <b>body</b>, hoping to read globex's rows. <code>tenantOf(request)</code> ignores the body and reads the tenant from the <b>checked token</b>: it returns <b>" + tenantOf(req) + "</b>. The caller cannot choose the tenant.", "A tenant in the body", "run",
+    panel("The request", "gw", '<div class="line">token (checked): tenant <b>' + req.auth.tenantId + '</b></div><div class="line">body (sent by the caller): tenant <b>' + req.body.tenantId + '</b> <span class="tag bad">ignored</span></div><div class="line">used: <b>' + tenantOf(req) + "</b></div>"));
+  const show = (v) => (v === undefined ? "nothing" : JSON.stringify(v));
+  const other = show(store.get("acme", 3)), missing = show(store.get("acme", 99));
+  snap("acme asks for order <b>3</b>, which belongs to globex: the answer is <code>" + other + "</code>. It asks for order <b>99</b>, which does not exist: <code>" + missing + "</code>. <b>The same answer</b>, so acme cannot even learn that order 3 exists.", "A row of another tenant", "srv",
+    panel("Two lookups", "srv", '<div class="line">get(acme, 3) &rarr; <b>' + other + '</b> (globex\'s row)</div><div class="line">get(acme, 99) &rarr; <b>' + missing + "</b> (no such row)</div>"));
+  snap("<b>The lesson.</b> In a shared table, the tenant filter must be on <b>every</b> query. Make it impossible to forget: a required argument, the tenant from the token, and a database safety net (Postgres row level security, in the lesson).", "Finished", "done",
+    panel("The rule", "srv", '<div class="line">tenant id: required, from the token, never from the body.</div>'));
+  return steps;
+}
+
+// ---- Story 2: three models ----
+function simulateModels() {
+  const steps = [];
+  const cols = ["Shared tables", "Schema per tenant", "Database per tenant"];
+  const data = [
+    { label: "A new tenant", cells: ["one row in a tenants table", "create a schema and its tables: 3.1 ms, about 80 KB each (my test)", "create a database: 87 ms, 7.8 MB empty (my test)"] },
+    { label: "A forgotten filter", cells: ["leaks other tenants' rows", "stays inside the schema", "stays inside the database"] },
+    { label: "A migration", cells: ["runs once", "runs once for each schema: 1,000 tenants, 1,000 runs", "runs once for each database: 1,000 tenants, 1,000 runs"] },
+    { label: "One tenant is huge", cells: ["hard: its rows are mixed in", "possible: move one schema", "easy: move one database to its own server"] },
+    { label: "Cost to run", cells: ["lowest", "middle", "highest"] }
+  ];
+  const view = (upto) => '<div class="panel"><h2>Three ways to keep tenants apart</h2><div class="tablewrap"><table class="sc"><tr><th></th>' + cols.map(c => "<th>" + c + "</th>").join("") + "</tr>" +
+    data.slice(0, upto).map((r, i) => '<tr class="' + (i === upto - 1 ? "hotrow" : "") + '"><td>' + r.label + "</td>" + r.cells.map(c => "<td>" + c + "</td>").join("") + "</tr>").join("") + "</table></div></div>";
+  const snap = (upto, note, hop, phase) => steps.push({ cls: "one", note, hop, phase, stage: view(upto) });
+  snap(0, "A <b>tenant</b> is one customer company. There are three common ways to keep their data apart: <b>shared tables</b> (a tenant column in every table), a <b>schema</b> for each tenant, or a whole <b>database</b> for each tenant. We compare them on five questions.", "The setup", "setup");
+  snap(1, "<b>Adding a tenant.</b> Shared tables: one new row. Schema per tenant: the app creates a schema with its tables. In my test, 1,000 schemas with 2 tables each took 3.1 s (3.1 ms each) and the database grew by about 81 KB for each. Database per tenant: 50 empty databases took 87 ms each and each was 7.8 MB on disk.", "A new tenant", "run");
+  snap(2, "<b>A forgotten filter.</b> Only shared tables can leak this way. The other two have a wall: a query in one schema or database cannot see another's rows (unless the app connects to the wrong one).", "A forgotten filter", "bad");
+  snap(3, "<b>A migration</b> (add a column). Shared tables: run it once. Schema per tenant: run it in <b>each</b> schema. In my test, 1,000 tiny schemas took 0.1 s in total, but real tables are bigger, and if run number 537 fails, you have tenants on two versions of the table.", "A migration", "bad");
+  snap(4, "<b>One tenant is huge</b> and slows the others down. With shared tables its rows are mixed with everyone's, so moving them out is real work. A schema or a database can be moved as a unit. This is why many systems start shared and move only the big tenant out.", "One tenant is huge", "run");
+  snap(5, "<b>Cost to run.</b> Shared tables are the cheapest: one set of tables, one connection pool. Each extra database brings its own overhead and connections. <b>The lesson:</b> start with shared tables plus a safety net, and give a database to the few tenants that need it.", "Finished", "done");
+  return steps;
+}
+
+// ---- Story 3: a noisy neighbour ----
+function simulateNoisy() {
+  const steps = [], clock = { t: 0 };
+  const shared = createTenantLimiter({ limit: 5, windowMs: 1000, now: () => clock.t });
+  const per = createTenantLimiter({ limit: 5, windowMs: 1000, now: () => clock.t });
+  const log = { shared: [], per: [] };
+  const call = (tenant) => { const a = shared.allow("everyone"), b = per.allow(tenant); log.shared.unshift(tenant + ": " + (a ? "ok" : "refused")); log.per.unshift(tenant + ": " + (b ? "ok" : "refused")); return [a, b]; };
+  const side = (title, key, limiterUsage, cls) => '<div class="panel"><h2>' + title + '</h2><div class="comp ' + cls + '"><h3>Used in this second: ' + limiterUsage + ' of 5</h3><ul class="log">' +
+    (log[key].length ? log[key].slice(0, 6).map(l => '<li class="' + (l.endsWith("refused") ? "bad" : "ok") + '">' + l + "</li>").join("") : '<li class="empty">no calls yet</li>') + "</ul></div></div>";
+  const snap = (note, hop, phase, lit) => steps.push({ cls: "two", note, hop, phase,
+    stage: side("One shared limit", "shared", shared.usage("everyone"), shared.usage("everyone") >= 5 ? "bad" : "store") + side("A limit for each tenant", "per", per.usage("noisy") + "+" + per.usage("quiet"), per.usage("noisy") >= 5 ? "gw" : "store") });
+  snap("The API allows <b>5 calls per second</b>. <b>Left:</b> one limit for everybody. <b>Right:</b> a limit of 5 for <b>each tenant</b>. Tenant <b>noisy</b> is about to send a lot of calls, and tenant <b>quiet</b> is a small customer.", "The setup", "setup");
+  for (let i = 0; i < 8; i++) call("noisy");
+  snap("<b>noisy sends 8 calls</b> in one second. <b>Left:</b> the shared limit of 5 is used up after 5 calls, and 3 are refused. <b>Right:</b> noisy has its own limit of 5, so the same: 5 pass and 3 are refused. So far both look the same.", "noisy sends 8 calls", "bad");
+  const [a, b] = call("quiet");
+  snap("Now <b>quiet</b> sends <b>1 call</b>. <b>Left:</b> the shared limit is already used up, so quiet is <b>" + (a ? "let in" : "refused") + "</b>, for something it did not do. <b>Right:</b> quiet has its own count of 0, so it is <b>" + (b ? "let in" : "refused") + "</b>. This is the <b>noisy neighbour</b> problem, and the fix.", "quiet sends 1 call", "run");
+  clock.t = 1000;
+  const [c, d] = call("quiet");
+  snap("One second later a new window starts. quiet sends again: <b>" + (c ? "ok" : "refused") + "</b> on the left and <b>" + (d ? "ok" : "refused") + "</b> on the right. The shared limit hurt quiet for the rest of that second only.", "A new second", "srv");
+  snap("<b>The lesson.</b> A limit for each tenant keeps one loud customer from taking the whole system. The same idea works for database connections, queue slots and CPU. A paid plan can simply have a bigger number for that tenant (the <code>limits</code> option).", "Finished", "done");
+  return steps;
+}
+
+// ---- The page engine (shared). Each story has simulate(): a list of steps { stage, cls, note, hop, phase }. ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], gw: ["A number is worked out", "gw"], srv: ["It works", "srv"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  $("stage").className = "stage " + s.cls;
+  $("stage").innerHTML = s.stage;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the numbers.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].simulate();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES;
+pickStory(0);
+
+</script>
+</body>
+</html>

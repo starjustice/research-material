@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consistent hashing: key mod N breaks, the ring, and many spots</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --gw: #8b5cf6; --gw-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --gw: #b79cf8; --gw-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.gate { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.gate, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.gw    { border-color: var(--gw);    background: var(--gw-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.gw h3 { color: var(--gw); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .84rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); word-break: break-word; }
+  .req.now { border-color: var(--user); background: var(--user-bg); color: var(--ink); }
+  .check { border-radius: 10px; border: 2px solid var(--border); background: var(--card); padding: 6px 10px; margin-bottom: 8px; font-size: .82rem; }
+  .check b { display: block; font-size: .78rem; }
+  .check span { color: var(--muted); font-size: .74rem; }
+  .check.run  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .check.pass { border-color: var(--srv); background: var(--srv-bg); }
+  .check.fail { border-color: var(--bad); background: var(--bad-bg); }
+  .check.skip { opacity: .45; border-style: dashed; }
+  .routes { font-size: .76rem; margin-top: 4px; }
+  .routes div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .routes div:last-child { border-bottom: 0; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .counters { display: grid; gap: 2px; font-size: .84rem; margin-top: 8px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.gw { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stage.three { grid-template-columns: 1fr 1fr 1fr; }
+  .stage.one { grid-template-columns: 1fr; }
+  @media (max-width: 860px) { .stage.three { grid-template-columns: 1fr; } }
+  .tl { height: 16px; background: var(--code-bg); border-radius: 8px; position: relative; overflow: hidden; margin: 6px 0 4px; border: 1px solid var(--border); }
+  .tl i { position: absolute; top: 0; bottom: 0; min-width: 3px; }
+  .tl i.trip { background: var(--user); } .tl i.work { background: var(--srv); }
+  .tl-note { font-size: .72rem; color: var(--muted); }
+  .rows { display: grid; gap: 6px; margin-top: 4px; }
+  .rowx { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; border: 2px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--card); }
+  .rowx.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .rowx.skip { opacity: .4; border-style: dashed; }
+  .rowx .lab { font-size: .8rem; font-weight: 650; }
+  .rowx .lab small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+  .rowx .val { font-size: 1.05rem; font-weight: 800; text-align: right; }
+  .meter { margin-top: 8px; }
+  .meter .m { height: 14px; background: var(--code-bg); border-radius: 7px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .meter .m i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); }
+  .meter .m i.over { background: var(--bad); }
+  .meter .m b { position: absolute; top: -1px; bottom: -1px; width: 3px; background: var(--ink); }
+  .meter small { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+  .tablewrap { overflow-x: auto; }
+  table.sc { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  table.sc th, table.sc td { border-bottom: 1px dashed var(--border); padding: 5px 6px; text-align: center; }
+  table.sc th { font-size: .7rem; color: var(--muted); font-weight: 700; }
+  table.sc td:first-child, table.sc th:first-child { text-align: left; font-weight: 700; }
+  table.sc tr.wrow td { font-size: .78rem; color: var(--gw); font-weight: 800; background: var(--gw-bg); }
+  table.sc td.hot, table.sc th.hot { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+  table.sc td .x { color: var(--muted); font-size: .68rem; display: block; }
+  .tbar { height: 12px; background: var(--code-bg); border-radius: 6px; overflow: hidden; min-width: 70px; }
+  .tbar i { display: block; height: 100%; background: var(--user); }
+  .tbar i.win { background: var(--srv); }
+  .tot { font-weight: 800; font-size: .95rem; }
+  .say { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: .86rem; }
+  .say.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .say.weak { border-color: var(--bad); background: var(--bad-bg); }
+  .say b.n { display: inline-block; background: var(--ink); color: var(--on-ink); border-radius: 999px; padding: 0 8px; font-size: .72rem; margin-right: 6px; }
+  .tick { font-size: .86rem; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .tick.on { color: var(--srv); font-weight: 700; }
+  .tick.off { color: var(--muted); }
+  .ringsvg { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
+  .ringsvg text { font-family: inherit; font-size: 11px; fill: var(--ink); font-weight: 700; }
+  .ringsvg .pos { fill: var(--muted); font-weight: 500; font-size: 9px; }
+  .own { display: grid; gap: 4px; margin-top: 6px; }
+  .own div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 2px 0; font-size: .84rem; }
+  .own div.moved { background: var(--predict-bg); border-radius: 6px; padding: 2px 6px; font-weight: 800; }
+  .bars { display: grid; gap: 6px; margin-top: 6px; }
+  .brow { display: grid; grid-template-columns: 22px 1fr 56px; gap: 8px; align-items: center; font-size: .82rem; font-weight: 700; }
+  .brow .t { height: 16px; background: var(--code-bg); border-radius: 8px; overflow: hidden; }
+  .brow .t i { display: block; height: 100%; background: var(--user); }
+  .brow .t i.big { background: var(--bad); }
+  .keycells { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 8px; }
+  .kc { border: 2px solid var(--border); border-radius: 10px; padding: 4px; text-align: center; font-size: .78rem; background: var(--card); }
+  .kc b { display: block; font-size: .95rem; }
+  .kc.s0 { background: var(--user-bg); border-color: var(--user); } .kc.s1 { background: var(--srv-bg); border-color: var(--srv); }
+  .kc.s2 { background: var(--gw-bg); border-color: var(--gw); } .kc.s3 { background: var(--store-bg); border-color: var(--store); }
+  .kc.mv { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">← System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/20-consistent-hashing" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Consistent hashing: key mod N breaks, the ring, and many spots</h1>
+  <p class="sub">Press Next and watch one step at a time. Guess first, then check. The ring story uses the same code as the lesson. The last story uses numbers from a real run.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a key goes to the next server clockwise on a ring. Give each server many spots. Adding a server moves about 1 key in N, not almost all of them.</p>
+</div>
+
+<script>
+// ---- The same code as practice C in the lesson (modMoved and createRing). The md5 hash is left out: this page uses a number hash. ----
+function hash() { throw new Error('not used in this page'); }
+
+function modMoved(keys, from, to, hashFn = hash) {
+  let moved = 0;
+  for (const key of keys) if (hashFn(key) % from !== hashFn(key) % to) moved++;
+  return moved;
+}
+
+function createRing({ vnodes = 100, hash: hashFn = hash } = {}) {
+  let spots = [];                                   // { pos, server }, sorted by pos
+  const names = new Set();
+  const sortSpots = () => spots.sort((a, b) => a.pos - b.pos);
+  return {
+    addServer(name) {
+      if (names.has(name)) return false;
+      names.add(name);
+      for (let i = 0; i < vnodes; i++) spots.push({ pos: hashFn(name + "#" + i), server: name });
+      sortSpots();
+      return true;
+    },
+    removeServer(name) {
+      if (!names.has(name)) return false;
+      names.delete(name);
+      spots = spots.filter((s) => s.server !== name);
+      return true;
+    },
+    serverFor(key) {
+      if (spots.length === 0) return null;
+      const p = hashFn(key);
+      let lo = 0, hi = spots.length;                // first spot with pos >= p
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (spots[mid].pos >= p) hi = mid; else lo = mid + 1;
+      }
+      return spots[lo === spots.length ? 0 : lo].server;   // past the last spot: wrap to the first
+    },
+    servers() { return [...names].sort(); },
+  };
+}
+
+function ringMoved(keys, ring, change) {
+  const before = keys.map((k) => ring.serverFor(k));
+  change(ring);
+  let moved = 0;
+  keys.forEach((k, i) => { if (ring.serverFor(k) !== before[i]) moved++; });
+  return moved;
+}
+
+
+// Real run on Node 26.12.1: 10,000 keys named user-0 to user-9999, md5 hash, 4 servers A to D, then E added.
+const REAL = {
+  1:   { A: 300,  B: 141,  C: 3995, D: 5564, moved: 1706 },
+  10:  { A: 1234, B: 4002, C: 2095, D: 2669, moved: 2484 },
+  100: { A: 2556, B: 2487, C: 2479, D: 2478, moved: 2009 }
+};
+const SERVER_CLS = { A: "s0", B: "s1", C: "s2", D: "s3", E: "s3" };
+const fmt = n => Number(n).toLocaleString("en-US");
+
+const STORIES = [
+  {
+    name: "1. Key mod N breaks", simulate: simulateMod,
+    why: "Keys 0, 1 and 2 give the same answer for mod 3 and mod 4. Keys 3 to 11 all change. So 9 of 12 move. With 10,000 real keys, going from 3 to 4 servers moved 7,461 (75%).",
+    predict: { q: "12 keys, numbered 0 to 11, live on 3 servers by key mod 3. You add a 4th server and use key mod 4. How many keys change server?",
+               options: ["3", "9", "12"], answer: "9" }
+  },
+  {
+    name: "2. The ring", simulate: simulateRing,
+    why: "Each key walks clockwise to the next spot. D at 55 sits between B at 40 and C at 70, so it only takes the keys in 41 to 55. Of the five keys, only the one at 45 is there.",
+    predict: { q: "The ring has A at 10, B at 40 and C at 70. Keys sit at 5, 25, 45, 65 and 85. A new server D lands at 55. How many of the five keys change server?",
+               options: ["1", "3", "5"], answer: "1" }
+  },
+  {
+    name: "3. Many spots each", simulate: simulateSpots,
+    why: "With one spot each the gaps are random, so one server got 5,564 keys and another 141. With 100 spots each, every server got between 2,478 and 2,556. Many small random gaps add up to a fair share.",
+    predict: { q: "4 servers with 1 spot each share 10,000 keys on a ring. Is the load about 2,500 each?",
+               options: ["Yes, about 2,500 each", "No, very uneven", "Yes, it is always even on a ring"], answer: "No, very uneven" }
+  }
+];
+
+// ---- Story 1: key mod N ----
+function simulateMod() {
+  const steps = [];
+  const keys = Array.from({ length: 12 }, (_, i) => i);
+  const view = (n, mark) => '<div class="keycells">' + keys.map(k => '<div class="kc s' + (k % n) + (mark && k % 3 !== k % 4 ? " mv" : "") + '">key<b>' + k + "</b>server " + (k % n) + "</div>").join("") + "</div>";
+  const moved = modMoved(keys.map(String), 3, 4, Number);
+  const snap = (title, body, note, hop, phase) => steps.push({ cls: "one", note, hop, phase, stage: '<div class="panel"><h2>' + title + "</h2>" + body + "</div>" });
+  snap("12 keys, 3 servers", '<div class="empty">The keys are not placed yet.</div>', "12 keys, numbered 0 to 11. Each key goes to server <b>key mod number of servers</b>. We use the key number itself as its hash, to keep the picture small. First with <b>3 servers</b>.", "The setup", "setup");
+  snap("Rule: key mod 3 (3 servers)", view(3, false), "Key 0 goes to server 0, key 1 to server 1, key 2 to server 2, key 3 to server 0 again, and so on. Each server holds <b>4 keys</b>. Everything is fine.", "Place the keys", "run");
+  snap("Rule: key mod 4 (4 servers)", view(4, true), "Now we add a 4th server and the rule becomes <b>key mod 4</b>. The yellow keys have a <b>different</b> server than before. Only keys <b>0, 1 and 2</b> are not yellow. That is <b>" + moved + " of 12 moved</b>, computed by the same <code>modMoved</code> code as in the lesson.", "Add a server", "bad");
+  snap("What it means for a cache", '<div class="line">Moved keys: <b>' + moved + " of 12</b> (75%).</div>" +
+    '<div class="line">With 10,000 real keys and a real hash: 3 to 4 servers moved <b>7,461</b>, 4 to 5 moved <b>7,986</b>, 9 to 10 moved <b>8,946</b>.</div>',
+    "For a cache, a moved key is a <b>miss</b>: the new server does not have it. So adding one server empties about <b>three quarters of the cache</b>, and the database gets the flood. The share that moves is about N out of N + 1. We want a rule where it is about 1 out of N + 1.", "Finished", "done");
+  return steps;
+}
+
+// ---- Story 2: the ring (real createRing with a table hash, as in the practice tests) ----
+function simulateRing() {
+  const steps = [];
+  const table = { "A#0": 10, "B#0": 40, "C#0": 70, "D#0": 55 };
+  const fake = s => (s in table ? table[s] : Number(s.slice(1)));
+  const ring = createRing({ vnodes: 1, hash: fake });
+  const KEYS = ["k5", "k25", "k45", "k65", "k85"];
+  const COLORS = { A: "#3b82f6", B: "#2f9e6b", C: "#8b5cf6", D: "#e8890c" };
+  let spots = [], keysOn = false, prev = {}, now = {}, moved = [];
+  const svg = () => {
+    const cx = 130, cy = 120, r = 90;
+    const at = (pos, rad) => { const a = (pos / 100) * 2 * Math.PI - Math.PI / 2; return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)]; };
+    let s = '<svg class="ringsvg" viewBox="0 0 260 240"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/>';
+    s += '<text x="' + cx + '" y="' + (cy - r - 14) + '" text-anchor="middle" class="pos">0 (and 100 wraps here)</text>';
+    spots.forEach(([name, pos]) => { const [x, y] = at(pos, r); const [lx, ly] = at(pos, r + 18); s += '<circle cx="' + x + '" cy="' + y + '" r="9" fill="' + COLORS[name] + '"/><text x="' + lx + '" y="' + (ly + 4) + '" text-anchor="middle">' + name + '</text><text x="' + lx + '" y="' + (ly + 14) + '" text-anchor="middle" class="pos">' + pos + "</text>"; });
+    if (keysOn) KEYS.forEach(k => { const pos = Number(k.slice(1)); const [x, y] = at(pos, r - 22); const own = now[k]; s += '<rect x="' + (x - 6) + '" y="' + (y - 6) + '" width="12" height="12" rx="3" fill="' + (own ? COLORS[own] : "#999") + '" stroke="#000" stroke-opacity=".4"/><text x="' + x + '" y="' + (y + 20) + '" text-anchor="middle" class="pos">' + k + "</text>"; });
+    return s + "</svg>";
+  };
+  const owners = () => '<div class="own">' + KEYS.map(k => '<div class="' + (moved.includes(k) ? "moved" : "") + '"><span>' + k + " (at " + k.slice(1) + ")</span><span>" + (keysOn ? (now[k] || "no server") + (moved.includes(k) ? " (was " + prev[k] + ")" : "") : "-") + "</span></div>").join("") + "</div>";
+  const snap = (note, hop, phase) => steps.push({ cls: "two", note, hop, phase,
+    stage: '<div class="panel"><h2>The ring: positions 0 to 99</h2>' + svg() + "</div>" + '<div class="panel"><h2>Who owns each key</h2>' + owners() + '<div class="line">A key walks <b>clockwise</b> to the first spot at or after its position.</div></div>' });
+  const refresh = () => { prev = now; now = Object.fromEntries(KEYS.map(k => [k, ring.serverFor(k)])); moved = keysOn ? KEYS.filter(k => prev[k] !== now[k] && prev[k] !== undefined) : []; };
+  snap("This is a ring. The numbers 0 to 99 go round like a clock, and 99 joins up with 0. Servers sit at spots on the ring. Keys sit on it too. The positions come from a hash. Here we pick the positions by hand so the picture stays small. <code>createRing</code> from the lesson does the work.", "The setup", "setup");
+  ["A", "B", "C"].forEach(n => { ring.addServer(n); spots.push([n, fake(n + "#0")]); });
+  snap("Three servers: <b>A at 10, B at 40, C at 70</b>.", "Add A, B and C", "run");
+  keysOn = true; refresh();
+  snap("Five keys land at <b>5, 25, 45, 65 and 85</b>. Each walks clockwise to the next spot. Key 5 meets A at 10. Key 25 meets B at 40. Key 45 meets C at 70. Key 65 also meets C. Key 85 has no spot after it, so it <b>wraps round</b> to A at 10.", "Place the keys", "srv");
+  ring.addServer("D"); spots.push(["D", 55]); refresh();
+  snap("A <b>new server D</b> lands at <b>55</b>. Look at key 45. Walking clockwise it now meets <b>D at 55</b> before C at 70. So <b>key 45 moves from C to D</b>. The other four keys meet the same spot as before. Only keys between B (40) and D (55) can move. That is <b>" + moved.length + " of 5</b>.", "Add server D", "gw");
+  ring.removeServer("B"); spots = spots.filter(s => s[0] !== "B"); refresh();
+  snap("Now <b>B goes away</b>. Key 25 used to stop at B at 40. With B gone, the next spot clockwise from 25 is <b>D at 55</b>. So <b>key 25 moves from B to D</b>. Keys that did not belong to B stay where they are. Removing a server only moves <b>its own keys</b>, to the next spot.", "Remove server B", "bad");
+  snap("What we saw: adding D moved <b>1 key</b>. Removing B moved <b>only B's keys</b>. With plain <code>key mod N</code>, most keys would have moved each time. The next story shows why each server needs many spots.", "Finished", "done");
+  return steps;
+}
+
+// ---- Story 3: many spots each (real numbers) ----
+function simulateSpots() {
+  const steps = [];
+  const bars = (D) => {
+    const max = 6000;
+    return '<div class="bars">' + ["A", "B", "C", "D"].map(n => '<div class="brow"><span>' + n + '</span><div class="t"><i class="' + (D[n] > 4000 || D[n] < 600 ? "big" : "") + '" style="width:' + (100 * D[n] / max) + '%"></i></div><span>' + fmt(D[n]) + "</span></div>").join("") + "</div>";
+  };
+  const snap = (title, body, note, hop, phase) => steps.push({ cls: "one", note, hop, phase, stage: '<div class="panel"><h2>' + title + "</h2>" + body + "</div>" });
+  snap("10,000 keys, 4 servers", '<div class="empty">Nothing placed yet.</div>', "10,000 keys named <code>user-0</code> to <code>user-9999</code>, and 4 servers on a ring. A fair share is <b>2,500</b> each. The numbers are from a real run of <code>createRing</code> with an md5 hash (Node 26.12.1). We try 1 spot, 10 spots and 100 spots for each server.", "The setup", "setup");
+  snap("1 spot per server", bars(REAL[1]) + '<div class="line">Red bars are far from a fair share.</div>', "With <b>one spot</b> each, the gaps between spots are random. D owns <b>5,564</b> keys and B only <b>141</b>. That is about 40 times more. One server would be busy and another idle.", "1 spot each", "bad");
+  snap("10 spots per server", bars(REAL[10]), "With <b>10 spots</b> each it is better, but still uneven: from <b>1,234</b> to <b>4,002</b>.", "10 spots each", "run");
+  snap("100 spots per server", bars(REAL[100]) + '<div class="line">Every server is within 2,478 to 2,556.</div>', "With <b>100 spots</b> each, every server owns between <b>2,478 and 2,556</b> keys. Many small random gaps add up to a fair share. A bigger machine could get more spots and take more keys.", "100 spots each", "srv");
+  snap("Add a 5th server (100 spots each)", '<div class="rows"><div class="rowx new"><div class="lab">Keys that move<small>when E joins the ring of 100 spots each</small></div><div class="val">' + fmt(REAL[100].moved) + " of 10,000</div></div>" +
+    '<div class="rowx"><div class="lab">Plain key mod N, 4 to 5 servers<small>same keys, same hash</small></div><div class="val">7,986 of 10,000</div></div></div>',
+    "Now <b>E</b> joins. About <b>2,009</b> keys move (20%, which is 1 in 5), and <b>all of them go to E</b>. With the plain rule, <b>7,986</b> would move. That is the point of the ring.", "Add a 5th server", "gw");
+  snap("Remove server D (100 spots each)", '<div class="rows"><div class="rowx"><div class="lab">D\'s keys went to<small>real run, 100 spots each</small></div><div class="val">C 901 · B 937 · A 640</div></div></div>',
+    "If <b>D</b> is removed, only D's keys move. They spread over <b>A, B and C</b>, because each of D's 100 spots sat next to a spot of another server. With one spot each, all of D's keys would go to a single neighbour, which can then be overloaded.", "Finished", "done");
+  return steps;
+}
+
+// ---- The page engine (shared). Each story has simulate(): a list of steps { stage, cls, note, hop, phase }. ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], gw: ["A number is worked out", "gw"], srv: ["It works", "srv"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  $("stage").className = "stage " + s.cls;
+  $("stage").innerHTML = s.stage;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the numbers.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].simulate();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES;
+pickStory(0);
+
+</script>
+</body>
+</html>

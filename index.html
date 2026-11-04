@@ -821,7 +821,7 @@
   <span>Seed data, answers to 19 exercises and a 1M row EXPLAIN demo</span>
 </a>
 </details>
-<details class="subject"><summary><b>System Design</b><small>17 lessons, 16 guides, 19 visuals, 13 cheatsheets</small></summary>
+<details class="subject"><summary><b>System Design</b><small>27 lessons, 16 guides, 27 visuals, 13 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/system-design/README">
   <span class="tag map">MAP</span>
   <b>System Design: map and lesson list</b>
@@ -897,10 +897,60 @@
   <b>14. Observability</b>
   <span>say which tool answers which question, follow one trace id across two services, find the slow step in a trace, and say why you watch p99.</span>
 </a>
+<a class="card" href="viewer.html?note=learn/system-design/15-choosing-tools-and-explaining-why">
+  <span class="tag lesson">LESSON 15</span>
+  <b>15. Choosing tools and explaining why</b>
+  <span>answer &quot;why did you choose X?&quot; in five parts (the limits, the other options, why this one won, what it costs, what would change your mind), name the limits that decide most real choices, and show with a small score table how the same tools give a different winner when the needs change.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/16-latency-numbers-and-estimation">
+  <span class="tag lesson">LESSON 16</span>
+  <b>16. Latency numbers and estimation</b>
+  <span>say how slow each step of a request is (memory, database, other server, other continent), turn &quot;1 million users a day&quot; into requests per second, storage and a server count in under a minute, and say which number is the hard part of a design.</span>
+</a>
 <a class="card" href="viewer.html?note=learn/system-design/17-proxies-and-api-gateways">
   <span class="tag lesson">LESSON 17</span>
   <b>17. Proxies and API gateways</b>
   <span>say which side a forward proxy and a reverse proxy speak for, name what an API gateway does and does not do, trace one request through it, tell a gateway from a load balancer and a service mesh, say when a mobile app and a web app each get their own backend for frontend (BFF), and name two ways a gateway goes wrong.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/18-object-storage-and-presigned-uploads">
+  <span class="tag lesson">LESSON 18</span>
+  <b>18. Object storage and presigned uploads</b>
+  <span>say why files live in a bucket and not in your database, draw how a phone uploads a file straight to storage with a signed link, name what the server must still decide (the key, the type, the size), plan a big upload in parts, and say what to do about uploads that never finish.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/19-replication-and-quorums">
+  <span class="tag lesson">LESSON 19</span>
+  <b>19. Replication and quorums</b>
+  <span>say why data is kept as several copies, explain the leader and follower pattern, say what is lost when the leader says &quot;saved&quot; before the followers have the data (asynchronous) and what is lost when it waits (synchronous), use N, W and R and the rule R + W &gt; N, and say what a store does when copies are down.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/20-consistent-hashing">
+  <span class="tag lesson">LESSON 20</span>
+  <b>20. Consistent hashing</b>
+  <span>say why &quot;key mod number of servers&quot; breaks when you add a server, draw the ring and say which server owns a key, say that adding or removing a server moves only a small share of keys, explain why each server gets many spots (virtual nodes), and say where real systems use it.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/21-streams-vs-queues">
+  <span class="tag lesson">LESSON 21</span>
+  <b>21. Streams vs queues</b>
+  <span>say the difference between a work queue (a message is taken and gone) and a stream (a log that stays, with a bookmark for each reader), explain partitions, offsets and consumer groups, say why order exists only inside one partition, explain what happens when a worker crashes before it commits, and choose between a queue and a stream for a job.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/22-search-indexes">
+  <span class="tag lesson">LESSON 22</span>
+  <b>22. Search indexes</b>
+  <span>explain what an inverted index is and why it finds words fast, build a tiny one by hand (words, then the documents that hold them), say how a search with several words and a simple score works, say when a database index is enough and when you need a search engine, and explain how a search index is kept in step with the database, with duplicates and wrong order.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/23-timeouts-retries-and-circuit-breakers">
+  <span class="tag lesson">LESSON 23</span>
+  <b>23. Timeouts, retries and circuit breakers</b>
+  <span>say why every call to another system needs a timeout, retry only the calls that are safe and worth retrying, add a random part to the waits so retries do not arrive as one crowd, explain why retries at every layer multiply, and describe a circuit breaker with its three states.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/24-consensus-and-raft">
+  <span class="tag lesson">LESSON 24</span>
+  <b>24. Consensus and Raft</b>
+  <span>explain what &quot;consensus&quot; means and why a group of servers needs a majority, say why 3 or 5 servers are normal and 4 is not better than 3, describe how Raft elects a leader (terms, votes, random timers), say when a write counts as committed, and explain how a split network can cause two leaders and how Raft stops the old one from doing harm.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/system-design/25-multi-tenancy">
+  <span class="tag lesson">LESSON 25</span>
+  <b>25. Multi-tenancy</b>
+  <span>explain what a tenant is, compare the three ways to keep tenants apart (shared tables, a schema for each tenant, a database for each tenant), say how a forgotten `WHERE` leaks data and how Postgres row level security catches it, say why the tenant id comes from the token and never from the request body, and describe the noisy neighbour problem, many-tenant migrations and moving a big tenant out.</span>
 </a>
 <a class="card" href="viewer.html?note=learn/system-design/26-slos-and-error-budgets">
   <span class="tag lesson">LESSON 26</span>
@@ -977,9 +1027,24 @@
   <b>14-observability.html</b>
   <span>Interactive page</span>
 </a>
+<a class="card" href="learn/system-design/visuals/15-choosing-tools-and-explaining-why.html">
+  <span class="tag app">VISUAL</span>
+  <b>15-choosing-tools-and-explaining-why.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/16-latency-numbers-and-estimation.html">
+  <span class="tag app">VISUAL</span>
+  <b>16-latency-numbers-and-estimation.html</b>
+  <span>Interactive page</span>
+</a>
 <a class="card" href="learn/system-design/visuals/17-proxies-and-api-gateways.html">
   <span class="tag app">VISUAL</span>
   <b>17-proxies-and-api-gateways.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/18-object-storage-and-presigned-uploads.html">
+  <span class="tag app">VISUAL</span>
+  <b>18-object-storage-and-presigned-uploads.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="learn/system-design/visuals/19-replication-and-quorums.html">
@@ -987,9 +1052,34 @@
   <b>19-replication-and-quorums.html</b>
   <span>Interactive page</span>
 </a>
+<a class="card" href="learn/system-design/visuals/20-consistent-hashing.html">
+  <span class="tag app">VISUAL</span>
+  <b>20-consistent-hashing.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/21-streams-vs-queues.html">
+  <span class="tag app">VISUAL</span>
+  <b>21-streams-vs-queues.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/22-search-indexes.html">
+  <span class="tag app">VISUAL</span>
+  <b>22-search-indexes.html</b>
+  <span>Interactive page</span>
+</a>
 <a class="card" href="learn/system-design/visuals/23-timeouts-retries-and-circuit-breakers.html">
   <span class="tag app">VISUAL</span>
   <b>23-timeouts-retries-and-circuit-breakers.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/24-consensus-and-raft.html">
+  <span class="tag app">VISUAL</span>
+  <b>24-consensus-and-raft.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/system-design/visuals/25-multi-tenancy.html">
+  <span class="tag app">VISUAL</span>
+  <b>25-multi-tenancy.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="learn/system-design/visuals/26-slos-and-error-budgets.html">

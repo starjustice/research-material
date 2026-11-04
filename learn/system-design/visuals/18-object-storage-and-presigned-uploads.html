@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Object storage and presigned uploads: the link, the pending row, and parts</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --gw: #8b5cf6; --gw-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --gw: #b79cf8; --gw-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.gate { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.gate, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.gw    { border-color: var(--gw);    background: var(--gw-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.gw h3 { color: var(--gw); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .84rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); word-break: break-word; }
+  .req.now { border-color: var(--user); background: var(--user-bg); color: var(--ink); }
+  .check { border-radius: 10px; border: 2px solid var(--border); background: var(--card); padding: 6px 10px; margin-bottom: 8px; font-size: .82rem; }
+  .check b { display: block; font-size: .78rem; }
+  .check span { color: var(--muted); font-size: .74rem; }
+  .check.run  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .check.pass { border-color: var(--srv); background: var(--srv-bg); }
+  .check.fail { border-color: var(--bad); background: var(--bad-bg); }
+  .check.skip { opacity: .45; border-style: dashed; }
+  .routes { font-size: .76rem; margin-top: 4px; }
+  .routes div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .routes div:last-child { border-bottom: 0; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .counters { display: grid; gap: 2px; font-size: .84rem; margin-top: 8px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.gw { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stage.three { grid-template-columns: 1fr 1fr 1fr; }
+  .stage.one { grid-template-columns: 1fr; }
+  @media (max-width: 860px) { .stage.three { grid-template-columns: 1fr; } }
+  .tl { height: 16px; background: var(--code-bg); border-radius: 8px; position: relative; overflow: hidden; margin: 6px 0 4px; border: 1px solid var(--border); }
+  .tl i { position: absolute; top: 0; bottom: 0; min-width: 3px; }
+  .tl i.trip { background: var(--user); } .tl i.work { background: var(--srv); }
+  .tl-note { font-size: .72rem; color: var(--muted); }
+  .rows { display: grid; gap: 6px; margin-top: 4px; }
+  .rowx { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; border: 2px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--card); }
+  .rowx.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .rowx.skip { opacity: .4; border-style: dashed; }
+  .rowx .lab { font-size: .8rem; font-weight: 650; }
+  .rowx .lab small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+  .rowx .val { font-size: 1.05rem; font-weight: 800; text-align: right; }
+  .meter { margin-top: 8px; }
+  .meter .m { height: 14px; background: var(--code-bg); border-radius: 7px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .meter .m i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); }
+  .meter .m i.over { background: var(--bad); }
+  .meter .m b { position: absolute; top: -1px; bottom: -1px; width: 3px; background: var(--ink); }
+  .meter small { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+  .tablewrap { overflow-x: auto; }
+  table.sc { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  table.sc th, table.sc td { border-bottom: 1px dashed var(--border); padding: 5px 6px; text-align: center; }
+  table.sc th { font-size: .7rem; color: var(--muted); font-weight: 700; }
+  table.sc td:first-child, table.sc th:first-child { text-align: left; font-weight: 700; }
+  table.sc tr.wrow td { font-size: .78rem; color: var(--gw); font-weight: 800; background: var(--gw-bg); }
+  table.sc td.hot, table.sc th.hot { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+  table.sc td .x { color: var(--muted); font-size: .68rem; display: block; }
+  .tbar { height: 12px; background: var(--code-bg); border-radius: 6px; overflow: hidden; min-width: 70px; }
+  .tbar i { display: block; height: 100%; background: var(--user); }
+  .tbar i.win { background: var(--srv); }
+  .tot { font-weight: 800; font-size: .95rem; }
+  .say { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: .86rem; }
+  .say.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .say.weak { border-color: var(--bad); background: var(--bad-bg); }
+  .say b.n { display: inline-block; background: var(--ink); color: var(--on-ink); border-radius: 999px; padding: 0 8px; font-size: .72rem; margin-right: 6px; }
+  .tick { font-size: .86rem; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .tick.on { color: var(--srv); font-weight: 700; }
+  .tick.off { color: var(--muted); }
+  .cells { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 8px; }
+  .cell { height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .cell.send { background: var(--user-bg); border-color: var(--user); color: var(--ink); }
+  .cell.done { background: var(--srv-bg); border-color: var(--srv); color: var(--ink); }
+  .cell.fail { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+  .cell.retry { background: var(--predict-bg); border-color: var(--accent); color: var(--ink); }
+  .kv { font-family: ui-monospace, Menlo, monospace; font-size: .74rem; word-break: break-all; margin: 3px 0; }
+  .kv b { color: var(--ink); }
+  .sig { font-family: ui-monospace, Menlo, monospace; font-size: .74rem; padding: 2px 6px; border-radius: 6px; background: var(--code-bg); }
+  .sig.ok { background: var(--srv-bg); } .sig.no { background: var(--bad-bg); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">← System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/18-object-storage-and-presigned-uploads" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Object storage and presigned uploads: the link, the pending row, and parts</h1>
+  <p class="sub">Press Next and watch one step at a time. Guess first, then check. The numbers are example numbers. The row states and part counts come from the same code as the lesson, and the signatures are real.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the bytes go straight to storage. The server picks the key, signs the type and size, and trusts only the storage event. Big files go in parts.</p>
+</div>
+
+<script>
+// ---- The same code as practice C in the lesson, minus module.exports. The stepper calls it, so the row states and part counts are real. ----
+const MiB = 2 ** 20;
+const GiB = 2 ** 30;
+const MAX_PARTS = 10000;
+
+// One upload or many parts? Picks the smallest allowed part size.
+function planMultipart(sizeBytes) {
+  if (!Number.isInteger(sizeBytes) || sizeBytes <= 0) throw new RangeError("size must be a whole number above 0");
+  if (sizeBytes > MAX_PARTS * 5 * GiB) throw new RangeError("too big: the limit is about 48.8 TiB");
+  if (sizeBytes <= 100 * MiB) return { mode: "single", parts: 1, partSize: sizeBytes };
+  const partSize = Math.max(5 * MiB, Math.ceil(sizeBytes / MAX_PARTS / MiB) * MiB);
+  return { mode: "multipart", partSize, parts: Math.ceil(sizeBytes / partSize) };
+}
+
+// The server side of an upload: it picks the key, checks the request, and only trusts the storage event.
+function createUploads({ now, newId, maxBytes = 5 * MiB, allowed = ["image/jpeg", "image/png", "application/pdf"], ttlMs = 5 * 60 * 1000, pendingMaxMs = 60 * 60 * 1000 }) {
+  const rows = new Map();   // key -> row
+  return {
+    request({ userId, contentType, sizeBytes }) {
+      if (!allowed.includes(contentType)) throw new Error("type not allowed");
+      if (!Number.isInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > maxBytes) throw new Error("size not allowed");
+      const key = "uploads/" + userId + "/" + newId();            // the server picks the name, never the client
+      rows.set(key, { key, ownerId: userId, contentType, sizeBytes, status: "pending", createdAt: now() });
+      return { key, expiresAt: now() + ttlMs, signedHeaders: { "content-type": contentType, "content-length": sizeBytes } };
+    },
+    confirm({ key, sizeBytes, contentType }) {                     // the storage event, not the app
+      const row = rows.get(key);
+      if (!row) return "unknown";
+      if (row.status !== "pending") return "ignored";
+      if (row.sizeBytes !== sizeBytes || row.contentType !== contentType) { row.status = "rejected"; return "rejected"; }
+      row.status = "ready";
+      return "ready";
+    },
+    cleanup() {
+      const expired = [];
+      for (const row of rows.values()) {
+        if (row.status === "pending" && now() - row.createdAt > pendingMaxMs) { row.status = "expired"; expired.push(row.key); }
+      }
+      return expired;
+    },
+    get(key) { const r = rows.get(key); return r ? { ...r } : undefined; },
+    list(userId) { return [...rows.values()].filter((r) => r.ownerId === userId && r.status === "ready").map((r) => ({ ...r })); },
+  };
+}
+
+
+// Signatures below are real. I made the link with the AWS SDK v3 (made up secret) and recomputed the signature by hand
+// for each change (see the lesson, card 3). Only the first 16 characters are shown.
+const SIG = { real: "6eba5058478d5eae", otherKey: "0e278158f2ff6f10", otherType: "d88142e244fe0063" };
+const fmtMB = n => Number(n).toLocaleString("en-US", { maximumFractionDigits: 3 });
+
+const STORIES = [
+  {
+    name: "1. Through the API or straight", simulate: simulateRoute,
+    why: "Through the API each 50 MB file crosses your servers twice (in from the phone, out to storage): 100 MB each, 20 GB for 200 phones. With a signed link your API only sees the request for the link, about 1 KB each, so 0.2 MB for 200. The video goes straight to storage. A restart of your API does not touch uploads that are already running.",
+    predict: { q: "200 people upload a 50 MB video at the same time. The bytes go through your API (in from the phone, out to storage). How much data do your API servers carry?",
+               options: ["10 GB", "20 GB", "0.2 MB"], answer: "20 GB" }
+  },
+  {
+    name: "2. The link and the pending row", simulate: simulateLink,
+    why: "Storage works out the signature again from the key, the time, the method and the signed headers. A different key or a different content type gives a different signature, so it refuses. The row stays pending until the storage event says the size and type match.",
+    predict: { q: "Someone takes a link that was signed for their own key and changes the key in the path to another user's key. Storage works out the signature again. What happens?",
+               options: ["It accepts, if the file is small", "It refuses, because the signature no longer matches", "It accepts, if the content type is right"], answer: "It refuses, because the signature no longer matches" }
+  },
+  {
+    name: "3. A big file in parts", simulate: simulateParts,
+    why: "Each part is sent on its own. Part 3 failed, so only part 3 is sent again. The other 23 parts stay in storage. The complete call joins them in order.",
+    predict: { q: "A 120 MiB file goes up in 24 parts. Part 3 fails and the others work. How many parts are sent again?",
+               options: ["1", "3", "24"], answer: "1" }
+  }
+];
+
+// ---- Story 1: through the API, or straight to storage ----
+function simulateRoute() {
+  const steps = [];
+  const L = { mb: 0, held: 0, alive: true }, R = { mb: 0, held: 0, alive: true };
+  const panel = (title, small, D, kind, lit) =>
+    '<div class="panel"><h2>' + title + "</h2>" +
+      '<div class="comp ' + kind + (lit ? " lit" : "") + '"><h3>' + small + '<span class="tag ' + (D.alive ? "ok" : "bad") + '">' + (D.alive ? "running" : "restarted") + "</span></h3>" +
+        '<div class="big">' + fmtMB(D.mb) + ' MB</div><div class="biglabel">carried by your API so far</div>' +
+        '<div class="counters"><span>Uploads held open by your API: <b>' + D.held + "</b></span></div>" +
+      "</div></div>";
+  const snap = (note, hop, phase, lit) => steps.push({ cls: "two", note, hop, phase,
+    stage: panel("Bytes go through your API", "Your API", L, "gw", lit) + panel("Signed link: bytes go straight to storage", "Your API", R, "srv", lit) });
+  snap("Each phone uploads a <b>50 MB</b> video. <b>Left:</b> the phone sends it to your API, and your API sends it on to storage. <b>Right:</b> the phone asks your API for a signed link (about <b>1 KB</b>), then sends the video straight to storage. The numbers are example numbers.", "The setup", "setup", false);
+  for (let n = 1; n <= 3; n++) {
+    L.mb += 100; L.held += 1; R.mb += 0.001; R.held = 0;
+    snap("<b>Phone " + n + ".</b> Left: <b>50 MB in</b> from the phone and <b>50 MB out</b> to storage, so <b>100 MB</b> crosses your servers, and the API holds this upload open until it ends. Right: your API sees one tiny request. The 50 MB goes to storage by itself.", "Phone " + n, n === 3 ? "bad" : "run", true);
+  }
+  L.mb = 200 * 100; L.held = 200; R.mb = 200 * 0.001;
+  snap("Now <b>200 phones</b>. Left: <b>200 x 50 MB x 2 = " + fmtMB(L.mb / 1000) + " GB</b> crosses your API, with <b>200 uploads held open</b>. Right: <b>" + fmtMB(R.mb) + " MB</b>. The ten gigabytes of video went to storage, which is built for it.", "200 phones", "bad", true);
+  L.alive = false; L.held = 0; R.alive = false;
+  snap("<b>Your API restarts</b> (a deploy, or a crash). Left: every upload that went through it is <b>lost</b>, and every phone starts from zero. Right: the uploads were going to storage, not to your API, so they <b>carry on</b>. A new API copy can sign new links at once.", "The API restarts", "bad", true);
+  snap("Totals for 200 phones: <b>" + fmtMB(200 * 100 / 1000) + " GB</b> through your API, against <b>" + fmtMB(200 * 0.001) + " MB</b>. The price of the right side: more steps (ask, upload, confirm), a pending row in your database, and you can only check the file <b>after</b> it is stored.", "Finished", "done", false);
+  return steps;
+}
+
+// ---- Story 2: the signed link and the pending row (the row is driven by createUploads) ----
+function simulateLink() {
+  const steps = [];
+  const clock = { t: 0 };
+  const uploads = createUploads({ now: () => clock.t, newId: () => "id1" });
+  let key = null, link = null, stored = false, rowNow = null, said = [], sigLine = null;
+  const sig = (label, text, cls) => '<div class="kv">' + label + ' <span class="sig ' + (cls || "") + '">' + text + "</span></div>";
+  const snap = (note, hop, phase, lit, phoneSays) => steps.push({ cls: "two", note, hop, phase,
+    stage:
+      '<div class="panel"><h2>1. The phone</h2><div class="comp user' + (lit === "phone" ? " lit" : "") + '"><h3>Phone app</h3><small>wants to upload one photo</small><div class="kv">' + (phoneSays || "waiting") + "</div></div></div>" +
+      '<div class="panel"><h2>2. Your API</h2><div class="comp gw' + (lit === "api" ? " lit" : "") + '"><h3>API <span class="tag">picks the key</span></h3>' +
+        (said.length ? said.map(s => '<div class="kv">' + s + "</div>").join("") : '<div class="empty">nothing yet</div>') + "</div></div>" +
+      '<div class="panel"><h2>3. Storage (the bucket)</h2><div class="comp store' + (lit === "storage" ? " lit" : "") + '"><h3>Bucket <span class="tag">private</span></h3>' +
+        (sigLine || '<div class="empty">no check yet</div>') +
+        '<div class="line">Files in the bucket: <b>' + (stored ? key : "none") + "</b></div></div></div>" +
+      '<div class="panel"><h2>4. Postgres: the file row</h2><div class="comp srv' + (lit === "pg" ? " lit" : "") + '"><h3>file table</h3>' +
+        (rowNow ? '<div class="kv"><b>key</b> ' + rowNow.key + '</div><div class="kv"><b>owner</b> ' + rowNow.ownerId + '</div><div class="kv"><b>type</b> ' + rowNow.contentType + ", <b>size</b> " + (rowNow.sizeBytes / 2 ** 20) + ' MiB</div><div class="kv"><b>status</b> <span class="tag ' + (rowNow.status === "ready" ? "ok" : rowNow.status === "pending" ? "" : "bad") + '">' + rowNow.status + "</span></div>" : '<div class="empty">no row yet</div>') +
+      "</div></div>" });
+  snap("A phone wants to upload <b>photo.jpg</b>, a jpeg of 3 MiB. Four things take part: the phone, your API, storage, and the file row in Postgres. The row's state comes from the same <code>createUploads</code> code as practice C. The signatures are real (I recomputed them by hand).", "The setup", "setup", null);
+  snap("<b>Step 1.</b> The phone asks your API: <i>I want to upload a jpeg of 3 MiB.</i> It does not send the file. It sends a request about 1 KB big.", "Phone asks the API", "run", "phone", "ask: jpeg, 3 MiB");
+  const r = uploads.request({ userId: 42, contentType: "image/jpeg", sizeBytes: 3 * 2 ** 20 });
+  key = r.key; link = r; rowNow = uploads.get(key);
+  said = ["type <b>image/jpeg</b>: allowed", "size <b>3 MiB</b>: under the 5 MiB limit", "key: <b>" + key + "</b> (the server made it)"];
+  snap("<b>Step 2.</b> Your API checks the login, the type and the size. All fine. It <b>picks the key itself</b>: <code>" + key + "</code>. It saves a row in Postgres with status <b>pending</b>. The row is made <b>before</b> the file arrives.", "API checks and saves a pending row", "gw", "api", "waiting for the link");
+  said.push("link lives <b>300 s</b>", "signed headers: <b>content-type;host</b>", "signature " + '<span class="sig">' + SIG.real + "...</span>");
+  snap("<b>Step 3.</b> Your API signs a link for this key, for <b>5 minutes</b>. The type and the size go into what is signed. It sends the link to the phone. The signature <code>" + SIG.real + "...</code> is worked out from the key, the time, the method and the signed headers.", "API signs the link", "gw", "api", "got a link");
+  stored = true; sigLine = sig("storage works out", SIG.real + "...", "ok") + sig("the link says", SIG.real + "...", "ok") + '<div class="kv"><b>same: it accepts</b></div>';
+  snap("<b>Step 4.</b> The phone sends the 3 MiB <b>straight to storage</b>, with the link. Storage works out the signature again from what it received and compares. <b>They are the same</b>, so storage keeps the file. Your API carried no bytes. The row is still <b>pending</b>.", "Phone uploads to storage", "srv", "storage", "sending 3 MiB to storage");
+  sigLine = sig("storage works out", SIG.otherKey + "...", "no") + sig("the link says", SIG.real + "...", "ok") + '<div class="kv"><b>different: it refuses (403)</b></div>';
+  snap("<b>What if someone cheats (1)?</b> They change the key in the path to another user's file. Storage works out the signature for <b>that</b> key and gets <code>" + SIG.otherKey + "...</code>. The link says <code>" + SIG.real + "...</code>. They differ, so storage <b>refuses</b>.", "Another key is refused", "bad", "storage", "same link, another key");
+  sigLine = sig("storage works out", SIG.otherType + "...", "no") + sig("the link says", SIG.real + "...", "ok") + '<div class="kv"><b>different: it refuses (403)</b></div>';
+  snap("<b>What if someone cheats (2)?</b> They send an HTML file with <code>content-type: text/html</code>, but the link signed <code>image/jpeg</code>. The signature storage works out is <code>" + SIG.otherType + "...</code>. Different, so <b>refused</b>. This only works because the type was <b>signed</b> in step 3.", "Another type is refused", "bad", "storage", "same link, text/html");
+  const res = uploads.confirm({ key, sizeBytes: 3 * 2 ** 20, contentType: "image/jpeg" });
+  rowNow = uploads.get(key);
+  snap("<b>Step 5.</b> Storage sends an event: <i>a new file at this key, 3 MiB, image/jpeg</i>. A worker compares it with the row. <b>Same size, same type</b>, so <code>confirm</code> returns <b>" + res + "</b>. Only now the app may show the photo. If the app had said 'done' and crashed, the row would still be pending.", "The storage event", "srv", "pg", "done");
+  snap("The whole flow: the API <b>decided</b> (who, which key, which type and size). Storage <b>checked</b> (the signature). The storage <b>event</b> made it ready. Nobody had to trust the phone. If no file ever arrives, a cleanup job moves the row from pending to <b>expired</b>.", "Finished", "done", null, "done");
+  return steps;
+}
+
+// ---- Story 3: a big file in parts ----
+function simulateParts() {
+  const steps = [];
+  const size = 120 * 2 ** 20;
+  const plan = planMultipart(size);
+  const cells = Array.from({ length: plan.parts }, () => "wait");
+  const snap = (note, hop, phase, extra) => steps.push({ cls: "one", note, hop, phase,
+    stage: '<div class="panel"><h2>A 120 MiB file in ' + plan.parts + ' parts of 5 MiB</h2>' +
+      '<div class="cells">' + cells.map((c, i) => '<div class="cell ' + c + '">' + (i + 1) + "</div>").join("") + "</div>" +
+      '<div class="line">Done: <b>' + cells.filter(c => c === "done").length + "</b> · Failed: <b>" + cells.filter(c => c === "fail").length + "</b> · Waiting: <b>" + cells.filter(c => c === "wait").length + "</b></div>" + (extra || "") + "</div>" });
+  snap("The file is <b>120 MiB</b>. Over 100 MiB, so we use parts. <code>planMultipart(120 MiB)</code> says: <b>" + plan.mode + "</b>, parts of <b>5 MiB</b> (the smallest allowed), <b>" + plan.parts + " parts</b>. The API starts the upload and signs one link for each part. A part is 5 MiB to 5 GiB, and at most 10,000 parts are allowed.", "The plan", "setup");
+  [0, 1].forEach(i => cells[i] = "done");
+  snap("<b>Parts 1 and 2</b> go up, each to its own signed link, and finish.", "Parts 1 and 2", "run");
+  cells[2] = "fail";
+  for (let i = 3; i < 8; i++) cells[i] = "done";
+  snap("<b>Part 3 fails</b> (the network drops for a moment). The phone does not stop. It sends <b>parts 4 to 8 at the same time</b>, and they finish. Several parts at once is how a big upload goes fast.", "Part 3 fails", "bad");
+  for (let i = 8; i < plan.parts; i++) if (i !== 2) cells[i] = "done";
+  snap("The rest of the parts go up. Now <b>" + cells.filter(c => c === "done").length + " of " + plan.parts + "</b> are stored. Only <b>part 3</b> is missing. Without parts, one failure would mean starting the whole 120 MiB again.", "The rest", "run");
+  cells[2] = "retry";
+  snap("<b>Retry part 3 only.</b> It is 5 MiB, not 120 MiB.", "Retry one part", "gw");
+  cells[2] = "done";
+  snap("Part 3 is stored. All <b>" + plan.parts + "</b> parts are there. The phone sends the part numbers to your API, and your API makes the final <b>complete</b> call. Storage joins the parts <b>in order</b> into one file.", "Complete", "srv");
+  const big = planMultipart(5 * 10 ** 9), huge = planMultipart(100 * 2 ** 30);
+  snap("The same plan for bigger files: <b>5 GB</b> gives " + big.parts + " parts of 5 MiB. <b>100 GiB</b> would need 20,480 parts of 5 MiB, which is over the limit of 10,000, so the plan uses parts of <b>" + huge.partSize / 2 ** 20 + " MiB</b>: <b>" + huge.parts + " parts</b>. If the app gives up and never calls complete, the stored parts stay and <b>you pay for them</b>, so add a bucket rule that deletes unfinished uploads after a few days.", "Finished", "done");
+  return steps;
+}
+
+// ---- The page engine (shared). Each story has simulate(): a list of steps { stage, cls, note, hop, phase }. ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], gw: ["A number is worked out", "gw"], srv: ["It works", "srv"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  $("stage").className = "stage " + s.cls;
+  $("stage").innerHTML = s.stage;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the numbers.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].simulate();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES;
+pickStory(0);
+
+</script>
+</body>
+</html>

@@ -68,7 +68,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 |---|---|---|---|
 | 13 | [Idempotency and retries](13-idempotency-and-retries.md) | making repeated requests safe | ready |
 | 14 | [Observability](14-observability.md) | logs, metrics, traces | ready |
-| 15 | Choosing tools and explaining why `15-choosing-tools-and-explaining-why.md` | how to defend a choice in an interview | planned |
+| 15 | [Choosing tools and explaining why](15-choosing-tools-and-explaining-why.md) | how to defend a choice in an interview | ready |
 
 ### More building blocks (added 2026-10-16)
 
@@ -76,25 +76,25 @@ Each one has a deep section in the guides below. A lesson file breaks it into on
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 16 | Latency numbers and estimation `16-latency-numbers-and-estimation.md` | how slow each hop is, and requests per second from daily users | planned |
-| 17 | Proxies and API gateways `17-proxies-and-api-gateways.md` | forward vs reverse proxy, what a gateway does, backend for frontend | planned |
-| 18 | Object storage and presigned uploads `18-object-storage-and-presigned-uploads.md` | why files skip your server, and how the upload URL works | planned |
-| 19 | Replication and quorums `19-replication-and-quorums.md` | leader and follower, sync vs async, R plus W greater than N | planned |
-| 20 | Consistent hashing `20-consistent-hashing.md` | the ring, virtual nodes, why plain modulo breaks | planned |
-| 21 | Streams vs queues `21-streams-vs-queues.md` | Kafka partitions and offsets against a work queue | planned |
-| 22 | Search indexes `22-search-indexes.md` | the inverted index, keeping search in sync with the database | planned |
+| 16 | [Latency numbers and estimation](16-latency-numbers-and-estimation.md) | how slow each hop is, and requests per second from daily users | ready |
+| 17 | [Proxies and API gateways](17-proxies-and-api-gateways.md) | forward vs reverse proxy, what a gateway does, backend for frontend | ready |
+| 18 | [Object storage and presigned uploads](18-object-storage-and-presigned-uploads.md) | why files skip your server, and how the upload URL works | ready |
+| 19 | [Replication and quorums](19-replication-and-quorums.md) | leader and follower, sync vs async, R plus W greater than N | ready |
+| 20 | [Consistent hashing](20-consistent-hashing.md) | the ring, virtual nodes, why plain modulo breaks | ready |
+| 21 | [Streams vs queues](21-streams-vs-queues.md) | Kafka partitions and offsets against a work queue | ready |
+| 22 | [Search indexes](22-search-indexes.md) | the inverted index, keeping search in sync with the database | ready |
 
 ### More senior level (added 2026-10-16)
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 23 | Timeouts, retries and circuit breakers `23-timeouts-retries-and-circuit-breakers.md` | backoff with jitter, the three breaker states, retry storms | planned |
-| 24 | Consensus and Raft `24-consensus-and-raft.md` | leader election, majority, why split brain happens | planned |
-| 25 | Multi-tenancy `25-multi-tenancy.md` | shared tables, schema per tenant, database per tenant | planned |
-| 26 | SLOs and error budgets `26-slos-and-error-budgets.md` | turning 99.9% into minutes, alerting on what users feel | planned |
+| 23 | [Timeouts, retries and circuit breakers](23-timeouts-retries-and-circuit-breakers.md) | backoff with jitter, the three breaker states, retry storms | ready |
+| 24 | [Consensus and Raft](24-consensus-and-raft.md) | leader election, majority, why split brain happens | ready |
+| 25 | [Multi-tenancy](25-multi-tenancy.md) | shared tables, schema per tenant, database per tenant | ready |
+| 26 | [SLOs and error budgets](26-slos-and-error-budgets.md) | turning 99.9% into minutes, alerting on what users feel | ready |
 | 27 | Safe deploys `27-safe-deploys.md` | canary, blue green, feature flags, expand and contract | planned |
 | 28 | Disaster recovery `28-disaster-recovery.md` | RPO, RTO, multi AZ vs multi region | planned |
-| 29 | Security in a design `29-security-in-a-design.md` | authorization models, OWASP API Top 10, service to service auth | planned |
+| 29 | [Security in a design](29-security-in-a-design.md) | authorization models, OWASP API Top 10, service to service auth | ready |
 | 30 | LLM features in a system `30-llm-features-in-a-system.md` | RAG, LLM gateway, streaming, cost and fallbacks | planned |
 | 31 | The frontend design round `31-the-frontend-design-round.md` | a framework for frontend system design, rendering and data choices | planned |
 

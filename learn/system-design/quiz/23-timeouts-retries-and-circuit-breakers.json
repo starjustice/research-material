@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A provider hangs and never answers. Your API has 4 slots and no timeout. Four checkouts are waiting. What happens to a user who logs in (login never calls the provider)?",
+    "options": [
+      "Login works, because it does not use the provider",
+      "Login fails, because every slot is held by a stuck checkout",
+      "Login works but is slow",
+      "Login waits until the provider answers"
+    ],
+    "answer": 1,
+    "why": "Each stuck call holds a slot. When all slots are held, the login finds none, even though it never needed the provider. A timeout frees the slot (in the real run, login got 503 without a timeout and 200 with one)."
+  },
+  {
+    "q": "Three layers each try a failing call 3 times. How many calls reach the bottom, and what is the usual rule?",
+    "options": [
+      "9 calls. Retry at every layer to be safe",
+      "27 calls. Retry at one layer only",
+      "3 calls. Layers do not add up",
+      "27 calls. Add more tries at the bottom"
+    ],
+    "answer": 1,
+    "why": "3 x 3 x 3 = 27, and 5 layers give 243. Retries multiply across layers, so retry at one layer, the one directly above the failing system, with a small number of tries."
+  },
+  {
+    "q": "Which failure is worth retrying (and the call is safe to repeat)?",
+    "options": [
+      "400, the data is wrong",
+      "404, the item does not exist",
+      "A timeout or a 503",
+      "401, the login is wrong"
+    ],
+    "answer": 2,
+    "why": "A timeout or a 503 can pass by itself. A 400, 401 or 404 will fail again every time, so a retry only adds load."
+  },
+  {
+    "q": "1000 clients fail at the same moment. They retry with waits that double (100, 200, 400 ms) and no random part. What does the server see?",
+    "options": [
+      "A steady stream",
+      "A wall of 1000 calls in each round",
+      "Half the calls, because the waits grow",
+      "No retries, because backoff stops them"
+    ],
+    "answer": 1,
+    "why": "Backoff makes the retries rarer but every client waits the same time, so they stay together. Jitter gives each client a random wait, which spreads the calls (115 in the busiest 10 ms slot against 1000 in the real run)."
+  },
+  {
+    "q": "In full jitter, with a base of 100 ms, what is the wait before the retry at attempt 3 when random() gives 0.5 (no cap reached)?",
+    "options": [
+      "800 ms",
+      "400 ms",
+      "50 ms",
+      "200 ms"
+    ],
+    "answer": 1,
+    "why": "The ceiling is 100 x 2 to the power of 3 = 800 ms. The wait is random() x ceiling = 0.5 x 800 = 400 ms."
+  },
+  {
+    "q": "A circuit breaker is open and its cooldown is over. It is now half open. What does it do?",
+    "options": [
+      "Closes at once",
+      "Lets every call through to see what happens",
+      "Lets one test call through. A good result closes it, a bad one opens it again",
+      "Stays open until someone restarts it"
+    ],
+    "answer": 2,
+    "why": "Half open sends one test call. If it works the breaker closes and the failure count resets. If it fails the breaker opens again and the cooldown restarts."
+  }
+]

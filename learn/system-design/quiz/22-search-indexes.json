@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What is an inverted index?",
+    "options": [
+      "A list of documents, each with its words",
+      "A map from each word to the list of documents that contain it",
+      "A copy of the table sorted by id",
+      "A cache of the last searches"
+    ],
+    "answer": 1,
+    "why": "It turns \"document, then its words\" round into \"word, then its documents\", like the index at the back of a book. A search reads the lists, not the documents."
+  },
+  {
+    "q": "Documents: 1 \"red running shoes\", 2 \"blue running shirt\", 3 \"red red shirt\", 4 \"green hat\". What does a search for \"red shirt\" give?",
+    "options": [
+      "Documents 1, 2 and 3",
+      "Document 3 only (red twice and shirt once, score 3)",
+      "Documents 1 and 3",
+      "Nothing"
+    ],
+    "answer": 1,
+    "why": "red is in 1 and 3, shirt is in 2 and 3. Only document 3 is in both lists. Its score is red twice plus shirt once."
+  },
+  {
+    "q": "In the test with 200,000 rows, a GIN index helped a lot for a rare word and little for a word in 30% of rows. Why?",
+    "options": [
+      "A common word has a very short list",
+      "A common word matches many rows, so most of the work is reading those rows",
+      "GIN indexes do not work for common words at all",
+      "The index is rebuilt on every search"
+    ],
+    "answer": 1,
+    "why": "A rare word was 29 ms with ILIKE and 0.2 ms with the index. A word in 30% of rows was 20.1 ms against 9.3 ms. An index helps most when few documents match."
+  },
+  {
+    "q": "The app saves a product in Postgres, then calls the search engine, which is down. The user sees \"saved\". What is wrong, and what is the fix?",
+    "options": [
+      "Nothing, the engine will find it later by itself",
+      "The two disagree for good (a dual write). Write an outbox row in the same transaction, and let a relay retry",
+      "Postgres must wait until the engine is up",
+      "The engine must be the only copy of the data"
+    ],
+    "answer": 1,
+    "why": "A crash between two writes leaves them different. The outbox is written in the same transaction as the data, so the change is not lost, and a relay retries until the indexer has it."
+  },
+  {
+    "q": "The indexer applied \"upsert doc 1, version 2\". Then \"upsert doc 1, version 1\" arrives late. What should it do?",
+    "options": [
+      "Apply it, because it arrived last",
+      "Ignore it as stale, because its version is not newer",
+      "Apply it and delete version 2",
+      "Stop and raise an alarm"
+    ],
+    "answer": 1,
+    "why": "The indexer keeps the newest version it has seen for each id and applies only a bigger one. A late old change must not undo a newer one."
+  },
+  {
+    "q": "A user edits a product and searches one second later through a search engine such as Elasticsearch. Do they always find the new text?",
+    "options": [
+      "Yes, search is always instant",
+      "Not always. A change shows after a refresh (about 1 second by default) plus any queue delay",
+      "Never, search engines cannot be updated",
+      "Only if the product has a version number"
+    ],
+    "answer": 1,
+    "why": "The Elastic docs say document changes are not visible to search immediately. Show the user's own change from the database and let the search catch up."
+  }
+]

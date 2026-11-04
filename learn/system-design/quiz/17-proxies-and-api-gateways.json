@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What does an API gateway do that a plain load balancer does not?",
+    "options": [
+      "It shares work between copies of one service",
+      "It checks the ticket, limits the calls, and picks the service by the path",
+      "It stores the data for all services",
+      "It makes the servers faster"
+    ],
+    "answer": 1,
+    "why": "A load balancer shares work between copies of one service. A gateway is the one public door for many services: HTTPS, ticket, limit, route."
+  },
+  {
+    "q": "A request has a bad ticket and goes to /orders/42. What does the gateway do?",
+    "options": [
+      "Sends it to the orders service anyway",
+      "Counts it for the limit, then sends 429",
+      "Answers 401 at the first check, and the services never see it",
+      "Answers 404 because the path is wrong"
+    ],
+    "answer": 2,
+    "why": "The cheap check goes first: is the ticket real? A refused ticket stops at the door and does not count for the limit."
+  },
+  {
+    "q": "The gateway sets the user header with req.headers[\"x-user-id\"] || user. Mia has a real ticket and sends her own header x-user-id: boss. What does the service see?",
+    "options": [
+      "mia",
+      "boss",
+      "nothing",
+      "an error"
+    ],
+    "answer": 1,
+    "why": "The gateway believed the header the caller sent. It must overwrite x-user-id on every request, and the service must still check who owns the order."
+  },
+  {
+    "q": "Sam sends 9 requests. A load balancer shares them over 3 gateway copies, and each copy counts in its own memory with a limit of 2. How many requests are allowed?",
+    "options": [
+      "2",
+      "3",
+      "6",
+      "9"
+    ],
+    "answer": 2,
+    "why": "Each copy sees 3 of the 9 requests and allows 2. So 6 get through. The fix is one shared counter, for example in Redis."
+  },
+  {
+    "q": "Which proxy speaks for the servers, and hides them?",
+    "options": [
+      "A forward proxy, like a company web filter",
+      "A reverse proxy, like Nginx in front of your app",
+      "A service mesh",
+      "A DNS server"
+    ],
+    "answer": 1,
+    "why": "A reverse proxy speaks for the servers. A forward proxy speaks for the clients. A gateway is a reverse proxy with extra door jobs."
+  },
+  {
+    "q": "A service says \"the gateway checked the token, so I trust everyone.\" A caller reaches the service directly. What can they do?",
+    "options": [
+      "Nothing, the token is checked inside the service",
+      "Send any x-user-id and read anyone's orders",
+      "Only read their own orders",
+      "Only call the health check"
+    ],
+    "answer": 1,
+    "why": "The service must check that this user owns the order, and it should have no public route. The gateway answers \"is this ticket real\". The service answers \"may this user do this\"."
+  }
+]

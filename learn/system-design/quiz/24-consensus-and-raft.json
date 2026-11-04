@@ -1,0 +1,68 @@
+[
+  {
+    "q": "5 servers. The network is cut: A and B on one side, C, D and E on the other. Both sides try to elect a leader. What happens?",
+    "options": [
+      "Both sides elect a leader",
+      "Only the side with C, D and E can elect a leader",
+      "Neither side can, because the cluster is broken",
+      "The side with A and B wins, because A asked first"
+    ],
+    "answer": 1,
+    "why": "A leader needs a majority, which is 3 of 5. C, D and E have 3. A and B have only 2 and can never reach 3."
+  },
+  {
+    "q": "Why do two majorities of the same cluster always share at least one server?",
+    "options": [
+      "Because the servers are copies of each other",
+      "Because each is more than half, so together they are more than the whole cluster and must overlap",
+      "Because the leader is in every majority",
+      "They do not always share one"
+    ],
+    "answer": 1,
+    "why": "Two groups that are each more than half add up to more than all the servers, so they overlap. That server votes once in a term, so two leaders cannot both win in the same term."
+  },
+  {
+    "q": "You can run 3 or 4 servers. Which is the better choice, and why?",
+    "options": [
+      "4, because it survives more failures",
+      "4, because a majority is easier to reach",
+      "3, because it survives 1 failure like 4 does, and each write needs only 2 answers instead of 3",
+      "They are the same in every way"
+    ],
+    "answer": 2,
+    "why": "A majority of 3 is 2 and of 4 is 3. Both survive 1 failure. The 3 server cluster is cheaper per write and just as safe. Use 5 to survive 2."
+  },
+  {
+    "q": "What do random election timers prevent?",
+    "options": [
+      "Servers voting twice",
+      "All followers standing for election at the same moment, so nobody gets a majority",
+      "The leader sending heartbeats",
+      "The network being cut"
+    ],
+    "answer": 1,
+    "why": "If every timer were the same, all followers would stand at once and each would get only its own vote (a split vote). Random timers spread them out. It is the same trick as jitter."
+  },
+  {
+    "q": "In a cluster of 5, when is a new entry committed?",
+    "options": [
+      "When the leader has written it",
+      "When a majority (3 of 5, the leader counts) has stored it",
+      "When all 5 have stored it",
+      "When the client asks again"
+    ],
+    "answer": 1,
+    "why": "Committed means a majority has stored it. Only then does the leader tell the client done. Waiting for all 5 would stop the cluster when one server is down."
+  },
+  {
+    "q": "The old leader is on the small side of a split network. It adds x=2 to its log, but only 1 other server gets it. The network heals. What happens to x=2?",
+    "options": [
+      "It is committed late",
+      "It is thrown away, and no client was told it was saved",
+      "It is kept next to the new leader's entries",
+      "It makes the old leader the leader again"
+    ],
+    "answer": 1,
+    "why": "x=2 reached only 2 of 5 servers, so it was never committed and the client never heard done. The old leader sees the bigger term, steps down, and takes the new leader's log."
+  }
+]

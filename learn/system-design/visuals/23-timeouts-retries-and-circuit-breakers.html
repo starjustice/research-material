@@ -220,7 +220,7 @@ function simulateSlots() {
   return steps;
 }
 
-// Story 2: 1000 clients fail at time 0 and retry 4 times. Same code as section 4 of the lesson.
+// Story 2: 1000 clients fail at time 0 and retry 4 times. Same idea as card 3 of the lesson.
 function simulateHerd() {
   const SLOT = 10, SLOTS = 151, CAP = 200, N = 1000, TRIES = 4;
   const run = jitter => {

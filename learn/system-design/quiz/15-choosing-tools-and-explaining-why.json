@@ -1,0 +1,68 @@
+[
+  {
+    "q": "The interviewer asks \"Why React?\" and you say \"React is the best framework.\" What is missing from the answer?",
+    "options": [
+      "The limits you had, the other options, and the cost",
+      "A longer list of React features",
+      "A benchmark number that proves React is faster",
+      "The name of a famous company that uses React"
+    ],
+    "answer": 0,
+    "why": "\"The best\" is a slogan. A good answer names the limits, the real options, why this one won, what it costs, and what would flip it."
+  },
+  {
+    "q": "Your team of 3 knows only PostgreSQL. A blog post says another database is faster for your case. Which do you pick, unless the speed is a real need?",
+    "options": [
+      "The other database, because faster is always better",
+      "PostgreSQL, because running and fixing a new database at night costs the team more than the speed gains",
+      "Both, at the same time",
+      "Whichever one the blog author uses"
+    ],
+    "answer": 1,
+    "why": "The limits that usually decide are the team, the lifetime and who runs it. A new tool must earn its place with a job the old one cannot do."
+  },
+  {
+    "q": "Same three tools. A payments feature picks PostgreSQL. A click event stream picks DynamoDB. Why did the winner change?",
+    "options": [
+      "PostgreSQL got slower",
+      "DynamoDB got better",
+      "The needs changed, so the weights changed",
+      "The interviewer changed the scores"
+    ],
+    "answer": 2,
+    "why": "Nothing about the tools changed. Safe money data and a team that knows it count most in case A. Growing writes counts most in case B."
+  },
+  {
+    "q": "After you pick a tool, what are the two things a senior answer adds?",
+    "options": [
+      "A price list and a release date",
+      "The name of the person who made the tool",
+      "What you gave up, and what would change your mind",
+      "A promise that the choice is final"
+    ],
+    "answer": 2,
+    "why": "A decision with no cost sounds shallow. Say where the runner-up is better, and what would have to change for you to pick it."
+  },
+  {
+    "q": "A team of 8 builds one web app with orders and payments. What is a good starting default?",
+    "options": [
+      "Ten microservices, so they can scale later",
+      "One well organised program (a modular monolith)",
+      "One service per developer",
+      "A different database for each table"
+    ],
+    "answer": 1,
+    "why": "Eight people can keep one program in their heads, and one deploy is simple. Split later, when one part needs to scale or fail on its own."
+  },
+  {
+    "q": "The interviewer's company uses Angular and you prefer React. They ask what you think of Angular. What do you say?",
+    "options": [
+      "Angular is outdated",
+      "I would never use it",
+      "Say what Angular is good for, and where you would pick React instead",
+      "Change the subject"
+    ],
+    "answer": 2,
+    "why": "Show that you can reason about limits. Their choice makes sense for their lifetime and their team. Never call it wrong."
+  }
+]

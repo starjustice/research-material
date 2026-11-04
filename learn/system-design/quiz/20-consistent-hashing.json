@@ -1,0 +1,63 @@
+[
+  {
+    "q": "12 keys, numbered 0 to 11, live on 3 servers by key mod 3. You add a 4th server and switch to key mod 4. How many keys change server?",
+    "options": ["3", "6", "9", "12"],
+    "answer": 2,
+    "why": "Only keys 0, 1 and 2 give the same answer for mod 3 and mod 4. Keys 3 to 11 all change, so 9 move. With real keys, going from 4 to 5 servers moved about 80%."
+  },
+  {
+    "q": "Why is it a problem for a cache when most keys change server after you add one server?",
+    "options": [
+      "The new server is slower",
+      "Moved keys are misses on the new server, so the database gets a flood of asks",
+      "The old servers must be turned off",
+      "The hash function stops working"
+    ],
+    "answer": 1,
+    "why": "The data was not copied. The next ask for a moved key goes to a server that does not have it, so the app reads the database and fills the cache again."
+  },
+  {
+    "q": "On a consistent hash ring, which server owns a key?",
+    "options": [
+      "The server with the lowest number",
+      "The server whose name is closest in the alphabet",
+      "The first server spot reached walking clockwise from the key, wrapping round at the end",
+      "A random server each time"
+    ],
+    "answer": 2,
+    "why": "Servers and keys are hashed onto the same circle. A key belongs to the next spot clockwise, and a key past the last spot wraps to the first."
+  },
+  {
+    "q": "A ring has 4 servers with 100 spots each. A 5th server joins. About how many keys move, and where do they go?",
+    "options": [
+      "About 1 in 5, all to the new server",
+      "About 4 in 5, spread over all servers",
+      "None, because the ring is fixed",
+      "About half, moving between the old servers"
+    ],
+    "answer": 0,
+    "why": "The new server needs a fair share, about 1 in 5. In the real run 2,009 of 10,000 moved, all to the new server. The plain rule moved 7,986."
+  },
+  {
+    "q": "4 servers with only 1 spot each share 10,000 keys on a ring. What did the real run show?",
+    "options": [
+      "About 2,500 keys each",
+      "Very uneven: one server had 5,564 keys and another 141",
+      "Every key went to one server",
+      "No key could be found"
+    ],
+    "answer": 1,
+    "why": "With one spot each, the gaps between spots are random. Many spots per server (100 or more) add up many small random gaps to a fair share."
+  },
+  {
+    "q": "Redis Cluster does not use a ring. How does it keep a key's owner from depending on the number of nodes?",
+    "options": [
+      "Every key goes to node 0",
+      "It uses a fixed number of hash slots: CRC16(key) mod 16384. Adding a node moves whole slots to it",
+      "It copies every key to every node",
+      "It asks the client which node to use"
+    ],
+    "answer": 1,
+    "why": "The slot of a key never changes, so only the slots handed to the new node move. The fixed slot count does the job of the ring."
+  }
+]

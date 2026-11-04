@@ -1,0 +1,63 @@
+[
+  {
+    "q": "A leader says \"saved\" after 1 ms, before the follower has the copy. Then the leader crashes. What can be lost, and what is this mode called?",
+    "options": [
+      "Nothing, the follower always has it. Synchronous",
+      "The write the client was told about. Asynchronous",
+      "Only the oldest data. Synchronous",
+      "The follower's disk. Asynchronous"
+    ],
+    "answer": 1,
+    "why": "With asynchronous replication, \"saved\" is said before the copy lands. A crash in that gap loses a write the client was promised."
+  },
+  {
+    "q": "Postgres is set to synchronous replication with one follower, and the follower server stops. What happens to the next INSERT on the leader?",
+    "options": [
+      "It succeeds as before",
+      "It is refused at once with an error",
+      "It waits and does not return, until the follower is back or the wait is cancelled",
+      "It is saved only on the follower when it returns"
+    ],
+    "answer": 2,
+    "why": "In the Postgres test in database lesson 21, the INSERT was still waiting after 2.5 seconds. Sync gives safety, and gives up availability when the follower is gone."
+  },
+  {
+    "q": "N = 3, W = 2, R = 2. A write of v2 reached copies A and B. A read asks B and C, and C still holds v1. What does the read return?",
+    "options": ["v1", "v2", "An error", "Either one, at random"],
+    "answer": 1,
+    "why": "The read keeps the answer with the highest version. Any 2 of 3 copies include A or B, so the late copy C cannot win alone."
+  },
+  {
+    "q": "Which settings can give a stale read with N = 3?",
+    "options": [
+      "W = 2 and R = 2",
+      "W = 3 and R = 1",
+      "W = 2 and R = 1",
+      "W = 1 and R = 3"
+    ],
+    "answer": 2,
+    "why": "With W = 2 and R = 1, R + W is 3, which is not more than N. The write can sit on A and B while the read asks only C. The other three have R + W = 4."
+  },
+  {
+    "q": "N = 3, W = 2, R = 2, and two copies are down. What happens to a write?",
+    "options": [
+      "It succeeds on the one copy that is up",
+      "It is refused, because only 1 copy can save it and W is 2",
+      "It succeeds and is copied later",
+      "It is saved on the copies that are down"
+    ],
+    "answer": 1,
+    "why": "The store gives up availability to avoid giving a wrong answer. A write needs W saves, and a read needs R answers."
+  },
+  {
+    "q": "A team has 3 copies, all in one data centre, and says \"we are safe\". What is the problem?",
+    "options": [
+      "3 copies is too few",
+      "Copies in one place can fail together, for example in a power loss",
+      "Copies in one place are always out of date",
+      "A quorum cannot be made with 3 copies"
+    ],
+    "answer": 1,
+    "why": "Spread copies across zones, so one failure takes at most one copy."
+  }
+]

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Latency numbers and estimation: the price of each step and the maths from users to servers</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --gw: #8b5cf6; --gw-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --gw: #b79cf8; --gw-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.gate { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.gate, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.gw    { border-color: var(--gw);    background: var(--gw-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.gw h3 { color: var(--gw); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .84rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); word-break: break-word; }
+  .req.now { border-color: var(--user); background: var(--user-bg); color: var(--ink); }
+  .check { border-radius: 10px; border: 2px solid var(--border); background: var(--card); padding: 6px 10px; margin-bottom: 8px; font-size: .82rem; }
+  .check b { display: block; font-size: .78rem; }
+  .check span { color: var(--muted); font-size: .74rem; }
+  .check.run  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .check.pass { border-color: var(--srv); background: var(--srv-bg); }
+  .check.fail { border-color: var(--bad); background: var(--bad-bg); }
+  .check.skip { opacity: .45; border-style: dashed; }
+  .routes { font-size: .76rem; margin-top: 4px; }
+  .routes div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .routes div:last-child { border-bottom: 0; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .counters { display: grid; gap: 2px; font-size: .84rem; margin-top: 8px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.gw { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stage.three { grid-template-columns: 1fr 1fr 1fr; }
+  .stage.one { grid-template-columns: 1fr; }
+  @media (max-width: 860px) { .stage.three { grid-template-columns: 1fr; } }
+  .tl { height: 16px; background: var(--code-bg); border-radius: 8px; position: relative; overflow: hidden; margin: 6px 0 4px; border: 1px solid var(--border); }
+  .tl i { position: absolute; top: 0; bottom: 0; min-width: 3px; }
+  .tl i.trip { background: var(--user); } .tl i.work { background: var(--srv); }
+  .tl-note { font-size: .72rem; color: var(--muted); }
+  .rows { display: grid; gap: 6px; margin-top: 4px; }
+  .rowx { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; border: 2px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--card); }
+  .rowx.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .rowx.skip { opacity: .4; border-style: dashed; }
+  .rowx .lab { font-size: .8rem; font-weight: 650; }
+  .rowx .lab small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+  .rowx .val { font-size: 1.05rem; font-weight: 800; text-align: right; }
+  .meter { margin-top: 8px; }
+  .meter .m { height: 14px; background: var(--code-bg); border-radius: 7px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .meter .m i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); }
+  .meter .m i.over { background: var(--bad); }
+  .meter .m b { position: absolute; top: -1px; bottom: -1px; width: 3px; background: var(--ink); }
+  .meter small { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+  .tablewrap { overflow-x: auto; }
+  table.sc { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  table.sc th, table.sc td { border-bottom: 1px dashed var(--border); padding: 5px 6px; text-align: center; }
+  table.sc th { font-size: .7rem; color: var(--muted); font-weight: 700; }
+  table.sc td:first-child, table.sc th:first-child { text-align: left; font-weight: 700; }
+  table.sc tr.wrow td { font-size: .78rem; color: var(--gw); font-weight: 800; background: var(--gw-bg); }
+  table.sc td.hot, table.sc th.hot { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+  table.sc td .x { color: var(--muted); font-size: .68rem; display: block; }
+  .tbar { height: 12px; background: var(--code-bg); border-radius: 6px; overflow: hidden; min-width: 70px; }
+  .tbar i { display: block; height: 100%; background: var(--user); }
+  .tbar i.win { background: var(--srv); }
+  .tot { font-weight: 800; font-size: .95rem; }
+  .say { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: .86rem; }
+  .say.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .say.weak { border-color: var(--bad); background: var(--bad-bg); }
+  .say b.n { display: inline-block; background: var(--ink); color: var(--on-ink); border-radius: 999px; padding: 0 8px; font-size: .72rem; margin-right: 6px; }
+  .tick { font-size: .86rem; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .tick.on { color: var(--srv); font-weight: 700; }
+  .tick.off { color: var(--muted); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">← System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/16-latency-numbers-and-estimation" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Latency numbers and estimation: the price of each step, and users to servers</h1>
+  <p class="sub">Press Next and watch the numbers grow one line at a time. Guess first, then check. The numbers are example numbers. The totals come from the same code as in the lesson.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a trip costs time, so count the trips. Per day divided by 100,000 is per second. Triple it for the peak. Find the one number that is big, and design there.</p>
+</div>
+
+<script>
+// ---- The same code as the lesson (cards 1 and 4). The stepper calls it, so the numbers are real. ----
+function requestTime(steps) {
+  let total = 0;
+  for (const group of steps) {
+    let slowest = 0;
+    for (const call of group) slowest = Math.max(slowest, call.rttMs + call.workMs);
+    total += slowest;
+  }
+  return total;
+}
+function estimate({ dailyUsers, writesPerUser, readsPerWrite, bytesPerWrite, peakFactor = 3, secondsPerDay = 100000, serverRps = 1000, bigBytesPerYear = 1e12 }) {
+  const writesPerDay = dailyUsers * writesPerUser;
+  const writesPerSec = writesPerDay / secondsPerDay;
+  const readsPerSec = writesPerSec * readsPerWrite;
+  const peakWrites = writesPerSec * peakFactor;
+  const peakReads = readsPerSec * peakFactor;
+  const bytesPerDay = writesPerDay * bytesPerWrite;
+  const bytesPerYear = bytesPerDay * 365;
+  const servers = Math.ceil((peakWrites + peakReads) / serverRps);
+  const trafficBig = peakWrites + peakReads > serverRps;
+  const storageBig = bytesPerYear > bigBytesPerYear;
+  const driver = trafficBig && storageBig ? "both" : trafficBig ? "traffic" : storageBig ? "storage" : "neither";
+  return { writesPerDay, writesPerSec, readsPerSec, peakWrites, peakReads, bytesPerDay, bytesPerYear, servers, driver };
+}
+
+const trim = (x, d) => String(parseFloat(x.toFixed(d)));
+const fmt = n => Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
+function size(n) {
+  if (n >= 1e12) return trim(n / 1e12, 2) + " TB";
+  if (n >= 1e9) return trim(n / 1e9, 1) + " GB";
+  if (n >= 1e6) return trim(n / 1e6, 1) + " MB";
+  return trim(n / 1e3, 1) + " KB";
+}
+
+const STORIES = [
+  {
+    name: "1. Five calls in a row", simulate: simulateTrips,
+    why: "One after another, the five trips add up: 5 x (150 + 1) = 755 ms. The server near you needs only 7.5 ms for the same five calls, so distance, not work, is the cost. If the five calls do not need each other, ask them together and wait for the slowest one only: 151 ms.",
+    predict: { q: "A page needs 5 pieces of data, asked one after another from a server across the world (150 ms for the trip, 1 ms of work each). How long does the page wait?",
+               options: ["about 7.5 ms", "about 150 ms", "about 755 ms"], answer: "about 755 ms" }
+  },
+  {
+    name: "2. A million users", simulate: () => simulateCalc({ dailyUsers: 1e6, writesPerUser: 1, readsPerWrite: 10, bytesPerWrite: 10000 },
+      { thing: "paste", what: "1 million users a day each save 1 paste of 10 KB, and each paste is read 10 times" }),
+    why: "Traffic is small: 330 requests a second at the peak, and one simple server handles about 1,000. But 10 GB a day is 3.65 TB a year, which is above the 1 TB we call a lot. So storage is the hard part. Design for the old data, not for more servers.",
+    predict: { q: "1 million users a day each save one paste of 10 KB, and each paste is read 10 times. What is the hard part of this design?",
+               options: ["traffic", "storage", "neither"], answer: "storage" }
+  },
+  {
+    name: "3. Fifty million users", simulate: () => simulateCalc({ dailyUsers: 50e6, writesPerUser: 1, readsPerWrite: 10, bytesPerWrite: 50 },
+      { thing: "like", what: "50 million users a day each press like once (50 bytes), and each like is read 10 times" }),
+    why: "500 likes and 5,000 reads a second on average. At the peak: 1,500 and 15,000, together 16,500. At 1,000 a second per simple server that is 17 servers. Storage is only 912 GB a year, under 1 TB. So traffic is the hard part here.",
+    predict: { q: "50 million users a day each press like once (50 bytes), and each like is read 10 times. How many simple servers does the peak need?",
+               options: ["1 server", "17 servers", "170 servers"], answer: "17 servers" }
+  }
+];
+
+// ---- Story 1: five calls in a row ----
+function simulateTrips() {
+  const steps = [];
+  const near = () => ({ rttMs: 0.5, workMs: 1 }), far = () => ({ rttMs: 150, workMs: 1 });
+  const SCALE = 800;      // the bar is 800 ms wide on every side
+  const panel = (title, small, P, id, lit) => {
+    const segs = P.segs.map(s => '<i class="' + s.k + '" style="left:' + (100 * s.at / SCALE) + '%;width:' + (100 * s.len / SCALE) + '%"></i>').join("");
+    return '<div class="panel"><h2>' + title + '</h2>' +
+      '<div class="comp ' + (id === "C" ? "gw" : id === "A" ? "srv" : "user") + (lit ? " lit" : "") + '"><h3>' + small + '<span class="tag">' + P.calls + ' of 5 asked</span></h3>' +
+        '<div class="big">' + fmt(P.ms) + ' ms</div><div class="biglabel">the page has waited</div>' +
+        '<div class="tl">' + segs + '</div><div class="tl-note">bar = 800 ms. blue = the trip, green = the work</div>' +
+        '<ul class="log">' + (P.log.length ? P.log.map(t => "<li>" + t + "</li>").join("") : '<li class="empty">nothing asked yet</li>') + "</ul>" +
+      "</div></div>";
+  };
+  const mk = () => ({ ms: 0, calls: 0, segs: [], log: [] });
+  const A = mk(), B = mk(), C = mk();
+  const snap = (note, hop, phase, lit) => steps.push({
+    cls: "three", note, hop, phase,
+    stage: panel("Near: same data centre", "Server near", A, "A", lit.includes("A")) + panel("Far: across the world", "Server far away", B, "B", lit.includes("B")) + panel("Far, all five at once", "Server far away", C, "C", lit.includes("C"))
+  });
+  snap("A page needs <b>5 pieces of data</b>. Each call does 1 ms of work on the data server. <b>Left:</b> the data server is in the same data centre, so each trip takes 0.5 ms. <b>Middle:</b> the data server is across the world, so each trip takes 150 ms. Both ask <b>one after another</b>. <b>Right:</b> the same far server, but all five calls start together. These are example numbers. The totals are worked out by the same <code>requestTime</code> code as in the lesson.",
+    "The setup before any call", "setup", []);
+  for (let i = 1; i <= 5; i++) {
+    const groups = (c) => Array.from({ length: i }, () => [c()]);
+    const prevA = A.ms, prevB = B.ms;
+    A.ms = requestTime(groups(near)); B.ms = requestTime(groups(far));
+    A.calls = B.calls = i;
+    A.segs.push({ k: "trip", at: prevA, len: 0.5 }, { k: "work", at: prevA + 0.5, len: 1 });
+    B.segs.push({ k: "trip", at: prevB, len: 150 }, { k: "work", at: prevB + 150, len: 1 });
+    A.log.unshift("call " + i + " answered after 1.5 ms"); B.log.unshift("call " + i + " answered after 151 ms");
+    snap("<b>Call " + i + ".</b> The page asks for piece " + i + " and <b>waits</b> for the answer before it asks for the next. Left: " + fmt(A.ms) + " ms in all. Middle: <b>" + fmt(B.ms) + " ms</b> in all." + (i === 1 ? " Look at the bar. The left bar is too small to see. The trip, not the work, is almost all of the middle bar." : "") + (i === 5 ? " Five trips added up." : ""),
+      "Call " + i + " of 5", i === 5 ? "bad" : "run", ["A", "B"]);
+  }
+  C.ms = requestTime([[far(), far(), far(), far(), far()]]); C.calls = 5;
+  C.segs.push({ k: "trip", at: 0, len: 150 }, { k: "work", at: 150, len: 1 });
+  C.log.unshift("calls 1 to 5 answered after 151 ms");
+  snap("<b>Right:</b> the page asks all five at the same moment. The five trips happen side by side, so the page waits for the <b>slowest one only</b>: " + fmt(C.ms) + " ms. This is only allowed when the calls do not need each other's answers.",
+    "All five calls start together", "srv", ["C"]);
+  snap("Totals: <b>" + fmt(A.ms) + " ms</b> near, <b>" + fmt(B.ms) + " ms</b> far one by one, <b>" + fmt(C.ms) + " ms</b> far all at once. A faster far server would not help, because the work was 1 ms and the trip was 150. Fewer trips would. This is the same mistake as the N+1 problem in the database lessons.",
+    "Finished", "done", []);
+  return steps;
+}
+
+// ---- Stories 2 and 3: from daily users to servers and storage ----
+function simulateCalc(input, words) {
+  const steps = [];
+  const e = estimate(input);
+  const peakTotal = e.peakWrites + e.peakReads;
+  const rows = [];
+  let traffic = null, storage = null, verdict = null;
+  const row = (lab, small, val, cls) => '<div class="rowx ' + (cls || "") + '"><div class="lab">' + lab + "<small>" + small + '</small></div><div class="val">' + val + "</div></div>";
+  const meter = (title, value, limit, text) => {
+    const pct = Math.min(100, 100 * value / (2 * limit));
+    return '<div class="meter"><small>' + title + "</small>" +
+      '<div class="m"><i class="' + (value > limit ? "over" : "") + '" style="width:' + pct + '%"></i><b style="left:50%"></b></div><small>' + text + "</small></div>";
+  };
+  const snap = (note, hop, phase) => steps.push({
+    cls: "two", note, hop, phase,
+    stage: '<div class="panel"><h2>The maths, one line at a time</h2><div class="rows">' + rows.join("") + "</div></div>" +
+      '<div class="panel"><h2>Which number is big?</h2>' +
+        (traffic || '<div class="empty">Traffic meter: not worked out yet.</div>') +
+        (storage || '<div class="empty" style="margin-top:8px">Storage meter: not worked out yet.</div>') +
+        (verdict ? '<div class="comp gw lit" style="margin-top:12px"><h3>The hard part <span class="tag">' + e.driver + "</span></h3><small>" + verdict + "</small></div>" : "") +
+      "</div>"
+  });
+  const markNew = () => { rows.forEach((r, i) => rows[i] = r.replace(" new", "")); };
+  snap("The question: <b>" + words.what + "</b>. We work it out the way you would in an interview. A day has 86,400 seconds, and we <b>round it to 100,000</b>. The busy time is <b>3 times</b> the average. One simple server handles about <b>1,000</b> requests a second. More than <b>1 TB</b> a year counts as a lot of storage. These are rules of thumb.",
+    "The setup before any maths", "setup");
+  rows.push(row("Saves a day", fmt(input.dailyUsers) + " users x " + input.writesPerUser + " each", fmt(e.writesPerDay), "new"));
+  snap("Step 1. <b>" + fmt(input.dailyUsers) + " users x " + input.writesPerUser + " " + words.thing + " each = " + fmt(e.writesPerDay) + " a day.</b>", "Per day", "gw");
+  markNew(); rows.push(row("Saves a second", "divide by 100,000 seconds", fmt(e.writesPerSec), "new"));
+  snap("Step 2. <b>" + fmt(e.writesPerDay) + " / 100,000 = " + fmt(e.writesPerSec) + " " + words.thing + "s a second</b> on average. This is the trick: a day is about 100,000 seconds.", "Per second", "gw");
+  markNew(); rows.push(row("Reads a second", "x " + input.readsPerWrite + " reads for each " + words.thing, fmt(e.readsPerSec), "new"));
+  snap("Step 3. Each " + words.thing + " is read " + input.readsPerWrite + " times, so <b>" + fmt(e.writesPerSec) + " x " + input.readsPerWrite + " = " + fmt(e.readsPerSec) + " reads a second</b>. Most products read much more than they write.", "Reads", "gw");
+  markNew(); rows.push(row("At the busy time", "x 3 for the peak", fmt(e.peakWrites) + " writes + " + fmt(e.peakReads) + " reads", "new"));
+  snap("Step 4. The system must survive the <b>peak</b>, not the average. Times 3: <b>" + fmt(e.peakWrites) + " writes and " + fmt(e.peakReads) + " reads</b> a second. Together <b>" + fmt(peakTotal) + "</b> requests a second.", "The peak", "gw");
+  markNew(); rows.push(row("Servers", "peak total / 1,000, rounded up", e.servers, "new"));
+  traffic = meter("Traffic: peak requests a second (the black line is what one simple server handles: 1,000)", peakTotal, 1000, fmt(peakTotal) + " a second, so <b>" + e.servers + " server" + (e.servers > 1 ? "s" : "") + "</b>");
+  snap("Step 5. <b>" + fmt(peakTotal) + " / 1,000 = " + (peakTotal / 1000 < 1 ? "less than 1, so 1 server" : fmt(peakTotal / 1000) + ", rounded up to " + e.servers + " servers") + ".</b> " + (peakTotal > 1000 ? "That is more than one simple server can do, so the red bar goes past the line." : "That is far below what one simple server can do."),
+    "Servers", "srv");
+  markNew(); rows.push(row("Data a day, and a year", fmt(e.writesPerDay) + " x " + input.bytesPerWrite + " bytes, x 365", size(e.bytesPerDay) + " / " + size(e.bytesPerYear), "new"));
+  storage = meter("Storage: data a year (the black line is 1 TB, which we call a lot)", e.bytesPerYear, 1e12, size(e.bytesPerYear) + " a year");
+  snap("Step 6. <b>" + fmt(e.writesPerDay) + " x " + input.bytesPerWrite + " bytes = " + size(e.bytesPerDay) + " a day</b>, and times 365 is <b>" + size(e.bytesPerYear) + " a year</b>. " + (e.bytesPerYear > 1e12 ? "That is above the 1 TB line, so the bar is red." : "That is under the 1 TB line."),
+    "Storage", "srv");
+  const sayings = { traffic: "Traffic is above one server. Storage is under 1 TB a year.", storage: "Storage is above 1 TB a year. Traffic is below one server.", both: "Both are above the line.", neither: "Both are small." };
+  verdict = sayings[e.driver];
+  snap("Step 7. Find the <b>one number that is big</b> and put the design there. Here: <b>" + e.driver + "</b>. " + (e.driver === "storage" ? "One server and one database are enough for traffic. Think about where 3.65 TB a year goes, and what to do with old data." : e.driver === "traffic" ? "Storage is small. Think about " + e.servers + " copies of the server behind a load balancer, and a cache for the reads." : ""),
+    "Finished", "done");
+  return steps;
+}
+
+// ---- The page engine (shared). Each story has simulate(): a list of steps { stage, cls, note, hop, phase }. ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], gw: ["A number is worked out", "gw"], srv: ["It works", "srv"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  $("stage").className = "stage " + s.cls;
+  $("stage").innerHTML = s.stage;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the numbers.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].simulate();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES;
+pickStory(0);
+
+</script>
+</body>
+</html>

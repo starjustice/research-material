@@ -1,0 +1,63 @@
+[
+  {
+    "q": "The email service takes the message \"paid\" from a work queue and finishes it. What happens to that message?",
+    "options": [
+      "It stays, so analytics can read it too",
+      "It is gone, so the analytics service never sees it",
+      "It moves to the end of the queue",
+      "It is copied to every worker"
+    ],
+    "answer": 1,
+    "why": "A work queue hands a message to one worker and forgets it. For many readers of the same event, use a stream, or one queue per service."
+  },
+  {
+    "q": "In a stream with 2 partitions, the keys k0 and k1 send messages and land in different partitions. Which is read first?",
+    "options": [
+      "k0, because it was sent first",
+      "k1, because it has a bigger number",
+      "There is no order between partitions, so either",
+      "They are merged into one list"
+    ],
+    "answer": 2,
+    "why": "Offsets are numbered inside each partition (both have offset 0). Order exists only inside one partition. Use the same key for events that must stay in order."
+  },
+  {
+    "q": "You need the events \"created\" then \"paid\" of one order to be read in this order. What do you do?",
+    "options": [
+      "Use a random uuid as the key for each message",
+      "Use the order id as the key for all its events",
+      "Use more partitions",
+      "Send them from two different servers"
+    ],
+    "answer": 1,
+    "why": "The same key always goes to the same partition, and a partition is read in the order it was written."
+  },
+  {
+    "q": "A worker reads a message, does the work, and crashes before it commits. After the restart, what does it read?",
+    "options": [
+      "Nothing, the message was read",
+      "The next message only",
+      "The same message again, so the work must be safe to repeat",
+      "An error"
+    ],
+    "answer": 2,
+    "why": "Reading does not move the bookmark. Only a commit does. That is at-least-once delivery, so the worker must be idempotent."
+  },
+  {
+    "q": "A topic has 3 partitions and a consumer group has 5 workers. How many workers do work?",
+    "options": ["5", "3", "1", "8"],
+    "answer": 1,
+    "why": "Each partition is read by exactly one worker in the group. Two workers wait. To use more workers you need more partitions."
+  },
+  {
+    "q": "Thumbnail jobs for uploaded photos, with retries. And an audit trail of every change to an order that finance, search and analytics all read. Which tool for each?",
+    "options": [
+      "Stream for both",
+      "Work queue for both",
+      "Work queue for the thumbnails, stream for the audit trail",
+      "Stream for the thumbnails, work queue for the audit trail"
+    ],
+    "answer": 2,
+    "why": "Thumbnails are jobs to do once. The audit trail is a history that many readers want, with order per key and replay."
+  }
+]

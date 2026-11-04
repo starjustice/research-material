@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A page asks for 5 pieces of data one after another from a server across the world. Each trip takes 150 ms and each call does 1 ms of work. About how long does the page wait?",
+    "options": [
+      "About 151 ms",
+      "About 755 ms",
+      "About 150 ms",
+      "About 7.5 ms"
+    ],
+    "answer": 1,
+    "why": "5 x (150 + 1) = 755 ms. The trips add up. If the five calls do not need each other, ask them together and wait for the slowest only: about 151 ms."
+  },
+  {
+    "q": "Why does a brand new HTTPS connection to a far server cost about 3 round trips before the first byte?",
+    "options": [
+      "One trip to open the line, one to agree the lock, one to ask and start the answer",
+      "The server needs three passwords",
+      "The data is sent three times",
+      "Three servers each check the request"
+    ],
+    "answer": 0,
+    "why": "Open the line (TCP), agree the lock (TLS), then send the request. Keeping the connection open skips the first two."
+  },
+  {
+    "q": "Why do we round the seconds in a day to 100,000 when we estimate?",
+    "options": [
+      "A day has exactly 100,000 seconds",
+      "Computers count in 100,000s",
+      "The interviewer asks for it",
+      "It makes the division easy, and the error is smaller than the error in the other guesses"
+    ],
+    "answer": 3,
+    "why": "A day is 86,400 seconds. The 16% error is small next to a guess like \"1 million users\". Round, say \"about\", and move on."
+  },
+  {
+    "q": "2 million users a day each make 3 requests. About how many requests a second at the peak (3 times the average), and how many simple servers (1,000 a second each)?",
+    "options": [
+      "About 6 a second, 1 server",
+      "About 180 a second, 1 server",
+      "About 1,800 a second, 2 servers",
+      "About 18,000 a second, 18 servers"
+    ],
+    "answer": 1,
+    "why": "6,000,000 / 100,000 = 60 a second. Times 3 is 180. That is well under 1,000, so 1 server."
+  },
+  {
+    "q": "A design saves 5 KB per post and gets 4 million posts a day. About how much data is that in a year?",
+    "options": [
+      "About 20 GB",
+      "About 730 GB",
+      "About 7.3 TB",
+      "About 73 TB"
+    ],
+    "answer": 2,
+    "why": "4,000,000 x 5 KB = 20 GB a day. Times 365 is 7.3 TB a year. That is above 1 TB, so storage is the hard part."
+  },
+  {
+    "q": "A team sizes its servers for the average traffic only. What goes wrong?",
+    "options": [
+      "Nothing, the average is the right number",
+      "The servers are too fast",
+      "The storage runs out",
+      "They fall over at the busy time, which can be 3 times the average or more"
+    ],
+    "answer": 3,
+    "why": "A system must survive the peak, not the average. Triple the average as a first guess, then replace it with the real shape when you know it."
+  }
+]

@@ -270,5 +270,93 @@
   "num": "08",
   "title": "Recursion, backtracking and dynamic programming",
   "count": 6
+ },
+ {
+  "slug": "learn/system-design/15-choosing-tools-and-explaining-why",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "15",
+  "title": "Choosing tools and explaining why",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/16-latency-numbers-and-estimation",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "16",
+  "title": "Latency numbers and estimation",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/17-proxies-and-api-gateways",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "17",
+  "title": "Proxies and API gateways",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/18-object-storage-and-presigned-uploads",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "18",
+  "title": "Object storage and presigned uploads",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/19-replication-and-quorums",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "19",
+  "title": "Replication and quorums",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/20-consistent-hashing",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "20",
+  "title": "Consistent hashing",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/21-streams-vs-queues",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "21",
+  "title": "Streams vs queues",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/22-search-indexes",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "22",
+  "title": "Search indexes",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/23-timeouts-retries-and-circuit-breakers",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "23",
+  "title": "Timeouts, retries and circuit breakers",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/24-consensus-and-raft",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "24",
+  "title": "Consensus and Raft",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/25-multi-tenancy",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "25",
+  "title": "Multi-tenancy",
+  "count": 6
  }
 ]

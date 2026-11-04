@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A shared orders table holds rows of 3 companies. A handler runs SELECT * FROM orders for company acme and forgets the tenant filter. There is no row level security. What does acme see?",
+    "options": [
+      "Only its own rows, the database knows who it is",
+      "The rows of every company, with no error",
+      "An error, because the filter is missing",
+      "Nothing"
+    ],
+    "answer": 1,
+    "why": "The database does exactly what the query says. Without a filter or a policy, every row comes back and nothing warns you. That is the main risk of shared tables."
+  },
+  {
+    "q": "Where should the tenant id of a request come from?",
+    "options": [
+      "A tenantId field in the JSON body",
+      "A tenantId query parameter",
+      "The verified token (the JWT claims)",
+      "A header the client sets"
+    ],
+    "answer": 2,
+    "why": "The caller writes the body, the query and the headers, so anyone can send another company's id. The token is signed and checked, so its claims can be trusted."
+  },
+  {
+    "q": "Row level security is on with a policy, and the app connects as the role that owns the table (no FORCE). A forgetful SELECT * runs. What happens?",
+    "options": [
+      "It sees only the current tenant's rows",
+      "It sees no rows",
+      "It sees every row, because owners skip RLS unless it is forced",
+      "It fails with an error"
+    ],
+    "answer": 2,
+    "why": "Table owners, superusers and BYPASSRLS roles skip the policy. FORCE ROW LEVEL SECURITY makes the owner follow it, but superusers and BYPASSRLS roles still skip it. In the real run the owner saw all 5 rows."
+  },
+  {
+    "q": "You set the tenant with a session-level SET on a pooled connection. What can go wrong?",
+    "options": [
+      "Nothing, the setting disappears after each query",
+      "The next request that reuses the connection can run with the old tenant",
+      "Postgres refuses to use the pool",
+      "The index stops being used"
+    ],
+    "answer": 1,
+    "why": "A session setting stays on the connection. In the real run, the next request saw 2 rows of tenant 1 with nobody setting a tenant. Use set_config with true inside each transaction."
+  },
+  {
+    "q": "You use one schema for each of your 1,000 tenants and ship a migration. What is true?",
+    "options": [
+      "It runs once for all tenants",
+      "It runs 1,000 times, and a failed run leaves tenants on two versions",
+      "It runs 3 times, once for each model",
+      "Schemas never need migrations"
+    ],
+    "answer": 1,
+    "why": "Each schema has its own copy of the tables, so the migration runs in each of them. If one run fails, some tenants have the new shape and some do not, so the code must handle both for a while."
+  },
+  {
+    "q": "One shared limit of 5 calls per second. Tenant noisy sends 8 calls, then tenant quiet sends 1. What is the best fix?",
+    "options": [
+      "Raise the shared limit to 8",
+      "Refuse noisy for an hour",
+      "A limit for each tenant, with a bigger one for a bigger plan",
+      "Let quiet wait until noisy stops"
+    ],
+    "answer": 2,
+    "why": "With a shared limit noisy uses it all and quiet is refused for something it did not do. A limit for each tenant means noisy hits its own wall and quiet is not affected."
+  }
+]

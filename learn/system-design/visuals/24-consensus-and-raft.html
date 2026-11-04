@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consensus and Raft: who can win, an election, and a split network</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --gw: #8b5cf6; --gw-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --gw: #b79cf8; --gw-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.gate { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.gate, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.gw    { border-color: var(--gw);    background: var(--gw-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.gw h3 { color: var(--gw); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .comp.down { border-color: var(--bad); background: var(--bad-bg); border-style: dashed; }
+  .comp.down h3 { color: var(--bad); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+
+  .big { font-size: 2rem; font-weight: 800; line-height: 1; margin: 2px 0 0; }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .line { margin-top: 6px; font-size: .8rem; color: var(--muted); }
+  .line b { color: var(--ink); }
+  .sect { margin-top: 10px; font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+  .chip {
+    background: var(--chip); border-radius: 8px; padding: 3px 8px; font-size: .74rem; font-weight: 650;
+    border: 1px solid rgba(128,128,128,.35); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .chip.pop { animation: pop .35s ease; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .req { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: .84rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); word-break: break-word; }
+  .req.now { border-color: var(--user); background: var(--user-bg); color: var(--ink); }
+  .check { border-radius: 10px; border: 2px solid var(--border); background: var(--card); padding: 6px 10px; margin-bottom: 8px; font-size: .82rem; }
+  .check b { display: block; font-size: .78rem; }
+  .check span { color: var(--muted); font-size: .74rem; }
+  .check.run  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .check.pass { border-color: var(--srv); background: var(--srv-bg); }
+  .check.fail { border-color: var(--bad); background: var(--bad-bg); }
+  .check.skip { opacity: .45; border-style: dashed; }
+  .routes { font-size: .76rem; margin-top: 4px; }
+  .routes div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .routes div:last-child { border-bottom: 0; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .counters { display: grid; gap: 2px; font-size: .84rem; margin-top: 8px; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.gw { background: #8b5cf6; } .badge.srv { background: #2f9e6b; }
+  .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stage.three { grid-template-columns: 1fr 1fr 1fr; }
+  .stage.one { grid-template-columns: 1fr; }
+  @media (max-width: 860px) { .stage.three { grid-template-columns: 1fr; } }
+  .tl { height: 16px; background: var(--code-bg); border-radius: 8px; position: relative; overflow: hidden; margin: 6px 0 4px; border: 1px solid var(--border); }
+  .tl i { position: absolute; top: 0; bottom: 0; min-width: 3px; }
+  .tl i.trip { background: var(--user); } .tl i.work { background: var(--srv); }
+  .tl-note { font-size: .72rem; color: var(--muted); }
+  .rows { display: grid; gap: 6px; margin-top: 4px; }
+  .rowx { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; border: 2px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--card); }
+  .rowx.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .rowx.skip { opacity: .4; border-style: dashed; }
+  .rowx .lab { font-size: .8rem; font-weight: 650; }
+  .rowx .lab small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; }
+  .rowx .val { font-size: 1.05rem; font-weight: 800; text-align: right; }
+  .meter { margin-top: 8px; }
+  .meter .m { height: 14px; background: var(--code-bg); border-radius: 7px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .meter .m i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); }
+  .meter .m i.over { background: var(--bad); }
+  .meter .m b { position: absolute; top: -1px; bottom: -1px; width: 3px; background: var(--ink); }
+  .meter small { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 3px; }
+  .tablewrap { overflow-x: auto; }
+  table.sc { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  table.sc th, table.sc td { border-bottom: 1px dashed var(--border); padding: 5px 6px; text-align: center; }
+  table.sc th { font-size: .7rem; color: var(--muted); font-weight: 700; }
+  table.sc td:first-child, table.sc th:first-child { text-align: left; font-weight: 700; }
+  table.sc tr.wrow td { font-size: .78rem; color: var(--gw); font-weight: 800; background: var(--gw-bg); }
+  table.sc td.hot, table.sc th.hot { outline: 3px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+  table.sc td .x { color: var(--muted); font-size: .68rem; display: block; }
+  .tbar { height: 12px; background: var(--code-bg); border-radius: 6px; overflow: hidden; min-width: 70px; }
+  .tbar i { display: block; height: 100%; background: var(--user); }
+  .tbar i.win { background: var(--srv); }
+  .tot { font-weight: 800; font-size: .95rem; }
+  .say { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: .86rem; }
+  .say.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+  .say.weak { border-color: var(--bad); background: var(--bad-bg); }
+  .say b.n { display: inline-block; background: var(--ink); color: var(--on-ink); border-radius: 999px; padding: 0 8px; font-size: .72rem; margin-right: 6px; }
+  .tick { font-size: .86rem; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .tick.on { color: var(--srv); font-weight: 700; }
+  .tick.off { color: var(--muted); }
+  .mrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .mc { min-width: 62px; border: 2px solid var(--border); border-radius: 10px; padding: 3px 6px; background: var(--card); text-align: center; font-size: .78rem; font-weight: 700; }
+  .mc small { display: block; color: var(--muted); font-weight: 600; font-size: .66rem; }
+  .mc.done { background: var(--srv-bg); border-color: var(--srv); }
+  .mc.new { box-shadow: 0 0 0 3px var(--accent); }
+  .mc.gone { opacity: .35; text-decoration: line-through; border-style: dashed; }
+  .mc.k0 { border-left: 6px solid var(--user); } .mc.k1 { border-left: 6px solid var(--gw); } .mc.k2 { border-left: 6px solid var(--store); }
+  .grp { font-size: .8rem; margin-top: 6px; }
+  .grp .mrow { margin: 2px 0 6px; }
+  .grp .mc { min-width: 40px; padding: 1px 4px; font-size: .7rem; }
+  .lbl { font-weight: 800; font-size: .74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
+  .srow { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: start; padding: 6px 4px; border-bottom: 1px dashed var(--border); }
+  .srow:last-child { border-bottom: 0; }
+  .srow.lit { background: var(--predict-bg); border-radius: 8px; }
+  .srow .who { width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--on-ink); font-weight: 800; display: grid; place-items: center; font-size: .85rem; }
+  .srow.dead { opacity: .45; }
+  .srow .term { font-size: .78rem; font-weight: 700; }
+  .srow .vote { font-size: .72rem; color: var(--muted); }
+  .srow .mrow { margin: 4px 0 0; }
+  .srow .mc { min-width: 46px; font-size: .74rem; padding: 2px 5px; }
+  .mc.wait { background: var(--store-bg); border-color: var(--store); border-style: dashed; }
+  .tag.ok { background: var(--srv-bg); color: var(--srv); }
+  .tag.warn { background: var(--store-bg); color: var(--store); }
+  .cut { text-align: center; font-size: .78rem; font-weight: 800; color: var(--bad); padding: 6px 0; }
+  .legend2 { font-size: .72rem; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .legend2 .mc { min-width: 0; }
+  .empty { font-size: .72rem; color: var(--muted); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">← System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/24-consensus-and-raft" id="lessonLink">Open the lesson ↗</a>
+  </div>
+  <h1>Consensus and Raft</h1>
+  <p class="sub">Press Next to watch five servers vote, elect a leader, and survive a cut network.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">← Back</button>
+    <button id="stepFwd" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a leader needs a majority. A server votes once in each term. A bigger term always wins, so two leaders can never both commit.</p>
+</div>
+
+<script>
+// ---- The same code as the answer to practice C in the lesson (majority and createCluster). ----
+// The smallest number of servers that is MORE than half.
+function majority(n) {
+  return Math.floor(n / 2) + 1;
+}
+
+// How many servers can be down while the rest still make a majority.
+function toleratedFailures(n) {
+  return n - majority(n);
+}
+
+function createCluster(ids) {
+  const nodes = new Map();
+  for (const id of ids) nodes.set(id, { id, role: "follower", term: 0, votedFor: null, log: [], commitIndex: 0 });
+  let groups = null;                                    // null means everyone can talk to everyone
+
+  const groupOf = (id) => (groups ? groups.find((g) => g.includes(id)) || [id] : ids);
+  const others = (id) => groupOf(id).filter((other) => other !== id);   // the nodes id can talk to
+  const lastTerm = (node) => (node.log.length ? node.log[node.log.length - 1].term : 0);
+
+  // A node sees a term bigger than its own: it takes the term, forgets its vote and becomes a follower.
+  function seeTerm(node, term) {
+    if (term > node.term) {
+      node.term = term;
+      node.votedFor = null;
+      node.role = "follower";
+    }
+  }
+
+  // The voting rule of one node.
+  function requestVote(voter, { term, candidateId, lastLogTerm, lastLogLength }) {
+    if (term < voter.term) return false;                // an old term: refuse
+    seeTerm(voter, term);
+    const upToDate = lastLogTerm > lastTerm(voter) || (lastLogTerm === lastTerm(voter) && lastLogLength >= voter.log.length);
+    if (!upToDate) return false;                        // this candidate has missed entries: refuse
+    if (voter.votedFor !== null && voter.votedFor !== candidateId) return false;   // one vote per term
+    voter.votedFor = candidateId;
+    return true;
+  }
+
+  const copy = (n) => ({ role: n.role, term: n.term, votedFor: n.votedFor, log: n.log.map((e) => ({ ...e })), commitIndex: n.commitIndex });
+
+  return {
+    state: (id) => copy(nodes.get(id)),
+    partition(newGroups) { groups = newGroups; },
+    heal() { groups = null; },
+
+    elect(id) {
+      const me = nodes.get(id);
+      me.term += 1;
+      me.role = "candidate";
+      me.votedFor = id;
+      let votes = 1;
+      const ask = { term: me.term, candidateId: id, lastLogTerm: lastTerm(me), lastLogLength: me.log.length };
+      for (const other of others(id)) {
+        const voter = nodes.get(other);
+        if (requestVote(voter, ask)) votes++;
+        else if (voter.term > me.term) { seeTerm(me, voter.term); return false; }   // someone is ahead of me
+      }
+      if (votes >= majority(ids.length)) { me.role = "leader"; return true; }
+      return false;
+    },
+
+    append(id, command) {
+      const me = nodes.get(id);
+      if (me.role !== "leader") throw new Error("not leader");
+      me.log.push({ term: me.term, command });
+      let acks = 1;
+      const acked = [];
+      for (const other of others(id)) {
+        const node = nodes.get(other);
+        if (node.term > me.term) { seeTerm(me, node.term); return { committed: false, acks }; }   // I am out of date: step down
+        seeTerm(node, me.term);
+        node.role = "follower";
+        node.log = me.log.map((e) => ({ ...e }));
+        acks++;
+        acked.push(node);
+      }
+      if (acks >= majority(ids.length)) {
+        me.commitIndex = me.log.length;
+        for (const node of acked) node.commitIndex = me.log.length;
+        return { committed: true, acks };
+      }
+      return { committed: false, acks };
+    },
+  };
+}
+
+
+const NAMES = ["A", "B", "C", "D", "E"];
+const ROLE_TAG = { leader: ["Leader", "ok"], candidate: ["Candidate", "warn"], follower: ["Follower", ""] };
+
+// One row for one server.
+function row(c, id, o = {}) {
+  const s = c.state(id);
+  const t = ROLE_TAG[s.role];
+  const cells = s.log.map((e, i) => '<div class="mc ' + (i < s.commitIndex ? "done" : "wait") + (o.newLog === i ? " new" : "") + '"><small>term ' + e.term + "</small>" + e.command + "</div>").join("");
+  return '<div class="srow' + (o.lit === id ? " lit" : "") + (o.dead === id ? " dead" : "") + '"><div class="who">' + id + '</div><div class="mid"><span class="tag ' + t[1] + '">' + (o.dead === id ? "Down" : t[0]) + '</span> <span class="term">term ' + s.term + "</span>" +
+    (s.votedFor ? ' <span class="vote">voted ' + s.votedFor + "</span>" : "") + '<div class="mrow">' + (cells || '<span class="empty">empty log</span>') + "</div></div></div>";
+}
+// The cluster, with the network cut drawn as separate boxes.
+function view(c, groups, o = {}) {
+  const box = (ids, title) => '<div class="comp ' + (groups ? "bad" : "srv") + '"><h3>' + title + "</h3>" + ids.map(id => row(c, id, o)).join("") + "</div>";
+  const body = groups ? groups.map((g, i) => box(g, "Side " + (i + 1) + ": " + g.length + " of 5 servers")).join('<div class="cut">⚡ the network is cut between these two sides ⚡</div>') : box(NAMES, "All 5 servers can talk");
+  return '<div class="panel">' + body + '<div class="legend2"><span class="mc done"><small>term</small>committed</span> <span class="mc wait"><small>term</small>not committed</span></div></div>';
+}
+
+const STORIES = [
+  { name: "1. Who can win?", simulate: simulateMajority,
+    why: "Winning needs 3 of 5 votes, a majority. Side 1 has only 2 servers, so it can never reach 3, even though both of its servers voted. Side 2 has 3 servers and wins. Two different groups of 3 out of 5 must share a server, and a server votes once in a term, so there is never a second leader in the same term.",
+    predict: { q: "5 servers. The network is cut: A and B are on one side, C, D and E on the other. Both sides try to elect a leader. What happens?",
+               options: ["Both sides elect a leader", "Only the side with C, D and E elects a leader", "Neither side can elect a leader"], answer: "Only the side with C, D and E elects a leader" } },
+  { name: "2. An election", simulate: simulateElection,
+    why: "Each follower waits a random time. The one with the shortest wait asks for votes first, and the others say yes before their own timers end. If every timer were the same, all four would stand at once and each would get only its own vote.",
+    predict: { q: "The leader A dies. The timers of the others are B 187 ms, C 241 ms, D 163 ms, E 292 ms. Who becomes the leader?",
+               options: ["B, the first letter", "D, the shortest timer", "E, the longest timer"], answer: "D, the shortest timer" } },
+  { name: "3. Split brain, stopped", simulate: simulateSplit,
+    why: "The old leader A was on the small side. It could add x=2 to its own log, but only 2 of 5 servers had it, so it was never committed and A never told a client 'done'. The new leader C (term 2) had a majority. After the network healed, A met a bigger term, stepped down, and its uncommitted entries were replaced by C's log.",
+    predict: { q: "A (the old leader) put x=2 in its log, but the network was cut and only B got it. After the network heals, what happens to x=2?",
+               options: ["It is kept and committed late", "It is thrown away", "Both x=2 and the new leader's entries are kept"], answer: "It is thrown away" } }
+];
+
+// ---- Story 1: who can win? ----
+function simulateMajority() {
+  const steps = [], c = createCluster(NAMES);
+  const snap = (note, hop, phase, groups, o) => steps.push({ cls: "one", note, hop, phase, stage: view(c, groups, o) });
+  snap("Five servers, A to E. All are followers in <b>term 0</b>. To become the leader, a server needs votes from a <b>majority</b>: " + majority(5) + " of 5.", "The setup", "setup", null);
+  const groups = [["A", "B"], ["C", "D", "E"]];
+  c.partition(groups);
+  snap("A cable breaks. <b>A and B</b> can only talk to each other. <b>C, D and E</b> can only talk to each other. Nobody is down. Nobody knows the other side is alive.", "The network is cut", "bad", groups);
+  c.elect("A");
+  snap("<b>A</b> thinks the leader is gone and stands for election. It moves to <b>term 1</b>, votes for itself and asks B. B says yes. That is <b>2 votes</b>. It needs 3. It cannot reach C, D or E. <b>A is not the leader</b> (it stays a candidate and will try again later).", "A asks for votes", "run", groups, { lit: "A" });
+  c.elect("C");
+  snap("<b>C</b> stands for election, in <b>term 1</b> too. C votes for itself, and D and E say yes. That is <b>3 votes</b>, a majority. <b>C becomes the leader of term 1.</b>", "C asks for votes", "srv", groups, { lit: "C" });
+  snap("<b>The lesson.</b> Only one side can have a majority. Two groups of 3 out of 5 must <b>share a server</b>, and a server votes only once in each term. So there are never two leaders in the same term. A small side with 2 servers can only wait.", "Finished", "done", groups);
+  return steps;
+}
+
+// ---- Story 2: an election with random timers ----
+function simulateElection() {
+  const steps = [];
+  const timers = { B: 187, C: 241, D: 163, E: 292 };
+  const rows = (state) => '<div class="rows">' + Object.keys(timers).map(id => {
+    const st = state[id];
+    return '<div class="rowx ' + (st.cls || "") + '"><div class="lab">Server ' + id + "<small>" + st.text + '</small></div><div class="val">' + timers[id] + " ms</div></div>";
+  }).join("") + "</div>";
+  const snap = (note, hop, phase, state, head) => steps.push({ cls: "one", note, hop, phase, stage: '<div class="panel"><h2>' + head + '</h2><div class="comp ' + (phase === "bad" ? "bad" : "srv") + '"><h3>Each follower has a random timer</h3>' + rows(state) + "</div></div>" });
+  const wait = t => ({ B: { text: "waiting" }, C: { text: "waiting" }, D: { text: "waiting" }, E: { text: "waiting" }, ...t });
+  snap("Server <b>A</b> was the leader, and it sent a small <b>heartbeat</b> every so often. Now A is down and the heartbeats stop. Each other server starts a timer. Each timer is a <b>random</b> time (here 150 to 300 ms, the range the Raft paper suggests). If the timer ends before a heartbeat comes, the server stands for election.", "A dies", "bad", wait({}), "The leader is down");
+  snap("<b>D</b> has the shortest timer: <b>163 ms</b>. Nothing came from A, so D moves to <b>term 2</b>, votes for itself and sends <i>RequestVote</i> to B, C and E. The others' timers (187, 241, 292) have not ended yet.", "D's timer ends first", "run", wait({ D: { text: "timer ended: candidate, term 2, 1 vote (itself)", cls: "new" } }), "Time: 163 ms");
+  const c = createCluster(["A", "B", "C", "D", "E"]);
+  c.partition([["B", "C", "D", "E"]]);                      // A is down: it is alone
+  c.elect("D");
+  snap("<b>B, C and E</b> get the request before their own timers end. Each has not voted in term 2, so each says <b>yes</b> and starts its timer again. D has 1 + 3 = <b>4 votes</b> of 5. A is down, but a majority is only 3. <b>D is the leader of term 2.</b> (Checked with the same code as practice C: <code>elect(\"D\")</code> gives " + c.state("D").role + ", term " + c.state("D").term + ".)", "Votes come back", "srv", wait({ B: { text: "voted for D, timer restarted" }, C: { text: "voted for D, timer restarted" }, D: { text: "leader, term 2, 4 votes", cls: "new" }, E: { text: "voted for D, timer restarted" } }), "Time: about 185 ms");
+  snap("D sends a heartbeat to everyone, to say 'I am the leader of term 2'. B, C and E keep their timers quiet. <b>The cluster works again after about 0.2 seconds</b>, with 4 servers and no help from a person.", "Heartbeats start", "srv", wait({ B: { text: "follower of D" }, C: { text: "follower of D" }, D: { text: "leader, sends heartbeats", cls: "new" }, E: { text: "follower of D" } }), "Time: about 190 ms");
+  snap("<b>What if all timers were the same, 150 ms?</b> All four servers would stand at the same moment. Each votes for itself, and each asks the others, who already voted for themselves. <b>Each has 1 vote.</b> Nobody has 3. This is a <b>split vote</b>. Everyone waits again, with new random timers. (My simulation: with random timers from 150 to 300 ms, a first round split in about 7% of runs for 5 servers.)", "The same timers", "bad", wait({ B: { text: "candidate, 1 vote", cls: "skip" }, C: { text: "candidate, 1 vote", cls: "skip" }, D: { text: "candidate, 1 vote", cls: "skip" }, E: { text: "candidate, 1 vote", cls: "skip" } }), "If the timers were all equal");
+  snap("The random timer is the same trick as jitter in lesson 23: it spreads servers out in time so they do not all act at the same moment. Next: what stops two leaders when the <b>network</b> splits.", "Finished", "done", wait({ B: { text: "follower of D" }, C: { text: "follower of D" }, D: { text: "leader", cls: "new" }, E: { text: "follower of D" } }), "Random timers");
+  return steps;
+}
+
+// ---- Story 3: split brain, stopped ----
+function simulateSplit() {
+  const steps = [], c = createCluster(NAMES);
+  let groups = null;
+  const snap = (note, hop, phase, o) => steps.push({ cls: "one", note, hop, phase, stage: view(c, groups, o) });
+  snap("Five servers in a healthy cluster. We will see what Raft does when the network splits, and why there is never a second leader that can commit.", "The setup", "setup");
+  c.elect("A");
+  snap("<b>A</b> wins the election in <b>term 1</b>: it has all 5 votes. A is the leader.", "A is elected", "srv", { lit: "A" });
+  let r = c.append("A", "x=1");
+  snap("A client asks to save <code>x=1</code>. A adds it to its log and sends it to the others. <b>" + r.acks + " of 5</b> servers have it, so it is <b>committed</b> (green). Only now does A tell the client 'done'.", "x=1 is committed", "srv", { lit: "A", newLog: 0 });
+  groups = [["A", "B"], ["C", "D", "E"]]; c.partition(groups);
+  snap("The network is cut. <b>A and B</b> on one side, <b>C, D and E</b> on the other. A is still the leader and does not know.", "The network is cut", "bad", { lit: "A" });
+  r = c.append("A", "x=2");
+  snap("A client asks A to save <code>x=2</code>. A adds it to its log and sends it. Only <b>B</b> can answer: <b>" + r.acks + " of 5</b>. A majority is 3, so <b>x=2 is NOT committed</b> (orange). A cannot tell the client 'done'.", "A cannot commit x=2", "bad", { lit: "A", newLog: 1 });
+  c.elect("C");
+  snap("Meanwhile C, D and E hear no heartbeat from A. A timer ends and <b>C</b> stands for election in <b>term 2</b>. D and E vote for it: 3 of 5. <b>C is the leader of term 2.</b> (A is still a leader of term 1, on the small side.)", "C is elected", "run", { lit: "C" });
+  r = c.append("C", "y=1");
+  snap("A client asks C to save <code>y=1</code>. C's side has <b>" + r.acks + " of 5</b>, a majority, so <b>y=1 is committed</b>. The cluster has kept working on the big side.", "y=1 is committed", "srv", { lit: "C", newLog: 1 });
+  groups = null; c.heal();
+  snap("The network is repaired. Now A (term 1) and C (term 2) can talk. A still thinks it is the leader.", "The network heals", "run", { lit: "A" });
+  r = c.append("A", "x=3");
+  snap("A tries to send <code>x=3</code>. The first server with a bigger term, C (term 2), <b>refuses</b>. A sees <b>term 2</b>, steps down to a follower, and <b>x=3 is not committed</b> either. A cannot be a second leader.", "A is refused", "bad", { lit: "A" });
+  c.append("C", "z=1");
+  snap("The real leader C sends its log to everyone, including <code>z=1</code>. A and B <b>replace</b> their logs with C's. <b>x=2 and x=3 are gone</b>, which is fine: no client was ever told they were saved. All 5 servers now have the same log and the same committed entries.", "The logs match again", "srv", { lit: "C" });
+  snap("<b>The lesson.</b> The old leader could write to its own log, but it could not commit, because it could not reach a majority. A bigger term always wins, so after the network heals there is one leader and one history. (This is a very small Raft: the real one also checks the logs entry by entry before it copies, and has a few more rules.)", "Finished", "done");
+  return steps;
+}
+
+// ---- The page engine (shared). Each story has simulate(): a list of steps { stage, cls, note, hop, phase }. ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const BADGE = { setup: ["Setup", ""], run: ["Something runs", "run"], gw: ["A number is worked out", "gw"], srv: ["It works", "srv"],
+                bad: ["Something goes wrong", "bad"], done: ["Finished", "done"] };
+
+function render() {
+  const s = steps[idx], P = STORIES[cur];
+  $("stage").className = "stage " + s.cls;
+  $("stage").innerHTML = s.stage;
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again. Watch the numbers.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].simulate();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").textContent = "▶ Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES;
+pickStory(0);
+
+</script>
+</body>
+</html>
