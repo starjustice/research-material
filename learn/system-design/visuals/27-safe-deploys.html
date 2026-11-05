@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safe deploys: a canary, blue green, a feature flag, and a column rename</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">&larr; System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/27-safe-deploys" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Safe deploys: a canary, blue green, a feature flag, and a column rename</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. All times and traffic numbers are example numbers.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> never let one release touch every user at once without a way back. A canary shows it to a few users first. Blue green keeps the old copy running. A feature flag separates deploying from releasing. Expand and contract changes the database in small steps that each work with old and new code.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (bucket, isOn,
+// canaryVerdict, createBlueGreen). Traffic: 1000 requests a minute. The bad version fails
+// 20 percent of the requests it gets. The old version fails 1 in 1000.
+// ---------------------------------------------------------------------------------------------
+function bucket(userId, flagName) {
+  let h = 2166136261;
+  for (const ch of flagName + ":" + userId) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return h % 100;
+}
+function isOn(flag, userId) { if (flag.off) return false; return bucket(userId, flag.name) < flag.percent; }
+function canaryVerdict({ canary, control, minRequests = 200, maxExtra = 0.01 }) {
+  if (canary.requests < minRequests) return "wait";
+  const canaryRate = canary.errors / canary.requests;
+  const controlRate = control.requests === 0 ? 0 : control.errors / control.requests;
+  return canaryRate > controlRate + maxExtra ? "rollback" : "promote";
+}
+function createBlueGreen() {
+  const colors = { blue: "v1", green: null };
+  let live = "blue";
+  const idle = () => (live === "blue" ? "green" : "blue");
+  return {
+    live: () => colors[live], liveColor: () => live, idle: () => colors[idle()],
+    deploy(version) { colors[idle()] = version; },
+    switch() { if (colors[idle()] === null) throw new Error("nothing is deployed on the idle side"); live = idle(); return colors[live]; },
+    rollback() { return this.switch(); }
+  };
+}
+
+const PER_MIN = 1000, BAD_RATE = 0.2, CTRL_RATE = 0.001;
+const num = (x, d) => Number(x.toFixed(d));
+const withCommas = x => Math.round(x).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+// ---- Story 1: a canary against everybody at once ----
+function simulateCanary() {
+  const steps = [];
+  const pct = 5, c = PER_MIN * pct / 100;
+  const canary = { requests: 0, errors: 0 }, control = { requests: 0, errors: 0 };
+  const mk = (minute, verdict, hop, phase, note, badge) => steps.push({ layout: "three", hop, phase, badge, note, boxes: [
+    { title: "Traffic split", cls: "lb", tag: [pct + "% canary", ""], small: "1000 requests a minute",
+      meter: { pct, hot: false }, lines: ["old version: " + withCommas(PER_MIN - c) + " a minute", "new version: " + withCommas(c) + " a minute"], lit: minute === 0 },
+    { title: "Canary against control", cls: verdict === "rollback" ? "alarm" : "srv", tag: [verdict === "rollback" ? "ROLL BACK" : (verdict === "wait" ? "wait" : "ok"), verdict === "rollback" ? "bad" : "warn"],
+      small: "minute " + minute, lit: verdict !== "wait" || minute >= 3,
+      lines: ["canary: <b>" + withCommas(canary.requests) + "</b> requests, <b>" + withCommas(canary.errors) + "</b> failed" + (canary.requests ? " (" + num(canary.errors / canary.requests * 100, 1) + "%)" : ""),
+              "control: <b>" + withCommas(control.requests) + "</b> requests, <b>" + withCommas(control.errors) + "</b> failed" + (control.requests ? " (" + num(control.errors / control.requests * 100, 1) + "%)" : ""),
+              "rule: need " + 200 + " canary requests, then compare"] },
+    { title: "Failed requests so far", cls: "user", tag: [verdict === "rollback" ? "stopped" : "counting", verdict === "rollback" ? "ok" : "warn"], small: "because of the new version",
+      big: { text: withCommas(canary.errors), neg: canary.errors > 0 }, bigLabel: "with a canary. Everybody at once would be at " + withCommas(minute * PER_MIN * BAD_RATE) + " by now." }
+  ] });
+  mk(0, "wait", "Before the first minute", "setup", "<b>The plan.</b> The new version has a bug: it fails <b>20 percent</b> of the requests it gets. You do not know that yet. Instead of giving it to everybody, you give it to <b>5 percent</b> of the traffic (50 requests a minute). The other 95 percent stays on the old version. That old group is the <b>control</b>. The rule: wait for 200 canary requests, then compare the two groups.");
+  for (let m = 1; m <= 4; m++) {
+    canary.requests += c; canary.errors += c * BAD_RATE;
+    control.requests += PER_MIN - c; control.errors += (PER_MIN - c) * CTRL_RATE;
+    const v = canaryVerdict({ canary, control });
+    if (v === "wait") {
+      mk(m, v, "Minute " + m + ": too early", "chk", "<b>Minute " + m + ".</b> The canary has " + canary.requests + " requests and " + canary.errors + " failed. That is already 20 percent, but " + canary.requests + " requests is a small sample. One unlucky minute could look the same. The rule says <b>wait</b> until 200." + (m === 1 ? " Notice that a canary of 1 percent would need 20 minutes to reach 200 requests. A smaller canary does not fail less before the verdict. It just waits longer." : ""));
+    } else {
+      mk(m, v, "Minute " + m + ": the verdict", "bad", "<b>Minute " + m + ": ROLL BACK.</b> 200 canary requests, 40 failed (20 percent). The control: 3,800 requests, 4 failed (0.1 percent). The canary is worse than the control by far more than the 1 percent we allow. Only <b>40 requests</b> failed, and only 5 percent of users ever saw the bug.", ["Bad version found", "bad"]);
+    }
+  }
+  steps.push({ layout: "three", hop: "After the rollback", phase: "srv", badge: ["Contained", "srv"], note: "<b>Compare.</b> With the canary, <b>40</b> requests failed. If the bad version had gone to everybody, the pager rule from lesson 26 (both windows above 14.4) would ring at <b>minute 5</b>, and about <b>1,000</b> requests would have failed by then. That is 25 times more. The canary limits the <i>blast radius</i>: how many users one bad release can touch.", boxes: [
+    { title: "With a 5% canary", cls: "srv", tag: ["rolled back at minute 4", "ok"], small: "5 percent of users saw the bug", big: { text: "40", neg: false }, bigLabel: "failed requests" },
+    { title: "Everybody at once", cls: "alarm", tag: ["pager at minute 5", "bad"], small: "100 percent of users saw the bug", big: { text: "1,000", neg: true }, bigLabel: "failed requests by the time the pager rings" },
+    { title: "What to remember", cls: "lb", tag: ["canary rule", ""], small: "", lines: ["Judge the canary against the control, not against zero.", "Wait for enough requests.", "A bigger canary gives a faster verdict and more damage. A smaller one is slower and safer."] }
+  ] });
+  return steps;
+}
+
+// ---- Story 2: blue green ----
+function simulateBlueGreen() {
+  const bg = createBlueGreen(), steps = [];
+  const side = (color, extra) => {
+    const v = color === "blue" ? (bg.liveColor() === "blue" ? bg.live() : bg.idle()) : (bg.liveColor() === "green" ? bg.live() : bg.idle());
+    const live = bg.liveColor() === color;
+    return { title: color.toUpperCase() + " side", cls: live ? "srv" : "lb", tag: [live ? "LIVE" : "idle", live ? "ok" : ""], small: live ? "all users are here" : "no users here",
+             big: { text: v === null ? "empty" : v, neg: extra && extra.bad && live }, bigLabel: extra && extra.label ? extra.label : "", lit: extra && extra.lit === color };
+  };
+  const router = (txt, bad) => ({ title: "Router", cls: bad ? "alarm" : "user", tag: ["one switch", ""], small: "decides which side gets the users", lines: [txt] });
+  const push = (hop, phase, note, o) => steps.push({ layout: "three", hop, phase, note, badge: o && o.badge, boxes: [side("blue", o), router((o && o.router) || ("users go to " + bg.liveColor()), o && o.bad), side("green", o)] });
+  push("Start", "setup", "<b>Two copies of the system.</b> Blue is live and runs version 1. Green is idle and empty. A <b>router</b> in front sends all users to one side. A release means: put the new version on the idle side, test it, then move the router.", { label: "" });
+  bg.deploy("v2");
+  push("Deploy to the idle side", "run", "<b>Deploy version 2 to green.</b> No user is on green, so nothing can hurt them. You can start it, run smoke tests, and warm the caches with the time you need. Users still get version 1 from blue.", { lit: "green", label: "" });
+  push("Test the idle side", "chk", "<b>Test green.</b> Run a few checks against green only (login, a test order, a health check). If a check fails, you throw green away and nobody noticed. This is the best part of blue green: the test happens on the real setup, away from users.", { lit: "green", label: "" });
+  bg.switch();
+  push("Switch the router", "run", "<b>Switch.</b> One change at the router and <b>all</b> users are now on version 2. Notice: there is no 5 percent step. If green has a bug that tests did not find, everybody sees it at once.", { lit: "green", label: "all users", router: "users go to green" });
+  push("A bug appears", "bad", "<b>A bug shows up.</b> Version 2 fails 20 percent of requests. You notice after 3 minutes: 3 &times; 1,000 &times; 20% = <b>600</b> failed requests. A canary would have limited this to 5 percent of users. Blue green trades that for something else, see the next step.", { bad: true, label: "20% of requests fail", router: "users go to green", badge: ["Users are hurt", "bad"] });
+  bg.rollback();
+  push("Roll back", "srv", "<b>Rollback: move the router back.</b> Blue still runs version 1 and is still warm. This takes seconds. No rebuild, no redeploy. The cost: you pay for <b>two full copies</b> of the system while you wait, and the database is shared by both sides (see story 4).", { lit: "blue", label: "all users again", router: "users go to blue", badge: ["Back in seconds", "srv"] });
+  steps.push({ layout: "two", hop: "Cost and catch", phase: "done", note: "<b>What you remember.</b> Blue green = test on a full copy, then a fast switch and a fast way back. Canary = a small slice first. They can be combined: put the new version on the idle side, send 5 percent of users to it, then switch.", boxes: [
+    { title: "Blue green is good for", cls: "srv", tag: ["pros", "ok"], lines: ["Testing on the real setup before any user", "Rollback in seconds", "No mixed versions at the router level"] },
+    { title: "Blue green costs", cls: "fol", tag: ["cons", "warn"], lines: ["Two full copies of the system", "All users switch at once", "One shared database: a schema change must work for both versions"] }
+  ] });
+  return steps;
+}
+
+// ---- Story 3: feature flags ----
+const USERS = Array.from({ length: 20 }, (_, i) => "u" + (i + 1));
+function simulateFlag() {
+  const steps = [];
+  const mk = (flag, hop, phase, note, o) => {
+    const dots = USERS.map(u => ({ label: u, b: bucket(u, flag.name), on: isOn(flag, u) }));
+    const n = dots.filter(d => d.on).length;
+    steps.push({ layout: "two", hop, phase, note, badge: o && o.badge, boxes: [
+      { title: "20 users and their buckets", cls: "user", tag: [n + " of 20 see the new checkout", n ? "ok" : ""], small: "each user always has the same bucket, from 0 to 99", dots, lit: true },
+      { title: "The flag", cls: flag.off ? "alarm" : "lb", tag: [flag.off ? "KILLED" : "percent " + flag.percent, flag.off ? "bad" : ""], small: "name: " + flag.name,
+        big: { text: flag.off ? "off" : flag.percent + "%", neg: flag.off }, bigLabel: (o && o.label) || "", lines: ["rule: user is in when bucket &lt; " + flag.percent + (flag.off ? " (but the kill switch is on)" : "")] }
+    ] });
+  };
+  const f = (percent, off) => ({ name: "new-checkout", percent, off: !!off });
+  mk(f(0), "Code is live, flag is at 0", "setup", "<b>Dark launch.</b> The new checkout code is already deployed to every server, but the flag is at 0 percent. Nobody sees it. Deploying and releasing are now two different actions. Each user gets a bucket from 0 to 99, from a hash of the flag name and the user id. The same user always gets the same bucket.", { label: "nobody yet" });
+  mk(f(10), "Turn it on for 10%", "run", "<b>10 percent.</b> A user is in when the bucket is below 10. Only users with buckets 9 and 7 are in. No deploy happened. Somebody changed a number.", { label: "no deploy, only a number changed" });
+  mk(f(50), "Raise it to 50%", "run", "<b>50 percent.</b> The two users who were in are still in, because 9 and 7 are below 50 too. Nobody flips back and forth. If the choice were random on every request, one user would see the old page, then the new one, then the old one.", { label: "everybody from before is still in" });
+  mk(f(50, true), "A bug: the kill switch", "bad", "<b>A bug.</b> Flip the <b>kill switch</b>. Everybody is back on the old checkout in seconds. No rollback deploy, no waiting for a build. This is what makes a flag a safe tool for risky changes.", { label: "no deploy needed", badge: ["Kill switch", "bad"] });
+  mk(f(50), "Fixed. Back to 50%", "srv", "<b>The fix is deployed and the switch is back on.</b> The same users as before are in again, because buckets do not change.", { label: "same users as before" });
+  mk(f(100), "100 percent", "srv", "<b>100 percent.</b> Everybody has the new checkout. The work is not finished yet.", { label: "everybody" });
+  steps.push({ layout: "two", hop: "Clean up", phase: "done", badge: ["Remove the flag", "done"], note: "<b>Remove the flag.</b> Delete the flag and the old code path. Martin Fowler's article says a release flag should live for a week or two, and that every flag has a cost. A flag nobody removes becomes a second hidden version of your app. Put the removal on the to do list on the day you add the flag.", boxes: [
+    { title: "Kinds of flags", cls: "lb", tag: ["from the article", ""], lines: ["<b>Release flag:</b> short, a week or two", "<b>Experiment flag:</b> hours to weeks", "<b>Ops flag (kill switch):</b> short, a few live for years", "<b>Permission flag:</b> can live for years"] },
+    { title: "Cost of a flag", cls: "fol", tag: ["tradeoff", "warn"], lines: ["Two code paths to test", "Old flags pile up", "A flag service is one more thing that can fail: decide what happens when it is down"] }
+  ] });
+  return steps;
+}
+
+// ---- Story 4: expand and contract ----
+function simulateExpand() {
+  const steps = [];
+  const mk = (hop, phase, note, cols, apps, safe, o) => steps.push({ layout: "three", hop, phase, note, badge: o && o.badge, boxes: [
+    { title: "Table people", cls: o && o.bad ? "alarm" : "fol", tag: ["the database", ""], small: "the same database for every version", cols },
+    { title: "Servers running now", cls: "srv", tag: [apps.length + " version" + (apps.length > 1 ? "s" : ""), apps.length > 1 ? "warn" : ""], small: "a rolling deploy runs old and new together", lines: apps },
+    { title: "Can you go back?", cls: safe[0] === "yes" ? "srv" : "alarm", tag: [safe[0] === "yes" ? "safe" : "NOT safe", safe[0] === "yes" ? "ok" : "bad"], small: "", lines: [safe[1]] }
+  ] });
+  const col = (name, state, cls) => ({ name, state, cls: cls || "" });
+  mk("Start", "setup", "<b>The goal:</b> rename the column <code>full_name</code> to <code>name</code> in a table with live users. Version 1 of the app reads and writes <code>full_name</code>.", [col("full_name", "used by v1")], ["v1: reads and writes full_name"], ["yes", "Nothing has changed yet."]);
+  mk("The wrong way: ALTER ... RENAME", "bad", "<b>The wrong way.</b> One command: <code>ALTER TABLE people RENAME COLUMN full_name TO name</code>. The table changes at once, but the servers do not. Version 1 is still running and asks for <code>full_name</code>. In my test on Postgres 18.3, v1 got the error <code>column &quot;full_name&quot; of relation &quot;people&quot; does not exist</code>. Even a perfect rolling deploy has a time when old and new servers run together.", [col("name", "renamed", "bad")], ["v1: still asks for full_name &rarr; ERROR"], ["no", "v1 breaks the moment you run the command."], { bad: true, badge: ["Old servers fail", "bad"] });
+  mk("1. Expand: add the new column", "run", "<b>Step 1, expand.</b> Add <code>name</code> as a new, empty column. Nothing is removed. Version 1 does not know about it and keeps working. In my test, v1 still read and wrote fine.", [col("full_name", "used by v1"), col("name", "new, empty", "new")], ["v1: reads and writes full_name"], ["yes", "Nothing depends on the new column yet."]);
+  mk("2. Deploy: write to both", "run", "<b>Step 2.</b> Deploy version 2. It reads the old column but writes to <b>both</b> columns. During the rolling deploy v1 and v2 run together, and both work.", [col("full_name", "read and written"), col("name", "written, not read yet", "new")], ["v1: full_name", "v2: reads full_name, writes both"], ["yes", "Roll back to v1 any time. v1 ignores the new column."]);
+  mk("3. Backfill the old rows", "run", "<b>Step 3.</b> Copy <code>full_name</code> into <code>name</code> for all the rows that existed before. Do it in small batches so that no long lock is held. Do this <b>after</b> every server writes both. In my test, a v1 row inserted after the backfill still had an empty <code>name</code>.", [col("full_name", "read and written"), col("name", "filled for all rows", "new")], ["v2: reads full_name, writes both"], ["yes", "Both columns have the same data."]);
+  mk("4. Deploy: read the new column", "run", "<b>Step 4.</b> Deploy version 3. It reads <code>name</code> and still writes both. If v3 has a bug, you can go back to v2 because <code>full_name</code> is still up to date.", [col("full_name", "still written"), col("name", "read and written", "new")], ["v3: reads name, writes both"], ["yes", "v2 can come back, the old column is still correct."]);
+  mk("5. Deploy: stop writing the old one", "chk", "<b>Step 5.</b> Deploy version 4. It reads and writes only <code>name</code>. From now on, <code>full_name</code> gets no new data. Going back to v2 or v3 now would read old data from <code>full_name</code>.", [col("full_name", "no longer written"), col("name", "the only column", "new")], ["v4: reads and writes name"], ["no", "Going back means the old code reads stale data. Wait until v4 is proven."]);
+  mk("6. Contract: drop the old column", "srv", "<b>Step 6, contract.</b> After a few days with no problems, drop <code>full_name</code>. Six small steps, no downtime, and every step could be stopped. The price is time: the rename took 4 deploys and a backfill instead of one command.", [col("name", "the only column", "new")], ["v4: reads and writes name"], ["no", "The old data is gone. Take a backup first."], { badge: ["Done", "done"] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Canary", sim: simulateCanary,
+    why: "5 percent of 1,000 requests a minute is 50 requests. At 200 canary requests (minute 4) the check sees 20 percent errors against 0.1 percent and rolls back. 200 requests times 20 percent is 40 failed requests.",
+    predict: { q: "A new version fails 20% of the requests it gets. You send 5% of traffic to it and roll back after 200 canary requests. About how many requests fail?", options: ["About 40", "About 400", "About 1,000"], answer: "About 40" } },
+  { name: "2. Blue green", sim: simulateBlueGreen,
+    why: "Blue never stopped running version 1. Going back is one change at the router, so it takes seconds. That is why blue green costs two full copies.",
+    predict: { q: "Version 2 is live on green and has a bug. What is the fastest way back?", options: ["Rebuild and deploy version 1", "Point the router back to blue", "Fix the bug and deploy version 3"], answer: "Point the router back to blue" } },
+  { name: "3. Feature flag", sim: simulateFlag,
+    why: "The bucket is a hash of the flag name and the user id, so it never changes. A user with bucket 9 is in at 10 percent and also at 50 percent. Nobody flips back and forth.",
+    predict: { q: "A flag goes from 10% to 50%. Do the users who already had the feature keep it?", options: ["Yes, all of them", "Only about half of them", "No, users are chosen again"], answer: "Yes, all of them" } },
+  { name: "4. Expand and contract", sim: simulateExpand,
+    why: "During a rolling deploy, old and new servers run at the same time, and both use the same database. A change that breaks the old version breaks the deploy. So you add first, move the code, and remove last.",
+    predict: { q: "You rename a column with one ALTER TABLE ... RENAME while a rolling deploy is running. What fails?", options: ["Nothing fails", "Old servers still ask for the old name", "Only the new servers fail"], answer: "Old servers still ask for the old name" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.meter) h += '<div class="meter"><i class="' + (b.meter.hot ? "hot" : "") + '" style="width:' + b.meter.pct + '%"></i></div>';
+  if (b.dots) h += '<div class="dots">' + b.dots.map(d => '<span class="dot ' + (d.on ? "on" : "") + '"><b>' + d.label + "</b>" + d.b + "</span>").join("") + "</div>";
+  if (b.cols) h += '<div class="cols">' + b.cols.map(c => '<div class="col ' + c.cls + '"><b>' + c.name + "</b><span>" + c.state + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateCanary, simulateBlueGreen, simulateFlag, simulateExpand, STORIES, bucket, isOn, canaryVerdict, createBlueGreen };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

@@ -358,5 +358,13 @@
   "num": "25",
   "title": "Multi-tenancy",
   "count": 6
+ },
+ {
+  "slug": "learn/system-design/27-safe-deploys",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "27",
+  "title": "Safe deploys",
+  "count": 6
  }
 ]

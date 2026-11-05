@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A new version fails 20% of the requests it gets. You send it to 5% of traffic first (a canary) and roll back after 200 canary requests. About how many requests fail?",
+    "options": [
+      "About 40",
+      "About 400",
+      "About 1,000",
+      "None, a canary never fails"
+    ],
+    "answer": 0,
+    "why": "Only 5% of users reach the new version, and you stop after 200 requests: 200 times 20% is 40 failed requests. Sending it to everyone would have failed 200 requests in the first minute alone."
+  },
+  {
+    "q": "A canary shows a 5% error rate. The old version (the control) also shows 5% at the same time, because a helper service is down. What should the canary check say?",
+    "options": [
+      "Roll back, 5% is too many errors",
+      "Promote, the new version is not worse than the old one",
+      "Wait for the helper to recover, then decide",
+      "Delete the control"
+    ],
+    "answer": 1,
+    "why": "A canary is judged against the control that runs at the same time. Both sides share the bad day, so the new version adds no extra errors. Comparing with zero would blame the release for a problem it did not cause."
+  },
+  {
+    "q": "You deploy with blue green. Version 2 is live on green and users report a bug 5 minutes later. What is the fastest safe fix?",
+    "options": [
+      "Rebuild version 1 and deploy it",
+      "Point the router back to blue, where version 1 is still running",
+      "Fix the bug and deploy version 3 under pressure",
+      "Restart the green servers"
+    ],
+    "answer": 1,
+    "why": "Blue still runs the old version. Rollback is one change at the router. The price is that you pay for two full copies of the system while you wait."
+  },
+  {
+    "q": "A feature flag is on for 10% of users. You raise it to 50%. With a stable hash bucket (the same user always gets the same number from 0 to 99), what happens to the users who already had the feature?",
+    "options": [
+      "Half of them lose it",
+      "They all keep it, and more users join",
+      "They all lose it and the 50% are chosen again",
+      "It depends on the server they hit"
+    ],
+    "answer": 1,
+    "why": "A user with bucket 7 is in at 10% and still in at 50%, because 7 is below both numbers. Nobody's experience flips back and forth. A random choice on every request would flip users between the old and new page."
+  },
+  {
+    "q": "You rename the column full_name to name with one ALTER TABLE ... RENAME while a rolling deploy is still running. What goes wrong?",
+    "options": [
+      "Nothing, Postgres updates the old code too",
+      "The servers still running the old version fail with column does not exist",
+      "The rename is slow because it copies the table",
+      "The new version cannot start"
+    ],
+    "answer": 1,
+    "why": "During a rolling deploy two versions run at once. The old version still asks for full_name and gets an error. Expand and contract avoids this: add the new column, move the code, then drop the old column."
+  },
+  {
+    "q": "An ALTER TABLE waits behind a long running transaction. What happens to a simple SELECT on the same table that arrives after the ALTER?",
+    "options": [
+      "It runs at once, reads do not need locks",
+      "It waits behind the ALTER, so the table looks frozen",
+      "It fails with an error",
+      "It reads the old copy of the table"
+    ],
+    "answer": 1,
+    "why": "ALTER TABLE needs an exclusive lock and queues up. Every later query on that table queues behind it. In a real test the SELECT waited more than 2 seconds. Set lock_timeout so the migration gives up fast and the queue clears."
+  }
+]
