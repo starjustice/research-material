@@ -1,6 +1,6 @@
 # 29. Security in a design
 
-> **Subject:** System Design · **Lesson:** 29 · **Made:** 2026-10-17 · **Remade in short cards:** 2026-10-30 · **Status:** ready
+> **Subject:** System Design · **Lesson:** 29 · **Made:** 2026-10-17 · **Remade in short cards:** 2026-10-30 · **Checked again and quiz added:** 2026-11-06 · **Status:** ready
 >
 > **You will be able to:** say the difference between who you are and what you may do, find and fix the bug where changing an id shows someone else's data, choose between roles and rules for permissions, and say where each check sits in a design.
 >
@@ -48,7 +48,7 @@ Four plain ideas, used below:
 - **A secret** is a password or a key that must stay private, like a database password or a payment key.
 - **An object** is one thing in your data, like order 43. "Object level" means the check is about that one order, not about the whole `/orders` route.
 
-Checked on 2026-10-17: the official OWASP site still shows the API Security Top 10 **2023** as its newest edition. It does not mention a newer one.
+Checked on 2026-10-17 and again on 2026-11-06: the official OWASP site still shows the API Security Top 10 **2023** as its newest edition (the menu lists only 2023 and 2019). It does not mention a newer one.
 
 **The big picture.** Notice that there is a check at every arrow, not one big wall at the front. The service next to the data does the most important check.
 
@@ -492,7 +492,7 @@ if (!order) return res.status(404).json({ error: "not found" });                
 
 ## 7. Watch and play
 
-How the links were checked on 2026-10-17: I opened each page with a tool. For the video, the tool gave me only the title and the channel from YouTube's own data. It did not show the length, so I do not state one. The PortSwigger lab page loaded. I did not run the lab, so check what sign up it asks for.
+How the links were checked on 2026-10-17: I opened each page with a tool. On 2026-11-06 I fetched every link in this section again: all answered `200`, and YouTube's own data still gave the same title and channel for the video. For the video, the tool gave me only the title and the channel from YouTube's own data. It did not show the length, so I do not state one. The PortSwigger lab page loaded. I did not run the lab, so check what sign up it asks for.
 
 - **Video:** [Broken Object Level Authorization - 2023 OWASP Top 10 API Security Risks](https://www.youtube.com/watch?v=nIWBp_nvzq4) (SmartBear). Compare the example with the problem picture in card 1.
 - **Play with it:** [the stepper in this folder](visuals/29-security-in-a-design.html) - guess first, then press Next. Try all three tabs.
@@ -523,9 +523,29 @@ How the links were checked on 2026-10-17: I opened each page with a tool. For th
 
 **Hasura.** The [row level permissions page](https://hasura.io/docs/2.0/auth/authorization/permissions/row-level-permissions/) says session variables such as `X-Hasura-User-Id` come from the JWT or a webhook, and permission rules use them. Its example shape is `{"id":{"_eq":"X-Hasura-User-Id"}}`. That is the owner check from this lesson, written as config. My [Hasura guide](../backend-api/hasura-guide.md) calls permissions "WHERE clauses you can't forget to write".
 
-**Rules inside the database.** PostgreSQL can enforce row rules itself, with row level security. The [architecture guide](architecture-patterns-2026.md), Part 8, shows it for many customers on shared tables. I did not open the PostgreSQL docs for this lesson.
+**Rules inside the database.** PostgreSQL can enforce row rules itself, with row level security (RLS). The [architecture guide](architecture-patterns-2026.md), Part 8, shows it for many customers on shared tables. I ran it for real on 2026-11-06 (PostgreSQL 18.3, a throwaway server, 10,000 orders, half Ann's and half Ben's, a policy `owner = current_setting('app.uid', true)`):
+
+| Who asks | Rows it sees |
+|---|---|
+| a normal role, RLS not turned on | 10,000 (everything) |
+| a normal role, RLS on, `app.uid` not set | 0 (the safe default: no rule match, no rows) |
+| a normal role, RLS on, `app.uid = 'ann'` | 5,000 |
+| same role, `WHERE id = 2` (Ben's order) | 0 rows, the same as a missing order |
+| the superuser that owns the table, RLS on | 10,000 (RLS does not apply to it) |
+| the same superuser after `FORCE ROW LEVEL SECURITY` | 10,000 (a superuser still skips RLS) |
+
+Two things to remember. Your app must connect as a normal role, not as the table owner or a superuser, or RLS does nothing. And the user id is a setting you must set on every connection or transaction, so it only helps if the app does that right. It is a second wall behind the owner check in the service, not a replacement.
 
 **Deep sharing rules (ReBAC).** "Ana may view order 42 because she is in a team that owns the folder." This needs a graph of links. The [production readiness guide](production-readiness-observability-security.md), Part 9.2, covers it, with Zanzibar and OpenFGA. I did not open those pages again.
+
+**A real run of card 2 (2026-11-06).** Express 5.3.0 and jsonwebtoken 9.0.3 on Node 26.12.1, one server with a `wrong` route (token must be real, nothing more) and a `right` route (the owner must match the token). 10,000 orders, odd ids Ann's, even ids Ben's. A script logged in as Ann and asked for ids 1 to 10,000 in a loop:
+
+| Route | Answers `200` | Orders of Ben that Ann read | Time for 10,000 requests |
+|---|---|---|---|
+| `wrong` | 10,000 | **5,000** | 1.9 s |
+| `right` | 5,000 | **0** | 1.8 s |
+
+So one real token and a short loop is enough to copy a whole table in under two seconds, and the owner check costs nothing you can see here. On the `right` route, Ben's order 2 and the missing order 99,999 both gave `404`. Four more requests to the `right` route all gave `401`: no token, a token signed with another secret, a token with `alg: none` and the user set to `ben`, and an expired token. (`jsonwebtoken.verify` refuses `alg: none` unless you pass the algorithm yourself, so do not turn that on.)
 
 **Zero trust.** The [NIST SP 800-207](https://csrc.nist.gov/pubs/sp/800/207/final) abstract says zero trust grants "no implicit trust" based only on physical or network location. Published August 2020.
 
@@ -646,7 +666,7 @@ function createGetOrder(orders) {
 module.exports = { requireLogin, createGetOrder };
 ```
 
-Checked on 2026-10-17 with Node 24: the 11 tests fail on the empty stub and all 11 pass with this answer. I also removed the owner check on purpose, and 4 tests failed. That is how you know the tests really guard against BOLA. In a real Express app, `verifyToken` would check a JWT signature with a library, and `orders` would be a database query with the owner in the WHERE.
+Checked on 2026-10-17 with Node 24, and again on 2026-11-06 with Node 26.12.1 (I ran the answer above exactly as printed): the 11 tests fail on the empty stub and all 11 pass with this answer. I also removed the owner check on purpose, and 4 tests failed. That is how you know the tests really guard against BOLA. In a real Express app, `verifyToken` would check a JWT signature with a library, and `orders` would be a database query with the owner in the WHERE.
 
 </details>
 

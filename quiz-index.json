@@ -374,5 +374,13 @@
   "num": "28",
   "title": "Disaster recovery",
   "count": 6
+ },
+ {
+  "slug": "learn/system-design/29-security-in-a-design",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "29",
+  "title": "Security in a design",
+  "count": 6
  }
 ]

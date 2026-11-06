@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Ann is logged in with a real token. She changes /orders/42 to /orders/43 and gets the order of Ben. The server checks only that the token is real. What is this bug called?",
+    "options": [
+      "SQL injection",
+      "Broken authentication",
+      "Broken object level authorization (BOLA, also called IDOR)",
+      "Cross site scripting"
+    ],
+    "answer": 2,
+    "why": "The token proved who Ann is, but nobody asked whether order 43 is hers. That missing second question is BOLA, number 1 in the OWASP API Security Top 10 (2023). In a real run, a loop over ids 1 to 10,000 on such a server let Ann read 5,000 of Ben's orders in 1.9 seconds."
+  },
+  {
+    "q": "Where should the server get the identity of the caller?",
+    "options": [
+      "From the signed token only",
+      "From the userId field in the request body",
+      "From a ?user= value in the query string, if it is there",
+      "From a header such as X-User sent by the client"
+    ],
+    "answer": 0,
+    "why": "The client controls the body, the query string and its own headers, so anything there can be faked. In the lesson's practice A, adding ?user=ben turned Ann into Ben because the query string won over the token. Read the user only from the signed token."
+  },
+  {
+    "q": "Ann asks for Ben's order 43 and for order 99999, which does not exist. What should a good API answer for each?",
+    "options": [
+      "403 for order 43 and 404 for order 99999",
+      "404 for both, the same answer",
+      "200 with an empty body for both",
+      "401 for both"
+    ],
+    "answer": 1,
+    "why": "A 403 for order 43 tells a stranger that the order exists, which makes guessing easier. With the owner inside the database query, both cases are simply no row, so both give 404. Log the real reason on the server, not in the answer. In the real run, both gave 404."
+  },
+  {
+    "q": "\"Only the orders of my own store\" for thousands of stores. A role or a rule?",
+    "options": [
+      "A role, make one role per store",
+      "A rule on an attribute: the store of the order equals the store of the user",
+      "Neither, hide the other stores in the screen",
+      "A role, but only an admin role"
+    ],
+    "answer": 1,
+    "why": "One role per store grows without end (role explosion). A rule checks a fact, the owner column, with one line for every store. Most products use both: the role says what kind of action is allowed, and the rule says on which objects. In Hasura this is a permission with a WHERE on the session user id."
+  },
+  {
+    "q": "The email worker is inside your network and shows a real certificate (mTLS) when it calls POST /internal/refund on the payments service. The rule says only the orders service may refund. What does payments answer?",
+    "options": [
+      "200, the certificate is real",
+      "401, it does not know who the worker is",
+      "403, it knows who the worker is and the answer is no",
+      "It depends on the network the worker is in"
+    ],
+    "answer": 2,
+    "why": "The certificate answers who is calling. It does not answer what the caller may do, so the receiver still checks a permission. A caller with no certificate would get a refusal at the connection (zero trust: the network place proves nothing). A known caller without the right gets 403."
+  },
+  {
+    "q": "Row level security is on in Postgres, with a rule that the order owner must equal a setting the app sets on each connection. The app connects as the superuser that owns the table. What do the queries see?",
+    "options": [
+      "Only the rows of the user set in the setting",
+      "No rows, the safe default",
+      "All rows, because RLS does not apply to a superuser, even after FORCE ROW LEVEL SECURITY",
+      "An error on every query"
+    ],
+    "answer": 2,
+    "why": "Measured on PostgreSQL 18.3 with 10,000 orders: a normal role saw 5,000 rows with the setting 'ann' and 0 rows with the setting missing, but the superuser saw all 10,000, before and after FORCE ROW LEVEL SECURITY. Connect the app as a normal role. RLS is a second wall behind the owner check in the service, not a replacement."
+  }
+]
