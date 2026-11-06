@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A shop takes a backup every night at 02:00. The data center is lost at 14:00. What is the data loss, and which number is it?",
+    "options": [
+      "About 12 hours of orders, the RPO",
+      "About 12 hours of waiting, the RTO",
+      "None, a restore brings everything back",
+      "Only the last minute of orders"
+    ],
+    "answer": 0,
+    "why": "RPO is how much data you lose, counted as time. The last good copy is from 02:00, so everything since then is missing. A faster restore cannot bring back data that was never in the backup. RTO is the other number: how long the system is down."
+  },
+  {
+    "q": "Someone runs DROP TABLE on the primary database. What happens to a streaming replica?",
+    "options": [
+      "It keeps the table, a replica is a backup",
+      "It repeats the DROP a moment later, so both copies lose the table",
+      "It refuses the change because the table has data",
+      "It pauses until a person approves"
+    ],
+    "answer": 1,
+    "why": "A replica repeats every change from the primary, including a mistake. In a real test on Postgres 18.3 the replica lost the table 54 ms after the primary. To recover from a mistake you need backups with saved changes (point in time recovery) that can stop before it."
+  },
+  {
+    "q": "You restore a base backup and replay the saved changes (WAL) up to one second before an accidental DROP TABLE. 300 orders arrived during that last second. What happens to them?",
+    "options": [
+      "They are restored too, replay always goes to the end",
+      "They are kept in the replica automatically",
+      "They are lost, the restore stops at the time you chose",
+      "They are written to the backup again"
+    ],
+    "answer": 2,
+    "why": "Point in time recovery stops at the target time, so anything after it is not in the restored data. That gap is the data loss of this recovery, the same idea as RPO. A target closer to the accident loses less."
+  },
+  {
+    "q": "A standby is cut off from the primary and the copying is asynchronous. A new commit arrives on the primary. What happens?",
+    "options": [
+      "The commit waits until the standby comes back",
+      "The commit fails with an error",
+      "The standby is promoted automatically",
+      "The commit succeeds at once and may be lost if the primary then crashes"
+    ],
+    "answer": 3,
+    "why": "Async commits do not wait for the standby. In the test, 1,000 commits were acknowledged in 128 ms, and after the primary crashed none of them were on the promoted standby. With synchronous copying the commit waits instead, which gives RPO zero for acknowledged commits but can freeze writes."
+  },
+  {
+    "q": "The business wants RPO 5 minutes and RTO 1 hour. In the lesson's example table, which plan is the cheapest that meets both?",
+    "options": [
+      "Backup and restore (RPO 1,440 min, RTO 480 min)",
+      "Warm standby (RPO 1 min, RTO 15 min)",
+      "Pilot light (RPO 5 min, RTO 60 min)",
+      "Active active (RPO 0, RTO 1 min)"
+    ],
+    "answer": 2,
+    "why": "Pick the cheapest plan that meets BOTH numbers. Backup and restore fails the RPO. Warm standby and active active also fit, but they cost more every month. Pilot light keeps the data copied and the servers switched off, which matches 5 minutes and 1 hour."
+  },
+  {
+    "q": "After a failover, the old primary was only cut off, and it wakes up. Clients still send it writes. What stops two servers from both taking writes?",
+    "options": [
+      "Fencing: each failover raises an epoch number, and a write with the old epoch is refused",
+      "Nothing, the standby is read only",
+      "The load balancer sends all writes to the oldest server",
+      "A bigger timeout on the old primary"
+    ],
+    "answer": 0,
+    "why": "Without a fence you get split brain: two servers with two different histories. The epoch (or another fence such as shutting down the old machine) lets the system say that only the newest primary may write. The old primary writes with epoch 1, the system is on epoch 2, so the write is refused."
+  }
+]

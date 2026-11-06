@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disaster recovery: RPO and RTO, replica or backup, async or sync, and a failover</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">&larr; System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/28-disaster-recovery" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Disaster recovery: RPO and RTO, replica or backup, async or sync, and a failover</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. Stories 2 and 3 use numbers from a real test on Postgres 18.3. The clock times in stories 1 and 4 are examples.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> ask for two numbers first. RPO is how much data you can lose. RTO is how long you can be down. A replica copies mistakes, so you also need backups with saved changes. A failover is a chain of steps whose times add up, and the old primary must be fenced.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (lostCommits, checkTargets,
+// worstCaseRto, createFailover). The numbers in story 2 and story 3 come from a real test on
+// Postgres 18.3 (2026-11-06). The clock times in stories 1 and 4 are example numbers.
+// ---------------------------------------------------------------------------------------------
+function lostCommits(commits, copiedUpTo) { return commits.filter(c => c.at > copiedUpTo).map(c => c.id); }
+function checkTargets({ rpoTarget, rtoTarget, lastCopyAt, failureAt, backAt }) {
+  const rpo = failureAt - lastCopyAt, rto = backAt - failureAt;
+  return { rpo, rto, rpoOk: rpo <= rpoTarget, rtoOk: rto <= rtoTarget };
+}
+function worstCaseRto({ detect, decide, promote, dnsTtl, warmup = 0 }) { return detect + decide + promote + dnsTtl + warmup; }
+function createFailover({ threshold }) {
+  let primary = "a", standby = "b", epoch = 1, failed = 0;
+  return {
+    primary: () => primary, epoch: () => epoch,
+    check(ok) {
+      if (ok) { failed = 0; return "up"; }
+      failed++;
+      if (failed >= threshold) { [primary, standby] = [standby, primary]; epoch++; failed = 0; return "failover"; }
+      return "suspect";
+    },
+    write(server, serverEpoch) { return server === primary && serverEpoch === epoch; }
+  };
+}
+
+const hhmm = sec => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"); };
+const dur = sec => sec >= 3600 ? (sec / 3600) + " hours" : sec >= 60 ? (sec / 60) + " minutes" : sec + " seconds";
+
+// ---- Story 1: RPO and RTO on a clock ----
+function simulateTimeline() {
+  const steps = [];
+  const H = 3600;
+  const mk = (hop, phase, note, boxes, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes });
+  const copyBox = (title, cls, tag, lines, big, label) => ({ title, cls, tag, small: "", lines, big, bigLabel: label });
+  mk("The business gives two numbers", "setup", "<b>The targets.</b> The business says: <b>RPO 5 minutes</b> (we can lose at most 5 minutes of orders) and <b>RTO 1 hour</b> (we can be down at most 1 hour). Your system takes a backup every night at 02:00. Everything below is an example with these numbers.", [
+    copyBox("RPO target", "lb", ["data", ""], ["how much data can we lose?"], { text: "5 min", neg: false }, "counted as time"),
+    copyBox("RTO target", "lb", ["time", ""], ["how long can we be down?"], { text: "1 hour", neg: false }, "from the disaster to back in service"),
+    copyBox("Your plan today", "fol", ["nightly backup", "warn"], ["backup at 02:00", "nothing else is copied"], null, "")
+  ]);
+  mk("02:00 the last good copy", "run", "<b>02:00.</b> The nightly backup finishes. This is the <b>last good copy</b> of the data. Orders keep coming in all day, and none of them are in the backup.", [
+    copyBox("The clock", "user", ["02:00", ""], ["backup finished"], { text: "02:00", neg: false }, "last good copy"),
+    copyBox("Orders since the backup", "srv", ["growing", "warn"], ["100 orders every hour"], { text: "0", neg: false }, "orders not in any copy"),
+    copyBox("Backup", "fol", ["safe", "ok"], ["holds every order up to 02:00"], null, "")
+  ]);
+  const fail = 14 * H, last = 2 * H;
+  const cT = checkTargets({ rpoTarget: 300, rtoTarget: 3600, lastCopyAt: last, failureAt: fail, backAt: fail + 3 * H });
+  mk("14:00 the disaster", "bad", "<b>14:00. The data center is gone.</b> The last copy is from 02:00, so <b>12 hours</b> of orders are lost: about <b>1,200 orders</b>. That is the RPO you actually got: <b>" + dur(cT.rpo) + "</b>. The target was 5 minutes. A faster restore cannot fix this, because the data is simply not in the backup.", [
+    copyBox("The clock", "alarm", ["DISASTER", "bad"], ["the primary is gone"], { text: "14:00", neg: true }, ""),
+    copyBox("Data lost (RPO)", "alarm", ["target 5 min", "bad"], ["last copy at 02:00"], { text: dur(cT.rpo), neg: true }, "about 1,200 orders"),
+    copyBox("Verdict so far", "alarm", ["RPO missed", "bad"], ["nightly backups cannot meet 5 minutes"], null, "")
+  ], ["Data is lost", "bad"]);
+  mk("14:00 to 17:00 the restore", "chk", "<b>The restore.</b> You build new servers, copy the backup back and check the data. Say it takes <b>3 hours</b>. Users wait the whole time. That wait is the RTO you got: <b>" + dur(cT.rto) + "</b>. The target was 1 hour.", [
+    copyBox("The clock", "user", ["17:00", ""], ["back in service"], { text: "17:00", neg: false }, ""),
+    copyBox("Time down (RTO)", "alarm", ["target 1 hour", "bad"], ["14:00 to 17:00"], { text: dur(cT.rto), neg: true }, ""),
+    copyBox("Verdict so far", "alarm", ["both missed", "bad"], ["RPO " + (cT.rpoOk ? "ok" : "missed") + ", RTO " + (cT.rtoOk ? "ok" : "missed")], null, "")
+  ], ["Both missed", "bad"]);
+  const c2 = checkTargets({ rpoTarget: 300, rtoTarget: 3600, lastCopyAt: fail - 60, failureAt: fail, backAt: fail + 1800 });
+  mk("The fix: copy changes all day, drill the restore", "srv", "<b>A plan that fits the numbers.</b> Keep a live copy of every change (the saved changes, or a standby) so the last copy is <b>1 minute</b> old, and practice the restore until it takes <b>30 minutes</b>. Now the same disaster gives RPO <b>" + dur(c2.rpo) + "</b> and RTO <b>" + dur(c2.rto) + "</b>. Both are inside the targets. It costs more: a standby and a drill. That is the whole tradeoff.", [
+    copyBox("Data lost (RPO)", "srv", ["target 5 min", "ok"], ["copy is 1 minute old"], { text: dur(c2.rpo), neg: false }, ""),
+    copyBox("Time down (RTO)", "srv", ["target 1 hour", "ok"], ["restore drilled to 30 minutes"], { text: dur(c2.rto), neg: false }, ""),
+    copyBox("What to remember", "lb", ["rule", ""], ["Ask for the two numbers first.", "RPO is decided by how often you copy.", "RTO is decided by how long the way back takes."], null, "")
+  ], ["Targets met", "srv"]);
+  return steps;
+}
+
+// ---- Story 2: replica or backup (real test) ----
+function simulateReplicaBackup() {
+  const steps = [];
+  const mk = (hop, phase, note, p, r, b, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "Primary database", cls: p.cls || "srv", tag: p.tag, small: "where the app writes", big: { text: p.big, neg: !!p.neg }, bigLabel: p.label },
+    { title: "Replica (live copy)", cls: r.cls || "lb", tag: r.tag, small: "repeats every change", big: { text: r.big, neg: !!r.neg }, bigLabel: r.label },
+    { title: "Backup plus saved changes", cls: b.cls || "fol", tag: b.tag, small: "the base backup and the change files (WAL)", big: { text: b.big, neg: !!b.neg }, bigLabel: b.label }
+  ] });
+  mk("Start: table orders", "setup", "<b>Three places hold the data.</b> The primary takes the writes. The replica repeats every change a few milliseconds later. The backup is a base copy plus a stream of saved changes (the WAL archive). The table <code>orders</code> has <b>100,000</b> rows.", { tag: ["live", "ok"], big: "100,000", label: "rows in orders" }, { tag: ["in sync", "ok"], big: "100,000", label: "rows in orders" }, { tag: ["base backup", ""], big: "100,000", label: "rows at backup time (1.4 s, 30 MB)" });
+  mk("5,000 more rows, then time T", "run", "<b>More orders come in.</b> 5,000 rows are added. The replica gets them. The saved changes get them too, so the backup can replay them. We write down the time <b>T</b> now: the primary has <b>105,000</b> rows.", { tag: ["live", "ok"], big: "105,000", label: "at time T" }, { tag: ["in sync", "ok"], big: "105,000", label: "at time T" }, { tag: ["can replay to T", ""], big: "100,000 + changes", label: "base plus saved changes up to T" });
+  mk("A second later: 300 more rows", "run", "<b>300 more rows</b> arrive after T. These are the last orders before the accident.", { tag: ["live", "ok"], big: "105,300", label: "rows" }, { tag: ["in sync", "ok"], big: "105,300", label: "rows" }, { tag: ["saved changes grow", ""], big: "to 105,300", label: "the stream keeps all changes" });
+  mk("Someone runs DROP TABLE orders", "bad", "<b>The accident.</b> A person runs <code>DROP TABLE orders</code> on the primary. The table is gone on the primary.", { cls: "alarm", tag: ["DROPPED", "bad"], big: "gone", neg: true, label: "table orders" }, { tag: ["in sync", "ok"], big: "105,300", label: "not yet changed" }, { tag: ["safe", "ok"], big: "105,300", label: "in the saved changes" }, ["The accident", "bad"]);
+  mk("54 ms later the replica agrees", "bad", "<b>The replica repeats the mistake.</b> In my test the replica lost the table <b>54 ms</b> after the primary did. A replica protects you from a dead server. It does not protect you from a wrong command, because it faithfully copies the wrong command too.", { cls: "alarm", tag: ["gone", "bad"], big: "gone", neg: true, label: "table orders" }, { cls: "alarm", tag: ["gone, 54 ms later", "bad"], big: "gone", neg: true, label: "table orders" }, { tag: ["safe", "ok"], big: "105,300", label: "not touched by the DROP" }, ["Both copies gone", "bad"]);
+  mk("Restore to the second before", "srv", "<b>Point in time recovery.</b> Copy the base backup into a new folder. Tell the server to replay the saved changes and stop at <b>T</b> (<code>recovery_target_time</code>). It took <b>784 ms</b> on this 30 MB toy database. The table is back with <b>105,000</b> rows.", { cls: "alarm", tag: ["still broken", "bad"], big: "gone", neg: true, label: "table orders" }, { cls: "alarm", tag: ["still broken", "bad"], big: "gone", neg: true, label: "table orders" }, { cls: "srv", tag: ["RESTORED to T", "ok"], big: "105,000", label: "rows are back" }, ["Back to T", "srv"]);
+  steps.push({ layout: "two", hop: "The price", phase: "done", badge: ["RPO of this recovery", "done"], note: "<b>The 300 rows are lost.</b> They came after T, and the restore stopped at T. That gap is the RPO of this recovery. You could pick a time even closer to the accident to lose less. In real life a large database takes much longer than 784 ms to copy back, so the only honest RTO is the one you time on your own data.", boxes: [
+    { title: "Replica", cls: "lb", tag: ["good for", ""], lines: ["A dead server or a dead building", "Fast takeover"], small: "" },
+    { title: "Backup with saved changes", cls: "fol", tag: ["good for", "ok"], lines: ["A wrong DELETE or DROP", "Corruption you find later", "Costs the restore time and the last few seconds"], small: "" }
+  ] });
+  return steps;
+}
+
+// ---- Story 3: async or sync (real test) ----
+function simulateAsyncSync() {
+  const steps = [];
+  const commits = [{ id: "c1", at: 1 }, { id: "c2", at: 2 }, { id: "c3", at: 3 }, { id: "c4", at: 4 }, { id: "c5", at: 5 }, { id: "c6", at: 6 }];
+  const copiedUpTo = 3;
+  const lost = lostCommits(commits, copiedUpTo);
+  const mk = (hop, phase, note, p, s, u, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "Primary", cls: p.cls || "srv", tag: p.tag, small: "takes the writes", lines: p.lines },
+    { title: "Standby in another zone", cls: s.cls || "lb", tag: s.tag, small: "the copy", lines: s.lines },
+    { title: "What users see", cls: u.cls || "user", tag: u.tag, small: "", lines: u.lines }
+  ] });
+  mk("Start: asynchronous copying", "setup", "<b>Async.</b> The primary writes the change, tells the user \"done\", and sends the change to the standby <i>afterwards</i>. It does not wait. Commits c1, c2 and c3 are on both machines.", { tag: ["async", ""], lines: ["c1 c2 c3"] }, { tag: ["in sync", "ok"], lines: ["c1 c2 c3"] }, { tag: ["fast", "ok"], lines: ["c1 c2 c3 acknowledged"] });
+  mk("The link to the standby breaks", "bad", "<b>The link breaks</b> (in my test I pointed the standby at a closed port). The primary does not notice anything that matters: async commits do not wait for the standby.", { tag: ["async", ""], lines: ["c1 c2 c3"] }, { cls: "alarm", tag: ["cut off", "bad"], lines: ["c1 c2 c3", "last copy at second " + copiedUpTo] }, { tag: ["fast", "ok"], lines: ["still working"] }, ["Standby cut off", "bad"]);
+  mk("Three more commits succeed", "chk", "<b>Commits c4, c5 and c6 succeed</b> and the user sees \"done\" each time. In my test, <b>1,000</b> commits were acknowledged in <b>128 ms</b> like this. They exist only on the primary.", { tag: ["async", ""], lines: ["c1 c2 c3 c4 c5 c6"] }, { cls: "alarm", tag: ["cut off", "bad"], lines: ["c1 c2 c3"] }, { tag: ["all done", "ok"], lines: ["c1 to c6 acknowledged"] });
+  mk("The primary crashes", "bad", "<b>The primary dies.</b> You promote the standby. It only has what it received.", { cls: "alarm", tag: ["CRASHED", "bad"], lines: ["gone"] }, { cls: "srv", tag: ["promoted", "ok"], lines: ["c1 c2 c3"] }, { cls: "alarm", tag: ["data missing", "bad"], lines: ["users were told c4 to c6 worked", "lost: " + lost.join(", ")] }, ["Commits lost", "bad"]);
+  steps.push({ layout: "two", hop: "The size of the loss", phase: "bad", badge: ["RPO is not zero", "bad"], note: "<b>" + lost.length + " acknowledged commits are gone</b>, and the users were told they worked. In my real test it was <b>1,000 of 1,000</b>. The Postgres docs say it plainly: the data loss is proportional to the replication delay at the time of failover. Here the delay was the whole time the link was down.", boxes: [
+    { title: "lostCommits(commits, " + copiedUpTo + ")", cls: "alarm", tag: ["code", "bad"], small: "", big: { text: lost.join(" "), neg: true }, bigLabel: "commits after the copy point" },
+    { title: "The tradeoff", cls: "fol", tag: ["async", "warn"], lines: ["Fast commits", "Primary never waits", "Small but real RPO"], small: "" }
+  ] });
+  mk("Now synchronous copying", "setup", "<b>Sync.</b> The primary tells the user \"done\" only <i>after</i> the standby has the change (<code>synchronous_standby_names</code> in Postgres). Same start: c1 to c3 are on both machines.", { tag: ["sync", ""], lines: ["c1 c2 c3"] }, { tag: ["in sync", "ok"], lines: ["c1 c2 c3"] }, { tag: ["done", "ok"], lines: ["c1 c2 c3 acknowledged"] });
+  mk("The link breaks, c4 arrives", "chk", "<b>The commit waits.</b> The standby is cut off, so nobody can confirm c4. In my test a new commit was still waiting after <b>4 seconds</b>, and the server showed the state <code>waiting for 0/30A6630</code>. The user sees a spinner, not \"done\".", { tag: ["sync", ""], lines: ["c1 c2 c3", "c4 is waiting for the standby"] }, { cls: "alarm", tag: ["cut off", "bad"], lines: ["c1 c2 c3"] }, { cls: "fol", tag: ["waiting", "warn"], lines: ["c4 spinner", "nothing was acknowledged after c3"] }, ["Commit waits", "chk"]);
+  mk("The primary crashes", "srv", "<b>The primary dies. The standby is promoted.</b> It has c1 to c3, and every one of those was acknowledged. c4 was never acknowledged, so the user never believed it worked and can retry. <b>No acknowledged commit is lost.</b> (One unacknowledged commit may still appear on the standby: in my test the standby had one extra row. That is allowed.)", { cls: "alarm", tag: ["CRASHED", "bad"], lines: ["gone"] }, { cls: "srv", tag: ["promoted", "ok"], lines: ["c1 c2 c3"] }, { cls: "srv", tag: ["nothing lost", "ok"], lines: ["every \"done\" is on the standby"] }, ["RPO is zero", "srv"]);
+  steps.push({ layout: "two", hop: "Pick one", phase: "done", badge: ["Tradeoff", "done"], note: "<b>Sync buys RPO zero and pays with availability.</b> If the standby is gone, writes freeze. The Postgres docs suggest asking for any 2 of 3 standbys so one bad standby does not stop you. Across continents, sync adds the round trip to every commit, which is why far away regions use async.", boxes: [
+    { title: "Async", cls: "lb", tag: ["fast", ""], lines: ["Commit does not wait", "A crash can lose the last commits", "Used for another region"], small: "" },
+    { title: "Sync", cls: "srv", tag: ["safe", "ok"], lines: ["Commit waits for the standby", "No acknowledged commit is lost", "Writes freeze if the standby is gone", "Used between zones"], small: "" }
+  ] });
+  return steps;
+}
+
+// ---- Story 4: failover chain and fencing ----
+function simulateFailover() {
+  const steps = [];
+  const f = createFailover({ threshold: 3 });
+  const times = { detect: 30, decide: 300, promote: 120, dnsTtl: 300 };
+  const total = worstCaseRto(times);
+  const mk = (hop, phase, note, status, servers, chain, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "Health checks", cls: status.cls || "lb", tag: status.tag, small: "one check every 10 seconds, threshold 3", lines: status.lines },
+    { title: "Servers", cls: servers.cls || "srv", tag: servers.tag, small: "epoch " + f.epoch() + ", primary is " + f.primary(), lines: servers.lines },
+    { title: "The recovery clock", cls: chain.cls || "fol", tag: chain.tag, small: "", big: chain.big ? { text: chain.big, neg: !!chain.neg } : null, bigLabel: chain.label, lines: chain.lines }
+  ] });
+  mk("Start", "setup", "<b>Two servers.</b> <b>a</b> is the primary and <b>b</b> is the standby. The epoch is <b>1</b>. A health check runs every 10 seconds. A failover needs <b>3 failed checks in a row</b>, so one network hiccup does not move everything.", { tag: ["all ok", "ok"], lines: ["a answers"] }, { tag: ["a is primary", "ok"], lines: ["a: writes allowed with epoch 1", "b: standby"] }, { tag: ["ready", ""], lines: ["detect + decide + promote + DNS"], big: null, label: "" });
+  let r = f.check(false);
+  mk("Check 1 fails", "chk", "<b>A check fails: \"" + r + "\".</b> It could be a network hiccup. Nothing moves yet.", { cls: "fol", tag: ["1 of 3 failed", "warn"], lines: ["a did not answer"] }, { tag: ["a is primary", "ok"], lines: ["no change"] }, { tag: ["30 s so far", ""], lines: ["detect"] , big: "30 s", label: "time since the first failure"});
+  r = f.check(false);
+  mk("Check 2 fails", "chk", "<b>Second failure: \"" + r + "\".</b> Still no move. Being careful costs time, and being hasty can cause a false alarm. AWS warns that an automatic failover \"should be used with caution\" for this reason.", { cls: "fol", tag: ["2 of 3 failed", "warn"], lines: ["a did not answer"] }, { tag: ["a is primary", "ok"], lines: ["no change"] }, { tag: ["30 s so far", ""], lines: ["detect"], big: "30 s", label: "time since the first failure" });
+  r = f.check(false);
+  mk("Check 3 fails: failover", "bad", "<b>Third failure: \"" + r + "\".</b> The standby <b>b</b> becomes the primary and the epoch goes up to <b>" + f.epoch() + "</b>. But the clock is running: detecting took 30 s, a person must decide (300 s), the database must be promoted (120 s) and users still point at the old address (DNS cache, 300 s).", { cls: "alarm", tag: ["3 of 3 failed", "bad"], lines: ["a is declared dead"] }, { tag: ["b is primary", "ok"], lines: ["b: writes allowed with epoch " + f.epoch(), "a: not allowed"] }, { cls: "alarm", tag: ["worst case", "bad"], lines: ["detect 30 s", "decide 300 s", "promote 120 s", "DNS wait 300 s"], big: dur(total), neg: true, label: "your real RTO is the sum" }, ["Failover", "bad"]);
+  const w1 = f.write("a", 1), w2 = f.write("b", 2);
+  mk("The old primary wakes up", "chk", "<b>Split brain danger.</b> The server <b>a</b> was only cut off, not dead. It wakes up and still thinks it is the primary, with epoch 1. A client sends it a write. Fencing checks the epoch: <code>write(\"a\", 1)</code> is <b>" + w1 + "</b>, refused. The write to <b>b</b> with epoch 2, <code>write(\"b\", 2)</code>, is <b>" + w2 + "</b>, accepted.", { tag: ["a is back", "warn"], lines: ["a answers again, but it is fenced"] }, { cls: "srv", tag: ["fence works", "ok"], lines: ["a with epoch 1: refused", "b with epoch 2: accepted"] }, { tag: ["no second history", "ok"], lines: ["only one server takes writes"] }, ["Old primary refused", "srv"]);
+  const small = worstCaseRto({ detect: 30, decide: 0, promote: 120, dnsTtl: 30 });
+  steps.push({ layout: "two", hop: "Shorten the chain", phase: "done", badge: ["Make it fit", "done"], note: "<b>Shorten each link.</b> Turn the human decision into one button (the steps are already scripted), and lower the DNS time to live from 300 s to 30 s <i>before</i> you need it. The same failover is now <b>" + dur(small) + "</b> instead of <b>" + dur(total) + "</b>. The part you cannot skip: practice the whole thing in a drill, because the first time is slow.", boxes: [
+    { title: "Before", cls: "alarm", tag: ["slow", "bad"], small: "", big: { text: dur(total), neg: true }, bigLabel: "30 + 300 + 120 + 300 seconds" },
+    { title: "After", cls: "srv", tag: ["scripted", "ok"], small: "", big: { text: dur(small), neg: false }, bigLabel: "30 + 0 + 120 + 30 seconds" }
+  ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. RPO and RTO", sim: simulateTimeline,
+    why: "A nightly backup means the last good copy can be almost 24 hours old. At 14:00 the last copy is from 02:00, so 12 hours of orders are lost. A faster restore does not bring them back. RPO is decided by how often you copy.",
+    predict: { q: "A shop takes a backup every night at 02:00. The data center is lost at 14:00. How much data is lost?", options: ["About 12 hours of orders", "None, the restore fixes it", "Only the last minute"], answer: "About 12 hours of orders" } },
+  { name: "2. Replica or backup", sim: simulateReplicaBackup,
+    why: "The replica repeats every change, including DROP TABLE (54 ms later in the test). The backup plus saved changes holds old versions, so you can replay to the second before the mistake.",
+    predict: { q: "Someone drops a table on the primary. Does the replica still have the table a moment later?", options: ["Yes, it is a copy", "No, it repeats the DROP", "Only if the replica is in another region"], answer: "No, it repeats the DROP" } },
+  { name: "3. Async or sync", sim: simulateAsyncSync,
+    why: "Async commits do not wait for the standby, so a crash loses what it had not received (1,000 of 1,000 in the test). Sync commits wait, so nothing acknowledged is lost, but writes freeze when the standby is gone.",
+    predict: { q: "The standby is cut off. With asynchronous copying, what does a new commit on the primary do?", options: ["It waits for the standby", "It fails with an error", "It succeeds at once"], answer: "It succeeds at once" } },
+  { name: "4. Failover and fence", sim: simulateFailover,
+    why: "A failover is a chain of steps and their times add up (750 seconds here). The epoch is the fence: the old primary writes with epoch 1, the system is on epoch 2, so the write is refused.",
+    predict: { q: "After a failover, the old primary wakes up and tries to write. What stops it?", options: ["Nothing, both accept writes", "The epoch number: its old epoch is refused", "It cannot start again"], answer: "The epoch number: its old epoch is refused" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.meter) h += '<div class="meter"><i class="' + (b.meter.hot ? "hot" : "") + '" style="width:' + b.meter.pct + '%"></i></div>';
+  if (b.dots) h += '<div class="dots">' + b.dots.map(d => '<span class="dot ' + (d.on ? "on" : "") + '"><b>' + d.label + "</b>" + d.b + "</span>").join("") + "</div>";
+  if (b.cols) h += '<div class="cols">' + b.cols.map(c => '<div class="col ' + c.cls + '"><b>' + c.name + "</b><span>" + c.state + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateTimeline, simulateReplicaBackup, simulateAsyncSync, simulateFailover, STORIES, lostCommits, checkTargets, worstCaseRto, createFailover };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

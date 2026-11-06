@@ -93,7 +93,7 @@ Each one has a deep section in the guides below. A lesson file breaks it into on
 | 25 | [Multi-tenancy](25-multi-tenancy.md) | shared tables, schema per tenant, database per tenant | ready |
 | 26 | [SLOs and error budgets](26-slos-and-error-budgets.md) | turning 99.9% into minutes, alerting on what users feel | ready |
 | 27 | [Safe deploys](27-safe-deploys.md) | canary, blue green, feature flags, expand and contract | ready |
-| 28 | Disaster recovery `28-disaster-recovery.md` | RPO, RTO, multi AZ vs multi region | planned |
+| 28 | [Disaster recovery](28-disaster-recovery.md) | RPO, RTO, replica vs backup, multi AZ vs multi region, failover and fencing | ready |
 | 29 | [Security in a design](29-security-in-a-design.md) | authorization models, OWASP API Top 10, service to service auth | ready |
 | 30 | LLM features in a system `30-llm-features-in-a-system.md` | RAG, LLM gateway, streaming, cost and fallbacks | planned |
 | 31 | The frontend design round `31-the-frontend-design-round.md` | a framework for frontend system design, rendering and data choices | planned |

@@ -366,5 +366,13 @@
   "num": "27",
   "title": "Safe deploys",
   "count": 6
+ },
+ {
+  "slug": "learn/system-design/28-disaster-recovery",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "28",
+  "title": "Disaster recovery",
+  "count": 6
  }
 ]
