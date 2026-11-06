@@ -360,6 +360,14 @@
   "count": 6
  },
  {
+  "slug": "learn/system-design/26-slos-and-error-budgets",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "26",
+  "title": "SLOs and error budgets",
+  "count": 6
+ },
+ {
   "slug": "learn/system-design/27-safe-deploys",
   "subject": "system-design",
   "subjectTitle": "System Design",
@@ -381,6 +389,14 @@
   "subjectTitle": "System Design",
   "num": "29",
   "title": "Security in a design",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/30-llm-features-in-a-system",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "30",
+  "title": "LLM features in a system",
   "count": 6
  }
 ]

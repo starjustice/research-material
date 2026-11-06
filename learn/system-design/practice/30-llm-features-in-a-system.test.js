@@ -66,6 +66,18 @@ test("retrieve never returns a chunk the user may not see", () => {
   assert.ok(hits.every((h) => h.id !== "hr-1"));
 });
 
+test("retrieve filters BEFORE it takes the top k, so private chunks do not use up the places", () => {
+  const many = [
+    { id: "hr-1", text: "manager salary bands level one", group: "hr" },
+    { id: "hr-2", text: "manager salary bands level two", group: "hr" },
+    { id: "hr-3", text: "manager salary bands level three", group: "hr" },
+    { id: "pay-1", text: "salary is paid on the 25th", group: "all" },
+    { id: "pay-2", text: "bands play at the office party", group: "all" },
+  ];
+  const hits = retrieve(many, "manager salary bands", 2, (chunk) => chunk.group === "all");
+  assert.deepStrictEqual(hits.map((h) => h.id).sort(), ["pay-1", "pay-2"]);   // filtering after the top 2 would leave nothing
+});
+
 test("ties keep the original order", () => {
   const twins = [{ id: "a", text: "red apple" }, { id: "b", text: "red apple" }];
   assert.deepStrictEqual(retrieve(twins, "red apple", 2).map((h) => h.id), ["a", "b"]);

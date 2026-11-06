@@ -1,0 +1,68 @@
+[
+  {
+    "q": "The SLO is 99.9% over a 30 day month. About how many minutes may the service fail, and what is that number called?",
+    "options": [
+      "4.32 minutes, the SLA",
+      "43.2 minutes, the error budget",
+      "7.2 hours, the SLI",
+      "43.2 minutes, the SLI"
+    ],
+    "answer": 1,
+    "why": "A 30 day month has 43,200 minutes, and 0.1% of that is 43.2. This is the error budget: what the SLO still allows. The SLI is the measurement (good requests divided by all requests). 4.32 minutes is the budget of 99.99%, one nine more."
+  },
+  {
+    "q": "A team moves its SLO from 99.9% to 99.99%. What happens to the monthly error budget?",
+    "options": [
+      "It shrinks by ten, from 43.2 minutes to 4.32 minutes",
+      "It shrinks by half",
+      "It stays about the same, only the name changes",
+      "It grows, because the number is bigger"
+    ],
+    "answer": 0,
+    "why": "Each extra nine cuts the budget by ten (and costs far more than the one before). 99.9% gives 43.2 minutes per 30 days, 99.99% gives 4.32 minutes, 99.999% gives 25.9 seconds. Pick the number users would notice."
+  },
+  {
+    "q": "99 requests take 0.1 s and 1 request takes 10 s. The average is about 0.2 s. What is the right way to describe the speed for an SLI?",
+    "options": [
+      "The average is 0.2 s, so users are happy",
+      "Use the slowest request only",
+      "Use CPU use, because it is easy to read",
+      "A share or percentile, such as \"99% of requests are faster than 300 ms\""
+    ],
+    "answer": 3,
+    "why": "The average hides the slow users: 1 user in 100 waited 10 seconds. A share or a percentile shows them. Choose an SLI from something users feel (an error, a slow page), not from a cause like CPU."
+  },
+  {
+    "q": "A bad deploy makes 5% of requests fail, at 1,000 requests a minute. The SLO is 99.9% over 30 days. Why does the pager rule need both a 60 minute window and a 5 minute window above 14.4?",
+    "options": [
+      "The long window proves the problem is real, and the short window proves it is still happening, so the page stops soon after the fix",
+      "Two windows make the alert fire faster than one",
+      "The 5 minute window is for CPU and the 60 minute window is for errors",
+      "A real alert needs two different people to agree"
+    ],
+    "answer": 0,
+    "why": "The long window ignores a one minute blip. The short window clears quickly after the fix. In the lesson's real run, this deploy paged at minute 18 (900 bad requests spent) and cleared at minute 26. A burn rate of 1 would use the budget in exactly 30 days. Here the burn rate is 50 (5% divided by 0.1%)."
+  },
+  {
+    "q": "The SLO is 99.9% and the SLA is also 99.9%. What is the problem?",
+    "options": [
+      "Nothing, equal numbers are simplest",
+      "The SLA is cheaper to run than the SLO",
+      "The first alarm is also the first bill, so there is no room between \"slow down\" and \"we pay\"",
+      "The SLA cannot be measured"
+    ],
+    "answer": 2,
+    "why": "The SLO is the team goal, and the SLA is a contract with a penalty, usually money back. Make the SLO stricter than the SLA (for example 99.9% against 99.5%), so your own alarm rings before you pay."
+  },
+  {
+    "q": "A nightly job pushes CPU above 90% while users are fine. Later a bad deploy returns errors with CPU at 40%. What does an alert on CPU do?",
+    "options": [
+      "Pages for the deploy and stays quiet for the job",
+      "Pages at 3 a.m. for the job and stays quiet for the deploy",
+      "Pages for both",
+      "Stays quiet for both"
+    ],
+    "answer": 1,
+    "why": "CPU is a cause, not a symptom. It pages for something users do not feel and misses the thing they do. An alert on how fast the budget is spent stays quiet for the job and pages for the deploy after 18 minutes. Keep causes on a dashboard."
+  }
+]
