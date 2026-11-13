@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Which files are on the runner when the install stage of a pipeline starts?",
+    "options": [
+      "Everything on your laptop, including files git has never seen",
+      "The files from the last deploy on the production server",
+      "Only the files that git has, with no node_modules",
+      "Nothing at all, not even the code"
+    ],
+    "answer": 2,
+    "why": "A pipeline runs on a clean machine, and the first stage gets the code from git. A file that exists only on your laptop is missing, so a 'works on my machine' mistake shows up in minutes. In my test, the same code printed a value on the laptop and Cannot find module on a clean checkout."
+  },
+  {
+    "q": "The test stage fails. What happens to the build, push and deploy stages, and which version is live?",
+    "options": [
+      "They run anyway, and the new version goes live",
+      "They are skipped, and the old version stays live",
+      "They run, but the deploy is cancelled at the end",
+      "Only the deploy is skipped, the new image is still built"
+    ],
+    "answer": 1,
+    "why": "A failed stage stops the line. The stages after it never start, so nothing broken is built or deployed. In my run the script ended with exit code 1 and the live container still answered with the old version."
+  },
+  {
+    "q": "A pipeline goes green and then waits until a person clicks Deploy. Which practice is it?",
+    "options": [
+      "Continuous delivery",
+      "Continuous integration",
+      "Continuous deployment",
+      "Blue green deployment"
+    ],
+    "answer": 0,
+    "why": "All three use the same pipeline and differ in where the robot stops. CI builds and tests every push. Delivery stops before production and waits for a person. Deployment has no click and goes live by itself, so it needs stronger tests and a fast way back."
+  },
+  {
+    "q": "A release passed every stage and went live, and now it is bad. What is the quickest safe way back?",
+    "options": [
+      "Rebuild the old commit and wait for the tests",
+      "Deploy the tag latest again",
+      "Delete the pipeline and fix it by hand on the server",
+      "Deploy the previous artifact again, using its commit id tag"
+    ],
+    "answer": 3,
+    "why": "Build once, tag with the commit id, and keep the last few artifacts. A rollback is then a deploy of an older tag: no build and no tests. It took 1.7 s in my run. Latest is a poor choice because it can point to a different image over time."
+  },
+  {
+    "q": "You change one line in src/server.js and nothing else. What happens to the npm cache key, which is made from the operating system and the hash of the lockfile?",
+    "options": [
+      "The key changes, so the cache is missed",
+      "The key is deleted from the store",
+      "The key stays the same, so the cache is reused",
+      "The key changes only on Mondays"
+    ],
+    "answer": 2,
+    "why": "The key depends on the lockfile only. The same lockfile gives the same key, so the files come from the cache (0.8 s against 2.4 s cold on my test app). If you add a library, the lockfile changes, so the key changes."
+  },
+  {
+    "q": "npm test fails on the runner, and the pipeline is green. What do you look for first?",
+    "options": [
+      "A step that hides the failure, such as || true after the test command",
+      "A cache key that is too long",
+      "A runner that is too fast",
+      "A Docker image that is too big"
+    ],
+    "answer": 0,
+    "why": "Green with failing tests means a step swallows the failure. In my test, npm test followed by || true printed 'deploying to production' with a failing test, and the same script without || true stopped with exit code 1. In GitHub Actions, check continue-on-error as well."
+  }
+]

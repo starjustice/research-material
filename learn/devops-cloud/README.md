@@ -43,7 +43,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 05 | CI/CD pipelines `05-ci-cd-pipelines.md` | build, test, deploy, rollback | planned |
+| 05 | [CI/CD pipelines](05-ci-cd-pipelines.md) | build, test, deploy, rollback | ready |
 | 12 | GitHub Actions in practice `12-github-actions-in-practice.md` | a real pipeline file, caching, secrets, environments | planned |
 | 13 | Git branching and release strategies `13-git-branching-and-release-strategies.md` | trunk based vs GitFlow, tags, hotfixes | planned |
 | 14 | Infrastructure as code `14-infrastructure-as-code.md` | Terraform plan and apply, state, drift | planned |

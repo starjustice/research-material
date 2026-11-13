@@ -66,7 +66,7 @@ graph TB
 - **Plain words:** you give the platform your code (usually with `git push`). It builds it, runs it, and keeps it alive. You never touch the operating system.
 - **You manage:** your code, your environment variables, your data.
 - **Provider manages:** OS, runtime, building, scaling, HTTPS certificates, health checks, restarts.
-- **Real products:** Heroku, Vercel, Railway, Fly.io, Render, AWS App Runner.
+- **Real products:** Heroku, Vercel, Railway, Fly.io, Render. (AWS App Runner was listed here in 2026-07, but AWS has closed it to new customers, checked 2026-11-14.)
 - **Monthly cost feel:** often free to start, then ~$5–$25/service, plus usage. You pay more per unit than raw IaaS, but you save huge operations time.
 - **Deploy the same Express API here:** connect your Git repo. `git push`. Done. The platform detects Node, runs `npm install` and `npm start`, gives you a URL with HTTPS. No SSH, no nginx, no cert setup.
 
@@ -267,14 +267,14 @@ This extends the "Serverless vs Containers" card in [`load-balancers-microservic
 - **What locks you in:** the event formats (a Lambda `event` object is AWS-specific), the identity/permissions system (AWS IAM), orchestration tools (AWS Step Functions), and provider-only triggers.
 - **What reduces it:**
   - **Hexagonal boundaries** — keep your business logic in plain functions that know nothing about Lambda. The Lambda handler is a thin wrapper that calls them. Then only the wrapper is provider-specific.
-  - **Containers-on-serverless** — deploy a normal Docker container to Cloud Run, Fargate, or App Runner. You get scale-to-zero-ish behavior but your code stays a portable container. This is the **serverless-containers convergence** (see What's Current).
+  - **Containers-on-serverless** — deploy a normal Docker container to Cloud Run or Fargate. You get scale-to-zero-ish behavior but your code stays a portable container. This is the **serverless-containers convergence** (see What's Current).
 - **The honest line:** *"I keep domain logic provider-agnostic and put only the trigger glue in the handler. If lock-in is a real worry, I'd run a container on Cloud Run instead of raw Lambda — same scaling story, portable artifact."*
 
 ---
 
 ## What's Current (2025–2026)
 
-- **Serverless-containers convergence is the big trend.** You no longer must choose "function" or "always-on server." Give a Docker container to **Google Cloud Run**, **AWS Fargate**, or **AWS App Runner** and it scales up on traffic and down toward zero — serverless behavior, portable container. Cloud Run added GPU support for AI workloads (2025). App Runner is the AWS answer closest to Cloud Run: give it a repo or image, it runs it.
+- **Serverless-containers convergence is the big trend.** You no longer must choose "function" or "always-on server." Give a Docker container to **Google Cloud Run** or **AWS Fargate** and it scales up on traffic and down toward zero — serverless behavior, portable container. Cloud Run added GPU support for AI workloads (2025). AWS App Runner used to be the closest AWS answer to Cloud Run, but AWS closed it to new customers and points to Amazon ECS Express Mode (checked 2026-11-14).
 - **Lambda cold-start / billing changes (2025):**
   - **SnapStart still does not support Node.js** (only Java, Python 3.12+, .NET 8). Do not claim it as a JS mitigation in interviews.
   - **As of August 2025, AWS bills the INIT (cold-start) phase** the same as invocation time — so cold starts now cost money, not just latency.
@@ -377,7 +377,7 @@ This extends the "Serverless vs Containers" card in [`load-balancers-microservic
 **One-liners:**
 
 - **IaaS** — rent a raw machine; you manage the OS up (EC2, droplet, GCE).
-- **PaaS** — push code, they run it (Heroku, Vercel, Railway, App Runner).
+- **PaaS** — push code, they run it (Heroku, Vercel, Railway).
 - **SaaS** — finished software you log into (Gmail, Hasura Cloud, Stripe).
 - **FaaS/serverless** — upload a function; it runs only on an event, scales to zero (Lambda, Workers, Vercel Functions).
 - **CaaS** — give them a container, they run and scale it (Cloud Run, Fargate).

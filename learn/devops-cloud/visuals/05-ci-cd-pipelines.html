@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI/CD pipelines: stages, a failing test, the cache, and a way back</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.skip { opacity: .6; border-style: dashed; text-decoration: line-through; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/05-ci-cd-pipelines" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>CI/CD pipelines: stages, a failing test, the cache, and a way back</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. The seconds come from real runs of a small pipeline script on one laptop (Docker Desktop 29.3.1, Node 24 alpine). Your times will differ. The GitHub notes in stories 2 and 3 are from the GitHub docs, not run here.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a pipeline runs the same stages on a clean machine for every push. A failed stage stops the line. Build once, tag it with the commit id, and deploy that exact build. Keep the old builds, so the way back is quick.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The functions runPipeline, cacheKey, cacheLookup and rollbackTarget are the same code as the
+// practice answer in the lesson. The seconds come from real runs of a small script on Docker
+// Desktop 29.3.1 with node:24-alpine (2026-11-13). A tiny sha256 is included because a page
+// cannot use node:crypto. The cache story uses a tiny example lockfile, not the real one.
+// ---------------------------------------------------------------------------------------------
+function runPipeline(stages, results = {}, options = {}) {
+  const failFast = options.failFast !== false;
+  const outcome = {};
+  let anyFailed = false;
+  for (const stage of stages) {
+    for (const need of stage.needs || []) {
+      if (!(need in outcome)) throw new Error("unknown stage: " + need);
+    }
+    const blocked = (stage.needs || []).some((need) => outcome[need] !== "passed");
+    if (blocked || (failFast && anyFailed)) {
+      outcome[stage.name] = "skipped";
+    } else if (results[stage.name] === "fail") {
+      outcome[stage.name] = "failed";
+      anyFailed = true;
+    } else {
+      outcome[stage.name] = "passed";
+    }
+  }
+  return outcome;
+}
+
+function utf8(text) {
+  const out = [];
+  for (const ch of text) {
+    const c = ch.codePointAt(0);
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+    else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+  }
+  return out;
+}
+
+function sha256hex(text) {
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const bytes = utf8(text);
+  const bitLen = bytes.length * 8;
+  bytes.push(0x80);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push(i >= 4 ? 0 : (bitLen >>> (i * 8)) & 0xff);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let off = 0; off < bytes.length; off += 64) {
+    const w = new Array(64);
+    for (let i = 0; i < 16; i++) w[i] = (bytes[off + 4 * i] << 24) | (bytes[off + 4 * i + 1] << 16) | (bytes[off + 4 * i + 2] << 8) | bytes[off + 4 * i + 3];
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[i] + w[i]) | 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+    H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+  }
+  return H.map((x) => (x >>> 0).toString(16).padStart(8, "0")).join("");
+}
+
+function cacheKey(os, lockfileText) {
+  return os + "-npm-" + sha256hex(lockfileText).slice(0, 16);
+}
+
+function cacheLookup(saved, key, restoreKeys = []) {
+  if (saved.includes(key)) return { result: "hit", key };
+  for (const prefix of restoreKeys) {
+    const matches = saved.filter((k) => k.startsWith(prefix));
+    if (matches.length > 0) return { result: "partial", key: matches[matches.length - 1] };
+  }
+  return { result: "miss", key: null };
+}
+
+function rollbackTarget(releases) {
+  for (let i = releases.length - 2; i >= 0; i--) {
+    if (releases[i].good) return releases[i].tag;
+  }
+  return null;
+}
+
+const mb = n => n.toFixed(1) + " MB";
+const sec = n => n.toFixed(1) + " s";
+const STAGES = [
+  { name: "checkout", needs: [] },
+  { name: "install", needs: ["checkout"] },
+  { name: "lint", needs: ["install"] },
+  { name: "test", needs: ["lint"] },
+  { name: "build", needs: ["test"] },
+  { name: "push", needs: ["build"] },
+  { name: "deploy", needs: ["push"] }
+];
+const ROW = { passed: ["passed", "cached"], failed: ["FAILED", "rebuilt"], skipped: ["skipped", "skip"], running: ["running", "now"], pending: ["waiting", "wait"] };
+
+// rows for the pipeline box. done = how many stages have finished, outcome comes from runPipeline.
+// secs (optional) gives the seconds each stage took.
+function stageRows(stages, outcome, done, lit, secs) {
+  return stages.map((s, i) => {
+    const state = i < done ? outcome[s.name] : "pending";
+    let label = ROW[state][0];
+    if (secs && secs[s.name] !== undefined && (state === "passed" || state === "failed")) label = (state === "failed" ? "FAILED " : "") + sec(secs[s.name]);
+    return { name: s.name, size: label, state: ROW[state][1], lit: lit === i };
+  });
+}
+
+// ---- Story 1: a green run, then Story 2: a red run. Both walk the same seven stages ----
+const GREEN_SECONDS = { checkout: 0.1, install: 1.9, lint: 0.8, test: 0.3, build: 2.8, push: 1.8, deploy: 2.0 };
+const RED_SECONDS = { checkout: 0.1, install: 2.6, lint: 0.7, test: 0.3 };
+
+const GREEN_MACHINE = [
+  { lines: ["empty clean machine", "no node_modules", "no source code yet"] },
+  { lines: ["src/ test/ package.json package-lock.json Dockerfile", "only files that git has", "no node_modules yet"] },
+  { lines: ["the source files", "node_modules: 17 MB", "installed from the lockfile with npm ci"] },
+  { lines: ["the source files", "node_modules", "eslint found nothing to complain about"] },
+  { lines: ["the source files", "node_modules", "node --test: 2 tests, 2 pass"] },
+  { lines: ["image lesson05-app:20289ca", "250 MB unpacked", "tagged with the commit id"] },
+  { lines: ["file app-20289ca.tar.gz", "64.0 MB", "made by docker save, a stand in for docker push"] },
+  { lines: ["container lesson05-live runs the image", "GET /health gives ok: true, version 20289ca", "the old container was replaced"] }
+];
+function simulateGreen() {
+  const steps = [];
+  const outcome = runPipeline(STAGES, {});
+  let clock = 0;
+  const total = STAGES.reduce((s, st) => s + GREEN_SECONDS[st.name], 0);
+  const notes = [
+    "<b>One stage after the other, on a clean machine.</b> The first stage fetches the code. Nothing else is here: no <code>node_modules</code>, no files that only live on your laptop.",
+    "<b>The install stage runs <code>npm ci</code>.</b> It installs exactly what the lockfile says. If <code>package.json</code> and the lockfile disagree, it stops with an error. That is what you want in a pipeline.",
+    "<b>Lint.</b> ESLint reads the code and looks for mistakes such as an unused variable. It does not run the app.",
+    "<b>Test.</b> <code>node --test</code> runs the 2 tests. They pass. This is the stage that tells you the change did not break the price rule.",
+    "<b>Build.</b> <code>docker build</code> makes the image, and the pipeline tags it with the commit id. The first build took 2.8 s. A later build with the same <code>package*.json</code> took 0.7 s, because Docker reused its layers (lesson 02). A fresh CI machine starts with no layers to reuse.",
+    "<b>Push.</b> There is no registry on this machine, so this lesson saves the image to a file with <code>docker save</code>. The file is the <b>artifact</b>: the exact bytes that were tested. A real pipeline runs <code>docker push</code> to a registry here.",
+    "<b>Deploy.</b> The pipeline loads the saved image, stops the old container and starts a new one. It asks <code>/health</code> and gets <code>ok: true</code>. The version is <b>20289ca</b>, the same commit that passed the tests."
+  ];
+  steps.push({ layout: "three", hop: "Setup: you push commit 20289ca", phase: "setup",
+    note: "<b>You push a commit.</b> A runner (a clean machine that runs your pipeline) starts. Press Next. Watch what appears on the machine, and what the clock says.",
+    boxes: [
+      { title: "Pipeline", cls: "lb", tag: ["7 stages", ""], small: "", layers: stageRows(STAGES, outcome, 0, -1) },
+      { title: "The clean machine", cls: "fol", tag: ["runner", ""], small: "", lines: GREEN_MACHINE[0].lines },
+      { title: "Clock", cls: "user", tag: ["so far", ""], small: "", big: { text: "0.0 s", neg: false }, bigLabel: "time spent" }
+    ] });
+  STAGES.forEach((st, k) => {
+    clock += GREEN_SECONDS[st.name];
+    steps.push({ layout: "three", hop: "Stage " + (k + 1) + " of 7: " + st.name, phase: k === 6 ? "srv" : "run", badge: [st.name + " passed", "srv"],
+      note: notes[k],
+      boxes: [
+        { title: "Pipeline", cls: "lb", tag: ["running", ""], small: "", layers: stageRows(STAGES, outcome, k + 1, k, GREEN_SECONDS) },
+        { title: "The clean machine", cls: "fol", tag: ["after " + st.name, ""], small: "", lines: GREEN_MACHINE[k + 1].lines },
+        { title: "Clock", cls: "user", tag: ["so far", ""], small: "", big: { text: sec(clock), neg: false }, bigLabel: "time spent" }
+      ] });
+  });
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Seven stages, " + sec(total) + ".</b> What runs in production is the image that passed the lint and the tests, not a new build made at deploy time. Every stage ran on a clean machine, so a file that exists only on your laptop would have shown up as an error at stage 3 or 4.",
+    boxes: [
+      { title: "What went live", cls: "srv", tag: ["version 20289ca", "ok"], small: "", big: { text: sec(total), neg: false }, bigLabel: "from push to live, on this small app" },
+      { title: "Remember", cls: "lb", tag: ["rule", ""], small: "", lines: ["same steps on every push", "a clean machine, not your laptop", "build once, then deploy that exact build"] }
+    ] });
+  return steps;
+}
+
+const RED_MACHINE = [
+  GREEN_MACHINE[0], GREEN_MACHINE[1], GREEN_MACHINE[2], GREEN_MACHINE[3],
+  { lines: ["the source files", "node_modules", "test price.test.js: expected 10800, got 12000"] }
+];
+function simulateRed() {
+  const steps = [];
+  const results = { test: "fail" };
+  const outcome = runPipeline(STAGES, results);
+  let clock = 0;
+  const notes = [
+    "<b>Checkout.</b> Commit <b>aa832ce</b> is fetched. The change is one line: the discount now starts at <code>100000</code> cents, not <code>10000</code>. It looks like a small tidy up.",
+    "<b>Install.</b> Passes. The lockfile did not change.",
+    "<b>Lint.</b> Passes. The line is valid JavaScript, so ESLint has nothing to say.",
+    "<b>Test fails.</b> A 120 euro order should cost 108 euros: expected <code>10800</code>. It cost <code>12000</code>, because the discount no longer starts. The test caught the typo before anyone saw it."
+  ];
+  steps.push({ layout: "three", hop: "Setup: version 20289ca is live", phase: "setup",
+    note: "<b>Version 20289ca is live.</b> Now you push commit <b>aa832ce</b>. It has a typo in the discount rule. Press Next and watch where the pipeline stops.",
+    boxes: [
+      { title: "Pipeline", cls: "lb", tag: ["7 stages", ""], small: "", layers: stageRows(STAGES, outcome, 0, -1) },
+      { title: "The clean machine", cls: "fol", tag: ["runner", ""], small: "", lines: RED_MACHINE[0].lines },
+      { title: "Live in production", cls: "srv", tag: ["running", "ok"], small: "", lines: ["version 20289ca", "GET /total gives 10800"] }
+    ] });
+  ["checkout", "install", "lint", "test"].forEach((name, k) => {
+    clock += RED_SECONDS[name];
+    const failed = name === "test";
+    steps.push({ layout: "three", hop: "Stage " + (k + 1) + " of 7: " + name, phase: failed ? "bad" : "run", badge: [failed ? "test FAILED" : name + " passed", failed ? "bad" : "srv"],
+      note: notes[k],
+      boxes: [
+        { title: "Pipeline", cls: failed ? "alarm" : "lb", tag: [failed ? "stopped" : "running", failed ? "bad" : ""], small: "", layers: stageRows(STAGES, outcome, k + 1, k, RED_SECONDS) },
+        { title: "The clean machine", cls: failed ? "alarm" : "fol", tag: ["after " + name, failed ? "bad" : ""], small: "", lines: RED_MACHINE[k + 1].lines },
+        { title: "Live in production", cls: "srv", tag: ["running", "ok"], small: "", lines: ["version 20289ca", "nothing has changed here"] }
+      ] });
+  });
+  steps.push({ layout: "three", hop: "The line is stopped", phase: "bad", badge: ["3 stages skipped", "bad"],
+    note: "<b>Build, push and deploy never start.</b> <code>runPipeline</code> gives <code>skipped</code> for all three. The script ran with <code>set -e</code>: the first command that fails ends the whole script, with exit code 1. The pipeline printed <i>Nothing was deployed</i>.",
+    boxes: [
+      { title: "Pipeline", cls: "alarm", tag: ["stopped at test", "bad"], small: "", layers: stageRows(STAGES, outcome, 7, -1, RED_SECONDS) },
+      { title: "What was never made", cls: "fol", tag: ["skipped", "warn"], small: "", lines: ["no image for aa832ce", "no artifact file", "no new container"] },
+      { title: "Live in production", cls: "srv", tag: ["still running", "ok"], small: "", lines: ["version 20289ca", "GET /health: ok", "users see no change"] }
+    ] });
+  const par = [
+    { name: "install", needs: [] },
+    { name: "lint", needs: ["install"] },
+    { name: "test", needs: ["install"] },
+    { name: "build", needs: ["lint", "test"] },
+    { name: "deploy", needs: ["build"] }
+  ];
+  const fast = runPipeline(par, { lint: "fail" }, { failFast: true });
+  const slow = runPipeline(par, { lint: "fail" }, { failFast: false });
+  const rows = (o) => par.map((s) => ({ name: s.name, size: ROW[o[s.name]][0], state: ROW[o[s.name]][1] }));
+  steps.push({ layout: "two", hop: "Two ways to stop", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Lint and test do not need each other.</b> In the GitHub Actions docs, jobs run side by side unless one lists another in <code>needs</code>. If a job fails, only the jobs that need it are skipped. A shell script with <code>set -e</code> stops everything at the first failure. Both keep <b>build</b> and <b>deploy</b> away from broken code.",
+    boxes: [
+      { title: "Stop everything", cls: "alarm", tag: ["failFast true", "bad"], small: "lint fails", layers: rows(fast) },
+      { title: "Skip only what needs it", cls: "lb", tag: ["failFast false", ""], small: "lint fails", layers: rows(slow) }
+    ] });
+  return steps;
+}
+
+// ---- Story 3: the cache key comes from the lockfile ----
+const LOCK_A = "express 5.1.0\neslint 9.0.0\n";
+const LOCK_C = LOCK_A + "cors 2.8.6\n";
+function simulateCache() {
+  const steps = [];
+  const keyA = cacheKey("linux", LOCK_A), keyC = cacheKey("linux", LOCK_C);
+  const RESTORE = ["linux-npm-"];
+  const lockBox = (title, text, tag) => ({ title, cls: "fol", tag: [tag, ""], small: "", lines: text.trim().split("\n").concat(["sha256 starts with " + sha256hex(text).slice(0, 16)]) });
+  const storeBox = (saved, cls, tag) => ({ title: "Cache store", cls, tag: [tag, ""], small: "", lines: saved.length ? saved.map(k => k) : ["empty"] });
+  const clockBox = (t, label) => ({ title: "npm ci", cls: "user", tag: ["time", ""], small: "", big: { text: t, neg: false }, bigLabel: label });
+  steps.push({ layout: "three", hop: "Setup: the first run ever", phase: "setup",
+    note: "<b>The first run.</b> The cache store is empty. The pipeline will make a <b>key</b> from the lockfile: the operating system, the word npm, and the start of the lockfile's hash. (This page uses a tiny example lockfile, so the hash is for the example, not for a real project.)",
+    boxes: [lockBox("Lockfile, run A", LOCK_A, "express + eslint"), storeBox([], "lb", "nothing saved"), clockBox("0.0 s", "waiting")] });
+  steps.push({ layout: "three", hop: "Run A: make the key", phase: "run",
+    note: "<b><code>cacheKey(\"linux\", lockfile)</code></b> gives <code>" + keyA + "</code>. The same lockfile always gives the same key, and one changed character gives a different one.",
+    boxes: [lockBox("Lockfile, run A", LOCK_A, "hashed"), { title: "The key", cls: "lb", tag: ["made", "ok"], small: "", lines: [keyA] }, clockBox("0.0 s", "waiting")] });
+  const lookA = cacheLookup([], keyA, RESTORE);
+  steps.push({ layout: "three", hop: "Run A: look in the store", phase: "bad", badge: ["cache " + lookA.result, "bad"],
+    note: "<b><code>cacheLookup</code> says <code>" + lookA.result + "</code>.</b> Nothing is saved, so <code>npm ci</code> has to download every package. On the test app it took <b>2.4 s</b> (three cold runs: 4.9, 2.3 and 2.4 s).",
+    boxes: [{ title: "Lookup", cls: "alarm", tag: [lookA.result, "bad"], small: "", lines: ["want: " + keyA, "saved: nothing", "restore key: linux-npm-"] }, storeBox([], "lb", "empty"), clockBox("2.4 s", "cold: downloads everything")] });
+  const savedA = [keyA];
+  steps.push({ layout: "three", hop: "Run A: save the cache", phase: "srv", badge: ["saved", "srv"],
+    note: "<b>The job ends and saves the npm cache under the key.</b> The runner is thrown away, but the store stays. In GitHub Actions the store is on GitHub's side (docs: caches are removed after 7 days without use, and the default limit is 10 GB per repository).",
+    boxes: [lockBox("Lockfile, run A", LOCK_A, "done"), storeBox(savedA, "srv", "1 key"), clockBox("2.4 s", "cold: downloads everything")] });
+  const lookB = cacheLookup(savedA, keyA, RESTORE);
+  steps.push({ layout: "three", hop: "Run B: only source code changed", phase: "srv", badge: ["cache " + lookB.result, "srv"],
+    note: "<b>You edit <code>src/server.js</code>, and the lockfile stays the same.</b> The key is the same, so <code>cacheLookup</code> says <code>" + lookB.result + "</code>. <code>npm ci</code> reads the files from the cache and took <b>0.8 s</b> (warm runs: 0.7, 0.8 and 0.9 s).",
+    boxes: [{ title: "Lookup", cls: "srv", tag: [lookB.result, "ok"], small: "", lines: ["want: " + keyA, "found: " + lookB.key] }, storeBox(savedA, "srv", "1 key"), clockBox("0.8 s", "warm: reads from the cache")] });
+  const lookC = cacheLookup(savedA, keyC, RESTORE);
+  steps.push({ layout: "three", hop: "Run C: you add the cors library", phase: "chk", badge: ["cache " + lookC.result, "chk"],
+    note: "<b>The lockfile changed, so the key changed.</b> There is no exact match. The restore key <code>linux-npm-</code> finds the saved key <code>" + lookC.key + "</code>, which is a <b>" + lookC.result + "</b> hit. <code>npm ci</code> starts from the old cache and downloads only what is missing. Here that took 0.8 s (three runs: 0.8, 0.8 and 1.1 s), because <code>cors</code> is tiny.",
+    boxes: [lockBox("Lockfile, run C", LOCK_C, "cors added"), { title: "Lookup", cls: "fol", tag: [lookC.result, "warn"], small: "", lines: ["want: " + keyC, "no exact match", "restore key finds: " + lookC.key] }, clockBox("0.8 s", "old cache plus a small download")] });
+  const savedC = [keyA, keyC];
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Run C saves a new entry under the new key.</b> The store now holds <b>" + savedC.length + "</b> keys. A key says which lockfile the cache was made from. <b>Same lockfile, same key, reuse. New lockfile, new key, rebuild.</b> Times on the test app: cold 2.4 s, warm 0.8 s. With more packages, the download part of a cold run grows.",
+    boxes: [
+      { title: "Cache store", cls: "srv", tag: ["2 keys", "ok"], small: "", lines: savedC },
+      { title: "The rule", cls: "lb", tag: ["rule", ""], small: "", lines: ["key = system + hash of the lockfile", "a fixed key never refreshes", "a cache must be safe to lose"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 4: a green release that is bad, and the way back ----
+function simulateRollback() {
+  const steps = [];
+  const releases1 = [{ tag: "20289ca", good: true }];
+  const releases2 = [{ tag: "20289ca", good: true }, { tag: "bd40d63", good: true }];
+  const releases3 = [{ tag: "20289ca", good: true }, { tag: "bd40d63", good: false }];
+  const target = rollbackTarget(releases3);
+  const all = runPipeline(STAGES, {});
+  const relBox = (list, cls, tag) => ({ title: "Saved releases", cls, tag: [tag, ""], small: "newest at the bottom", lines: list.map(r => r.tag + (r.good ? "  good" : "  BAD")) });
+  const liveBox = (ver, ok, lines, cls) => ({ title: "Live in production", cls: cls || "srv", tag: [ver, ok ? "ok" : "bad"], small: "", lines });
+  steps.push({ layout: "three", hop: "Setup: version 20289ca is live", phase: "setup",
+    note: "<b>Version 20289ca is live and works.</b> Its artifact file is kept. Now you push commit <b>bd40d63</b>: a new <code>/total</code> route. Nobody wrote a test for the route.",
+    boxes: [relBox(releases1, "lb", "1 release"), liveBox("20289ca", true, ["GET /total gives 10800"]), { title: "Pipeline", cls: "fol", tag: ["not started", ""], small: "", lines: ["waiting for the push"] }] });
+  steps.push({ layout: "three", hop: "All seven stages pass", phase: "srv", badge: ["pipeline green", "srv"],
+    note: "<b>Every stage passes.</b> All " + Object.keys(all).length + " stages come out as <code>passed</code>. The lint finds nothing. The 2 tests pass, because they only test the price rule. The new route is not tested at all.",
+    boxes: [relBox(releases1, "lb", "1 release"), liveBox("20289ca", true, ["still the old version", "deploy is the last stage"]), { title: "Pipeline", cls: "srv", tag: ["green", "ok"], small: "", layers: stageRows(STAGES, all, 7, -1) }] });
+  steps.push({ layout: "three", hop: "Deploy: the new version goes live", phase: "chk", badge: ["deployed", "chk"],
+    note: "<b>The deploy stage replaces the container.</b> <code>/health</code> says <code>ok: true</code>, so the pipeline is happy. The artifact file of this release is saved too.",
+    boxes: [relBox(releases2, "lb", "2 releases"), liveBox("bd40d63", true, ["GET /health gives ok: true", "version bd40d63"]), { title: "Pipeline", cls: "srv", tag: ["green", "ok"], small: "", lines: ["all stages passed"] }] });
+  steps.push({ layout: "three", hop: "A user calls /total", phase: "bad", badge: ["a user sees an error", "bad"],
+    note: "<b>The route crashes: HTTP 500.</b> The code calls <code>total(undefined)</code>. The pipeline was green, because green only means the checks you wrote passed. It does not mean the release is good.",
+    boxes: [relBox(releases2, "lb", "2 releases"), liveBox("bd40d63", false, ["GET /total gives 500", "GET /health still gives ok"], "alarm"), { title: "What it tells you", cls: "fol", tag: ["lesson", "warn"], small: "", lines: ["green is not a promise", "tests cover what you wrote", "keep a way back"] }] });
+  steps.push({ layout: "three", hop: "Pick where to go back to", phase: "chk", badge: ["rollbackTarget", "chk"],
+    note: "<b>Mark <code>bd40d63</code> as bad.</b> <code>rollbackTarget</code> looks at the saved releases from the newest one back. It skips the current release and gives <code>" + target + "</code>, the last good one.",
+    boxes: [relBox(releases3, "alarm", "bd40d63 marked bad"), { title: "rollbackTarget gives", cls: "srv", tag: ["answer", "ok"], small: "", big: { text: target, neg: false }, bigLabel: "the newest earlier release that was good" }, liveBox("bd40d63", false, ["still live, still broken"], "alarm")] });
+  steps.push({ layout: "three", hop: "Deploy the old artifact", phase: "srv", badge: ["rolled back", "srv"],
+    note: "<b>No build and no tests.</b> The pipeline loads the saved file <code>app-" + target + ".tar.gz</code>, replaces the container, and waits for <code>/health</code>. It took <b>1.7 s</b> on this machine, from a local file. A real registry pull adds download time.",
+    boxes: [relBox(releases3, "lb", "files kept"), liveBox(target, true, ["GET /health gives ok: true", "GET /total gives 10800", "version " + target]), { title: "Time to recover", cls: "user", tag: ["measured", ""], small: "", big: { text: "1.7 s", neg: false }, bigLabel: "load, start and health check" }] });
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The way back worked because the old artifact was kept.</b> If the deploy stage had rebuilt the image from source, going back would mean building again, and the build could give something different. Next you add a test for <code>/total</code>, and the pipeline would then stop this release.",
+    boxes: [
+      { title: "Fast way back", cls: "srv", tag: ["kept the artifact", "ok"], small: "", big: { text: "1.7 s", neg: false }, bigLabel: "redeploy an old tag" },
+      { title: "Remember", cls: "lb", tag: ["rule", ""], small: "", lines: ["tag every artifact with the commit id", "keep the last few artifacts", "a green pipeline can still ship a bad release"] }
+    ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A green run", sim: simulateGreen,
+    why: "The pipeline starts on a clean machine and runs the same stages on every push. The image that passed the tests is the image that goes live.",
+    predict: { q: "You push a commit. Which machine runs the stages: your laptop, or a clean machine that only has what git has?", options: ["Your laptop", "A clean machine with only what git has", "The production server"], answer: "A clean machine with only what git has" } },
+  { name: "2. A failing test", sim: simulateRed,
+    why: "A failed stage stops the line. The stages after it are skipped, so nothing new is built or deployed, and the old version stays live.",
+    predict: { q: "The test stage fails. Does the build stage run, and which version is live afterwards?", options: ["Build runs, and the new version goes live", "Build is skipped, and the old version stays live", "Build runs, and nothing goes live"], answer: "Build is skipped, and the old version stays live" } },
+  { name: "3. The cache", sim: simulateCache,
+    why: "The cache key is made from the lockfile. If only your source code changes, the key stays the same and the cache is reused. A new library changes the lockfile, so the key changes.",
+    predict: { q: "You change one line in src/server.js and nothing in the lockfile. Is the npm cache used?", options: ["No, any change makes a new key", "Yes, the key only depends on the lockfile", "Only if you also edit package.json"], answer: "Yes, the key only depends on the lockfile" } },
+  { name: "4. A bad release", sim: simulateRollback,
+    why: "A green pipeline only proves the checks you wrote passed. Keep the old artifacts, tagged with the commit id, and you can go back in seconds without a build.",
+    predict: { q: "The pipeline is all green and the new release is live. Can the release still be bad?", options: ["No, green means it is safe", "Yes, tests only check what they cover", "Only if the build was slow"], answer: "Yes, tests only check what they cover" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateGreen, simulateRed, simulateCache, simulateRollback, STORIES, runPipeline, cacheKey, cacheLookup, rollbackTarget, sha256hex };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

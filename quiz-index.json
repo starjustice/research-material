@@ -240,6 +240,14 @@
   "count": 6
  },
  {
+  "slug": "learn/devops-cloud/05-ci-cd-pipelines",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "05",
+  "title": "CI/CD pipelines",
+  "count": 6
+ },
+ {
   "slug": "learn/problem-solving/01-big-o-time-and-space",
   "subject": "problem-solving",
   "subjectTitle": "Problem Solving Practice (JavaScript)",

@@ -634,7 +634,7 @@ Three reasons that lands: it is specific, it proves conceptual mastery, and it n
 
 ## What's Current (2026)
 
-- **Kubernetes version:** v1.36 is the newest release (patch 1.36.2, June 2026); v1.35 and v1.34 are also supported. Kubernetes ships **three releases per year**, roughly every 15 weeks, and supports the **three most recent minor versions** for about 14 months. Practical effect: a cluster left alone for a year is out of support. Upgrade planning is real work.
+- **Kubernetes version:** v1.37 is the newest release (patch 1.37.1, 2026-09-15); v1.36 and v1.35 are also supported, and v1.34 reached end of life on 2026-10-27 (checked 2026-11-13, see lesson 04). Kubernetes ships **three releases per year**, roughly every 15 weeks, and supports the **three most recent minor versions** for about 14 months. Practical effect: a cluster left alone for a year is out of support. Upgrade planning is real work.
 - **ingress-nginx is retired (31 March 2026).** No releases, no bug fixes, no security patches. The Kubernetes Security Response Committee urged immediate migration. The direction is the **Gateway API** (v1.5, early 2026) with implementations such as Envoy Gateway, kgateway, Traefik, Istio, and Cilium. `ingress2gateway` 1.0 (March 2026) automates conversion. **This is the single best "what's new" fact to bring up.**
 - **Docker Swarm in 2026:** maintained, not evolving. Mirantis has committed support **through 2030** as part of Mirantis Kubernetes Engine 3, while new development goes to Kubernetes. Correct framing: "Swarm is stable and supported, but the ecosystem moved to Kubernetes." That is exactly the honest thing to say about your CapRover platform.
 - **Helm 4** (November 2025, stable patches through April 2026) — first major release in six years; server-side apply, new plugin system, Helm 3 charts still work. Kustomize remains the no-templating alternative and is built into kubectl.
@@ -841,7 +841,7 @@ strategy:
 
 ## Sources
 
-- [Kubernetes Releases — supported versions and dates](https://kubernetes.io/releases/) — accessed 2026-07-28 (v1.36.2 current, patches dated 2026-06-09)
+- [Kubernetes Releases — supported versions and dates](https://kubernetes.io/releases/) — accessed 2026-07-28 (v1.36.2 was current then; updated 2026-11-14: 1.37.1 is newest)
 - [Kubernetes v1.35: Timbernetes release announcement](https://kubernetes.io/blog/2025/12/17/kubernetes-v1-35-release/) — 2025-12-17
 - [Ingress NGINX Retirement: What You Need to Know — Kubernetes Contributors](https://www.kubernetes.dev/blog/2025/11/12/ingress-nginx-retirement/) — 2025-11-12
 - [Ingress NGINX: Statement from the Kubernetes Steering and Security Response Committees](https://www.kubernetes.io/blog/2026/01/29/ingress-nginx-statement/) — 2026-01-29
