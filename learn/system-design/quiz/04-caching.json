@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Redis answers in about 1 ms and the database in about 50 ms. 90 of 100 reads are cache hits. Which result matters more?",
+    "options": [
+      "The average read drops to about 6 ms",
+      "The cache never has old data",
+      "The database sees 10 questions instead of 100, which is 10 times less load",
+      "Every user gets the same answer faster than 1 ms"
+    ],
+    "answer": 2,
+    "why": "Both numbers are true, but the database is the hardest part to make bigger, so the load number matters more. A cache mainly protects the database."
+  },
+  {
+    "q": "The price of a product changes. With cache aside, what should the app do on the write?",
+    "options": [
+      "Change the database, then delete the cached copy",
+      "Change the database, then write the new price into the cache",
+      "Change only the cache and let the database catch up",
+      "Change only the database and wait for the cache to notice"
+    ],
+    "answer": 0,
+    "why": "Delete, do not overwrite. Two writers can finish in the wrong order, and then the older value wins in the cache. A delete has no value to get wrong, and the next read fills the cache with the truth."
+  },
+  {
+    "q": "A copy has a TTL of 10 minutes. A script changes the price in the database and does not delete the copy. How old can the price a user sees be, at worst?",
+    "options": [
+      "Zero, a TTL always makes the copy fresh",
+      "About 1 minute",
+      "About 5 minutes",
+      "Up to 10 minutes"
+    ],
+    "answer": 3,
+    "why": "The TTL does not make a copy fresh. It only limits how long a copy can stay old. Always set a TTL, even when you delete on write, as the backup for a missed delete."
+  },
+  {
+    "q": "A very busy copy ends at 12:00:00 and 1,000 requests miss in the same second. The database slows down, users press reload, and it gets worse. What is the best fix?",
+    "options": [
+      "Raise the TTL on every key to one year",
+      "Let the first miss refill the copy and make the others wait for that one refill, or refresh the copy before it ends",
+      "Turn off the cache so the database is used directly",
+      "Give each request its own copy of the key"
+    ],
+    "answer": 1,
+    "why": "A stampede is many equal misses at once. In the lesson run, 5 requests with no protection made 5 database calls, and with one shared refill only 1."
+  },
+  {
+    "q": "The code deletes the cached copy first and then changes the database. Users still see the old price for 10 minutes. What happened?",
+    "options": [
+      "The TTL was too short",
+      "Redis did not delete the key",
+      "The delete ran twice",
+      "A reader missed in the gap, read the old price from the database and saved it as a new copy, and nothing deleted it again"
+    ],
+    "answer": 3,
+    "why": "Delete after the change is saved, not before. Deleting first leaves a gap where a reader can refill the cache with the old row. A rare race can still happen after the right order, and the TTL limits it."
+  },
+  {
+    "q": "A payment page shows your balance, and the team wants to cache it for 5 minutes. What is the best answer?",
+    "options": [
+      "No. A balance used to decide about money is read from the database, because an old copy could let someone pay with money they no longer have",
+      "Yes, 5 minutes is short enough for money",
+      "Yes, but only on the first read of the day",
+      "Yes, if the key includes the word balance"
+    ],
+    "answer": 0,
+    "why": "Cache answers that are asked again and again, change rarely and may be a few seconds old, like a product list. Do not cache what decides about money or stock, and never cache secrets."
+  }
+]

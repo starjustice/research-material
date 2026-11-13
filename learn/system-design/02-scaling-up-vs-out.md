@@ -598,6 +598,67 @@ For each case, say "scale up" or "scale out" and give one reason with a number o
 
 </details>
 
+**D. Write it in code**
+
+Open `learn/system-design/practice/02-scaling-up-vs-out.js`. It has one empty function: `createSite` (the bug of card 2, the fix of card 3, and the sticky sessions of card 6). It makes a small site with a round robin balancer, and it can add a server and lose one. Write them, then run this from the repo root and make all the tests pass:
+
+```
+node --test learn/system-design/practice/02-scaling-up-vs-out.test.js
+```
+
+<details><summary>One possible answer</summary>
+
+```js
+function createSite({ mode = "shared", servers = ["A", "B"] } = {}) {
+  const up = servers.map((name) => ({ name, memory: new Map() }));   // the servers that are running
+  const sharedBox = new Map();                                       // used only in "shared" mode
+  const owner = new Map();                                           // used only in "sticky" mode: id -> server name
+  let turn = 0;                                                      // the balancer's counter
+  let nextId = 1;
+
+  const nextInTurn = () => {
+    if (up.length === 0) throw new Error("no server is up");
+    return up[turn++ % up.length];
+  };
+  const notesOf = (server) => (mode === "shared" ? sharedBox : server.memory);
+
+  return {
+    login(user) {
+      const server = nextInTurn();
+      const id = "s" + nextId++;
+      notesOf(server).set(id, user);
+      if (mode === "sticky") owner.set(id, server.name);
+      return { id, server: server.name };
+    },
+    request(id) {
+      const home = mode === "sticky" ? up.find((s) => s.name === owner.get(id)) : undefined;
+      const server = home ?? nextInTurn();
+      return { server: server.name, says: notesOf(server).get(id) ?? "please log in" };
+    },
+    addServer(name) {
+      if (up.some((s) => s.name === name)) return false;
+      up.push({ name, memory: new Map() });
+      return true;
+    },
+    loseServer(name) {
+      const i = up.findIndex((s) => s.name === name);
+      if (i === -1) return false;
+      up.splice(i, 1);                                               // its own memory goes with it
+      return true;
+    },
+    servers() {
+      return up.map((s) => s.name);
+    },
+  };
+}
+
+module.exports = { createSite };
+```
+
+Checked on 2026-11-13 with Node 26.12.1: the 14 tests fail on the empty stub and all 14 pass with this answer. Three details to notice. One counter is shared by `login` and `request`, so the first request after a login goes to the second server. In `sticky` mode a new server gets no users, because every user is already glued to an old server. And in `shared` mode losing a server loses nothing, which is the point of card 3, but the shared `Map` is now the one part you must not lose.
+
+</details>
+
 ## 9. Interview question
 
 **Q:** "Our API is getting slow. Do you buy a bigger server or add more servers?"

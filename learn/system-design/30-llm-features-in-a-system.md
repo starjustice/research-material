@@ -4,7 +4,7 @@
 >
 > **You will be able to:** explain what RAG is and why your code, not the model, finds the right pieces; filter by permission before you search; put one gateway in front of all model calls with a timeout, a fallback and a token budget; explain prompt injection and what to do about it; stream an answer and stop paying when the user leaves; and do the cost arithmetic.
 >
-> **Before this:** [Security in a design](29-security-in-a-design.md) · **Next:** The frontend design round (lesson 31, not written yet)
+> **Before this:** [Security in a design](29-security-in-a-design.md) · **Next:** [The frontend design round](31-the-frontend-design-round.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 20 minutes for the cards.
 

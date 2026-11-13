@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Ana taps Pay. The server charges her card, but the answer is lost, and her app times out after 10 seconds. What does the timeout tell the app?",
+    "options": [
+      "The charge failed, so it is safe to send again with no guard",
+      "The charge worked, so the app should stop",
+      "Nothing about the result: it means \"I do not know\", so the retry must be harmless",
+      "The server is broken and must be restarted"
+    ],
+    "answer": 2,
+    "why": "A timeout only says the answer did not arrive. The card may or may not have been charged. Without a guard, a retry charges twice. So the app gives the action a name once, and the server answers a repeat with \"I already did that\"."
+  },
+  {
+    "q": "Which of these is safe to repeat (twice leaves the same result as once)?",
+    "options": [
+      "Add 10 to the balance",
+      "Create a payment with POST",
+      "Set the balance to 50",
+      "Add an item to the end of a list"
+    ],
+    "answer": 2,
+    "why": "Setting a value to 50 twice leaves 50. Adding 10 twice adds 20, and a second POST makes a second payment. GET, PUT and DELETE are safe to repeat. POST and PATCH are not, unless you add a request key."
+  },
+  {
+    "q": "Two copies of the same request with key k-42 reach two servers at the same moment. The code does: find the key, and if it is not there, charge and save. What happens, and what is the fix?",
+    "options": [
+      "Both find nothing and both charge. Insert the key first as \"in progress\" and let the table's unique rule pick one winner",
+      "Only one finds nothing, because the database makes reads take turns",
+      "Both are refused, which is safe, so no fix is needed",
+      "Both charge, but the card provider removes one. No fix is needed"
+    ],
+    "answer": 0,
+    "why": "This is the check-then-save race again: both read \"not there\" before either writes. If you insert first, Postgres lets one insert win. The other gets 0 rows, sees a row \"in progress\", and answers 409. The app asks again later and gets the saved answer."
+  },
+  {
+    "q": "A bug sends the key k-41 again, but with the amount 200,000 instead of the first request's 100,000. What should the server do?",
+    "options": [
+      "Charge 200,000, because the client knows best",
+      "Send back the saved answer for 100,000, as if nothing changed",
+      "Delete the key and start over",
+      "Answer 422 and do nothing, because the body check does not match the first request"
+    ],
+    "answer": 3,
+    "why": "The server keeps a short code of the first request's body. Same body and done: send the saved answer. Same body and still running: 409. Different body: 422. A key names one action, so it cannot be reused for another."
+  },
+  {
+    "q": "A retry loop makes a new random key inside the loop on each try. The first two tries time out, and the third works. What did the server see?",
+    "options": [
+      "One payment, because the amount is the same",
+      "Nothing, because the keys were not sent",
+      "One payment, because the server compares the bodies",
+      "Up to three payments, because each try had a different key and looked like a new action"
+    ],
+    "answer": 3,
+    "why": "The key names the action, not the try. Make it once, before the first try, and send the same key every time. Then all tries are one action, and a repeat gets the saved answer."
+  },
+  {
+    "q": "A client gets these answers: (a) a 503, (b) a 400, (c) a 429 with Retry-After. Which should it retry, assuming the request is safe to repeat?",
+    "options": [
+      "All three, because any error might pass",
+      "(a) now with backoff, and (c) after waiting. Not (b), because the same request fails the same way every time",
+      "Only (b), because a client error is the easiest to fix",
+      "None of them, because a retry only makes it worse"
+    ],
+    "answer": 1,
+    "why": "Retry timeouts and 5xx, and wait for 409 and 429. Never retry other 4xx, because the request itself is wrong. Retry 2 or 3 times, and wait a bit longer each time with a little randomness, so many apps do not all retry in the same second."
+  }
+]

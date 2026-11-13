@@ -571,6 +571,66 @@ Read these six responses. For each one, write: may the CDN keep it, for how long
 
 </details>
 
+**D. Write it in code**
+
+Open `learn/system-design/practice/05-cdn.js`. It has two empty functions: `howLong` (the Cache-Control note of card 2) and `createEdge` (one edge with a shelf, a clock, a purge and a hit ratio). Write them, then run this from the repo root and make all the tests pass:
+
+```
+node --test learn/system-design/practice/05-cdn.test.js
+```
+
+<details><summary>One possible answer</summary>
+
+```js
+function howLong(cacheControl) {
+  const words = String(cacheControl ?? "").toLowerCase().split(",").map((w) => w.trim()).filter(Boolean);
+  if (words.some((w) => w === "private" || w === "no-store" || w === "no-cache")) return 0;
+  const timeOf = (name) => {
+    const found = words.find((w) => w.startsWith(name + "="));
+    if (found === undefined) return undefined;
+    const seconds = Number(found.slice(name.length + 1));
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  };
+  const shared = timeOf("s-maxage");
+  if (shared !== undefined) return shared;                 // s-maxage wins over max-age
+  return timeOf("max-age") ?? 0;
+}
+
+function createEdge(origin, now = () => Date.now() / 1000) {
+  const shelf = new Map();                                 // url -> { body, expiresAt }
+  const counts = { requests: 0, hits: 0, misses: 0, originCalls: 0 };
+  return {
+    get(url) {
+      counts.requests++;
+      const copy = shelf.get(url);
+      if (copy && now() < copy.expiresAt) {
+        counts.hits++;
+        return { body: copy.body, hit: true };
+      }
+      counts.misses++;
+      counts.originCalls++;
+      const answer = origin(url);
+      const seconds = howLong(answer.cacheControl);
+      if (seconds > 0) shelf.set(url, { body: answer.body, expiresAt: now() + seconds });
+      else shelf.delete(url);                              // an old copy must not stay behind
+      return { body: answer.body, hit: false };
+    },
+    purge(url) {
+      return shelf.delete(url);
+    },
+    stats() {
+      return { ...counts, hitRatio: counts.requests === 0 ? 0 : counts.hits / counts.requests };
+    },
+  };
+}
+
+module.exports = { howLong, createEdge };
+```
+
+Checked on 2026-11-13 with Node 26.12.1: the 14 tests fail on the empty stub and all 14 pass with this answer. Three details to notice. `s-maxage` is read first, so it wins over `max-age`. `private`, `no-store` and `no-cache` return 0 before any time is read. And a copy is fresh while `now() < expiresAt`, so at exactly `max-age` seconds it is already a miss.
+
+</details>
+
 ## 9. Interview question
 
 **Q:** "Users far from our server say the site is slow, and our server is busy sending images and scripts. How would you use a CDN, and what would you keep off it?"

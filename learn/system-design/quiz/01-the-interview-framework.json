@@ -1,0 +1,68 @@
+[
+  {
+    "q": "The interviewer says \"Design a paste bin.\" A candidate starts drawing ten boxes at once. What is the real problem with that?",
+    "options": [
+      "Ten boxes is too few for a real system",
+      "No question was asked and no number was counted, so nobody knows which boxes are needed",
+      "The boxes should have been drawn on paper, not on a board",
+      "The interviewer wanted a list of tools first"
+    ],
+    "answer": 1,
+    "why": "Drawing the boxes is job five, not job one. Without requirements and an estimate you draw before you know the size of the problem, then you defend the boxes for 40 minutes and may need to redraw half of them."
+  },
+  {
+    "q": "In a 45 minute round, which of the six jobs gets the most time, and why?",
+    "options": [
+      "Requirements, because a wrong guess there ruins everything",
+      "The high level design, because the picture is what gets graded",
+      "The estimate, because the maths takes the longest",
+      "The deep dive, 20 minutes, because that is where your reasons show"
+    ],
+    "answer": 3,
+    "why": "The first four jobs take 17 minutes together and the boxes only 8. The deep dive is where you give options, cost, choice and what would change it, and the interviewer grades your reasons."
+  },
+  {
+    "q": "A paste bin gets 1 million pastes a day, 10 KB each, reads are 10 times writes. That is about 300 reads a second at the peak and 10 GB of new data a day. One simple server answers about 1,000 requests a second. What should you say next?",
+    "options": [
+      "The driver is storage, not traffic, so the deep dive goes to where 10 GB a day will live",
+      "The driver is traffic, so I add a cache and a queue first",
+      "The driver is traffic, so I add five app servers",
+      "There is no driver when the numbers are this small"
+    ],
+    "answer": 0,
+    "why": "300 is far below 1,000, so traffic is small and a cache or a queue would not help. An estimate that does not change what you say next wasted four minutes. Here it points the deep dive at storage."
+  },
+  {
+    "q": "A candidate answers a storage question with only \"I would use S3.\" What is missing?",
+    "options": [
+      "A bigger tool name, like a cluster",
+      "A drawing of S3 on the board",
+      "The options, their cost, a choice with a reason, and what would change the choice",
+      "Nothing, S3 is the standard answer"
+    ],
+    "answer": 2,
+    "why": "The interviewer grades your reasons, not the tool names. Say two ways, what each costs, which you choose and why, and what would make you choose the other one."
+  },
+  {
+    "q": "You run the same six steps on a paste bin with 50 million pastes a day at 2 KB each. That is 500 writes a second and about 15,000 reads a second at the peak. What changes compared with the 1 million version?",
+    "options": [
+      "Nothing, the six steps give the same deep dive every time",
+      "The driver is now traffic, so the deep dive moves to the read path",
+      "The driver is still storage, because 100 GB a day is large",
+      "You skip the estimate, because the numbers are too big to do by hand"
+    ],
+    "answer": 1,
+    "why": "15,000 is far above 1,000 requests a second per simple server, so traffic is the driver now. Storage is only 100 GB a day. The same steps give a different deep dive because the numbers are different."
+  },
+  {
+    "q": "It is minute 10 and the interviewer jumps to the deep dive, before you finished the data step. What do you do?",
+    "options": [
+      "Politely refuse and finish steps 3 to 5 in order first",
+      "Ask 15 more questions to be safe",
+      "Stop the round and start again from requirements",
+      "Follow them, keep steps 1 to 4 short, and never cut the deep dive"
+    ],
+    "answer": 3,
+    "why": "The times are a guide, not a law. If the interviewer jumps ahead, you follow. In a short round you shrink the early steps and keep the deep dive."
+  }
+]

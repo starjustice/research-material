@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Sam saves a new name, the page reloads, and he sees the old name for a moment. Nothing crashed. What happened?",
+    "options": [
+      "The write went to the leader, but the read went to a follower that did not have the copy yet, so it was a stale read",
+      "The leader refused the write",
+      "The database lost the write",
+      "The follower is broken and must be restarted"
+    ],
+    "answer": 0,
+    "why": "Copies need time to arrive. A follower can return a stale read even when nothing is broken. In the lesson run the follower was wrong for exactly 3 ticks, the copy delay, and then it agreed."
+  },
+  {
+    "q": "What is the usual fix for Sam's stale read, and why does it only need to last a few seconds?",
+    "options": [
+      "Send all reads to the leader for ever, because followers are not reliable",
+      "Turn off the followers and keep one copy",
+      "For a few seconds after Sam writes, send his reads to the leader. That is longer than the usual copy delay, so after that the follower has the change",
+      "Make Sam wait 10 minutes after every write"
+    ],
+    "answer": 2,
+    "why": "This is read your own writes. Nobody minds if a stranger sees the old name for a moment, but everybody minds when their own change disappears. The cost is a little more work on the leader."
+  },
+  {
+    "q": "Which promise fits each feature: a points balance before a redeem, and a page view counter?",
+    "options": [
+      "Eventual for the balance, strong for the counter",
+      "Strong for the balance, eventual for the counter",
+      "Strong for both, because strong is safest",
+      "Eventual for both, because it is faster"
+    ],
+    "answer": 1,
+    "why": "A wrong balance means a wrong spend, so it is strong. Nobody checks the last digit of a view counter, so it can be eventual. Choose per feature. Strong costs waiting and sometimes an error."
+  },
+  {
+    "q": "The line between two nodes is cut. Ann bought the last seat on Node A. Ben asks Node B, which still says 1 seat. What does CAP say Node B must do?",
+    "options": [
+      "Nothing, because CAP only matters for slow pages",
+      "Both refuse and answer, because you can have all three letters",
+      "Pick any 2 of 3 letters for the whole system for ever",
+      "Choose: refuse, which is consistent, or answer from its own copy, which is available but may be wrong"
+    ],
+    "answer": 3,
+    "why": "You cannot drop P, because networks do break. So during a split you choose C or A. Neither choice is free: a refusal gives Ben an error, and an answer can sell the same seat twice."
+  },
+  {
+    "q": "A user in Jakarta reads data whose newest copy is in London, and the strong answer waits for that copy. The network is working fine. Is this a CAP choice?",
+    "options": [
+      "Yes, CAP also covers slow pages",
+      "No. There is no split, and you still pay. This is the everyday choice of waiting time against freshness, called PACELC",
+      "Yes, but only if the copy is in another country",
+      "No. Waiting for the newest copy is free when the network works"
+    ],
+    "answer": 1,
+    "why": "CAP only speaks when the line is cut. On a normal day, waiting for the newest copy is fresh but slower, and answering at once from a nearby copy is fast but maybe old. A copy in another city adds tens of milliseconds or more."
+  },
+  {
+    "q": "Someone says \"one Postgres on one machine is CP.\" What is the best reply?",
+    "options": [
+      "Correct, all relational databases are CP",
+      "No, it is AP because it is always up",
+      "One machine has no split, so CAP does not apply to it. The question starts when you add a replica",
+      "It is CP only when you turn on strong consistency"
+    ],
+    "answer": 2,
+    "why": "One label per database hides the real answer. Many stores let you choose for each request or each feature, so say what each feature needs."
+  }
+]

@@ -243,7 +243,7 @@ graph TB
     end
 ```
 
-No page to step through for this lesson, because nothing runs inside an engine. To practice the clock, use a timer and a drawing board (see the Watch and play links).
+**Step through it yourself:** [open the stepper](visuals/01-the-interview-framework.html). It has three stories: the six jobs on the paste bin with the 45 minute clock, the same six jobs with bigger numbers (the driver moves), and a candidate who freezes and draws boxes against one who asks first. Guess first, then press Next. It shows the clock and the whiteboard.
 
 </details>
 
@@ -372,7 +372,7 @@ Links came from web search or from older notes in this folder, 2026-10-16. The b
 - **Read:** [ByteByteGo: a framework for system design interviews](https://bytebytego.com/courses/system-design-interview/a-framework-for-system-design-interviews) - a four step version of the same idea. Find where its steps match ours.
 - **Read:** [Back-of-the-envelope calculation on DEV](https://dev.to/vladisov/back-of-the-envelope-calculation-4eal) - rough maths with round numbers. Redo one example and compare with card 2.
 - **Play:** [Excalidraw](https://excalidraw.com/) - a free whiteboard. Set a timer for 20 minutes and do exercise 8C. Use the clock from card 3.
-- No interactive visualizer for this topic was found. The timer and the board are the practice tool.
+- **Play with it:** [the stepper in this folder](visuals/01-the-interview-framework.html) - guess first, then press Next. Try all three tabs. No outside interactive tool was found for this topic, so the timer and the board are the practice tool.
 
 <details><summary>Go deeper (optional)</summary>
 
@@ -452,6 +452,50 @@ Set a timer for 20 minutes. Open Excalidraw or take paper. Do steps 1 to 5 for t
 - **4 Data:** `polls(id, question)`, `options(id, poll_id, text)`, `votes(poll_id, voter_id, option_id)` with the primary key on `(poll_id, voter_id)`. The key itself refuses a second vote.
 - **5 High level design:** Client, then app servers, then the database. Results come from a stored count, not from counting all rows each time.
 - **6 Deep dive:** (a) Two taps at the same moment: the primary key stops the second vote, even without a lock. (b) One very busy poll: many writers update one count. Options: count rows on read (slow when large), update one count row (a line of waiting writers), or keep the counts in small pieces and add them up every few seconds (more work, but fast). Choose the last one only if the poll gets really busy.
+
+</details>
+
+**D. Write it in code**
+
+Open `learn/system-design/practice/01-the-interview-framework.js`. It has three empty functions: `whichJob` (the clock of card 3), `sizeIt` (the maths of card 2) and `missingParts` (the four parts of card 4). Write them, then run this from the repo root and make all the tests pass:
+
+```
+node --test learn/system-design/practice/01-the-interview-framework.test.js
+```
+
+<details><summary>One possible answer</summary>
+
+```js
+const JOBS = [["Requirements", 5], ["Estimate", 9], ["API", 13], ["Data", 17], ["High level design", 25], ["Deep dive", 40], ["What breaks", 45]];
+
+function whichJob(minute) {
+  if (typeof minute !== "number" || Number.isNaN(minute) || minute < 0) throw new Error("minute must be a number, 0 or more");
+  for (const [name, end] of JOBS) if (minute < end) return name;   // a job ends when the next one starts
+  return "Time is over";
+}
+
+function sizeIt({ perDay, readsPerWrite, kbPerWrite }) {
+  const writesPerSec = perDay / 100000;
+  const peakReadsPerSec = writesPerSec * readsPerWrite * 3;
+  const gbPerDay = (perDay * kbPerWrite) / 1000000;
+  const driver = peakReadsPerSec < 1000 ? "storage" : "traffic";
+  return { writesPerSec, peakReadsPerSec, gbPerDay, driver };
+}
+
+function missingParts({ options, cost, choice, changeMind } = {}) {
+  const said = (s) => typeof s === "string" && s.trim() !== "";
+  const missing = [];
+  if (!Array.isArray(options) || options.filter(said).length < 2) missing.push("options");
+  if (!said(cost)) missing.push("cost");
+  if (!choice || !said(choice.name) || !said(choice.reason)) missing.push("choice");
+  if (!said(changeMind)) missing.push("changeMind");
+  return missing;
+}
+
+module.exports = { whichJob, sizeIt, missingParts };
+```
+
+Checked on 2026-11-13 with Node 26.12.1: the 11 tests fail on the empty stub and all 11 pass with this answer. Two details to notice. A job ends the moment the next one starts, so each end minute is checked with `<`, and minute 5 is already "Estimate". And `missingParts` counts a choice with a name but no reason as missing: that is the "I would use S3" answer of card 4, which has all four parts missing.
 
 </details>
 

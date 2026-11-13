@@ -1,0 +1,68 @@
+[
+  {
+    "q": "The loan service sends the push, the email and the SMS itself inside the approve request, and the SMS company is down. What happens, and what is the better design?",
+    "options": [
+      "Nothing, the approve still finishes at the same speed",
+      "The request waits for every provider, so the approve can fail or the SMS is lost, and a second click sends a second push. Drop an event and let a notification service do the rest later",
+      "The email and push fail too, because providers share one line",
+      "The SMS company is fixed by the retry, so the approve is always fine"
+    ],
+    "answer": 1,
+    "why": "Sending inside the request ties the approve button to the slowest provider. If you drop an event and return, the approve finishes in milliseconds, and a provider that is down only delays the notification."
+  },
+  {
+    "q": "The loan service misses our \"accepted\" reply and sends the same event again. We built the dedupe key from the event id plus the time it arrived. What goes wrong?",
+    "options": [
+      "Nothing, the key still catches the duplicate",
+      "The event is lost, because the time is too old",
+      "The times differ, so the two copies make two different keys and Sari gets two pushes. The key must come only from the event id, user and channel",
+      "The unique rule in the database fails and crashes the service"
+    ],
+    "answer": 2,
+    "why": "A dedupe key names one notification, like evt77:sari:push. The same event must always build the same key, so the table's unique rule can refuse the second copy. Time makes every copy look new."
+  },
+  {
+    "q": "A push worker gets a 503 from the provider on one job, and a 410 on another job for an old tablet token. What should it do?",
+    "options": [
+      "Retry both forever, because the provider will recover",
+      "Delete both tokens",
+      "Retry the 410 and delete the 503",
+      "Retry the 503 later with growing waits and a cap. Delete the 410 token and never retry it"
+    ],
+    "answer": 3,
+    "why": "503 means busy for now, so a retry with waits of 1 s, 2 s, 4 s is worth it. 410 means the phone is gone and will not come back, so every retry is a wasted call. A 400 is our own mistake and goes straight to the dead letter queue."
+  },
+  {
+    "q": "A marketing blast of 5 million jobs goes out at about 8,300 a second, in the same line as Sari's login code. About how long does her code wait, and what fixes it?",
+    "options": [
+      "About 10 minutes. Give the login code its own urgent lane that workers check first",
+      "About 1 second. Nothing needs to change",
+      "About 10 minutes. Make the blast smaller so the user is not annoyed",
+      "About 10 hours. Buy more SMS credit"
+    ],
+    "answer": 0,
+    "why": "5,000,000 divided by 8,300 is about 600 seconds, and by then the user has given up. Lanes (urgent, normal, bulk) let the worker take the urgent job first, and an OTP also skips quiet hours."
+  },
+  {
+    "q": "The queue says it delivers at least once. Why can the same notification still be sent twice, and what makes the second copy harmless?",
+    "options": [
+      "The queue is broken. Switch to a queue that delivers exactly once",
+      "A worker can send the push, then crash before it tells the queue \"done\", so the queue hands the job out again. The dedupe key with a unique key in the database makes the second copy harmless",
+      "Users click the button twice. Disable the button",
+      "Apple sends every push twice. Nothing can be done"
+    ],
+    "answer": 1,
+    "why": "At least once means a job may arrive twice, so duplicates are normal and the fix lives in your own table. The worker checks the key and skips a job that is already sent. You put the key in after the provider says 200, so a failed send never looks done."
+  },
+  {
+    "q": "Why not send every notification by SMS, since SMS reaches any phone?",
+    "options": [
+      "SMS is slower than email",
+      "SMS cannot carry short text",
+      "Apple blocks SMS on new phones",
+      "SMS costs money for every message and is a favorite target for fraud. Use push first, email for long text, and SMS when you must reach a phone without the app"
+    ],
+    "answer": 3,
+    "why": "Each channel has its own queue and its own tradeoffs. Push is fast and free but may be dropped. Email suits long text, and marketing mail needs a one click unsubscribe. In-app is just a row in your own inbox table."
+  }
+]

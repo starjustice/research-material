@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A shortener gets 10 million new links a day, and each link gets about 100 clicks. What is the hard part of the design?",
+    "options": [
+      "Storing the links, because 10 million a day is too much data for one year",
+      "Making the code short enough to type",
+      "The click path: about 30,000 clicks a second at the busiest time must be fast and always up",
+      "Making 10 million new codes a day, because that is too fast for one counter"
+    ],
+    "answer": 2,
+    "why": "10 million a day is only about 100 new links a second, and a year of rows is about 1.8 TB. But 100 clicks per link means about 10,000 clicks a second, and 30,000 at the busiest time. Reads are the driver, so a cache answers most of them."
+  },
+  {
+    "q": "Ann and Ben both ask for the alias sale at the same moment. The code checks if it is free, then saves it. Both are told \"got it\". What went wrong, and what is the fix?",
+    "options": [
+      "Both servers passed the check before either one saved. Let the table's unique rule refuse the second save",
+      "The cache was too old. Make the cache timer shorter",
+      "The alias was too short. Ask for longer aliases",
+      "The server was too slow. Add more servers so the check finishes first"
+    ],
+    "answer": 0,
+    "why": "The gap between the check and the save is where two requests both pass, and the second save silently replaces the first. Do it in one step: save, and let the unique rule on the code refuse the second row. The refused server tells Ben \"alias taken\"."
+  },
+  {
+    "q": "A teammate says: hash the long link, keep the first 7 letters, and we are done. Why is that not enough over billions of links?",
+    "options": [
+      "A hash can never be turned into letters",
+      "Cutting a hash throws information away, so two different links will get the same code over time",
+      "Hashes are too slow to run for every new link",
+      "The same long link would get a different code each time"
+    ],
+    "answer": 1,
+    "why": "Collisions are certain over the years once you cut the hash. You still need a unique rule in the table and a retry with a small extra word (a salt) when the table refuses. The same long link giving the same code is actually a good point of hashing."
+  },
+  {
+    "q": "A counter plus base62 gives the codes in order. What is the main cost of this way compared to random codes?",
+    "options": [
+      "It collides all the time",
+      "The codes are guessable, because they run in order and show how many links you made",
+      "Base62 codes are too long",
+      "It needs no unique rule at all, so it is less safe"
+    ],
+    "answer": 1,
+    "why": "The counter never gives a code twice, so it does not collide on its own. The cost is that anyone can walk through the codes. You can shuffle the number first, or use random codes. You still keep the unique rule, because a custom alias can take a code the counter has not reached yet."
+  },
+  {
+    "q": "The product shows click counts to link owners, and owners can turn a link off. Which redirect do you send?",
+    "options": [
+      "A plain 301, because it is faster",
+      "A 301 with a 10 year Cache-Control, to save the most load",
+      "A 302, or a 301 with a short max-age, so repeat clicks still reach your server",
+      "No redirect: send the long page itself"
+    ],
+    "answer": 2,
+    "why": "A browser may keep a 301 for a very long time. Those repeat clicks never reach you, so the counts are too low and a turned off link still works in old browsers. A 302 sends every click to your server. The Cache-Control header decides how long the browser keeps the answer."
+  },
+  {
+    "q": "The cache for the redirect server stops. At the busiest time there were 30,000 clicks a second, and 90 percent were cache hits. What happens, and what protects you?",
+    "options": [
+      "Nothing changes, because the table was already answering the clicks",
+      "The clicks that reached the table go from 3,000 to 30,000 a second. A small copy in each server and a limit on table connections protect it",
+      "The table gets 90 percent more clicks, and the fix is a bigger cache",
+      "The links stop working for good, because the cache owns the data"
+    ],
+    "answer": 1,
+    "why": "With the cache, only about 3,000 a second reach the table. Without it, all 30,000 do. So keep a small copy of the hottest links in each server's memory, and limit the table connections so the service gets slower but does not fall over."
+  }
+]

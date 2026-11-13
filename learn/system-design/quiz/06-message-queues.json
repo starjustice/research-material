@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A customer places an order and the email provider is slow today (5 seconds). With a queue between the API and the email work, about how long does the customer wait, and why?",
+    "options": [
+      "About 5 seconds, because the queue still waits for the email",
+      "About 5 seconds, because the queue adds its own delay",
+      "Until the worker finishes, which is hidden from the customer",
+      "About 60 ms, because the API saves the order, adds a job and answers at once"
+    ],
+    "answer": 3,
+    "why": "The producer adds a job and moves on. A worker does the slow work later. Without a queue the customer waits the 5 seconds, may see an error, and taps again."
+  },
+  {
+    "q": "A worker takes job 42, sends the email, and crashes before it sends the ack. What happens next?",
+    "options": [
+      "The job is lost, because the worker died",
+      "When the hiding timer ends with no ack, the queue shows the job again, and the customer gets a second email",
+      "The queue knows the email went out and deletes the job",
+      "The worker restarts and the job is skipped"
+    ],
+    "answer": 1,
+    "why": "The queue cannot see inside the worker. It only knows that no ack came. Most queues show the job again, because a lost job is usually worse than a repeated one. This promise is called at least once."
+  },
+  {
+    "q": "A worker acks the job first, to keep the queue short, and then crashes before it does the work. What is the result?",
+    "options": [
+      "The job is lost and nobody knows, because the queue already deleted it",
+      "The job runs twice",
+      "The job goes to the dead letter queue",
+      "The queue shows the job again after the timer"
+    ],
+    "answer": 0,
+    "why": "An ack before the work means at most once. Ack after the work, and make the work safe to repeat."
+  },
+  {
+    "q": "A job \"add 10 points to a store\" can run twice because delivery is at least once. What makes the second run harmless?",
+    "options": [
+      "A longer hiding timer, so the job never runs twice",
+      "Telling the queue to deliver exactly once",
+      "A unique job id saved in a table with a unique rule, in the same transaction as the points, so the second run finds the id and skips the job",
+      "Acking the job first"
+    ],
+    "answer": 2,
+    "why": "Nobody can promise one single delivery over a network. You build one single effect: at least once delivery plus a worker that is safe to repeat. The check and the work must be one step, or two copies can both pass the check."
+  },
+  {
+    "q": "One job has bad data and fails every time. Someone suggests \"retry until it works.\" What is the better plan?",
+    "options": [
+      "Retry for ever, because the data may fix itself",
+      "Delete the job after the first failure",
+      "Stop all other jobs until a person fixes it",
+      "Retry a few times with growing waits, then move it to the dead letter queue, keep the error and alert a person, while the good jobs keep flowing"
+    ],
+    "answer": 3,
+    "why": "A job with bad data never works, so retrying for ever wastes the worker and hides the problem. An error that will pass later, like a timeout, gets a retry. An error that never passes goes straight to the dead letter queue."
+  },
+  {
+    "q": "Jobs arrive faster than the workers finish them. No error appears anywhere. What should you watch so you notice?",
+    "options": [
+      "The email provider's error rate only",
+      "The queue length and the age of the oldest job",
+      "The size of each job",
+      "The number of producers"
+    ],
+    "answer": 1,
+    "why": "A queue grows without noise: the line just gets longer. Alert on the queue length and the age of the oldest job, and on anything in the dead letter queue."
+  }
+]

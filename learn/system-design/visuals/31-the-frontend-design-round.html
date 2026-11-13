@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The frontend design round: where the page is built, a window over a list, an optimistic like, pages, one request</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .screen { border: 2px solid var(--border); border-radius: 10px; background: var(--card); padding: 6px; min-height: 96px; }
+  .sl { border-radius: 6px; padding: 5px 8px; margin: 4px 0; font-size: .82rem; background: var(--code-bg); overflow-wrap: anywhere; }
+  .sl.ok { background: var(--srv-bg); border: 1px solid var(--srv); }
+  .sl.load { background: var(--predict-bg); border: 1px dashed var(--store); color: var(--muted); }
+  .sl.blank { background: transparent; border: 1px dashed var(--border); color: var(--muted); font-style: italic; }
+  .sl.bad { background: var(--bad-bg); border: 1px solid var(--bad); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .chip { border: 1px solid var(--border); border-radius: 8px; padding: 2px 8px; font-size: .74rem; background: var(--card); color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .chip.on { background: var(--srv); color: #fff; border-color: var(--srv); }
+  .chip.dup { background: var(--bad); color: #fff; border-color: var(--bad); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">&larr; System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/31-the-frontend-design-round" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>The frontend design round: six small machines</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. Story 1 uses numbers I measured on Next.js 16.4.6, and says which ones are only examples.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the screen shows the server data you have, not the server. So decide where the page is built, keep one copy of server data in a cache, show likely changes at once and undo them safely, draw only the rows in view, and keep a budget for speed.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The five functions below are the same code as the practice answer in the lesson
+// (visibleRange, pageByOffset, pageByCursor, createDedupe, createOptimisticStore).
+// Story 1 uses numbers measured on Next.js 16.4.6 (next build, next start, on one laptop) for the
+// static page, the SSR page and the PPR page. The client side rendering numbers are examples.
+// ---------------------------------------------------------------------------------------------
+function visibleRange({ scrollTop, viewportHeight, rowHeight, total, overscan = 0 }) {
+  const totalHeight = total * rowHeight;
+  const maxScroll = Math.max(0, totalHeight - viewportHeight);
+  const top = Math.min(Math.max(0, scrollTop), maxScroll);
+  const start = Math.max(0, Math.floor(top / rowHeight) - overscan);
+  const end = Math.min(total, Math.ceil((top + viewportHeight) / rowHeight) + overscan);
+  return { start, end, offsetTop: start * rowHeight, totalHeight };
+}
+function pageByOffset(items, offset, limit) { return items.slice(offset, offset + limit); }
+function pageByCursor(items, after, limit) {
+  const rest = after === null ? items : items.filter((item) => item.id < after);
+  const page = rest.slice(0, limit);
+  const nextCursor = rest.length > limit ? page[page.length - 1].id : null;
+  return { items: page, nextCursor };
+}
+function createDedupe(load, { now = Date.now, freshMs = 0 } = {}) {
+  const inFlight = new Map();
+  const saved = new Map();
+  return {
+    get(key) {
+      if (inFlight.has(key)) return inFlight.get(key);
+      const hit = saved.get(key);
+      if (hit && now() - hit.at < freshMs) return Promise.resolve(hit.value);
+      const request = Promise.resolve().then(() => load(key)).then(
+        (value) => { saved.set(key, { value, at: now() }); inFlight.delete(key); return value; },
+        (error) => { inFlight.delete(key); throw error; },
+      );
+      inFlight.set(key, request);
+      return request;
+    },
+    invalidate(key) { saved.delete(key); },
+    // extra, only for the picture: what the cache holds right now
+    peek(key) { return { running: inFlight.has(key), savedAt: saved.has(key) ? saved.get(key).at : null }; },
+  };
+}
+function createOptimisticStore(initial, onChange = () => {}) {
+  let confirmed = initial;
+  let pending = [];
+  let nextId = 1;
+  const view = () => pending.reduce((state, item) => item.change(state), confirmed);
+  return {
+    getState: view,
+    waiting: () => pending.length, // extra, only for the picture
+    async run(change, send) {
+      const id = nextId++;
+      pending.push({ id, change });
+      onChange(view());
+      try {
+        await send();
+        confirmed = change(confirmed);
+        pending = pending.filter((item) => item.id !== id);
+        onChange(view());
+        return { ok: true };
+      } catch (error) {
+        pending = pending.filter((item) => item.id !== id);
+        onChange(view());
+        return { ok: false, error };
+      }
+    },
+  };
+}
+
+const withCommas = x => Math.round(x).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const tick = () => new Promise(r => setTimeout(r, 0));
+const deferred = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
+
+// ---- Story 1: where the page is built (CSR, SSR, PPR) ----
+// Measured (Next.js 16.4.6, next start, localhost): static page 43 to 66 ms; PPR first byte 40 to 41 ms and the slow part
+// at about 1,543 ms; SSR first byte 1,542 to 1,545 ms. Example numbers: client side rendering (HTML 40 ms, JS ready 800 ms, data 1,500 ms later).
+function simulateRender() {
+  const steps = [];
+  const sl = (t, cls) => ({ t, cls });
+  const panel = (title, cls, tag, lines, small) => ({ title, cls, tag, small, screen: lines });
+  const mk = (hop, phase, note, csr, ssr, ppr, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    panel("CSR: the browser builds it", "lb", ["example numbers", "warn"], csr[0], csr[1]),
+    panel("SSR: the server builds it all", "fol", ["measured", "ok"], ssr[0], ssr[1]),
+    panel("PPR: shell first, then the rest", "srv", ["measured", "ok"], ppr[0], ppr[1])
+  ] });
+  const blank = [sl("blank page", "blank")];
+  const shell = [sl("Header and menu", "ok"), sl("loading box for the personal part", "load")];
+  const full = [sl("Header and menu", "ok"), sl("Your cart and your orders", "ok")];
+  mk("0 ms: the user opens the page", "setup",
+    "<b>The page.</b> A header and a menu that are the same for everyone, and one personal part (your cart) that needs a slow call. The slow call takes about <b>1.5 seconds</b>. Watch what each way of building the page shows the user, and when.",
+    [blank, "nothing yet"], [blank, "nothing yet"], [blank, "nothing yet"]);
+  mk("40 ms", "run",
+    "<b>40 ms.</b> CSR: the HTML arrives, but it is almost empty. The browser must now download and run JavaScript. SSR: the server is waiting for the slow call, so it has sent <b>nothing</b>. PPR: the shell was built ahead of time, so it is sent at once. In my test the first byte of the PPR page came at <b>40 ms</b>.",
+    [blank, "HTML is empty, JS is downloading"], [blank, "server waits for the slow call"], [shell, "shell shown, the loading box waits"]);
+  mk("800 ms (example)", "chk",
+    "<b>800 ms.</b> CSR: the JavaScript is ready, and only now does the browser ask for the data. The user still sees a blank page. SSR: still nothing. PPR: the shell is still on screen, so the page already looks like a page.",
+    [blank, "JS runs, now it asks the API"], [blank, "still waiting"], [shell, "user can read the header"]);
+  mk("1,545 ms: the server is done", "run",
+    "<b>1,545 ms.</b> SSR: the whole page arrives at once. In my test the first byte came at <b>1,545 ms</b>. PPR: the personal part streams into the loading box at <b>1,543 ms</b>. CSR is still waiting for its data call.",
+    [blank, "still waiting for the API"], [full, "first byte, the whole page"], [full, "the box is filled, same time"]);
+  mk("2,300 ms (example)", "srv",
+    "<b>2,300 ms.</b> CSR: the data is back and the page appears. CSR is the latest to show anything, but when it shows, it also works. SSR and PPR show HTML before their JavaScript has run, so taps do nothing until <b>hydration</b> finishes. I did not measure hydration here.",
+    [full, "content shows and works"], [full, "visible, taps work after hydration"], [full, "visible, taps work after hydration"], ["Everything is on screen", "srv"]);
+  steps.push({ layout: "three", hop: "What to remember", phase: "done", note: "<b>The time to the first thing on screen.</b> SSR waited for its slowest part, so it showed nothing for 1.5 s. PPR showed the shell at 40 ms. A fully static page took <b>43 to 66 ms</b> in my test, from the Next.js cache. PPR costs a server for the personal part, and SSG costs nothing at request time. Pick per page.", boxes: [
+    { title: "Static (SSG)", cls: "srv", tag: ["43 to 66 ms", "ok"], small: "same for everyone, built at deploy", big: { text: "43 ms", neg: false }, bigLabel: "measured, first and last byte" },
+    { title: "SSR", cls: "alarm", tag: ["1,545 ms", "bad"], small: "built on every request, waits for the slowest part", big: { text: "1,545 ms", neg: true }, bigLabel: "measured, first byte" },
+    { title: "PPR", cls: "srv", tag: ["40 ms", "ok"], small: "shell first, personal part streams", big: { text: "40 ms", neg: false }, bigLabel: "measured, first byte (the rest at 1,543 ms)" }
+  ] });
+  return steps;
+}
+
+// ---- Story 2: a window over 100,000 rows ----
+function simulateWindow() {
+  const steps = [];
+  const base = { viewportHeight: 600, rowHeight: 50, total: 100000 };
+  const mk = (hop, phase, note, scrollTop, overscan, badge) => {
+    const r = visibleRange({ ...base, scrollTop, overscan });
+    const n = r.end - r.start;
+    const shown = [];
+    for (let i = r.start; i < Math.min(r.end, r.start + 24); i++) shown.push({ label: "row " + i, cls: "on" });
+    steps.push({ layout: "two", hop, phase, note, badge, boxes: [
+      { title: "The scroll position", cls: "user", tag: ["scrollTop " + withCommas(scrollTop) + " px", ""], small: "window 600 px, rows 50 px, overscan " + overscan,
+        lines: ["<b>start</b> = " + withCommas(r.start) + ", <b>end</b> = " + withCommas(r.end), "<b>offsetTop</b> = " + withCommas(r.offsetTop) + " px", "<b>totalHeight</b> = " + withCommas(r.totalHeight) + " px"],
+        meter: { pct: Math.max(0.6, 100 * r.start / base.total), hot: false } },
+      { title: "Rows really in the page", cls: "srv", tag: [n + " rows", "ok"], small: "the other " + withCommas(base.total - n) + " rows do not exist as elements",
+        big: { text: String(n), neg: false }, bigLabel: "elements drawn, instead of 100,000", chips: shown }
+    ] });
+  };
+  steps.push({ layout: "two", hop: "The problem", phase: "setup",
+    note: "<b>The problem.</b> A list has <b>100,000</b> rows. If the page draws every row, it has 100,000 elements to make and keep. The phone gets slow and scrolling stutters. The fix is a <b>window</b>: draw only the rows the user can see, and make an empty box as tall as the whole list (100,000 &times; 50 px = <b>5,000,000 px</b>) so the scroll bar still looks right.",
+    boxes: [
+      { title: "Draw every row", cls: "alarm", tag: ["100,000 elements", "bad"], small: "the page makes them all", big: { text: "100,000", neg: true }, bigLabel: "elements in the page" },
+      { title: "Draw a window", cls: "srv", tag: ["about 12 to 18", "ok"], small: "only what the user can see", big: { text: "12", neg: false }, bigLabel: "elements at the top of the list" }
+    ] });
+  mk("Scroll position 0", "run", "<b>At the top.</b> The screen shows 600 px, and each row is 50 px, so <b>12 rows</b> fit: rows 0 to 11. <code>end</code> is 12, one past the last row, like <code>slice</code>.", 0, 0);
+  mk("Scroll 125 px", "run", "<b>125 px down.</b> The top edge is in the middle of row 2. The bottom edge (725 px) is in the middle of row 14. A row that is only partly in view still has to be drawn, so the window is rows 2 to 14: <b>13 rows</b>. The code uses <code>floor</code> for the top edge and <code>ceil</code> for the bottom edge.", 125, 0);
+  mk("Add overscan 3", "chk", "<b>Overscan.</b> A fast scroll can outrun the drawing and show a white gap. Drawing 3 spare rows above and below hides it. Here the spare rows above do not exist (we are near the top), so the start stays at 0.", 125, 3);
+  mk("Scroll to the middle", "run", "<b>The middle of the list.</b> The user dragged the scroll bar to 2,500,000 px. The window is rows 49,997 to 50,014: <b>18 rows</b>. The rows are moved down by <code>offsetTop</code> = 2,499,850 px. The browser never made the other 99,982 rows.", 2500000, 3);
+  mk("Scroll past the end", "chk", "<b>Too far.</b> A fast fling can give a scroll position beyond the end. The code first keeps the scroll inside the list, so the window ends at the last row and never above it.", 99999999, 3, ["Kept inside the list", "srv"]);
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", note: "<b>Remember.</b> A long list is a tall empty box plus a few drawn rows that move with the scroll. In React you use a library such as TanStack Virtual or react-window for this. Rows of different heights are harder, because you must measure them. Also keep keyboard focus and screen reader order working.", boxes: [
+    { title: "Good for", cls: "srv", tag: ["pros", "ok"], lines: ["Feeds, chats, big tables", "Memory and draw time stay small", "Cost does not grow with the list"] },
+    { title: "Costs", cls: "fol", tag: ["cons", "warn"], lines: ["Browser search (Ctrl+F) cannot find rows that are not drawn", "Variable row heights need measuring", "More code than a plain map over an array"] }
+  ] });
+  return steps;
+}
+
+// ---- Story 3: an optimistic like, the server says no ----
+async function simulateOptimistic() {
+  const steps = [];
+  const likes = s => s[0].likes;
+  const like = id => s => s.map(p => (p.id === id ? { ...p, likes: p.likes + 1 } : p));
+  const screen = (n, red, extra) => [{ t: "Post a: " + (red ? "&#10084;&#65039; " : "&#9825; ") + n + " likes", cls: red ? "ok" : "" }].concat(extra || []);
+  let store = createOptimisticStore([{ id: "a", likes: 10 }]);
+  const mk = (hop, phase, note, server, badge, o = {}) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "The screen", cls: "user", tag: [o.tag || "what the user sees", ""], small: "", screen: screen(likes(store.getState()), o.red, o.extra) },
+    { title: "Waiting list", cls: "lb", tag: [store.waiting() + " waiting", store.waiting() ? "warn" : ""], small: "changes not yet confirmed", big: { text: String(store.waiting()), neg: false }, bigLabel: "changes waiting for the server" },
+    { title: "The server", cls: o.bad ? "alarm" : "fol", tag: [server[0], server[1] || ""], small: "", lines: server[2] || [] }
+  ] });
+  mk("Start", "setup", "<b>The start.</b> Post a has 10 likes. The like button is a quick, easy action, and it almost always works. So we can show the new number first, and ask the server after.", ["idle", "", ["no request yet"]]);
+  const d1 = deferred();
+  const r1 = store.run(like("a"), () => d1.p);
+  mk("The user taps like", "run", "<b>The tap.</b> The store puts the change on the <b>waiting list</b> and the screen shows <b>11</b> at once. The request goes to the server, but the user does not wait for it. The shown value is the confirmed value (10) plus every waiting change.", ["request sent", "warn", ["POST like a", "waiting for the answer"]], ["Shown before the server answers", "run"], { red: true });
+  d1.rej(new Error("server said no")); const res1 = await r1;
+  mk("The server says no", "bad", "<b>Rollback.</b> The server answered with an error. The store takes <b>this one change</b> off the waiting list. The screen goes back to <b>10</b>, and the app shows a message so the user knows. The run returned <code>ok: false</code> with the error, and did not throw.", ["error", "bad", ["answer: error", "result: ok " + res1.ok]], ["Rolled back", "bad"], { bad: true, extra: [{ t: "Could not like. Try again.", cls: "bad" }] });
+  const d2 = deferred();
+  const r2 = store.run(like("a"), () => d2.p);
+  mk("The user taps again", "run", "<b>Try again.</b> The screen shows 11 again, at once. This time the server will say yes.", ["request sent", "warn", ["POST like a", "waiting for the answer"]], ["Shown before the server answers", "run"], { red: true });
+  d2.res(); const res2 = await r2;
+  mk("The server says yes", "srv", "<b>Confirmed.</b> The store applies the change to the confirmed value (10 becomes 11) and takes it off the waiting list. The screen does not change, because it already showed 11. In TanStack Query this is also the moment to <code>invalidate</code> the query so the real count from the server replaces the guess.", ["ok", "ok", ["answer: ok", "result: ok " + res2.ok]], ["Confirmed", "srv"], { red: true, tag: "same as before" });
+  steps.push({ layout: "two", hop: "When to use it", phase: "done", note: "<b>Use it when</b> the action almost always works and is easy to undo: like, follow, mark as read. <b>Do not use it</b> for money or stock. A user must not see \"paid\" before the bank says yes.", boxes: [
+    { title: "Optimistic", cls: "srv", tag: ["like, follow, read", "ok"], lines: ["Feels instant", "Needs a rollback and a message", "Keep the old value or a waiting list"] },
+    { title: "Wait for the server", cls: "fol", tag: ["pay, order, delete", "warn"], lines: ["Show a spinner", "No wrong state on screen", "Slower to feel"] }
+  ] });
+  return steps;
+}
+
+// ---- Story 4: two likes in flight, one fails: a whole snapshot against a waiting list ----
+async function simulateRace() {
+  const steps = [];
+  const fmt = s => s.map(p => p.id + ": " + p.likes).join("   ");
+  const like = id => s => s.map(p => (p.id === id ? { ...p, likes: p.likes + 1 } : p));
+  const start = () => [{ id: "a", likes: 10 }, { id: "b", likes: 5 }];
+  // naive code: keep a copy of the whole state, and put it back on error
+  let naive = start();
+  async function naiveLike(id, send) {
+    const snapshot = naive;
+    naive = like(id)(naive);
+    try { await send(); } catch (e) { naive = snapshot; }
+  }
+  const store = createOptimisticStore(start());
+  const da = deferred(), db = deferred(), na = deferred(), nb = deferred();
+  const mk = (hop, phase, note, serverLines, badge, bad) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "Plain snapshot code", cls: bad ? "alarm" : "fol", tag: ["restores a whole copy", bad ? "bad" : "warn"], small: "", screen: [{ t: fmt(naive), cls: bad ? "bad" : "ok" }] },
+    { title: "Waiting list store", cls: "srv", tag: [store.waiting() + " waiting", store.waiting() ? "warn" : "ok"], small: "removes only the failed change", screen: [{ t: fmt(store.getState()), cls: "ok" }] },
+    { title: "The server", cls: "lb", tag: ["answers", ""], small: "", lines: serverLines }
+  ] });
+  mk("Start", "setup", "<b>The setup.</b> Two posts. The user taps like on <b>a</b>, and a moment later on <b>b</b>. The request for a is slow and will <b>fail</b>. The request for b is quick and will <b>work</b>. The left column keeps a copy of the whole state and puts it back on error. The middle column is the waiting list store from the practice file.", ["nothing sent yet"]);
+  const sa = naiveLike("a", () => na.p), pa = store.run(like("a"), () => da.p);
+  mk("Tap like on a", "run", "<b>Tap on a.</b> Both versions show a: 11. The plain code saved a copy of the state before the change: <code>a: 10, b: 5</code>.", ["request a sent (slow)"]);
+  const sb = naiveLike("b", () => nb.p), pb = store.run(like("b"), () => db.p);
+  mk("Tap like on b", "run", "<b>Tap on b.</b> Both show a: 11 and b: 6. The plain code saved a second copy, taken after the change to a.", ["request a sent (slow)", "request b sent (fast)"]);
+  nb.res(); db.res(); await tick();
+  mk("The server says yes to b", "srv", "<b>b is confirmed.</b> The server accepted the like on b. The screens are the same: a: 11 and b: 6. The like on a is still waiting.", ["answer b: ok", "request a still open"], ["b is saved on the server", "srv"]);
+  na.rej(new Error("no")); da.rej(new Error("no")); await tick(); await tick();
+  mk("The server says no to a", "bad", "<b>a fails, and the two versions split.</b> The plain code puts back the copy it took before the tap on a: <code>a: 10, b: 5</code>. That copy was old. It wipes the like on b, even though the server said <b>yes</b> to b. The waiting list store removes only the change for a, so b stays at 6.", ["answer a: error", "answer b was: ok"], ["Plain code lost a good like", "bad"], true);
+  await Promise.all([sa, sb, pa, pb]);
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", note: "<b>Remember.</b> Putting back a whole copy is fine when only one request is in flight. With two, it can undo something that worked. Fix: remove only the failed change, or refetch the true value afterwards. That refetch is the reason the TanStack Query recipe ends with <code>invalidateQueries</code> in <code>onSettled</code>.", boxes: [
+    { title: "Whole snapshot", cls: "alarm", tag: ["simple, can lose a change", "bad"], lines: ["Restore the old copy", "Wrong if two changes overlap", "Needs a refetch to heal"] },
+    { title: "Waiting list", cls: "srv", tag: ["a bit more code", "ok"], lines: ["Shown value = confirmed value + waiting changes", "A failure removes one change", "The same list can be saved to disk as an outbox for offline"] }
+  ] });
+  return steps;
+}
+
+// ---- Story 5: offset pages and cursor pages in a live feed ----
+function simulatePages() {
+  const steps = [];
+  const feed = n => Array.from({ length: n }, (_, i) => ({ id: n - i }));
+  const chips = (list, dup) => list.map(x => ({ label: "post " + x, cls: dup && dup.includes(x) ? "dup" : "on" }));
+  const ids = l => l.map(x => x.id);
+  const mk = (hop, phase, note, offsetBox, cursorBox, badge) => steps.push({ layout: "two", hop, phase, note, badge, boxes: [
+    { title: "Offset pages", cls: offsetBox.bad ? "alarm" : "fol", tag: [offsetBox.tag, offsetBox.bad ? "bad" : ""], small: offsetBox.small, chips: offsetBox.chips, lines: offsetBox.lines },
+    { title: "Cursor pages", cls: "srv", tag: [cursorBox.tag, "ok"], small: cursorBox.small, chips: cursorBox.chips, lines: cursorBox.lines }
+  ] });
+  const first = ids(pageByOffset(feed(10), 0, 5));
+  const c1 = pageByCursor(feed(10), null, 5);
+  mk("Start", "setup", "<b>The feed.</b> Posts are numbered, and the newest is first: 10, 9, 8 ... 1. The app loads <b>5 posts at a time</b>. Two ways to ask for the next page: by position (<b>offset</b>: skip 5) or by bookmark (<b>cursor</b>: after post 6).", { tag: "?offset=0&limit=5", small: "asks by position", lines: ["the server skips 0 posts"] }, { tag: "after=null&limit=5", small: "asks by bookmark", lines: ["the server starts at the top"] });
+  mk("Page 1", "run", "<b>Page 1.</b> Both give posts 10 to 6. The cursor version also sends a bookmark: <code>nextCursor = " + c1.nextCursor + "</code>, the id of the last post it sent.", { tag: "offset 0", small: "page 1", chips: chips(first), lines: ["next page: offset 5"] }, { tag: "cursor null", small: "page 1", chips: chips(ids(c1.items)), lines: ["next page: after " + c1.nextCursor] });
+  mk("A new post arrives", "chk", "<b>Post 11 arrives</b> at the top of the feed while the user reads. Everything moves down one place. Nothing on the user's screen changes yet.", { tag: "feed has 11 posts", small: "positions moved", lines: ["post 11 is now position 0", "post 6 is now position 5"] }, { tag: "feed has 11 posts", small: "ids did not change", lines: ["post 6 is still post 6"] });
+  const off2 = ids(pageByOffset(feed(11), 5, 5));
+  const cur2 = pageByCursor(feed(11), c1.nextCursor, 5);
+  mk("Page 2", "bad", "<b>Page 2.</b> Offset skips 5 posts, but the 5 posts it skips now start with post 11. So it sends <b>6, 5, 4, 3, 2</b>, and post 6 shows <b>twice</b> on the user's screen. The cursor asks for posts after post 6, so it sends <b>5, 4, 3, 2, 1</b>. No duplicate, no gap.", { tag: "offset 5", small: "page 2", chips: chips(off2, [6]), lines: ["post 6 is a duplicate"], bad: true }, { tag: "after 6", small: "page 2", chips: chips(ids(cur2.items)), lines: ["no duplicate", "nextCursor = " + cur2.nextCursor + " (the end)"] }, ["Offset showed post 6 twice", "bad"]);
+  const withoutSix = feed(11).filter(x => x.id !== 6);
+  const cur3 = pageByCursor(withoutSix, 6, 5);
+  mk("A post is deleted", "chk", "<b>What if post 6 is deleted?</b> The cursor is only a number to compare with, so it still works: posts with an id lower than 6. If the cursor were a position in a list, or a pointer to a row that is gone, it would break.", { tag: "positions shift again", small: "a gap or a repeat is possible", lines: ["every position after 6 moves up"] }, { tag: "after 6", small: "6 is gone", chips: chips(ids(cur3.items)), lines: ["still returns 5, 4, 3, 2, 1"] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", note: "<b>Remember.</b> Offset: easy, and you can jump to page 50, but a live list shifts under it. Cursor: no repeats, fast at any depth, but you cannot jump. Feeds and chats use cursors. An admin table that people jump around in can use offsets. Infinite scroll = cursor pages + a watcher near the bottom + a window over the rows.", boxes: [
+    { title: "Offset", cls: "fol", tag: ["jump to any page", "warn"], lines: ["?page=3", "Duplicates when the list changes", "Slow in the database on deep pages"] },
+    { title: "Cursor", cls: "srv", tag: ["feeds and chats", "ok"], lines: ["?after=6", "No duplicates, no gaps", "Cannot jump to page 50"] }
+  ] });
+  return steps;
+}
+
+// ---- Story 6: one request for the same key ----
+async function simulateDedupe() {
+  const steps = [];
+  let clock = 0, calls = 0;
+  const pending = [];
+  const cache = createDedupe((key) => { calls++; const d = deferred(); pending.push(d); return d.p; }, { now: () => clock, freshMs: 30000 });
+  const mk = (hop, phase, note, asks, badge) => {
+    const info = cache.peek("user:me");
+    steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+      { title: "Parts that need the user", cls: "user", tag: [asks.filter(x => !/not asked/.test(x)).length + " asking", ""], small: "all use the key user:me", lines: asks },
+      { title: "The cache", cls: "lb", tag: [info.running ? "request running" : (info.savedAt === null ? "empty" : "saved"), info.running ? "warn" : (info.savedAt === null ? "" : "ok")], small: "clock: " + (clock / 1000) + " s, fresh for 30 s",
+        lines: ["running: " + (info.running ? "yes" : "no"), "saved value: " + (info.savedAt === null ? "none" : "from " + (info.savedAt / 1000) + " s, " + ((clock - info.savedAt) / 1000) + " s old")] },
+      { title: "The network", cls: calls > 1 ? "fol" : "srv", tag: [calls + " call" + (calls === 1 ? "" : "s"), ""], small: "", big: { text: String(calls), neg: false }, bigLabel: "real requests so far" }
+    ] });
+  };
+  mk("Start", "setup", "<b>The page.</b> The header avatar, the sidebar name and the profile card all call <code>useUser()</code>. Each one asks the cache for the key <code>user:me</code>. Without sharing, this page would make 3 requests for the same thing.", ["Header avatar", "Sidebar name", "Profile card"].map(x => x + ": not asked yet"));
+  const p1 = cache.get("user:me"), p2 = cache.get("user:me"), p3 = cache.get("user:me"); await tick();
+  mk("Three parts ask at once", "run", "<b>They ask in the same moment.</b> The first call starts a request and the cache remembers that it is running. The second and third calls get the <b>same promise</b>. Only one real request leaves.", ["Header avatar: asked", "Sidebar name: asked, shares the request", "Profile card: asked, shares the request"], ["One request for three parts", "run"]);
+  clock = 0; pending[0].res("user me"); const answers = await Promise.all([p1, p2, p3]);
+  mk("The answer comes", "srv", "<b>One answer, three parts.</b> The same value goes to all three. The cache saves it with the time it arrived. Calls so far: <b>" + calls + "</b>. The three parts got " + answers.length + " answers.", ["Header avatar: got it", "Sidebar name: got it", "Profile card: got it"]);
+  clock = 10000; const p4 = cache.get("user:me"); await p4;
+  mk("10 seconds later", "run", "<b>A fourth part asks.</b> The saved value is 10 seconds old. The rule is <b>fresh for 30 seconds</b>, so the cache answers at once and makes <b>no request</b>.", ["Settings page: asked, answered from the cache"], ["Fresh: no request", "srv"]);
+  clock = 31000; const p5 = cache.get("user:me"); await tick();
+  mk("31 seconds later", "chk", "<b>It is old now.</b> The saved value is 31 seconds old, over the 30 second rule. The cache makes a new request. (Libraries such as TanStack Query call this <b>stale</b>. They may show the old value first and refresh in the background. This small version waits.)", ["Another part: asked, value is stale"], ["Stale: a new request", "chk"]);
+  clock = 31100; pending[1].res("user me v2"); await p5;
+  clock = 31200;
+  cache.invalidate("user:me");
+  const p6 = cache.get("user:me"); await tick();
+  mk("The user edits their name", "bad", "<b>Invalidate.</b> The user saves a new name. The app calls <code>invalidate(\"user:me\")</code>, so the saved value is forgotten, even though it was only 0.1 seconds old. The next ask makes a new request. This is what <code>invalidateQueries</code> does in TanStack Query.", ["Profile card: asked after the edit"], ["Forced a new request", "bad"]);
+  pending[2].res("user me v3"); await p6;
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", note: "<b>Remember.</b> One key, one running request, and a rule for how long the answer stays fresh. A failed request is never saved. Server state lives in this cache, not in a copy inside each part.", boxes: [
+    { title: "Why it matters", cls: "srv", tag: ["the gain", "ok"], lines: ["10 parts, 1 request", "All parts show the same value", "Fewer loading spinners"] },
+    { title: "The cost", cls: "fol", tag: ["tradeoff", "warn"], lines: ["You must name the keys well", "You must say when a value is old", "After a change you must invalidate the right keys"] }
+  ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Where the page is built", sim: simulateRender,
+    why: "SSR cannot send anything until its slowest part is ready, so the first byte came at about 1,545 ms. PPR had a ready made shell, so its first byte came at about 40 ms, and the slow part streamed in at about 1,543 ms.",
+    predict: { q: "One personal part of a page needs a 1.5 second call. When does the user first see anything with SSR, and with PPR?", options: ["Both after about 1.5 s", "SSR after 1.5 s, PPR after about 40 ms", "Both after about 40 ms"], answer: "SSR after 1.5 s, PPR after about 40 ms" } },
+  { name: "2. A window over a long list", sim: simulateWindow,
+    why: "The window only needs the rows between the top and the bottom edge of the screen: 600 px divided by 50 px is 12 rows. The other rows are an empty box of the right height.",
+    predict: { q: "A list has 100,000 rows of 50 px. The screen is 600 px tall and the user scrolls to the middle. About how many rows are drawn (no overscan)?", options: ["About 100,000", "About 12", "About 5,000"], answer: "About 12" } },
+  { name: "3. Optimistic like", sim: simulateOptimistic,
+    why: "The screen shows the confirmed value plus every change that is waiting. The tap adds a change, so the screen shows 11 at once. When the server says no, only that change is removed, so the screen goes back to 10.",
+    predict: { q: "The server will say no after 2 seconds. What does the screen show in those 2 seconds?", options: ["10 until the server answers", "11 at once, then 10 after the answer", "A spinner and no number"], answer: "11 at once, then 10 after the answer" } },
+  { name: "4. Two likes, one fails", sim: simulateRace,
+    why: "The plain code put back a copy that was taken before the like on b was confirmed, so it erased b. The waiting list store removed only the failed change, so b stayed at 6.",
+    predict: { q: "The like on a is slow and fails. The like on b is quick and works. What does the plain snapshot code show at the end?", options: ["a: 10, b: 6", "a: 10, b: 5", "a: 11, b: 6"], answer: "a: 10, b: 5" } },
+  { name: "5. Offset and cursor pages", sim: simulatePages,
+    why: "A new post at the top moves every post down one place. Offset 5 now starts at post 6 again. The cursor says after post 6, and post ids do not move.",
+    predict: { q: "You have page 1 (posts 10 to 6). Post 11 arrives. Page 2 by offset shows which posts?", options: ["5, 4, 3, 2, 1", "6, 5, 4, 3, 2", "11, 10, 9, 8, 7"], answer: "6, 5, 4, 3, 2" } },
+  { name: "6. One request per key", sim: simulateDedupe,
+    why: "The first call starts the request and the cache remembers it. The next calls with the same key get the same promise, so only one request leaves.",
+    predict: { q: "Three parts of a page ask for the same user at the same moment. How many network requests are made?", options: ["3", "1", "0"], answer: "1" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null, loadToken = 0;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.screen) h += '<div class="screen">' + b.screen.map(l => '<div class="sl ' + (l.cls || "") + '">' + l.t + "</div>").join("") + "</div>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.meter) h += '<div class="meter"><i class="' + (b.meter.hot ? "hot" : "") + '" style="width:' + b.meter.pct + '%"></i></div>';
+  if (b.chips) h += '<div class="chips">' + b.chips.map(c => '<span class="chip ' + (c.cls || "") + '">' + c.label + "</span>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+async function pickStory(i) {
+  stop(); cur = i; const token = ++loadToken;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  const built = await STORIES[i].sim();
+  if (token !== loadToken) return;
+  steps = built; idx = 0; guess = null;
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateRender, simulateWindow, simulateOptimistic, simulateRace, simulatePages, simulateDedupe, STORIES, visibleRange, pageByOffset, pageByCursor, createDedupe, createOptimisticStore };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

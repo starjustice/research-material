@@ -272,6 +272,118 @@
   "count": 6
  },
  {
+  "slug": "learn/system-design/01-the-interview-framework",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "01",
+  "title": "The interview framework",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/02-scaling-up-vs-out",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "02",
+  "title": "Scaling up vs out",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/03-load-balancers",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "03",
+  "title": "Load balancers",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/04-caching",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "04",
+  "title": "Caching",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/05-cdn",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "05",
+  "title": "CDN",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/06-message-queues",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "06",
+  "title": "Message queues",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/07-consistency-and-cap",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "07",
+  "title": "Consistency and CAP",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/08-design-a-url-shortener",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "08",
+  "title": "Design a URL shortener",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/09-design-a-rate-limiter",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "09",
+  "title": "Design a rate limiter",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/10-design-a-chat-app",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "10",
+  "title": "Design a chat app",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/11-design-a-notification-system",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "11",
+  "title": "Design a notification system",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/12-design-an-online-shop-checkout",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "12",
+  "title": "Design an online shop checkout",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/13-idempotency-and-retries",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "13",
+  "title": "Idempotency and retries",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/14-observability",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "14",
+  "title": "Observability",
+  "count": 6
+ },
+ {
   "slug": "learn/system-design/15-choosing-tools-and-explaining-why",
   "subject": "system-design",
   "subjectTitle": "System Design",
@@ -397,6 +509,14 @@
   "subjectTitle": "System Design",
   "num": "30",
   "title": "LLM features in a system",
+  "count": 6
+ },
+ {
+  "slug": "learn/system-design/31-the-frontend-design-round",
+  "subject": "system-design",
+  "subjectTitle": "System Design",
+  "num": "31",
+  "title": "The frontend design round",
   "count": 6
  }
 ]

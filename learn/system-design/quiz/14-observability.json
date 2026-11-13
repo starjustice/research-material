@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A user writes at 3 am: \"checkout is slow\". The request goes through the API, the payment service and a database. Which tool tells you which box was slow?",
+    "options": [
+      "Metrics, because they show the number of requests",
+      "Logs, because they say what every service did",
+      "The average response time, because it covers all services",
+      "A trace, because it is a timeline of the timed steps (spans) of one request"
+    ],
+    "answer": 3,
+    "why": "Metrics say that something is wrong and how much. A trace says where the time went. Logs say why, and they carry the same trace id, so you can jump from the trace to the log lines."
+  },
+  {
+    "q": "The API makes trace id 4bf92f35 and calls the payment service. The payment service ignores the traceparent header and makes its own id. You search for 4bf92f35. What do you find?",
+    "options": [
+      "Only the API's lines. The payment service's slow query line is lost to your search, because the id did not cross the network",
+      "Everything, because ids are matched by time",
+      "Nothing, because the API's lines are deleted",
+      "The payment lines only, because the newest id wins"
+    ],
+    "answer": 0,
+    "why": "The id must travel in the traceparent header, and every service must keep it. OpenTelemetry reads and writes that header for you. In a queue, put the traceId in the job data so it crosses that gap too."
+  },
+  {
+    "q": "A trace shows: POST /checkout 3000 ms, SELECT cart 20 ms, POST /charge 2960 ms, and SELECT payments 2900 ms under it. Which span is the slow step, and how do you spot it?",
+    "options": [
+      "POST /checkout, because it is the longest",
+      "SELECT cart, because it is the first call",
+      "SELECT payments, because it has the biggest own time: 2,900 ms, with nothing under it",
+      "POST /charge, because it is the second longest"
+    ],
+    "answer": 2,
+    "why": "The top span is always the longest, because it waits for everything under it. A span's own time is its total minus the spans directly under it. The slow step is the span with the biggest own time."
+  },
+  {
+    "q": "Two services write plain text log lines with no trace id. Why is that a problem at 3 am, and what is the fix?",
+    "options": [
+      "Plain text is too long. Use shorter lines",
+      "A search for the trace id finds 0 lines, so you can only match lines by guessing at times. Write JSON lines with named fields, and put the trace id in every line",
+      "Plain text cannot be saved to disk. Switch to a database",
+      "Nothing, because log times are always exact"
+    ],
+    "answer": 1,
+    "why": "A structured log is JSON with named fields (level, traceId, service, msg), so a computer can filter it. One search for the trace id then gives the whole story from both services. Never put passwords or personal data in logs."
+  },
+  {
+    "q": "Out of 100 checkouts, 90 took 100 ms, 8 took 400 ms and 2 took 3000 ms. The average is 182 ms. Why do we watch p99 (3000 ms) and not the average?",
+    "options": [
+      "The average is a number nobody felt. p99 shows that 2 users waited 3 seconds",
+      "The average is always wrong by 10 percent",
+      "p99 is cheaper to store than the average",
+      "p99 is the same as the average for most services"
+    ],
+    "answer": 0,
+    "why": "No user waited 182 ms. The average hides the slow ones. Measure rate, errors and duration (RED) for each service, and show duration as p50 and p99."
+  },
+  {
+    "q": "Your team wants to add the user id as a tag on a checkout-time metric. You have a million users. What is wrong?",
+    "options": [
+      "Nothing. Tags are free",
+      "User ids are too short for a tag",
+      "The metric tool keeps one set of numbers per tag value, so a million users means a million sets (high cardinality). Put the user id in logs instead",
+      "Metrics cannot be shown on a dashboard with tags"
+    ],
+    "answer": 2,
+    "why": "Metrics are cheap only while the tags stay few, like a handful of routes and statuses. A user id belongs in a log line, where each request is one line anyway. For alerts, wake a person for errors and slow p99. Keep CPU and memory on a dashboard."
+  }
+]

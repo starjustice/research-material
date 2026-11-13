@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Lena in London asks for a logo and the London edge is empty. Then Tom in London asks for the same logo. Lena waits about 180 ms and Tom about 10 ms (example numbers). Why is Tom so much faster?",
+    "options": [
+      "Tom has a faster internet line than Lena",
+      "Tom's request skips the edge and goes straight to the origin",
+      "Lena's request was a miss that went to the origin and filled the London shelf, so Tom's request was a hit",
+      "The origin sends Tom a smaller file"
+    ],
+    "answer": 2,
+    "why": "Only a miss travels to the origin. The first user at an edge pays a little more than with no CDN. Everyone after pays almost nothing."
+  },
+  {
+    "q": "A page /account shows \"Hi Lena, 1,200 points\" and is sent with Cache-Control: public, s-maxage=300. Omar asks for /account a minute later. What does he get?",
+    "options": [
+      "His own page, because the edge reads the cookie",
+      "An error, because the page is public",
+      "A blank page",
+      "Lena's page, because the edge finds a copy by URL, and the URL is the same for every user"
+    ],
+    "answer": 3,
+    "why": "Nothing crashes, so you may not notice for a long time. Ask one question: does every user get exactly the same page from this URL? If not, send private."
+  },
+  {
+    "q": "You deploy new code but the file is still named /app.js with a one day life. Users keep getting the old file, and you purge the CDN. Some users still see the old site. Why?",
+    "options": [
+      "The purge did not run",
+      "A purge clears the edge but cannot reach browsers that already hold the old file",
+      "Purges only work at night",
+      "CDNs cannot serve JavaScript"
+    ],
+    "answer": 1,
+    "why": "A purge also takes seconds to reach every edge, and someone must remember it on every deploy. The better fix is a fingerprint in the name, like app.3f9a1c.js, so new content gets a new name."
+  },
+  {
+    "q": "Why can a file named app.3f9a1c.js be kept for a year with no purge?",
+    "options": [
+      "Browsers never delete files with a code in the name",
+      "The edge checks the file every night",
+      "One name never holds two contents: if one letter changes, the name changes, so a copy under that name is never out of date",
+      "The code in the name is a password"
+    ],
+    "answer": 2,
+    "why": "Give a long life only to a name that changes when the content changes. The page (HTML) holds the names, so the page gets a short time, such as 60 seconds."
+  },
+  {
+    "q": "A response has Cache-Control: no-cache and an ETag of v7. What does the edge do?",
+    "options": [
+      "It never saves the file anywhere",
+      "It serves the saved copy for a year without asking",
+      "It may keep the copy but asks the origin before each use, and the origin can answer still v7 with no file",
+      "It treats the file as private and sends it only to the browser"
+    ],
+    "answer": 2,
+    "why": "no-cache does not mean do not keep. It means ask first. no-store is the one that means nobody keeps it, anywhere. The ETag makes the ask cheap, but every request still travels to the origin."
+  },
+  {
+    "q": "A Next.js app serves build files, ISR pages and per user pages. Which one gets a one year immutable note, and why?",
+    "options": [
+      "The build files, because their names have a fingerprint, so the content under a name never changes",
+      "The ISR pages, because they are built ahead of time",
+      "The per user pages, because they are the most visited",
+      "All three, because Next.js handles it"
+    ],
+    "answer": 0,
+    "why": "ISR pages get a set time with s-maxage, because they are rebuilt in the background. Per user pages are built on each request and are not kept at the edge."
+  }
+]

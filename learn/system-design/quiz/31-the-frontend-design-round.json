@@ -1,0 +1,68 @@
+[
+  {
+    "q": "The interviewer says \"design a news feed\". What do you do in the first 5 minutes of a frontend design round?",
+    "options": [
+      "Draw load balancers and database shards",
+      "Ask requirements questions (devices, size, real time, offline) and write must have, nice to have and out of scope",
+      "Write the React code for the post card",
+      "Pick the state library"
+    ],
+    "answer": 1,
+    "why": "RADIO starts with Requirements. The answers decide every later choice. Treat the server as a closed door with an API, and draw screens, parts, state and calls. Talking about servers for 20 minutes answers the other round."
+  },
+  {
+    "q": "A page has one personal part that needs a 1.5 second call. With SSR, when does the user first see anything, and how does a prebuilt shell with a streamed personal part (PPR) compare?",
+    "options": [
+      "SSR after about 1.5 s. PPR shows the shell after about 40 ms and the personal part at about 1.5 s",
+      "Both show something after about 40 ms",
+      "SSR after about 40 ms. PPR after about 1.5 s",
+      "Both show something only after about 1.5 s"
+    ],
+    "answer": 0,
+    "why": "In a real test on Next.js 16.4.6 (local server), the SSR page sent its first byte at about 1,545 ms because it waited for its slowest part. The PPR page sent the shell at about 40 ms and streamed the personal part at about 1,543 ms. A fully static page took about 45 ms. Pick rendering per page."
+  },
+  {
+    "q": "Three parts of a page ask the cache for the same key at the same moment. Then the user edits their name. What is right?",
+    "options": [
+      "Three network calls, then the cache updates itself",
+      "One network call is shared by all three. After the edit you invalidate the key so the next ask loads again",
+      "One network call, and the saved value can never be invalid",
+      "Three network calls, then you invalidate"
+    ],
+    "answer": 1,
+    "why": "The cache keeps one running request per key and shares it. It saves the answer for a fresh time. After a change you mark the key as old (invalidate), so the next ask goes to the server. A failed request is never saved."
+  },
+  {
+    "q": "Two likes are in flight. The like on post a is slow and fails. The like on post b is quick and works. The code puts back a whole old copy of the screen on an error. What does the screen end with, and what is the fix?",
+    "options": [
+      "a:10 b:6. No fix is needed",
+      "a:11 b:6. Never roll back",
+      "a:10 b:5. Show the confirmed value plus the waiting changes, and remove only the failed change",
+      "a:10 b:5. Use an optimistic update for money too"
+    ],
+    "answer": 2,
+    "why": "The old copy was taken before the like on b was confirmed, so putting it back wipes b (a:10 b:5 in a real run). A waiting list store ends with a:10 b:6. Optimistic updates are for easy, safe actions like likes. Money waits for the server."
+  },
+  {
+    "q": "Page 1 of a feed shows posts 10 to 6. Post 11 arrives. What do offset pages and cursor pages show for page 2?",
+    "options": [
+      "Offset shows 5, 4, 3, 2, 1 and cursor shows 6, 5, 4, 3, 2",
+      "Both show 5, 4, 3, 2, 1",
+      "Offset shows 6, 5, 4, 3, 2 (post 6 twice) and cursor shows 5, 4, 3, 2, 1",
+      "Both show 11, 10, 9, 8, 7"
+    ],
+    "answer": 2,
+    "why": "The new post moves every position down by one, so offset 5 starts at post 6 again. A cursor says after post 6, and post ids do not move. For drawing, a window draws only the rows in view: 12 rows for a 600 px screen with 50 px rows, even when the list has 100,000."
+  },
+  {
+    "q": "The page looks fast, but each tap on \"Add to cart\" takes 600 ms to change anything. Which Core Web Vital is bad, and what is its good value?",
+    "options": [
+      "LCP, good is 2.5 s or less",
+      "CLS, good is 0.1 or less",
+      "INP, good is 200 ms or less",
+      "FID, good is 100 ms or less"
+    ],
+    "answer": 2,
+    "why": "INP measures the time from a tap or key press to the next change on screen. web.dev (read 2026-11-13) says good is 200 ms or less and poor is over 500 ms, so 600 ms is poor. INP replaced FID in 2024. Less JavaScript, a window over long lists and optimistic updates help. Google reads the 75th percentile of real visits."
+  }
+]

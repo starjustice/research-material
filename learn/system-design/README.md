@@ -96,7 +96,7 @@ Each one has a deep section in the guides below. A lesson file breaks it into on
 | 28 | [Disaster recovery](28-disaster-recovery.md) | RPO, RTO, replica vs backup, multi AZ vs multi region, failover and fencing | ready |
 | 29 | [Security in a design](29-security-in-a-design.md) | authorization models, OWASP API Top 10, service to service auth | ready |
 | 30 | [LLM features in a system](30-llm-features-in-a-system.md) | RAG with permission filters, LLM gateway with timeout and fallback, prompt injection, streaming, cost | ready |
-| 31 | The frontend design round `31-the-frontend-design-round.md` | a framework for frontend system design, rendering and data choices | planned |
+| 31 | [The frontend design round](31-the-frontend-design-round.md) | a framework for frontend system design, rendering choices, the client data layer, optimistic updates, paging, offline, the speed budget | ready |
 
 The classic designs from the workbooks (news feed, file upload, autocomplete, video, seat booking, ledger, loan workflow, job scheduler, proximity, RAG assistant) live in the two design workbooks below, with hidden answers.
 

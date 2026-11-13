@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Three servers sit behind a round robin load balancer. Server B is slow and keeps each request open for 8 ticks, while A and C need 2. After 9 requests, B holds 3 open requests and A holds none. Why?",
+    "options": [
+      "Round robin favors server B",
+      "Round robin counts turns, not work, so B keeps getting its turn while it is still busy",
+      "Server A was marked as dead",
+      "Round robin only sends requests to the slowest server"
+    ],
+    "answer": 1,
+    "why": "Round robin takes turns whatever each server is doing. Least connections looks at how many requests each server holds now, so in the same run it ends with 1 open request on each server."
+  },
+  {
+    "q": "A team uses least connections and has no health check. Server B crashes and refuses every request at once. What do users see?",
+    "options": [
+      "Nothing, the load balancer skips B by itself",
+      "Half the users see errors",
+      "The load balancer slows down but still works",
+      "All requests go to B and fail, because a dead server shows 0 open connections and looks like the best one"
+    ],
+    "answer": 3,
+    "why": "B fails each request at once, so its count never grows, and the fewest connections always wins. A and C sit with spare room. A health check takes B out of the pool so the pick only looks at servers that are up."
+  },
+  {
+    "q": "A server crashes between two health checks. Can a user still see an error?",
+    "options": [
+      "Yes. In the gap, the load balancer still sends B its turn. Retrying safe requests on another server hides it",
+      "No, a health check is instant",
+      "No, the user's browser skips dead servers",
+      "Yes, but only if the load balancer is also broken"
+    ],
+    "answer": 0,
+    "why": "A check is not instant. With the rule of 2 failed checks in a row, B stays in the pool until the second one fails, and a request that lands on B in that gap fails. It is nobody's bug."
+  },
+  {
+    "q": "You want requests to /images to go to file servers and requests to /orders to go to app servers. What kind of load balancer do you need?",
+    "options": [
+      "Layer 4, because it is the fastest",
+      "Round robin, because it takes turns",
+      "Layer 7, because it reads the path and layer 4 does not",
+      "Any load balancer can do it"
+    ],
+    "answer": 2,
+    "why": "Layer 4 sees only the outside of the envelope: the address and the door number. Layer 7 opens it and reads the path, headers and cookie, so it can route by path. It is the default for a normal web app."
+  },
+  {
+    "q": "Every server's health route runs SELECT 1 on the shared database, and then the database goes down for everyone. What does the load balancer do?",
+    "options": [
+      "Keeps all servers, because the servers are running fine",
+      "Removes all of them, so the whole site is down even though the servers are fine",
+      "Removes half of them to share the load",
+      "Switches to layer 4 automatically"
+    ],
+    "answer": 1,
+    "why": "Every server fails the check, so every server leaves the pool. A health check should show whether this server can do real work, but think about which shared things it should look at."
+  },
+  {
+    "q": "Every page waits on a slow database. Will a better load balancer help?",
+    "options": [
+      "Yes, least connections fixes slow databases",
+      "Yes, add a second load balancer",
+      "Yes, switch from layer 4 to layer 7",
+      "No. All servers wait for the same database, so caching is the tool that helps"
+    ],
+    "answer": 3,
+    "why": "A load balancer shares requests between servers. It cannot make the one database behind them faster. It also cannot fix sticky sessions or jobs on a timer."
+  }
+]

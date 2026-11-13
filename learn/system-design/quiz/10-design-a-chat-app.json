@@ -1,0 +1,68 @@
+[
+  {
+    "q": "10 million phones are online. Instead of an open line, each phone asks \"any news?\" every 2 seconds. What is the cost, and what fixes it?",
+    "options": [
+      "About 50,000 requests a second, and a faster database fixes it",
+      "About 5 million requests a second, almost all with nothing new, and a real message still waits up to 2 seconds. An open WebSocket per phone plus a map to find it fixes both",
+      "About 5 million requests a second, but no message is ever late",
+      "No cost at all, because HTTP requests are free"
+    ],
+    "answer": 1,
+    "why": "10 million phones divided by 2 seconds is 5 million requests a second, and nearly every answer is empty. Messages also arrive late. With one open line per phone, the server reaches the phone by itself the moment a message is saved."
+  },
+  {
+    "q": "A chat server delivers the message to Bob first, then saves it, and crashes in between. What is the result?",
+    "options": [
+      "Bob saw it, but the history has nothing. Alice got no tick and sends again, so Bob may see it twice, and a new laptop never sees it",
+      "Nothing bad. The message is delivered, so it is safe",
+      "Bob never sees it, but the history has it",
+      "Alice gets two ticks, but Bob gets none"
+    ],
+    "answer": 0,
+    "why": "Save first, then ack, then deliver. Then \"sent\" means \"on disk\", and a later crash only makes the message late: Bob catches up, and Alice's resend finds the saved copy. Delivering first leaves a message that Bob saw but the system does not know about."
+  },
+  {
+    "q": "Alice's phone does not get the ack and sends the same message again. What stops a second copy being saved?",
+    "options": [
+      "The WebSocket never sends the same bytes twice",
+      "The phone makes a clientMsgId for each message, and the server ignores a resend with the same id and answers with the saved message id",
+      "The server waits 1 second before saving, so duplicates arrive together",
+      "Redis pub sub removes duplicates"
+    ],
+    "answer": 1,
+    "why": "The phone makes the id once, so a resend carries the same one. In a real system it is a unique index on the sender and clientMsgId, so even two servers cannot both save the resend. It is the same unique-rule idea as the URL shortener."
+  },
+  {
+    "q": "A group has 500 members and 10,000 messages. How do the ticks (delivered and read) stay small?",
+    "options": [
+      "Each member keeps only two numbers: the last message delivered and the last read. That is 1,000 numbers, not 5 million rows",
+      "Each message keeps a list of every member who read it",
+      "Ticks are not stored, only shown when the group is quiet",
+      "Each member keeps one row for each message they read"
+    ],
+    "answer": 0,
+    "why": "Message ids only grow, so \"id 101 or lower\" is a complete answer to \"what have I got\". A message shows two ticks when every member has it, and blue when every member has read up to it. A row per person per message would be 500 times 10,000 rows."
+  },
+  {
+    "q": "Bob is offline for an hour and his phone has no open line. How does he get the messages he missed?",
+    "options": [
+      "The push notification carries each message, so he reads them from the notification",
+      "The server keeps trying the old WebSocket until it works",
+      "The push only wakes the phone. It reconnects and asks the store for everything after its last id, like 101",
+      "Alice's phone sends them all again when she sees no blue ticks"
+    ],
+    "answer": 2,
+    "why": "Apple and Google may delay, merge or drop pushes, so the push is only a short note. The message store is the truth. The phone remembers one number, its last id, and \"bigger than 101\" is exactly what it missed."
+  },
+  {
+    "q": "The chat service looks up Bob in the Redis map. His connection server crashed an hour ago but his key has not ended yet, so the hand over fails. What should it do?",
+    "options": [
+      "Retry the hand over forever until it works",
+      "Delete the message, because Bob cannot be reached",
+      "Tell Alice the message failed and make her resend",
+      "Treat Bob as offline and push. The message is already saved, so he catches up when he reconnects"
+    ],
+    "answer": 3,
+    "why": "The map can be wrong for a short time, because its keys only end when the heartbeat stops. Pub sub also sends at most once and can lose a message. Both are fine, because the message was saved before the hand over."
+  }
+]

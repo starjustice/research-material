@@ -672,6 +672,68 @@ For each feature, say "strong" or "eventual", and give one reason. Write your an
 
 </details>
 
+**D. Write it in code**
+
+Open `learn/system-design/practice/07-consistency-and-cap.js`. It has three empty functions: `createStore` (a leader and a follower with a copy delay, and a line that can be cut), `createUser` (read your own writes, card 2) and `readDuringSplit` (refuse or answer, card 4). Write them, then run this from the repo root and make all the tests pass:
+
+```
+node --test learn/system-design/practice/07-consistency-and-cap.test.js
+```
+
+<details><summary>One possible answer</summary>
+
+```js
+function createStore({ delay = 3, initial = "Andi" } = {}) {
+  let leader = initial;
+  let follower = initial;
+  let connected = true;
+  const onTheWay = [];                                       // copies that have not landed yet, oldest first
+  return {
+    write(now, value) {
+      leader = value;
+      onTheWay.push({ lands: now + delay, value });
+    },
+    leader() {
+      return leader;
+    },
+    follower(now) {
+      while (connected && onTheWay.length > 0 && onTheWay[0].lands <= now) follower = onTheWay.shift().value;
+      return follower;
+    },
+    cut() { connected = false; },
+    heal() { connected = true; },
+    isConnected() { return connected; },
+  };
+}
+
+function createUser(store, { window = 4 } = {}) {
+  let lastWrite = null;                                      // the tick of my own latest write
+  return {
+    write(now, value) {
+      store.write(now, value);
+      lastWrite = now;
+    },
+    read(now) {
+      const justWrote = lastWrite !== null && now - lastWrite < window;
+      return justWrote ? store.leader() : store.follower(now);
+    },
+  };
+}
+
+function readDuringSplit(store, now, choice) {
+  if (choice !== "refuse" && choice !== "answer") throw new Error('choice must be "refuse" or "answer"');
+  if (!store.isConnected() && choice === "refuse") return { ok: false };
+  const value = store.follower(now);
+  return { ok: true, value, maybeOld: value !== store.leader() };
+}
+
+module.exports = { createStore, createUser, readDuringSplit };
+```
+
+Checked on 2026-11-13 with Node 26.12.1: the 17 tests fail on the empty stub and all 17 pass with this answer. Three details to notice. Time only goes forward: reading the follower at tick 3 lands the copies due by then, and a later read at an earlier tick would not undo that. The window must be longer than the copy delay, or Sam's own change disappears for a moment. And `refuse` returns no value at all, while `answer` returns a value and says whether it may be old.
+
+</details>
+
 ## 9. Interview question
 
 **Q:** "What does the CAP theorem say? Then: a user saves their profile, reloads the page, and sees the old data. What is going on, and how do you fix it?"

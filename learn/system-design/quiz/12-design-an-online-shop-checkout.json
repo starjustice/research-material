@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Two buyers want the last mug. The code reads the stock (1 left), checks it, then writes stock = 0. Both buyers read before either writes. What is the result, and what is the fix?",
+    "options": [
+      "Only the first buyer gets it, because the database locks the whole table",
+      "Both get a yes and the stock says 0, so two mugs were sold. Use one conditional update: UPDATE ... SET stock = stock - 1 WHERE stock >= 1",
+      "Both get a no, and the shop sells nothing",
+      "Both get a yes and the stock says -1, so the database refuses it"
+    ],
+    "answer": 1,
+    "why": "Reading then writing in two steps lets both through, using old news. A conditional update checks and changes in one step. In Postgres the second update waits, then checks its WHERE again on the new row, so it changes 0 rows and the buyer hears \"sold out\"."
+  },
+  {
+    "q": "Ana pays on Stripe's form, then her wifi drops before the success page loads. What should mark her order PAID?",
+    "options": [
+      "The success page, when it loads",
+      "A button Ana presses when she is back online",
+      "The hold timer, when it ends",
+      "The webhook from Stripe's server, which still arrives even when the browser is gone"
+    ],
+    "answer": 3,
+    "why": "The browser can close, and anyone can open a success page URL. If the page decided, Ana's order would stay RESERVED, the hold would end, the mug would be sold again, and Ana would have paid for nothing. The webhook marks it paid and the success page only reads."
+  },
+  {
+    "q": "Stripe sends the webhook evt_1 (payment succeeded) twice. What keeps the order and the outbox from being handled twice?",
+    "options": [
+      "Check the signature, save the event id in a seen events table in the same transaction, and skip an event already saved",
+      "Stripe promises to send each event once",
+      "Ignore all events after the first one of the day",
+      "Mark the order PAID twice. It changes nothing, so it is harmless"
+    ],
+    "answer": 0,
+    "why": "Stripe resends until it gets a 200, and it does not promise one copy or any order. Without a seen events table, a repeat could add a second outbox row and ship the order twice. Answer 200 for a repeat so Stripe stops."
+  },
+  {
+    "q": "A \"payment failed\" event (evt_2) arrives late, after evt_1 already made order 41 PAID. The seen set lets it in because it is a new event. What stops the mug going back on the shelf?",
+    "options": [
+      "Nothing. The seen set is enough",
+      "A longer hold time",
+      "The status check: a move to CANCELLED is only allowed from RESERVED, so WHERE status = 'RESERVED' changes 0 rows",
+      "Stripe never sends events out of order"
+    ],
+    "answer": 2,
+    "why": "The seen set stops a repeated event. The status check stops an older event that arrives late. You need both. Only the allowed arrows of the state machine can move an order."
+  },
+  {
+    "q": "Dan's bank asks for an extra check. His hold ends at 10:14 and the cleanup job cancels his order and returns the hat to stock. His payment succeeds at 10:15. What happens?",
+    "options": [
+      "The order moves to PAID and the hat is sold twice",
+      "The order stays CANCELLED, because PAID is only allowed from RESERVED. A refund is sent and someone is alerted",
+      "The cleanup job runs again and deletes the payment",
+      "Stripe takes the money back by itself"
+    ],
+    "answer": 1,
+    "why": "This is a saga: each step has an undo step, and the undo for a charge is a refund, because Stripe is outside your database and you cannot just roll it back. The hat may already be sold to someone else, so the order must not come back to life."
+  },
+  {
+    "q": "In a flash sale, 20,000 buyers try for 500 mugs in 2 minutes. About 170 tries a second land on one row. Why is the one SQL statement still fine, and when would you change the design?",
+    "options": [
+      "It is fine because Postgres ignores most requests",
+      "It is not fine, so go straight to a Redis counter",
+      "A short transaction keeps the row busy about 2 ms, so one row can take about 500 holds a second. Past that, split the stock into one row per unit",
+      "It is fine only if you call Stripe inside the transaction, to keep the row locked longer"
+    ],
+    "answer": 2,
+    "why": "Calling Stripe inside the transaction would keep the busy row locked for a long time, so call it after the transaction ends. Keep the transaction short. A Redis counter is fast but means two systems that can disagree."
+  }
+]

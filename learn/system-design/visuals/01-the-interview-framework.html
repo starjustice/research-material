@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The six steps of a design answer, on a paste bin</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.one { grid-template-columns: 1fr; }
+  .stage.two { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+  .panel .psub { font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
+
+  .clockbar { display: flex; height: 30px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--chip); }
+  .seg { display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; color: #fff; border-right: 2px solid var(--card); transition: width .25s; overflow: hidden; }
+  .seg.ok { background: var(--srv); }
+  .seg.bad { background: var(--bad); }
+  .seg.warn { background: var(--store); }
+  .seg.lit { box-shadow: inset 0 0 0 3px var(--accent); }
+  .clockline { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin: 4px 0 8px; gap: 8px; flex-wrap: wrap; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { font-size: .68rem; border-radius: 999px; padding: 1px 8px; border: 1px solid rgba(128,128,128,.4); background: var(--chip); }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .chip.warn { border-color: var(--store); }
+  .chip.ok { border-color: var(--srv); }
+
+  .cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.store { border-color: var(--store); background: var(--store-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.store h3 { color: var(--store); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .lines { display: grid; gap: 4px; }
+  .line { font-size: .78rem; padding: 3px 8px; border-radius: 8px; background: var(--chip); border: 1px solid rgba(128,128,128,.35); overflow-wrap: anywhere; }
+  .line.bad { border-color: var(--bad); color: var(--bad); font-weight: 700; }
+  .line.key { border-color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+
+  .verdict { margin-top: 8px; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: .85rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .verdict.ok { border-color: var(--srv); background: var(--srv-bg); color: var(--ink); }
+  .verdict.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 110px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/system-design/README" id="lessons">&larr; System design lessons</a>
+    <a href="../../../viewer.html?note=learn/system-design/01-the-interview-framework" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>The six steps of a design answer, on a paste bin</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Watch the 45 minute clock and the whiteboard fill up. Guess first, then check.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> drawing the boxes is job five, not job one. Ask, count, write the requests and the tables, and only then draw. The numbers pick the deep dive, and the deep dive gets the most minutes.</p>
+</div>
+
+<script>
+// ---- The clock: the six jobs of a 45 minute round. The deep dive is 15 minutes plus 5 minutes of "what breaks". ----
+const CLOCK = [
+  { key: "req",    name: "Requirements",      min: 5,  card: "req" },
+  { key: "est",    name: "Estimate",          min: 4,  card: "est" },
+  { key: "api",    name: "API",               min: 4,  card: "api" },
+  { key: "data",   name: "Data",              min: 4,  card: "data" },
+  { key: "hld",    name: "High level design", min: 8,  card: "hld" },
+  { key: "deep",   name: "Deep dive",         min: 15, card: "deep" },
+  { key: "breaks", name: "What breaks",       min: 5,  card: "deep" }
+];
+const CARDS = [
+  { id: "req",  title: "1 Requirements",                  kind: "user" },
+  { id: "est",  title: "2 Estimate",                      kind: "lb" },
+  { id: "api",  title: "3 API",                           kind: "srv" },
+  { id: "data", title: "4 Data",                          kind: "store" },
+  { id: "hld",  title: "5 High level design",             kind: "user" },
+  { id: "deep", title: "6 Deep dive and what breaks",     kind: "lb" }
+];
+const clone = o => JSON.parse(JSON.stringify(o));
+const fmt = n => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+// The same arithmetic as the lesson's code in card 2.
+function estimate(c) {
+  const secondsPerDay = 100000;
+  const writesPerSec = c.perDay / secondsPerDay;
+  const readsPerSec = writesPerSec * c.readsPerWrite;
+  const peakReads = readsPerSec * 3;
+  const gbPerDay = (c.perDay * c.kb) / 1e6;
+  const tbPerYear = (gbPerDay * 365) / 1000;
+  const driver = peakReads < 1000 ? "storage" : "traffic";
+  return { writesPerSec, readsPerSec, peakReads, gbPerDay, tbPerYear, driver };
+}
+
+const LINES = {
+  req: c => ["IN: create a paste, read a paste by its link", "OUT (said aloud): accounts, editing, search",
+             "Assume: " + fmt(c.perDay) + " new pastes a day, up to " + c.kb + " KB each, reads are " + c.readsPerWrite + " times writes"],
+  est: (c, e) => [fmt(c.perDay) + " / 100,000 = " + fmt(e.writesPerSec) + " writes a second",
+                  "Reads: " + fmt(e.readsPerSec) + " a second, " + fmt(e.peakReads) + " at the busiest time (3 times)",
+                  "Size: " + fmt(e.gbPerDay) + " GB a day, " + fmt(e.tbPerYear) + " TB a year",
+                  "One simple server: about 1,000 requests a second",
+                  "KEY: DRIVER is " + e.driver],
+  api: () => ["POST /pastes  →  201 and a link", "GET /pastes/:id  →  200 and the text, or 404"],
+  data: () => ["pastes(id, text, created_at, expires_at)", "KEY: circle id. GET finds each row by it"],
+  hld: (c, e) => e.driver === "storage"
+    ? ["Client → app servers → database", "Follow one GET: any app server asks the database by id and returns the text", "Ask: deeper on storage or on ids?"]
+    : ["Client → app servers (many) → cache → database", "Follow one GET: ask the cache by id, and only on a miss ask the database", "Ask: deeper on reads or on ids?"],
+  deep: (c, e) => e.driver === "storage"
+    ? ["Part 1, where the text lives. A: in the database. Simple, but it grows " + fmt(e.gbPerDay) + " GB a day. B: in file storage, only the id in the database. One more part to run. Choose B. If pastes lived 7 days, choose A.",
+       "Part 2, ids nobody can guess. A counter is easy but can be read in order. Use random ids. The primary key refuses a repeat, and the server tries again."]
+    : ["Part 1, the read path at " + fmt(e.peakReads) + " a second. A: every read asks the database. Simple, but the database is the limit. B: keep popular pastes in a cache. One more part, and a copy can be old. Choose B. At 300 reads a second, choose A.",
+       "Part 2, ids nobody can guess. Same as before: random ids, and the primary key refuses a repeat."],
+  breaks: (c, e) => e.driver === "storage"
+    ? ["What breaks: file storage is slow, so reads are slow. Watch read time and the error rate.", "Delete expired pastes every night."]
+    : ["What breaks: the cache is down, so every read hits the database. Watch the cache hit rate and database load.", "Delete expired pastes every night, from the cache too."]
+};
+
+// ---- Stories 1 and 2: one or two candidates walking the six jobs ----
+function sixSteps(cfgs, notes) {
+  const worlds = cfgs.map(c => ({ title: c.title, sub: c.sub, cfg: c, est: estimate(c), segs: [], cards: CARDS.map(d => ({ id: d.id, title: d.title, kind: d.kind, lines: [] })), verdict: null }));
+  const steps = [];
+  const snap = (note, hop, phase, active, elapsed) => steps.push({
+    note, hop, phase, active, elapsed,
+    worlds: worlds.map(w => ({ title: w.title, sub: w.sub, segs: clone(w.segs), cards: clone(w.cards), verdict: w.verdict }))
+  });
+  snap(notes.intro, "The setup: an empty board, minute 0 of 45", "setup", [], 0);
+  let t = 0;
+  CLOCK.forEach((step, i) => {
+    worlds.forEach(w => {
+      w.cards.find(c => c.id === step.card).lines.push(...LINES[step.key](w.cfg, w.est));
+      w.segs.forEach(s => { s.lit = false; });
+      w.segs.push({ name: step.name, min: step.min, cls: "ok", lit: true });
+      if (step.key === "est") w.verdict = { cls: "ok", text: "Driver: " + w.est.driver };
+    });
+    const from = t; t += step.min;
+    snap(notes[step.key], step.name + ", minute " + from + " to " + t, "run", [step.card], t);
+  });
+  worlds.forEach(w => w.segs.forEach(s => { s.lit = false; }));
+  snap(notes.end, "Finished, minute 45", "done", [], 45);
+  return steps;
+}
+
+const PASTE_A = { title: "A paste bin, 1 million a day", sub: "up to 10 KB each, reads are 10 times writes", perDay: 1e6, kb: 10, readsPerWrite: 10 };
+const PASTE_B = { title: "A much bigger paste bin, 50 million a day", sub: "about 2 KB each, reads are 10 times writes", perDay: 5e7, kb: 2, readsPerWrite: 10 };
+
+// ---- Story 3: the same 45 minutes, two ways. Written by hand, one picture per minute mark. ----
+function sixAt(m) {
+  const segs = []; let t = 0;
+  for (const s of CLOCK) {
+    if (t >= m) break;
+    const min = Math.min(s.min, m - t);
+    segs.push({ name: s.name, min, cls: "ok", lit: false });
+    t += min;
+  }
+  if (segs.length) segs[segs.length - 1].lit = true;
+  return segs;
+}
+function boardCards(wb, qn) {
+  return [{ id: "wb", title: "On the whiteboard", kind: "store", lines: wb }, { id: "qn", title: "Questions and numbers", kind: "user", lines: qn }];
+}
+function leftAt(m) {
+  const all = [
+    { name: "Freeze", min: 2, cls: "bad" }, { name: "Ten boxes", min: 10, cls: "bad" }, { name: "No numbers", min: 13, cls: "bad" },
+    { name: "Redraw", min: 15, cls: "warn" }, { name: "First tradeoff talk", min: 5, cls: "warn" }
+  ];
+  const segs = []; let t = 0;
+  for (const s of all) { if (t >= m) break; segs.push(Object.assign({}, s, { lit: false })); t += s.min; }
+  segs[segs.length - 1].lit = true;
+  return segs;
+}
+function boxesFirst(m) {
+  const w = { title: "Boxes first", sub: "starts drawing as soon as the prompt ends", segs: leftAt(m), verdict: null };
+  if (m === 2) w.cards = boardCards(["Empty. Still thinking which tools to name."], ["No questions asked yet"]);
+  if (m === 12) w.cards = boardCards(["Load balancer, 5 app servers, a cache, a queue, a database cluster", "All drawn in 10 minutes"], ["No questions asked", "No numbers"]);
+  if (m === 25) w.cards = boardCards(["The same ten boxes"], ["Minute 12, interviewer: how many requests a second?", "Candidate: no number", "Is 5 servers right? Nobody knows."]);
+  if (m === 40) w.cards = boardCards(["Half of the boxes rubbed out and drawn again"], ["Still no numbers"]);
+  if (m === 45) { w.cards = boardCards(["Time is over: no deep dive, no reasons, no what breaks"], ["Still no numbers"]); w.verdict = { cls: "bad", text: "Never reached the hard part" }; }
+  return w;
+}
+function sixJobs(m) {
+  const w = { title: "Six jobs in order", sub: "asks first, counts, then draws", segs: sixAt(m), verdict: null };
+  if (m === 2) w.cards = boardCards(["Headings: IN, OUT, NUMBERS"], ["Asking: who uses it, and how many a day?"]);
+  if (m === 12) w.cards = boardCards(["IN: create a paste, read a paste. OUT: accounts, search", "10 writes a second, 300 reads a second, 10 GB a day. DRIVER: storage", "API started: POST /pastes, GET /pastes/:id"], ["Asked 3 questions, got 1 million a day and 10 KB each", "Said the driver out loud"]);
+  if (m === 25) w.cards = boardCards(["Table pastes, circle id", "Client → app servers → database (3 boxes)"], ["Asked: deeper on storage or on ids?", "Interviewer: storage"]);
+  if (m === 40) w.cards = boardCards(["Deep dive, 2 parts: where the text lives, and ids", "Two ways, the cost, my choice, what would change it"], ["Reasons said out loud, not only tool names"]);
+  if (m === 45) { w.cards = boardCards(["What breaks: slow file storage. Watch: read time, error rate", "Expired pastes deleted every night"], ["All six jobs done"]); w.verdict = { cls: "ok", text: "Reached the hard part, with reasons" }; }
+  return w;
+}
+function boxesStory(notes) {
+  const steps = [];
+  const empty = t => ({ title: t[0], sub: t[1], segs: [], cards: boardCards(["Empty"], ["Nothing yet"]), verdict: null });
+  steps.push({ note: notes.intro, hop: "The setup: minute 0 of 45", phase: "setup", active: [], elapsed: 0, worlds: [empty(["Boxes first", "starts drawing as soon as the prompt ends"]), empty(["Six jobs in order", "asks first, counts, then draws"])] });
+  const marks = [2, 12, 25, 40, 45];
+  marks.forEach(m => steps.push({ note: notes["m" + m], hop: "Both candidates at minute " + m, phase: m === 45 ? "done" : "run", active: ["wb", "qn"], elapsed: m, worlds: [boxesFirst(m), sixJobs(m)] }));
+  return steps;
+}
+
+const STORIES = [
+  {
+    name: "1. The six jobs on a paste bin",
+    why: "The estimate said 300 reads a second at the busiest time. One simple server answers about 1,000. So traffic is small, and storage (10 GB a day) is what grows. That is why the deep dive goes to where the text lives, and why a cache would have been a wasted box.",
+    predict: { q: "The paste bin gets 1 million new pastes a day, up to 10 KB each, and reads are 10 times writes. One simple server answers about 1,000 requests a second. What will the driver be?",
+               options: ["Traffic", "Storage", "Neither"], answer: "Storage" },
+    build: () => sixSteps([PASTE_A], {
+      intro: "The prompt is <b>Design a paste bin.</b> The clock shows a 45 minute round, and the board is empty. There are six jobs. Each job fills one card and uses a fixed number of minutes. Press Next, and watch the board and the clock together.",
+      req: "<b>Job 1, requirements, 5 minutes.</b> Ask 3 or 4 questions. Write <b>IN</b> (what you build) and <b>OUT</b> (what you cut, said aloud). The interviewer gave no numbers, so you pick some and say <code>I assume</code>.",
+      est: "<b>Job 2, estimate, 4 minutes.</b> Round numbers: a day is 100,000 seconds. 1,000,000 / 100,000 = <b>10</b> writes a second. Reads are 10 times that, and the busiest time is 3 times the average: <b>300</b>. Storage is <b>10 GB</b> a day. 300 is far below 1,000, so <b>the driver is storage</b>. Say it out loud.",
+      api: "<b>Job 3, API, 4 minutes.</b> Write only the 2 to 4 requests that serve your IN list, and what each one returns. Here there are two. Nothing about accounts, because you cut them.",
+      data: "<b>Job 4, data, 4 minutes.</b> Write the table. Circle the one column you find each row by, and say which request uses it. It is <code>id</code>, used by the GET.",
+      hld: "<b>Job 5, high level design, 8 minutes.</b> Now, and only now, you draw. The fewest boxes that serve the requests. Follow one GET from click to answer, out loud. Then ask where to go deeper. Notice that the picture is only 8 of the 45 minutes.",
+      deep: "<b>Job 6, the deep dive, the first 15 minutes.</b> This is the biggest slice of the clock. Pick the two hardest parts, using the driver. For each part say: the options, the cost, your choice, and <b>what would change your choice</b>.",
+      breaks: "<b>Job 6 again, the last 5 minutes.</b> Say what breaks, how you would know, and what you would watch. This closes the answer. Deep dive and what breaks together are 20 minutes.",
+      end: "All 45 minutes are used: 5 + 4 + 4 + 4 + 8 + 15 + 5. The first four jobs are 17 minutes and the picture is 8. The deep dive and what breaks are 20. When you freeze in a real round, you do not need a good idea. You only need to know <b>which job you are on</b>."
+    })
+  },
+  {
+    name: "2. Same steps, bigger numbers",
+    why: "The peak is 15,000 reads a second, about 15 simple servers of work. The driver moved from storage to traffic, so the deep dive moved too: from where the text lives to the read path, and the picture grew one box, the cache. The six jobs stayed the same. The numbers chose what was hard.",
+    predict: { q: "Now the paste bin gets 50 million new pastes a day, about 2 KB each, and reads are still 10 times writes. What happens to the driver?",
+               options: ["It stays storage", "It becomes traffic", "Neither is hard"], answer: "It becomes traffic" },
+    build: () => sixSteps([PASTE_A, PASTE_B], {
+      intro: "The same prompt and the same clock, with two sets of numbers. <b>Left:</b> the 1 million a day paste bin from the first story. <b>Right:</b> a bin that is 50 times bigger. Both candidates follow the same six jobs. Watch where the two boards start to differ.",
+      req: "<b>Job 1, requirements.</b> The IN and OUT lists are the same. Only the assumed numbers differ: 1 million a day on the left, 50 million a day on the right.",
+      est: "<b>Job 2, estimate.</b> This is where the boards split. <b>Left:</b> 10 writes and 300 reads a second at the busiest time, so the driver is storage. <b>Right:</b> 500 writes and <b>15,000</b> reads a second. That is 15 times what one simple server answers, so the driver is <b>traffic</b>. Storage still grows 100 GB a day, but 15 times past one server is the first problem.",
+      api: "<b>Job 3, API.</b> The same two requests on both sides. The estimate did not change what the system must do, only how well.",
+      data: "<b>Job 4, data.</b> The same table and the same circled column on both sides.",
+      hld: "<b>Job 5, high level design.</b> The pictures differ now. <b>Left:</b> three boxes are enough. <b>Right:</b> the numbers ask for several app servers and a <b>cache</b> in front of the database. Draw only what the numbers need.",
+      deep: "<b>Job 6, the deep dive.</b> <b>Left:</b> where 10 GB a day of text lives. <b>Right:</b> how to survive 15,000 reads a second. Same four parts in both: options, cost, choice, what would change it. A cache on the left would be a box with no reason.",
+      breaks: "<b>Job 6, what breaks.</b> The things to watch differ too. Left: read time from file storage. Right: the cache hit rate, because a dead cache sends every read to the database.",
+      end: "Same six jobs, same 45 minutes, two different answers. Step 2 is not decoration. It tells you <b>which deep dive to give</b>. If the estimate does not change what you say next, those 4 minutes were wasted."
+    })
+  },
+  {
+    name: "3. Freeze, or start with questions",
+    why: "You do not need a good design idea at minute 1. You need the next job. Saying \"I will start with requirements\" is true, buys time, and gives you the first numbers. When you do not know what to draw, go back one step. Never jump forward.",
+    predict: { q: "It is minute 1 of a 45 minute round, and you freeze. What is the best move?",
+               options: ["Start drawing boxes so the board is not empty", "Say \"I will start with requirements\" and ask who uses it", "Ask the interviewer to give a hint on the design"], answer: "Say \"I will start with requirements\" and ask who uses it" },
+    build: () => boxesStory({
+      intro: "Same prompt, same 45 minutes, two candidates. <b>Left</b> starts drawing boxes the moment the prompt ends. <b>Right</b> goes through the six jobs. We look at both boards at the same minute. The bar shows how each candidate spent the clock.",
+      m2: "<b>Minute 2.</b> Left froze for 2 minutes and the board is empty. Right said <code>I will start with requirements</code>, wrote three headings and asked who uses it. Both look slow. Only one of them knows the next job.",
+      m12: "<b>Minute 12.</b> Left drew ten boxes and asked no question. Right knows IN, OUT, the numbers and the driver, and has the first request on the board. Now the interviewer asks both: <b>how many requests a second?</b>",
+      m25: "<b>Minute 25.</b> Left has no number, so it cannot tell if 5 servers is right or far too many. Right has a table, three boxes and an agreement with the interviewer about the deep dive. The two boards now look very different.",
+      m40: "<b>Minute 40.</b> Left rubbed out half the boxes and drew them again. Right is deep in the hard part: two ways, the cost, the choice, and what would change it.",
+      m45: "<b>Minute 45.</b> Time is over. Left never reached a deep dive and gave no reasons. Right finished with what breaks and what to watch. Both had the same clock. The six jobs did not make Right faster. They made every minute count."
+    })
+  }
+];
+
+// ---- The page ----
+const $ = id => document.getElementById(id);
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+
+const BADGE = { setup: ["Setup", ""], run: ["Something is written", "run"], done: ["Finished", "done"] };
+
+function clockHTML(w, elapsed) {
+  const total = 45;
+  const used = w.segs.reduce((a, s) => a + s.min, 0);
+  const segs = w.segs.map(s => '<span class="seg ' + s.cls + (s.lit ? " lit" : "") + '" style="width:' + (100 * s.min / total) + '%" title="' + s.name + ": " + s.min + ' min">' + s.min + "</span>").join("");
+  const rest = total - used > 0 ? '<span style="width:' + (100 * (total - used) / total) + '%"></span>' : "";
+  const chips = w.segs.map(s => '<span class="chip ' + s.cls + '">' + s.name + " " + s.min + "</span>").join("");
+  return '<div class="clockbar">' + segs + rest + "</div>" +
+    '<div class="clockline"><span>Minute <b>' + used + "</b> of 45</span><span>" + (total - used) + " minutes left</span></div>" +
+    '<div class="chips">' + (chips || '<span class="empty">no time used yet</span>') + "</div>";
+}
+function cardHTML(c, active) {
+  const lit = active.includes(c.id) ? " lit" : "";
+  const body = c.lines.length
+    ? '<div class="lines">' + c.lines.map(l => l.startsWith("KEY: ") ? '<div class="line key">' + l.slice(5) + "</div>" : '<div class="line' + (/^(Time is over|No numbers|No questions|Still no)/.test(l) ? " bad" : "") + '">' + l + "</div>").join("") + "</div>"
+    : '<span class="empty">not yet</span>';
+  return '<div class="comp ' + c.kind + lit + '"><h3>' + c.title + "</h3>" + body + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  const st = $("stage");
+  st.className = "stage " + (s.worlds.length === 1 ? "one" : "two");
+  st.innerHTML = s.worlds.map(w =>
+    '<div class="panel"><h2>' + w.title + '</h2><div class="psub">' + w.sub + "</div>" +
+      clockHTML(w, s.elapsed) +
+      '<div class="cards">' + w.cards.map(c => cardHTML(c, s.active)).join("") + "</div>" +
+      (w.verdict ? '<div class="verdict ' + w.verdict.cls + '">' + w.verdict.text + "</div>" : "") +
+    "</div>").join("");
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why +
+    (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o;
+    b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i; steps = STORIES[i].build(); idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict();
+  render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#10074;&#10074; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2600);
+}
+
+STORIES.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.onclick = () => pickStory(i);
+  $("tabs").appendChild(b);
+});
+$("stepFwd").onclick = () => { stop(); move(1); };
+$("stepBwd").onclick = () => { stop(); move(-1); };
+$("zero").onclick = () => { stop(); idx = 0; render(); };
+$("play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); }
+});
+window.__stories = STORIES; window.__estimate = estimate;
+pickStory(0);
+</script>
+</body>
+</html>

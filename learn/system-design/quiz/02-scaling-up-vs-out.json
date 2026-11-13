@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A site moves from one server to two behind a load balancer. Sam logs in, and his next click shows \"please log in\". Why?",
+    "options": [
+      "The load balancer deletes cookies",
+      "Sam's password expired between the two clicks",
+      "The login note was kept in the memory of one server, and the next click landed on the other one",
+      "Two servers cannot share a database"
+    ],
+    "answer": 2,
+    "why": "A server that keeps the session in its own memory is not stateless. The cookie finds nothing on the other server. Move the note to a shared box, such as the database or Redis, so any server can answer."
+  },
+  {
+    "q": "To stop the random logouts, a team turns on sticky sessions, so each user always reaches the same server. Server A restarts for an update. What happens?",
+    "options": [
+      "Every user glued to Server A is logged out",
+      "Nothing, the load balancer remembers every session",
+      "Only users who were idle are logged out",
+      "Server B takes over the sessions by itself"
+    ],
+    "answer": 0,
+    "why": "Glue is not a fix, because the login still lives in one server's memory. When that server stops, those users lose it. New machines also only get new users, so adding machines helps less."
+  },
+  {
+    "q": "Your site peaks at 300 requests a second, and one simple server answers about 1,000. A teammate says \"horizontal scaling is more modern, let's add ten servers.\" What is the best answer?",
+    "options": [
+      "Agree, more servers are always safer",
+      "Scale up, because a bigger machine is always cheaper",
+      "Add a cache first, because the traffic is too high",
+      "Neither yet. One machine is enough, so scale when the numbers or a need for a spare ask for it"
+    ],
+    "answer": 3,
+    "why": "Scaling out adds a load balancer, a shared box and new ways to fail. Use the numbers. Scale up first, and scale out when you need a spare machine or you are near the limit."
+  },
+  {
+    "q": "You run 5 machines and want the site to survive losing one. At most how busy can each machine be?",
+    "options": [
+      "100 percent, because the load balancer fixes it",
+      "80 percent, because the 4 left must carry the work of 5",
+      "50 percent, because half should always be spare",
+      "60 percent, because 3 of 5 must stay free"
+    ],
+    "answer": 1,
+    "why": "The safe level is (N minus 1) divided by N, so (5 minus 1) / 5 is 80 percent. The more machines you have, the less you waste on spares."
+  },
+  {
+    "q": "A chat app does 200 requests a second, which one machine could handle, but it must keep working when one machine dies. Up or out?",
+    "options": [
+      "Scale up, because 200 is a small load",
+      "Scale up, because a bigger machine never fails",
+      "Scale out to at least two machines, because the need is a spare, not the load",
+      "Neither, because chat apps cannot be scaled"
+    ],
+    "answer": 2,
+    "why": "The rule here is not the load, it is the spare. One machine is one part that stops everything. First make the servers stateless, with sessions in a shared box, then add the second machine."
+  },
+  {
+    "q": "A team moves all sessions into Redis and says \"Redis holds the sessions, so we are done.\" What is still missing?",
+    "options": [
+      "Nothing, Redis never stops",
+      "Redis is now the one part that stops everything, so it needs a spare copy that takes over",
+      "The sessions should go back into server memory",
+      "A second load balancer in front of Redis"
+    ],
+    "answer": 1,
+    "why": "You moved the single point of failure, you did not remove it. Every request now also takes a small trip to the shared box, and if the box fails, every user is logged out."
+  }
+]
