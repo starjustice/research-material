@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs and monitoring: log rotation, one request, an alert, a health check</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/10-logs-and-monitoring" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Logs and monitoring: log rotation, one request, an alert, a health check</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. Stories 2, 3 and 4 use lines and numbers from a real test on Docker Desktop 29.3.1 (2026-11-13). In story 1 the file sizes are made small on purpose, so you can see the rotation.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> write logs to stdout, one JSON line each, with a level and a request id. Tell Docker to keep only the newest files. Let a health check report the state, and let something else act on it. And check the site from outside, because only that sees what your users see.</p>
+  
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (parseLogLines, filterLogs,
+// errorsPerMinute, findAlert, healthStatus, keptLines). The log lines and numbers come from real
+// runs on Docker Desktop 29.3.1 with node:24-alpine (2026-11-13). Story 1 uses tiny file sizes.
+// ---------------------------------------------------------------------------------------------
+const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
+
+function parseLogLines(text) {
+  const entries = [];
+  let skipped = 0;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (line === "") continue;
+    try {
+      const obj = JSON.parse(line);
+      const isObject = obj !== null && typeof obj === "object" && !Array.isArray(obj);
+      if (isObject && typeof obj.level === "string" && typeof obj.time === "string") entries.push(obj);
+      else skipped++;
+    } catch {
+      skipped++;
+    }
+  }
+  return { entries, skipped };
+}
+function filterLogs(entries, options = {}) {
+  const { minLevel, requestId } = options;
+  return entries.filter((entry) => {
+    if (minLevel !== undefined) {
+      const rank = LEVELS[entry.level];
+      if (rank === undefined || rank < LEVELS[minLevel]) return false;
+    }
+    if (requestId !== undefined && entry.requestId !== requestId) return false;
+    return true;
+  });
+}
+function errorsPerMinute(entries) {
+  const counts = {};
+  for (const entry of entries) {
+    if (entry.level !== "error") continue;
+    const minute = entry.time.slice(0, 16);
+    counts[minute] = (counts[minute] || 0) + 1;
+  }
+  return counts;
+}
+const minuteNumber = (key) => Date.parse(key + ":00Z") / 60000;
+function findAlert(perMinute, threshold, inARow) {
+  let run = 0;
+  let last = null;
+  for (const key of Object.keys(perMinute).sort()) {
+    if (perMinute[key] < threshold) {
+      run = 0;
+      continue;
+    }
+    const nextToLast = last !== null && minuteNumber(key) === minuteNumber(last) + 1;
+    run = nextToLast ? run + 1 : 1;
+    last = key;
+    if (run >= inARow) return key;
+  }
+  return null;
+}
+function healthStatus(results, retries = 3) {
+  let status = "starting";
+  let failingStreak = 0;
+  for (const ok of results) {
+    if (ok) {
+      status = "healthy";
+      failingStreak = 0;
+    } else {
+      failingStreak++;
+      if (failingStreak >= retries) status = "unhealthy";
+    }
+  }
+  return { status, failingStreak };
+}
+// The page also needs the files themselves, not only the lines that are left. Same loop as keptLines.
+function filesOf(lines, maxSize) {
+  const files = [[]];
+  let size = 0;
+  for (const line of lines) {
+    const bytes = line.length + 1;
+    if (size + bytes > maxSize && files[files.length - 1].length > 0) {
+      files.push([]);
+      size = 0;
+    }
+    files[files.length - 1].push(line);
+    size += bytes;
+  }
+  return files;
+}
+function keptLines(lines, maxSize, maxFile) {
+  return filesOf(lines, maxSize).slice(-maxFile).flat();
+}
+const bytesOf = (lines) => lines.reduce((sum, l) => sum + l.length + 1, 0);
+
+// ---- Story 1: log files, with and without a limit ----
+const ROT_LINES = Array.from({ length: 8 }, (_, i) => "request " + (i + 1));
+const MAX_SIZE = 30, MAX_FILE = 2;
+function simulateRotation() {
+  const steps = [];
+  const noLimitBox = (k, lit) => ({ title: "No limit", cls: k ? "alarm" : "lb", tag: ["default", k >= 6 ? "bad" : ""], small: "json-file, max-size not set", layers: k ? [{ name: "one file, " + k + " lines", size: bytesOf(ROT_LINES.slice(0, k)) + " bytes", state: "rebuilt", lit }] : [{ name: "empty", size: "0 bytes", state: "wait" }] });
+  const limitBox = (k, lit) => {
+    const all = filesOf(ROT_LINES.slice(0, k), MAX_SIZE);
+    const gone = Math.max(0, all.length - MAX_FILE);
+    const rows = all.map((f, i) => ({ name: "file " + (i + 1) + ": " + (f.length ? f.map(l => l.replace("request ", "")).join(", ") : "empty"), size: i < gone ? "deleted" : bytesOf(f) + " of " + MAX_SIZE + " bytes", state: i < gone ? "wait" : (i === all.length - 1 ? "now" : "cached"), lit: lit && i === all.length - 1 }));
+    return { title: "max-size 30, max-file 2", cls: "srv", tag: ["rotation on", "ok"], small: "keep the newest 2 files", layers: rows.slice().reverse() };
+  };
+  const usedBox = (k) => {
+    const kept = keptLines(ROT_LINES.slice(0, k), MAX_SIZE, MAX_FILE);
+    return { title: "Disk used", cls: "user", tag: ["so far", ""], small: "", big: { text: bytesOf(kept) + " bytes", neg: false }, bigLabel: "with rotation (no limit: " + bytesOf(ROT_LINES.slice(0, k)) + " bytes)" };
+  };
+  steps.push({ layout: "three", hop: "Setup: two containers, the same app", phase: "setup",
+    note: "<b>Two containers run the same app.</b> The left one has Docker's defaults. The right one was started with <code>--log-opt max-size=30 --log-opt max-file=2</code> (small numbers, so you can see it). Every line the app prints goes to a file on the server. Each line here costs 10 bytes, 9 letters and a newline. Press Next to print the first line.",
+    boxes: [noLimitBox(0, false), limitBox(0, false), usedBox(0)] });
+  let prevFiles = 1, prevGone = 0;
+  ROT_LINES.forEach((line, i) => {
+    const k = i + 1;
+    const all = filesOf(ROT_LINES.slice(0, k), MAX_SIZE);
+    const gone = Math.max(0, all.length - MAX_FILE);
+    let note;
+    if (all.length > prevFiles && gone > prevGone) {
+      const lost = filesOf(ROT_LINES.slice(0, k), MAX_SIZE)[gone - 1].map(l => l.replace("request ", ""));
+      note = "<b>" + line + " does not fit.</b> File " + (all.length - 1) + " already has 30 bytes. Docker starts file " + all.length + ". Only 2 files may stay, so <b>the oldest file is deleted</b>: lines " + lost.join(", ") + " are gone for good. The left container keeps everything.";
+    } else if (all.length > prevFiles) {
+      note = "<b>" + line + " does not fit.</b> File " + (all.length - 1) + " is full (30 bytes). Docker starts file " + all.length + " and writes the line there. 2 files are allowed, so nothing is deleted yet.";
+    } else {
+      note = "<b>" + line + " fits.</b> Docker writes it at the end of file " + all.length + ". The file has " + bytesOf(all[all.length - 1]) + " of 30 bytes now.";
+    }
+    steps.push({ layout: "three", hop: "The app prints " + line, phase: gone > prevGone ? "bad" : "run", note,
+      boxes: [noLimitBox(k, true), limitBox(k, true), usedBox(k)] });
+    prevFiles = all.length; prevGone = gone;
+  });
+  steps.push({ layout: "two", hop: "The real test", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The same thing, for real.</b> I sent 2000 log lines to two containers. <code>docker logs</code> gave back <b>195,236 bytes</b> (2003 lines) from the container with the defaults, and <b>13,052 bytes</b> (133 lines) from the one with <code>max-size=10k</code> and <code>max-file=3</code>. The first lines, such as <code>server started</code>, were gone. With no limit, the file only stops growing when the disk is full.",
+    boxes: [
+      { title: "Defaults", cls: "alarm", tag: ["no limit", "bad"], small: "", big: { text: "195,236 bytes", neg: true }, bigLabel: "kept after 2000 lines (measured)" },
+      { title: "max-size 10k, max-file 3", cls: "srv", tag: ["rotation on", "ok"], small: "", big: { text: "13,052 bytes", neg: false }, bigLabel: "kept after 2000 lines (measured)" }
+    ] });
+  return steps;
+}
+
+// ---- Story 2: find one request in mixed lines ----
+const REQUEST_LOG = [
+  { time: "2026-11-13T23:18:09.254Z", level: "info", msg: "server started", port: 3000 },
+  { time: "2026-11-13T23:18:11.269Z", level: "info", msg: "request start", requestId: "r-ana", method: "GET", path: "/order" },
+  { time: "2026-11-13T23:18:11.269Z", level: "debug", msg: "query orders table", requestId: "r-ana" },
+  { time: "2026-11-13T23:18:11.270Z", level: "info", msg: "request start", requestId: "r-cy", method: "GET", path: "/fail" },
+  { time: "2026-11-13T23:18:11.270Z", level: "error", msg: "payment provider timed out", requestId: "r-cy" },
+  { time: "2026-11-13T23:18:11.273Z", level: "error", msg: "request done", requestId: "r-cy", status: 500, ms: 3 },
+  { time: "2026-11-13T23:18:11.276Z", level: "info", msg: "request start", requestId: "r-bo", method: "GET", path: "/order" },
+  { time: "2026-11-13T23:18:11.276Z", level: "debug", msg: "query orders table", requestId: "r-bo" },
+  { time: "2026-11-13T23:18:11.386Z", level: "info", msg: "request done", requestId: "r-bo", status: 200, ms: 109 },
+  { time: "2026-11-13T23:18:11.574Z", level: "info", msg: "request done", requestId: "r-ana", status: 200, ms: 306 }
+].map(e => JSON.stringify(e)).join("\n");
+const PARSED = parseLogLines(REQUEST_LOG);
+function simulateOneRequest() {
+  const steps = [];
+  const E = PARSED.entries;
+  const clock = e => e.time.slice(17, 23);
+  const rows = (keep, withId) => E.map((e, i) => {
+    const on = keep.includes(e);
+    return { name: clock(e) + " " + e.level + " " + e.msg + (withId && e.requestId ? " " + e.requestId : "") + (e.ms !== undefined ? " " + e.ms + "ms" : ""), size: on ? "match" : "hidden", state: !on ? "wait" : e.level === "error" ? "rebuilt" : "cached", lit: on };
+  });
+  const view = (title, keep, cls, tag, withId) => ({ title, cls, tag, small: "", layers: rows(keep, withId) });
+  const asked = (lines) => ({ title: "You asked", cls: "user", tag: ["a filter", ""], small: "", lines });
+  steps.push({ layout: "two", hop: "Setup: 10 lines, 3 requests at once", phase: "setup",
+    note: "<b>The app handled 3 requests at the same time, so their lines are mixed.</b> The lines are real, from <code>docker logs</code> (" + PARSED.entries.length + " lines read, " + PARSED.skipped + " skipped by <code>parseLogLines</code>). A customer says an order failed. Where do you start?",
+    boxes: [view("All lines", E, "lb", ["10 lines", ""], true), asked(["every line, in time order", "three requests are mixed together"])] });
+  const errors = filterLogs(E, { minLevel: "error" });
+  steps.push({ layout: "two", hop: "Show only errors", phase: "chk",
+    note: "<b><code>filterLogs(entries, { minLevel: \"error\" })</code></b> keeps " + errors.length + " lines. Both have the id <code>" + errors[0].requestId + "</code>. The level cut away the noise, and the id tells you which request to follow.",
+    boxes: [view("After the level filter", errors, "alarm", [errors.length + " lines", "bad"], true), asked(["level: error or worse", "result: both lines say " + errors[0].requestId])] });
+  const cy = filterLogs(E, { requestId: "r-cy" });
+  steps.push({ layout: "two", hop: "Follow one request: r-cy", phase: "srv",
+    note: "<b><code>filterLogs(entries, { requestId: \"r-cy\" })</code></b> gives the whole story in order: it started, the payment provider timed out, and the request ended with status " + cy[2].status + " after " + cy[2].ms + " ms. Without the id on every line, you could not rebuild this.",
+    boxes: [view("Only r-cy", cy, "srv", [cy.length + " lines", "ok"], true), asked(["request id: r-cy", "start, the error, done with status 500"])] });
+  const ana = filterLogs(E, { requestId: "r-ana" });
+  steps.push({ layout: "two", hop: "A slow one: r-ana", phase: "chk",
+    note: "<b>Another customer says an order was slow.</b> The lines for <code>r-ana</code> show no error. But the last line says <b>" + ana[2].ms + " ms</b>, while <code>r-bo</code> took 109 ms. Nothing failed, so a filter on <code>error</code> would never find this one. The id found it.",
+    boxes: [view("Only r-ana", ana, "fol", [ana.length + " lines", "warn"], true), asked(["request id: r-ana", "no error, but 306 ms"])] });
+  const noIds = E.filter(e => e.msg === "request done").map(e => Object.assign({}, e, { requestId: undefined }));
+  steps.push({ layout: "two", hop: "Without ids", phase: "bad", badge: ["Cannot tell", "bad"],
+    note: "<b>Now imagine the lines had no request id.</b> You search for <code>request done</code> and get 3 lines: 3 ms with status 500, 109 ms and 306 ms. Which one is your customer? You cannot tell. The time is not enough, because the three requests ran at the same moment.",
+    boxes: [{ title: "request done, no id", cls: "alarm", tag: ["3 lines", "bad"], small: "", layers: noIds.map(e => ({ name: clock(e) + " " + e.level + " request done " + (e.status || "") + " " + e.ms + "ms", size: "whose?", state: "rebuilt" })) }, asked(["the same 3 lines", "no way to match a line to a customer"])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The level answers \"how bad?\" and the request id answers \"whose?\".</b> Give each request an id at the door, put it in every line, and send it back to the caller in a header. In my app the header is <code>x-request-id</code>.",
+    boxes: [{ title: "Level", cls: "lb", tag: ["how bad", ""], small: "", lines: ["debug, info, warn, error", "production usually runs at info"] }, { title: "Request id", cls: "srv", tag: ["whose", "ok"], small: "", lines: ["one id for every line of one request", "same id in the response header"] }] });
+  return steps;
+}
+
+// ---- Story 3: errors per minute and an alert ----
+const MIN_COUNTS = { "2026-11-13T23:14": 12, "2026-11-13T23:15": 14, "2026-11-13T23:16": 4 };
+const ERR_ENTRIES = [];
+Object.keys(MIN_COUNTS).forEach(key => { for (let i = 0; i < MIN_COUNTS[key]; i++) ERR_ENTRIES.push({ time: key + ":30.000Z", level: "error", msg: "x" }); });
+function simulateAlert() {
+  const steps = [];
+  const THRESHOLD = 5, IN_A_ROW = 2;
+  const per = errorsPerMinute(ERR_ENTRIES);
+  const keys = Object.keys(per).sort();
+  const table = (upto) => ({ title: "Errors per minute", cls: "lb", tag: ["errorsPerMinute", ""], small: "", layers: keys.map((k, i) => ({ name: k.slice(11), size: i < upto ? per[k] + (per[k] >= THRESHOLD ? " bad" : " ok") : "not yet", state: i < upto ? (per[k] >= THRESHOLD ? "rebuilt" : "cached") : "wait", lit: i === upto - 1 })) });
+  const rule = { title: "The rule", cls: "user", tag: ["findAlert", ""], small: "", lines: ["bad minute: " + THRESHOLD + " errors or more", "alert after " + IN_A_ROW + " bad minutes in a row", "a minute with few errors starts the count again"] };
+  const alarmBox = (upto) => {
+    const fired = findAlert(Object.fromEntries(keys.slice(0, upto).map(k => [k, per[k]])), THRESHOLD, IN_A_ROW);
+    return { title: "Alert", cls: fired ? "alarm" : "srv", tag: [fired ? "FIRES" : "quiet", fired ? "bad" : "ok"], small: "", big: { text: fired ? fired.slice(11) : "no", neg: !!fired }, bigLabel: fired ? "the minute that completed the run" : "findAlert returned null" };
+  };
+  steps.push({ layout: "three", hop: "Setup: 30 error lines in 3 minutes", phase: "setup",
+    note: "<b>A real run: " + ERR_ENTRIES.length + " error lines in 3 minutes.</b> A failed request wrote 2 error lines, so 15 failed requests gave 30 lines. <code>errorsPerMinute</code> cuts the time at the minute and counts. The rule: a bad minute has " + THRESHOLD + " errors or more, and we alert after " + IN_A_ROW + " bad minutes in a row.",
+    boxes: [table(0), rule, alarmBox(0)] });
+  keys.forEach((k, i) => {
+    const upto = i + 1, bad = per[k] >= THRESHOLD;
+    const fired = findAlert(Object.fromEntries(keys.slice(0, upto).map(x => [x, per[x]])), THRESHOLD, IN_A_ROW);
+    const prevBad = i > 0 && per[keys[i - 1]] >= THRESHOLD;
+    let note;
+    if (!bad) note = "<b>" + k.slice(11) + ": " + per[k] + " errors.</b> That is under " + THRESHOLD + ", so this minute is not bad. The alert already fired in the minute before, and it does not take back what it said.";
+    else if (!prevBad) note = "<b>" + k.slice(11) + ": " + per[k] + " errors.</b> That is " + THRESHOLD + " or more, so this minute is bad. It is the first one, and we need " + IN_A_ROW + " in a row. No alert yet. One bad minute can be a short spike.";
+    else note = "<b>" + k.slice(11) + ": " + per[k] + " errors.</b> Bad again, and it touches the minute before. That is " + IN_A_ROW + " in a row, so <code>findAlert</code> returns <code>" + fired + "</code>. <b>Someone is paged now.</b>";
+    steps.push({ layout: "three", hop: "Minute " + k.slice(11), phase: fired && bad && prevBad ? "bad" : "run", badge: fired && bad && prevBad ? ["Alert", "bad"] : undefined, note, boxes: [table(upto), rule, alarmBox(upto)] });
+  });
+  const broken = Object.assign({}, per, { "2026-11-13T23:15": 3 });
+  steps.push({ layout: "two", hop: "What if the middle minute was quiet", phase: "chk",
+    note: "<b>Try the same data with 3 errors at 23:15.</b> Now <code>findAlert</code> returns <code>" + findAlert(broken, THRESHOLD, IN_A_ROW) + "</code>: the bad minutes do not touch, so the run starts again. With the rule \"5 errors, 1 minute\" you would have been paged at <b>" + findAlert(per, THRESHOLD, 1).slice(11) + "</b>, one minute earlier, and also for every short spike.",
+    boxes: [
+      { title: "Rule: 2 in a row", cls: "srv", tag: ["calmer", "ok"], small: "", big: { text: findAlert(per, THRESHOLD, 2).slice(11), neg: false }, bigLabel: "alert on the real data" },
+      { title: "Rule: 1 minute", cls: "fol", tag: ["faster, noisier", "warn"], small: "", big: { text: findAlert(per, THRESHOLD, 1).slice(11), neg: false }, bigLabel: "alert on the real data" }
+    ] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>An alert is a sentence: \"wake me if X is true for Y minutes\".</b> Pick X from what users feel (errors, the site being down). Pick Y so a short spike does not wake you. Too many alerts and people stop reading them.",
+    boxes: [{ title: "X: what", cls: "lb", tag: ["a symptom", ""], small: "", lines: ["errors per minute", "the site does not answer", "the disk is nearly full"] }, { title: "Y: how long", cls: "srv", tag: ["a few minutes", ""], small: "", lines: ["1 minute is noisy", "2 or 3 in a row is calmer", "too long means users wait"] }] });
+  return steps;
+}
+
+// ---- Story 4: a health check, from starting to unhealthy and back ----
+const CHECKS = [true, false, false, false, false, true];
+const FAIL_TEXT = "wget: server returned error: HTTP/1.1 500 Internal Server Error";
+function simulateHealth() {
+  const steps = [];
+  const RETRIES = 3;
+  const stateBox = (n) => {
+    const r = healthStatus(CHECKS.slice(0, n), RETRIES);
+    const cls = r.status === "unhealthy" ? "alarm" : r.status === "healthy" ? "srv" : "lb";
+    return { title: "State of the container", cls, tag: [r.status, r.status === "unhealthy" ? "bad" : r.status === "healthy" ? "ok" : ""], small: "docker ps shows (" + (r.status === "starting" ? "health: starting" : r.status) + ")", big: { text: String(r.failingStreak), neg: r.failingStreak > 0 }, bigLabel: "FailingStreak (retries is " + RETRIES + ")" };
+  };
+  const procBox = (n) => ({ title: "The container itself", cls: "fol", tag: ["not touched", ""], small: "", lines: ["running: true", "restarts: 0 (also with --restart=always)", n ? "Docker only wrote down the state" : "nothing has run yet"] });
+  steps.push({ layout: "three", hop: "Setup: a container with a HEALTHCHECK", phase: "setup",
+    note: "<b>The Dockerfile has a <code>HEALTHCHECK</code>.</b> Docker runs the command inside the container, again and again. Exit code 0 means pass and 1 means fail. This demo checks every 2 seconds. The default is every 30 seconds. The state starts as <code>starting</code>.",
+    boxes: [{ title: "Docker's check", cls: "user", tag: ["every 2 s", ""], small: "", lines: ["wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1", "pass: exit 0", "fail: exit 1"] }, stateBox(0), procBox(0)] });
+  CHECKS.forEach((ok, i) => {
+    const n = i + 1;
+    const r = healthStatus(CHECKS.slice(0, n), RETRIES);
+    const before = healthStatus(CHECKS.slice(0, i), RETRIES);
+    let note;
+    if (ok && before.status === "starting") note = "<b>Check " + n + " passes.</b> The first pass moves the container from <code>starting</code> to <code>healthy</code>.";
+    else if (ok) note = "<b>Check " + n + " passes.</b> One pass is enough: the status goes back to <code>healthy</code> and the streak goes back to 0. In my test the fix endpoint was called, and the next check passed.";
+    else if (r.status === "unhealthy" && before.status !== "unhealthy") note = "<b>Check " + n + " fails.</b> That is failure number " + r.failingStreak + ", and retries is " + RETRIES + ". <b>The status becomes <code>unhealthy</code>.</b> Docker writes a <code>health_status: unhealthy</code> event. Look at the right box: it did not restart anything.";
+    else if (r.status === "unhealthy") note = "<b>Check " + n + " fails.</b> The streak keeps counting (" + r.failingStreak + "). Still unhealthy. Still no restart, and I tested it with <code>--restart=always</code> too.";
+    else note = "<b>Check " + n + " fails.</b> That is failure number " + r.failingStreak + ". It is less than " + RETRIES + ", so the status stays <code>" + r.status + "</code>. One bad answer is not enough to call it sick.";
+    steps.push({ layout: "three", hop: "Check " + n + ": " + (ok ? "pass" : "fail"), phase: ok ? "srv" : (r.status === "unhealthy" ? "bad" : "chk"), badge: r.status === "unhealthy" ? ["unhealthy", "bad"] : undefined, note,
+      boxes: [{ title: "Docker's check", cls: ok ? "srv" : "alarm", tag: [ok ? "exit 0" : "exit 1", ok ? "ok" : "bad"], small: "", lines: ok ? ["the app answered 200", "output: nothing"] : [FAIL_TEXT, "kept in docker inspect, first 4096 bytes"] }, stateBox(n), procBox(n)] });
+  });
+  steps.push({ layout: "two", hop: "Who acts on the state?", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A health check only reports.</b> Plain Docker did not restart the container (restarts stayed 0). Docker Swarm, which CapRover uses, is different: the Docker docs say its scheduler \"may reschedule your running service containers at any time if they become unhealthy or unreachable\". That part is from the docs, not run here.",
+    boxes: [{ title: "Plain docker run", cls: "fol", tag: ["measured", "warn"], small: "", lines: ["state: unhealthy", "restarts: 0", "you or a tool must act"] }, { title: "Docker Swarm", cls: "srv", tag: ["from the docs", "ok"], small: "", lines: ["the scheduler may replace the task", "a new task starts", "not run here"] }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Logs fill the disk", sim: simulateRotation,
+    why: "Docker's default log driver, json-file, has no size limit. Rotation only happens when you set max-size, and max-file says how many files to keep. Without both, one noisy container can fill the disk of the whole server.",
+    predict: { q: "A container runs for a year with Docker's default log settings. What stops its log file from growing?", options: ["Docker rotates it at 10 MB by default", "Nothing stops it", "Linux deletes old lines by itself"], answer: "Nothing stops it" } },
+  { name: "2. Find one request", sim: simulateOneRequest,
+    why: "Three requests ran at once, so their lines are mixed. The level tells you how bad a line is, and the request id tells you which request it belongs to. Without the id, you cannot match a line to a customer.",
+    predict: { q: "Three requests overlap in the logs. Which field lets you pull out the lines of one of them?", options: ["The time", "The level", "The request id"], answer: "The request id" } },
+  { name: "3. Count and alert", sim: simulateAlert,
+    why: "The counts are 12, 14 and 4. With a bad minute of 5 errors and a need for 2 in a row, the second bad minute (23:15) completes the run. The third minute only has 4, so it is not bad.",
+    predict: { q: "Errors per minute at 23:14, 23:15, 23:16 are 12, 14 and 4. The rule is 5 or more, 2 minutes in a row. At which minute does the alert fire?", options: ["23:14", "23:15", "23:16"], answer: "23:15" } },
+  { name: "4. A health check", sim: simulateHealth,
+    why: "A health check only changes the state shown by Docker. With plain Docker, even --restart=always did not restart the unhealthy container. Something else (Swarm, Kubernetes, or you) has to act on the state.",
+    predict: { q: "A container turns unhealthy. With plain Docker and --restart=always, what does Docker do?", options: ["It restarts the container", "Nothing, it only changes the state", "It stops and removes the container"], answer: "Nothing, it only changes the state" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateRotation, simulateOneRequest, simulateAlert, simulateHealth, STORIES, parseLogLines, filterLogs, errorsPerMinute, findAlert, healthStatus, keptLines };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

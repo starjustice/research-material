@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Your Node app runs in a container and calls console.log. Where should the log lines go?",
+    "options": [
+      "Into a file named app.log inside the container",
+      "To stdout and stderr, so Docker can keep them and docker logs can read them",
+      "Into the database, one row per line",
+      "Nowhere, containers do not keep logs"
+    ],
+    "answer": 1,
+    "why": "The app only prints. Docker catches stdout and stderr and keeps them in a file on the host. A file inside the container is lost when the container is removed."
+  },
+  {
+    "q": "A container runs for a year with Docker's default log settings (json-file). What stops its log file from growing?",
+    "options": [
+      "Docker rotates the file at 10 MB by default",
+      "Linux deletes the oldest lines by itself",
+      "Nothing, because max-size is unlimited by default",
+      "The container restarts every week"
+    ],
+    "answer": 2,
+    "why": "The Docker docs say max-size defaults to -1 (unlimited). In my test the container with defaults kept all 2003 lines (195,236 bytes), and the one with max-size 10k and max-file 3 kept 133 lines (13,052 bytes)."
+  },
+  {
+    "q": "Three requests run at the same time, so their log lines are mixed. Which field lets you pull out the lines of one customer's request?",
+    "options": [
+      "The log level",
+      "The time",
+      "The request id",
+      "The message text"
+    ],
+    "answer": 2,
+    "why": "The level says how bad a line is. The request id says whose line it is. Three requests ran at the same moment, so the time cannot tell them apart."
+  },
+  {
+    "q": "Errors per minute at 23:14, 23:15 and 23:16 are 12, 14 and 4. The rule is: 5 or more errors, 2 minutes in a row. When does the alert fire?",
+    "options": [
+      "At 23:14, the first bad minute",
+      "At 23:15, the minute that completes 2 bad minutes in a row",
+      "At 23:16, after all three minutes",
+      "It never fires"
+    ],
+    "answer": 1,
+    "why": "23:14 is the first bad minute, and one is not enough. 23:15 is bad too and touches it, so the run is complete. 23:16 has only 4 errors and does not matter any more."
+  },
+  {
+    "q": "A container with a failing HEALTHCHECK turns unhealthy. It runs with plain Docker and --restart=always. What does Docker do?",
+    "options": [
+      "It restarts the container at once",
+      "It stops and removes the container",
+      "Nothing but change the state to unhealthy, so something else must act",
+      "It sends an email"
+    ],
+    "answer": 2,
+    "why": "In my test the state became unhealthy after 3 failed checks, and RestartCount stayed 0 with the policy set to always. Docker Swarm and Kubernetes can act on the state. Plain Docker does not."
+  },
+  {
+    "q": "Docker says your container is healthy, but users cannot open the site. What is the best extra check?",
+    "options": [
+      "A check from outside, like a visitor, that asks the public address",
+      "A second health check inside the same container",
+      "A higher log level",
+      "Nothing, the health check is enough"
+    ],
+    "answer": 0,
+    "why": "A check inside sees only the container. A broken proxy, DNS or certificate stays invisible from inside. A check from another machine sees what users see."
+  }
+]

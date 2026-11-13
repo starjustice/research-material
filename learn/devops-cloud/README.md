@@ -64,7 +64,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 |---|---|---|---|
 | 08 | [Reverse proxy and Nginx](08-reverse-proxy-and-nginx.md) | what sits in front of your app | ready |
 | 09 | [Config and secrets](09-config-and-secrets.md) | environment variables, secret stores | ready |
-| 10 | Logs and monitoring `10-logs-and-monitoring.md` | what to watch in production | planned |
+| 10 | [Logs and monitoring](10-logs-and-monitoring.md) | what to watch in production | ready |
 | 18 | Linux survival skills `18-linux-survival-skills.md` | processes, ports, permissions, systemd, ssh | planned |
 | 19 | HTTPS and certificates in practice `19-https-and-certificates-in-practice.md` | TLS termination, Let's Encrypt, renewal | planned |
 | 20 | Metrics, dashboards and alerts `20-metrics-dashboards-and-alerts.md` | Prometheus, Grafana, alerts that do not wake you for nothing | planned |

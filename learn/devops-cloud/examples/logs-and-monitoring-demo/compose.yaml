@@ -1,0 +1,10 @@
+services:
+  api:
+    image: lesson10-app
+    ports:
+      - "127.0.0.1:38013:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

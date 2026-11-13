@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say why settings live outside the code, tell a setting from a secret, explain why a secret in git or in an image layer is still there after you delete it, predict what a `NEXT_PUBLIC_` value does after the build, and say what to do in the first hour after a secret leaks.
 >
-> **Before this:** [Reverse proxy and Nginx](08-reverse-proxy-and-nginx.md) · **Next:** Logs and monitoring (planned)
+> **Before this:** [Reverse proxy and Nginx](08-reverse-proxy-and-nginx.md) · **Next:** [Logs and monitoring](10-logs-and-monitoring.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Every secret in this lesson is a made up text like `not-a-real-secret`. About 20 minutes for the cards.
 
@@ -695,7 +695,7 @@ Close this file. Explain config and secrets out loud like to a new junior, in 4 
 ## Connected lessons
 
 - [Reverse proxy and Nginx](08-reverse-proxy-and-nginx.md) - the lesson before. The proxy is where HTTPS ends. Its private key is a secret too.
-- Logs and monitoring (planned) - the next lesson. Logs are where secrets leak by accident, so the masking in card 8 is the first step there.
+- [Logs and monitoring](10-logs-and-monitoring.md) - the next lesson. Logs are where secrets leak by accident, so the masking in card 8 is the first step there.
 - [Docker images and layers](02-docker-images-and-layers.md) - why a layer cannot forget a file (card 4 there).
 - [Docker Compose](03-docker-compose.md) - `environment:` and `env_file:`. Compose `secrets:` is in card 6 here.
 - [Kubernetes objects](04-kubernetes-objects.md) - ConfigMap and Secret. The base64 point is in card 6 here.

@@ -280,6 +280,14 @@
   "count": 6
  },
  {
+  "slug": "learn/devops-cloud/10-logs-and-monitoring",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "10",
+  "title": "Logs and monitoring",
+  "count": 6
+ },
+ {
   "slug": "learn/problem-solving/01-big-o-time-and-space",
   "subject": "problem-solving",
   "subjectTitle": "Problem Solving Practice (JavaScript)",
