@@ -248,6 +248,38 @@
   "count": 6
  },
  {
+  "slug": "learn/devops-cloud/06-cloud-models",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "06",
+  "title": "Cloud models",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/07-serverless",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "07",
+  "title": "Serverless",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/08-reverse-proxy-and-nginx",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "08",
+  "title": "Reverse proxy and Nginx",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/09-config-and-secrets",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "09",
+  "title": "Config and secrets",
+  "count": 6
+ },
+ {
   "slug": "learn/problem-solving/01-big-o-time-and-space",
   "subject": "problem-solving",
   "subjectTitle": "Problem Solving Practice (JavaScript)",

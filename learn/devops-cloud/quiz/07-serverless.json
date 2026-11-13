@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Your API gets 1,000 calls a day, and each call runs your code for 100 ms. How long does your code really run in a day, and what does that tell you about an always-on server?",
+    "options": [
+      "About 100 seconds, so an always-on server pays for almost the whole day when nothing runs",
+      "About 100 minutes, so an always-on server is well used",
+      "About 24 hours, because a server never stops",
+      "About 1 second, so serverless is not worth it"
+    ],
+    "answer": 0,
+    "why": "1,000 calls times 0.1 seconds is 100 seconds, about 0.12 percent of the 86,400 seconds in a day. A server bills for being on, and serverless bills for the work."
+  },
+  {
+    "q": "A friend says: \"Serverless means there are no servers.\" What is the best answer?",
+    "options": [
+      "Right, the code runs in the browser",
+      "Wrong, the code still runs on a machine, but the platform manages it: no patching, sizing or restarts for you",
+      "Right, but only on AWS",
+      "Wrong, because serverless means you rent one big server"
+    ],
+    "answer": 1,
+    "why": "Serverless still has servers. You do not manage them. You upload a function, a trigger such as a web request or a timer runs it, and the platform does the rest."
+  },
+  {
+    "q": "The same function gets two requests, one second apart. Which statement is true?",
+    "options": [
+      "Both are cold, because every request starts a new copy",
+      "The second is cold, because the first used up the copy",
+      "The first is cold because setup code runs first, and the second reuses the copy and is warm",
+      "Neither is cold, because a platform always keeps copies ready"
+    ],
+    "answer": 2,
+    "why": "The first call on a new copy pays the cold start: the platform makes a copy and runs the setup code. Later calls on the same copy skip it. In the lesson model the first call took 500 ms and the second took 100 ms."
+  },
+  {
+    "q": "Nobody calls your function for an hour. What do you pay for that hour, and what happens on the next call?",
+    "options": [
+      "You pay the same as a busy hour, and the next call is warm",
+      "You pay nothing, and the next call is cold because the platform removed the idle copy",
+      "You pay half, and the next call is warm",
+      "You pay nothing, and the next call is warm"
+    ],
+    "answer": 1,
+    "why": "This is scale to zero: no calls means no copies and no bill. The price is that the next call needs a new copy, so it is cold."
+  },
+  {
+    "q": "A login is saved in a variable inside your function. Later a user is suddenly logged out. What is the most likely cause?",
+    "options": [
+      "The database is down",
+      "The next request landed on another copy, or the copy was removed, and a variable in one copy is not shared",
+      "The cold start made the variable bigger",
+      "Serverless always forgets passwords"
+    ],
+    "answer": 1,
+    "why": "A function should be stateless. Each copy has its own memory, and the platform can remove a copy at any time. Keep sessions and counters in a database, in a cache such as Redis, or in a token such as a JWT."
+  },
+  {
+    "q": "A burst makes 500 function copies, and each one opens a connection to Postgres. Postgres allows about 100 connections by default. What is the right fix?",
+    "options": [
+      "Add more memory to every function",
+      "Put a connection pool between the copies and Postgres",
+      "Open the connection inside the handler for each call",
+      "Turn off scale to zero"
+    ],
+    "answer": 1,
+    "why": "Many copies means many connections. A pooler such as PgBouncer shares a few real connections among many callers. Without it, new connections are refused and calls fail."
+  }
+]

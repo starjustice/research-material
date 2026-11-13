@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud models: who looks after which layer, zones and regions</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/06-cloud-models" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Cloud models: who looks after which layer</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. The layer tables are a model made for this lesson. The ping times in story 4 were measured on 2026-11-14.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> every model answers one question, who looks after which layer. Climbing from on-prem to IaaS, PaaS and SaaS, you look after fewer layers, with less control. Your data is yours in every model. Spread over zones to survive a building failing, and pick the region near your users.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (whoManages, yourLayerCount,
+// chooseModel, survives, nearestRegion). The four stories only feed it data and show the result.
+// The ping times were measured with curl on 2026-11-14 (TCP connect time, best of 5 tries).
+// ---------------------------------------------------------------------------------------------
+const OWNERS = {
+  "on-prem":          { data: "you", code: "you", runtime: "you", platform: "you",      os: "you", vm: "you",      building: "you" },
+  "iaas":             { data: "you", code: "you", runtime: "you", platform: "you",      os: "you", vm: "provider", building: "provider" },
+  "paas":             { data: "you", code: "you", runtime: "provider", platform: "provider", os: "provider", vm: "provider", building: "provider" },
+  "saas":             { data: "you", code: "provider", runtime: "provider", platform: "provider", os: "provider", vm: "provider", building: "provider" },
+  "self-hosted-paas": { data: "you", code: "you", runtime: "you", platform: "tool",     os: "you", vm: "provider", building: "provider" },
+};
+function whoManages(layers, model) {
+  const table = OWNERS[model];
+  if (!table) throw new Error("unknown model: " + model);
+  return layers.map(layer => {
+    if (!(layer in table)) throw new Error("unknown layer: " + layer);
+    return { layer, owner: table[layer] };
+  });
+}
+function yourLayerCount(layers, model) {
+  return whoManages(layers, model).filter(x => x.owner === "you").length;
+}
+function chooseModel(needs) {
+  const { writesCode = false, needsOsControl = false, mustOwnHardware = false, hasOpsPerson = false } = needs;
+  let model, reason;
+  if (mustOwnHardware) { model = "on-prem"; reason = "The rules say the machines stay in your own building."; }
+  else if (!writesCode) { model = "saas"; reason = "You only need to use finished software, so you write no code."; }
+  else if (needsOsControl) { model = "iaas"; reason = "You need to change the operating system, so you rent a machine and look after it."; }
+  else { model = "paas"; reason = "You only bring code and data, and the provider looks after the rest."; }
+  const warning = (model === "iaas" || model === "on-prem") && !hasOpsPerson;
+  return { model, reason, warning };
+}
+function survives(placement, failedZones) {
+  const running = placement.filter(p => !failedZones.includes(p.zone)).map(p => p.name);
+  return { up: running.length > 0, running };
+}
+function nearestRegion(pings) {
+  if (pings.length === 0) return null;
+  return pings.reduce((best, p) => (p.ms < best.ms ? p : best)).region;
+}
+
+const ALL = ["data", "code", "runtime", "platform", "os", "vm", "building"];
+const NAME = {
+  data: "Your data and settings", code: "Your code", runtime: "Runtime (Node)", platform: "Platform: deploy, restart, HTTPS",
+  os: "Operating system", vm: "Virtual machine", building: "Building and machines"
+};
+const OWNER_WORD = { you: "YOU", provider: "provider", tool: "the tool" };
+const OWNER_STATE = { you: "write", provider: "cached", tool: "base" };
+const MODEL_TITLE = { "on-prem": "On-prem", iaas: "IaaS", paas: "PaaS", saas: "SaaS", "self-hosted-paas": "Self-hosted PaaS" };
+
+// One row of the stack. revealed is the list of layers whose owner is known at this step.
+function stack(model, revealed, lit) {
+  const answer = whoManages(ALL, model);
+  return answer.map(a => {
+    const known = !revealed || revealed.indexOf(a.layer) >= 0;
+    return { name: NAME[a.layer], size: known ? OWNER_WORD[a.owner] : "?", state: known ? OWNER_STATE[a.owner] : "wait", lit: lit === a.layer };
+  });
+}
+const countBox = (model, revealed) => {
+  const shown = revealed || ALL;
+  const n = yourLayerCount(shown, model);
+  return { title: "Layers you look after", cls: "user", tag: [MODEL_TITLE[model], ""], small: "", big: { text: n + " of " + ALL.length, neg: n >= 5 }, bigLabel: "counted by yourLayerCount" };
+};
+
+// ---- Story 1: the ladder ----
+function simulateLadder() {
+  const steps = [];
+  steps.push({ layout: "three", hop: "Setup: seven layers, no owner yet", phase: "setup",
+    note: "<b>A running web app is a stack of seven layers.</b> Somebody must look after each one: the building and machines, the virtual machine, the operating system, the platform (deploy, restart, HTTPS), the runtime, your code and your data. The four cloud models are four answers to one question: <b>who looks after which layer?</b> Press Next.",
+    boxes: [
+      { title: "The seven layers", cls: "lb", tag: ["top to bottom", ""], small: "", layers: stack("on-prem", []) },
+      { title: "The question", cls: "fol", tag: ["one question", "warn"], small: "", lines: ["Who looks after each layer?", "you, or the provider?"] },
+      { title: "Layers you look after", cls: "user", tag: ["not known yet", ""], small: "", big: { text: "? of 7", neg: false }, bigLabel: "" }
+    ] });
+  const stories = [
+    ["on-prem", "On-prem: your own building", ["Servers in your own room or building", "You buy, power, cool and fix them", "Nobody else looks after any layer"], "yes: you patch it"],
+    ["iaas", "IaaS: you rent a machine", ["Amazon EC2, or a rented VPS", "The provider owns the building and the virtual machine", "You get an empty machine and do the rest"], "yes: you patch it"],
+    ["paas", "PaaS: you push code", ["Heroku, Vercel", "The provider looks after everything under your code", "You bring code and data"], "no: the provider patches it"],
+    ["saas", "SaaS: you just use it", ["Gmail, Notion, Stripe", "The provider runs the code too", "You bring your data and your settings"], "no: the provider patches it"]
+  ];
+  stories.forEach(([model, hop, lines, patch]) => {
+    const n = yourLayerCount(ALL, model);
+    steps.push({ layout: "three", hop: hop, phase: model === "paas" || model === "saas" ? "srv" : "chk", badge: [MODEL_TITLE[model], model === "on-prem" || model === "iaas" ? "chk" : "srv"],
+      note: "<b>" + MODEL_TITLE[model] + ".</b> <code>whoManages</code> gives the owner of each layer. Count the orange rows: <b>" + n + " of 7</b> are yours. Who patches the operating system? <b>" + patch + "</b>.",
+      boxes: [
+        { title: "Owner of each layer", cls: "lb", tag: [MODEL_TITLE[model], ""], small: "", layers: stack(model) },
+        countBox(model),
+        { title: "Example", cls: "srv", tag: ["real products", ""], small: "", lines }
+      ] });
+  });
+  steps.push({ layout: "two", hop: "The ladder", phase: "done", badge: ["Finished", "done"],
+    note: "<b>" + ["on-prem", "iaas", "paas", "saas"].map(m => MODEL_TITLE[m] + " " + yourLayerCount(ALL, m)).join(", ") + ".</b> Climbing the ladder, you look after fewer layers. The price: less control and, per unit, often a higher bill. And <b>your data is yours in every row</b>. The next lesson, serverless, goes one step higher than PaaS.",
+    boxes: [
+      { title: "Your work", cls: "alarm", tag: ["goes down", "warn"], small: "", lines: ["on-prem 7", "IaaS 5", "PaaS 2", "SaaS 1"] },
+      { title: "Never moves", cls: "srv", tag: ["always yours", "ok"], small: "", lines: ["your data", "who may open it (access)", "your settings"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 2: CapRover on a rented server ----
+function simulateCapRover() {
+  const steps = [];
+  const M = "self-hosted-paas";
+  const order = [
+    [["building", "vm"], "A rented server", "The provider looks after the <b>building and machines</b> and the <b>virtual machine</b>. You get a server with a public address. A rented server like this is what people call a VPS.", ["Provider: building, machines, virtual machine", "You: nothing yet"], "run"],
+    [["os"], "You install the operating system", "The CapRover docs say to install it <b>on a fresh Ubuntu 24.04 server</b> (checked 2026-11-14). Updating Ubuntu stays <b>your</b> job. This is the IaaS part.", ["Ubuntu 24.04", "You patch it", "You keep it running"], "chk"],
+    [["platform"], "CapRover takes the platform layer", "You install CapRover. Now <b>the tool</b> looks after the platform layer: it builds your image from your Dockerfile, updates the Swarm service, rewrites the nginx config and asks Let's Encrypt for a certificate. This is the PaaS part.", ["builds the image", "updates the Swarm service", "regenerates nginx", "Let's Encrypt certificate"], "srv"],
+    [["runtime", "code"], "You write the Dockerfile and the code", "With a Dockerfile, the line <code>FROM node:24-alpine</code> picks the runtime, so the runtime stays <b>yours</b>. Your code is yours too. In a real PaaS such as Heroku, the platform picks and updates the runtime for you.", ["FROM node:24-alpine", "COPY and RUN lines", "your app code"], "chk"],
+    [["data"], "Your data", "Data on a persistent folder or in a database is <b>yours</b>. In CapRover, backups are your job (Docker and CapRover internals guide). This layer is yours in every model.", ["persistent directories", "backups are your job", "who may open it"], "bad"]
+  ];
+  let revealed = [];
+  steps.push({ layout: "three", hop: "Setup: CapRover on a rented server", phase: "setup",
+    note: "<b>CapRover calls itself a self-hosted PaaS.</b> Which layers does it really give you? Press Next and watch the rows get an owner. The tool is blue, the provider is green, you are orange.",
+    boxes: [
+      { title: "The seven layers", cls: "lb", tag: ["no owner yet", ""], small: "", layers: stack(M, []) },
+      { title: "The setup", cls: "fol", tag: ["an example", "warn"], small: "", lines: ["a rented server", "CapRover installed on it", "your Node API in a container"] },
+      countBox(M, [])
+    ] });
+  order.forEach(([layers, hop, note, lines, phase]) => {
+    revealed = revealed.concat(layers);
+    steps.push({ layout: "three", hop, phase,
+      note,
+      boxes: [
+        { title: "Owner of each layer", cls: "lb", tag: [MODEL_TITLE[M], ""], small: "", layers: stack(M, revealed, layers[0]) },
+        { title: "At this step", cls: phase === "srv" ? "srv" : "fol", tag: ["what happens", ""], small: "", lines },
+        countBox(M, revealed)
+      ] });
+  });
+  const n = yourLayerCount(ALL, M);
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>" + n + " of 7 layers are yours, 1 belongs to the tool.</b> Plain IaaS would be " + yourLayerCount(ALL, "iaas") + " and a real PaaS " + yourLayerCount(ALL, "paas") + ". So CapRover is <b>roughly</b> a PaaS you run yourself: it takes the platform layer, but the operating system, the runtime and the machine's health stay with you. CapRover itself is software you must also update.",
+    boxes: [
+      { title: "Self-hosted PaaS", cls: "lb", tag: ["in between", ""], big: { text: n + " of 7", neg: false }, bigLabel: "layers you look after, plus 1 for the tool", small: "" },
+      { title: "The tradeoff", cls: "fol", tag: ["control, effort, cost", "warn"], small: "", lines: ["more control than a real PaaS", "more work than a real PaaS", "no vendor in the middle", "one server is one point of failure"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 3: choose a model ----
+const SCENARIOS = [
+  { text: "A 3 person team ships a Node API. It needs nothing special.", needs: { writesCode: true } },
+  { text: "The same team needs a custom system package, and one person knows servers.", needs: { writesCode: true, needsOsControl: true, hasOpsPerson: true } },
+  { text: "The same need, but nobody on the team can look after servers.", needs: { writesCode: true, needsOsControl: true } },
+  { text: "The team only needs a chat tool. It writes no code for it.", needs: {} },
+  { text: "A rule says the machines must stay in the company's own building.", needs: { writesCode: true, mustOwnHardware: true, hasOpsPerson: true } }
+];
+function simulateChoose() {
+  const steps = [];
+  steps.push({ layout: "three", hop: "Setup: four questions, asked in order", phase: "setup",
+    note: "<b>The chooser asks four things, in this order.</b> 1) Must the machines stay in your own building? Then on-prem. 2) Do you write code? If not, SaaS. 3) Do you need to change the operating system? Then IaaS. 4) Otherwise, PaaS. It also warns when you pick IaaS or on-prem and have nobody to look after it. This is a small model, not the whole truth: real choices also weigh cost and skills.",
+    boxes: [
+      { title: "Question 1", cls: "alarm", tag: ["first", ""], small: "", lines: ["mustOwnHardware?", "yes: on-prem"] },
+      { title: "Questions 2 and 3", cls: "fol", tag: ["next", ""], small: "", lines: ["writesCode? no: SaaS", "needsOsControl? yes: IaaS"] },
+      { title: "Question 4", cls: "srv", tag: ["last", ""], small: "", lines: ["nothing special: PaaS", "warning: IaaS or on-prem and no hasOpsPerson"] }
+    ] });
+  SCENARIOS.forEach((s, i) => {
+    const r = chooseModel(s.needs);
+    const yn = k => (s.needs[k] ? "yes" : "no");
+    steps.push({ layout: "three", hop: "Case " + (i + 1) + " of " + SCENARIOS.length, phase: r.warning ? "bad" : "srv", badge: [MODEL_TITLE[r.model] + (r.warning ? " with a warning" : ""), r.warning ? "bad" : "srv"],
+      note: "<b>" + s.text + "</b> <code>chooseModel</code> says <b>" + MODEL_TITLE[r.model] + "</b>. " + r.reason + (r.warning ? " <b>Warning:</b> you look after the low layers and have nobody to do it." : ""),
+      boxes: [
+        { title: "The needs", cls: "lb", tag: ["input", ""], small: "", lines: ["writesCode: " + yn("writesCode"), "needsOsControl: " + yn("needsOsControl"), "mustOwnHardware: " + yn("mustOwnHardware"), "hasOpsPerson: " + yn("hasOpsPerson")] },
+        { title: "The answer", cls: r.warning ? "alarm" : "srv", tag: [MODEL_TITLE[r.model], r.warning ? "bad" : "ok"], small: "", big: { text: MODEL_TITLE[r.model], neg: r.warning }, bigLabel: r.warning ? "with a warning" : "no warning" },
+        { title: "Layers you look after", cls: "user", tag: ["for this model", ""], small: "", big: { text: yourLayerCount(ALL, r.model) + " of 7", neg: false }, bigLabel: "" }
+      ] });
+  });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Pick by what you need, not by fashion.</b> The more layers you look after, the more control you have, and the more work. The warning is the part people forget: control only helps when a person has time to use it.",
+    boxes: [
+      { title: "More control", cls: "fol", tag: ["IaaS, on-prem", "warn"], small: "", lines: ["more layers are yours", "more work, a person is needed", "you pay for the machine, on or off"] },
+      { title: "Less work", cls: "srv", tag: ["PaaS, SaaS", "ok"], small: "", lines: ["fewer layers are yours", "less control", "often a higher price per unit"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 4: zones, regions and one failure ----
+const SPREAD = [{ name: "api-1", zone: "a" }, { name: "api-2", zone: "b" }, { name: "api-3", zone: "c" }];
+const ONE = SPREAD.map(p => ({ name: p.name, zone: "a" }));
+const PINGS = [{ region: "us-east-1", ms: 293.0 }, { region: "ap-southeast-1", ms: 25.6 }, { region: "eu-west-1", ms: 198.6 }, { region: "ap-southeast-2", ms: 302.9 }];
+function zoneBoxes(placement, failed) {
+  const r = survives(placement, failed);
+  return ["a", "b", "c"].map(z => {
+    const inZone = placement.filter(p => p.zone === z);
+    const down = failed.indexOf(z) >= 0;
+    return { title: "Zone " + z, cls: down ? "alarm" : "srv", tag: [down ? "DOWN" : "up", down ? "bad" : "ok"], small: "",
+      layers: inZone.map(p => ({ name: p.name, size: down ? "gone" : "running", state: down ? "rebuilt" : "cached" })),
+      lines: inZone.length ? [] : ["no instance here"] };
+  });
+}
+function simulateZones() {
+  const steps = [];
+  const status = (placement, failed) => {
+    const r = survives(placement, failed);
+    return r.up ? "<b>The service is UP</b> with " + r.running.length + " of " + placement.length + " instances (" + r.running.join(", ") + ")." : "<b>The service is DOWN.</b> No instance is running.";
+  };
+  steps.push({ layout: "three", hop: "Setup: one region, three zones", phase: "setup",
+    note: "<b>One region holds several zones.</b> A zone is one or more data centers with their own power and network. AWS says each region has at least three (checked 2026-11-14). Here all 3 instances of your API sit in <b>zone a</b>. Press Next.",
+    boxes: zoneBoxes(ONE, []) });
+  steps.push({ layout: "three", hop: "Case: zone a loses power", phase: "bad", badge: ["Zone a is down", "bad"],
+    note: status(ONE, ["a"]) + " The AWS docs say it plainly: if you host all your EC2 instances in one zone and it fails, none of them are available. Three instances did not help, because they share one zone.",
+    boxes: zoneBoxes(ONE, ["a"]) });
+  steps.push({ layout: "three", hop: "Spread the same 3 instances", phase: "run",
+    note: "<b>Same 3 instances, one per zone.</b> It costs the same number of machines. The zones are separate buildings, so one problem should not reach the others.",
+    boxes: zoneBoxes(SPREAD, []) });
+  steps.push({ layout: "three", hop: "Case: zone b loses power", phase: "srv", badge: ["Still up", "srv"],
+    note: status(SPREAD, ["b"]) + " <code>survives</code> counts the instances in the zones that are not down.",
+    boxes: zoneBoxes(SPREAD, ["b"]) });
+  steps.push({ layout: "three", hop: "Case: zones a and c lose power", phase: "chk", badge: ["One left", "chk"],
+    note: status(SPREAD, ["a", "c"]) + " It is up, but one instance may be too slow for all your traffic. Up is not the same as healthy.",
+    boxes: zoneBoxes(SPREAD, ["a", "c"]) });
+  steps.push({ layout: "three", hop: "The whole region goes dark", phase: "bad", badge: ["Region down", "bad"],
+    note: status(SPREAD, ["a", "b", "c"]) + " A region failing means all its zones fail together. To survive that you need a copy in a second region. AWS says resources can be copied across regions, but it does not do this for you. The system design lesson on disaster recovery covers the cost.",
+    boxes: zoneBoxes(SPREAD, ["a", "b", "c"]) });
+  const best = nearestRegion(PINGS);
+  steps.push({ layout: "two", hop: "Which region? Pick the near one", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Regions are far apart, and distance costs time.</b> These are real connect times from the machine that made this lesson (<code>curl</code> to <code>dynamodb.REGION.amazonaws.com/ping</code>, best of 5, 2026-11-14). <code>nearestRegion</code> picks <b>" + best + "</b>. Your users decide the right answer, not this table.",
+    boxes: [
+      { title: "Time to reach each region", cls: "lb", tag: ["measured", "ok"], small: "", layers: PINGS.map(p => ({ name: p.region, size: p.ms.toFixed(1) + " ms", state: p.region === best ? "cached" : "base", lit: p.region === best })) },
+      { title: "The pick", cls: "srv", tag: ["nearestRegion", "ok"], small: "", big: { text: best, neg: false }, bigLabel: "smallest time" }
+    ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. The ladder", sim: simulateLadder,
+    why: "Each step up the ladder hands more layers to the provider. IaaS hands over the building and the virtual machine, PaaS also the operating system, platform and runtime, and SaaS also your code. Your data stays yours in every model.",
+    predict: { q: "You rent a virtual machine from a cloud company (IaaS). Who installs the operating system updates?", options: ["The cloud company", "You", "Nobody, it needs none"], answer: "You" } },
+  { name: "2. CapRover on a server", sim: simulateCapRover,
+    why: "CapRover takes the platform layer: build, deploy, nginx and certificates. The operating system underneath and the runtime in your Dockerfile are still yours, so it sits between IaaS (5 layers yours) and a real PaaS (2).",
+    predict: { q: "CapRover runs on a server you rent. Who updates Ubuntu on that server?", options: ["CapRover does it", "The server provider does it", "You do"], answer: "You do" } },
+  { name: "3. Choose a model", sim: simulateChoose,
+    why: "The chooser checks four questions in order. Owning the hardware beats everything, then no code means SaaS, then needing the operating system means IaaS, and otherwise PaaS. IaaS and on-prem warn when nobody can look after the low layers.",
+    predict: { q: "A team that writes code needs a custom operating system package, and nobody can look after servers. What does the chooser say?", options: ["PaaS, no warning", "IaaS, with a warning", "SaaS"], answer: "IaaS, with a warning" } },
+  { name: "4. A zone fails", sim: simulateZones,
+    why: "A zone is a separate building. Instances spread over three zones survive the loss of one or two. Instances in one zone all die together, however many there are. Only a copy in another region survives a whole region failing.",
+    predict: { q: "3 instances all run in zone a, and zone a loses power. How many instances still run?", options: ["2", "1", "0"], answer: "0" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateLadder, simulateCapRover, simulateChoose, simulateZones, STORIES, whoManages, yourLayerCount, chooseModel, survives, nearestRegion };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

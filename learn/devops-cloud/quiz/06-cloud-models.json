@@ -1,0 +1,68 @@
+[
+  {
+    "q": "You rent a virtual machine from a cloud company (IaaS) and run your Node API on it. A security fix for the operating system comes out. Whose job is it to install it?",
+    "options": [
+      "The cloud company, because it owns the machine",
+      "Yours, because with IaaS the operating system and everything above it are yours",
+      "Nobody, a virtual machine updates itself",
+      "The company that wrote Node"
+    ],
+    "answer": 1,
+    "why": "With IaaS the provider looks after the building, the machines and the virtual machine layer. You get an empty machine and look after the operating system, the platform, the runtime, your code and your data. AWS says the same about EC2: the customer manages the guest operating system, including patching."
+  },
+  {
+    "q": "You push your code to a PaaS such as Heroku or Vercel. Out of the seven layers, which two are still yours?",
+    "options": [
+      "The operating system and the runtime",
+      "The platform and the virtual machine",
+      "Your code and your data",
+      "Only your data"
+    ],
+    "answer": 2,
+    "why": "A PaaS looks after everything under your code: runtime, platform, operating system, virtual machine and building. You bring your code and your data. With SaaS you would only bring your data."
+  },
+  {
+    "q": "CapRover runs on a server you rent. Which sentence is true?",
+    "options": [
+      "CapRover updates Ubuntu on the server for you",
+      "The server provider updates Ubuntu and CapRover",
+      "CapRover takes the platform layer (build, deploy, nginx, certificates), but you still update Ubuntu and choose the runtime in your Dockerfile",
+      "CapRover makes the server safe from a power failure"
+    ],
+    "answer": 2,
+    "why": "CapRover calls itself a self-hosted PaaS. It builds the image, updates the Swarm service, rewrites the nginx config and asks Let's Encrypt for a certificate. The docs tell you to install it on a fresh Ubuntu server, so the operating system stays yours. That is why it is roughly a PaaS you run yourself, with more work than a real PaaS."
+  },
+  {
+    "q": "What do the words public, private and hybrid describe?",
+    "options": [
+      "Who looks after each layer of the stack",
+      "Whose buildings the machines are in and who may use them",
+      "How fast the cloud is",
+      "Which programming language you can use"
+    ],
+    "answer": 1,
+    "why": "IaaS, PaaS and SaaS answer who looks after the layers. Public, private and hybrid answer a different question: where the machines are and who may use them. NIST says a public cloud is for open use and sits at the provider, a private cloud is for one organization, and a hybrid cloud binds two or more kinds together. The two questions are separate, so you can have IaaS in a private cloud."
+  },
+  {
+    "q": "You run 3 copies of your API, all in zone a of one region, and zone a loses power. How many copies still run?",
+    "options": [
+      "Two, because only one data center failed",
+      "One",
+      "None, because all three share the same zone",
+      "All three, because the region is still up"
+    ],
+    "answer": 2,
+    "why": "A zone is a separate building with its own power and network. Copies in one zone fail together, however many you have. AWS says that if all your EC2 instances are in one zone and it fails, none are available. Spread the copies over zones so one building cannot take them all."
+  },
+  {
+    "q": "Your company uses a SaaS tool. An employee leaves, and their account stays open. Whose job is it to close it?",
+    "options": [
+      "The SaaS provider, because it runs the whole product",
+      "Yours, because accounts, access and your data are yours in every model",
+      "The cloud region",
+      "Nobody, accounts close after 30 days"
+    ],
+    "answer": 1,
+    "why": "The provider secures the cloud itself: buildings, machines and the software it runs. You secure what you put in it. Your data, your accounts and who may open them stay yours in IaaS, PaaS and SaaS. The Azure shared responsibility table lists data, identities and users as the customer's in all four columns."
+  }
+]

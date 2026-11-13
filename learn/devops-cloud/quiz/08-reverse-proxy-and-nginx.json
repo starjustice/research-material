@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A server has one public HTTPS port, and you run a web app and an API as two programs. How can both answer on that one port?",
+    "options": [
+      "Each app must have its own public port, and the browser must know both",
+      "One reverse proxy owns the port and passes each request to the right app by host and path",
+      "The two apps share the port by taking turns",
+      "Docker opens the port twice"
+    ],
+    "answer": 1,
+    "why": "Only one program can listen on a port. A reverse proxy such as nginx owns the front door, reads the host and the path of each request, and passes it to an app behind it. The browser only knows the proxy."
+  },
+  {
+    "q": "nginx has two server blocks, shop.example.test first and admin.example.test second. A request arrives with Host: other.test. What happens?",
+    "options": [
+      "nginx answers 404 at once",
+      "nginx refuses the connection",
+      "The first server block answers, because it is the default server for the port",
+      "The second server block answers, because it is the last one"
+    ],
+    "answer": 2,
+    "why": "When no server_name matches, nginx uses the default server for that port, which is the first one unless you mark another. In the real run, other.test got the shop home page."
+  },
+  {
+    "q": "A pool has app1 and app2. app1 is stopped and app2 runs. What status do users get?",
+    "options": [
+      "502 for every second request",
+      "502 for every request until app1 returns",
+      "200 for every request, because nginx tries the next app for the same request",
+      "504 after 60 seconds"
+    ],
+    "answer": 2,
+    "why": "A refused connection makes nginx try the next app in the pool for the same request, so users see no error. The nginx log shows the refused connection. The cost is that app2 now carries all the work."
+  },
+  {
+    "q": "Both apps were down and gave 502. You start them again. What do users get at once?",
+    "options": [
+      "200 at once, because the apps are up",
+      "502 can last about 10 seconds, because nginx rests a failed app for fail_timeout (10 seconds by default)",
+      "504 for 60 seconds",
+      "A 404 until you restart nginx"
+    ],
+    "answer": 1,
+    "why": "nginx marks a failed app as down and leaves it alone for fail_timeout, 10 seconds by default. In the real run the answers were 502 until about 10 seconds after the apps were back, and then 200. The app is up before nginx knows it is up."
+  },
+  {
+    "q": "Your Express app sits behind nginx and you set nothing else. What does req.ip show, and what fixes it?",
+    "options": [
+      "The real client address, always",
+      "nginx's address. Set X-Forwarded-For in nginx and trust proxy in Express",
+      "No address, because proxies hide it",
+      "The address of the database"
+    ],
+    "answer": 1,
+    "why": "The app talks to nginx, not to the browser, so by default it sees nginx as the sender (Express derives the address from the socket). Set proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for in nginx, and set trust proxy in Express so it reads the list from the right."
+  },
+  {
+    "q": "In CapRover, where does HTTPS end, and what does your Node app speak behind it?",
+    "options": [
+      "HTTPS ends in your Node app, which holds the certificate",
+      "HTTPS ends in nginx, and your app speaks plain HTTP behind it",
+      "HTTPS ends in the database",
+      "HTTPS is not used in CapRover"
+    ],
+    "answer": 1,
+    "why": "CapRover runs nginx as a reverse proxy in front of each app. TLS terminates in nginx, with a certificate from Let's Encrypt, and the Swarm service speaks plain HTTP. This is the same idea as an ingress controller in Kubernetes."
+  }
+]

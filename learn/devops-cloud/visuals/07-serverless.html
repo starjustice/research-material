@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serverless: cold starts, scale to zero, limits and the bill</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/07-serverless" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Serverless: cold starts, scale to zero, limits and the bill</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. Stories 1 to 3 run the same model as the lesson practice, with example numbers (not a real platform). Story 4 uses the AWS Lambda price list checked on 2026-11-13.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a function runs in a copy that the platform starts when needed and removes when idle. The first call on a new copy is cold and slow. Later calls on the same copy are warm and fast. You pay for the work, so serverless is cheap for low or bursty traffic, and a fixed server can be cheaper for steady high traffic.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (billedMs, expireIdle,
+// runPlatform, monthlyCost, breakEvenCalls). The numbers in stories 1 to 3 are example numbers
+// made for the model, not measurements of a real platform. Story 4 uses the AWS Lambda price
+// for x86 in US East (N. Virginia): $0.20 per million requests and $0.0000166667 per GB-second
+// (AWS Lambda pricing page, checked 2026-11-13). The free tier is left out. The $20 server is
+// an example number, not a quote.
+// ---------------------------------------------------------------------------------------------
+function billedMs(durationMs) {
+  return Math.ceil(durationMs);
+}
+function expireIdle(instances, now, idleTimeoutMs) {
+  return instances.filter(i => i.busyUntil > now || now - i.busyUntil < idleTimeoutMs);
+}
+function runPlatform(config, requests) {
+  let pool = [];
+  let created = 0;
+  return requests.map(req => {
+    pool = expireIdle(pool, req.at, config.idleTimeoutMs);
+    const free = pool.find(i => i.busyUntil <= req.at);
+    if (free) {
+      free.busyUntil = req.at + req.durationMs;
+      return { kind: "warm", instance: free.id, latencyMs: req.durationMs, billedMs: billedMs(req.durationMs) };
+    }
+    if (pool.length < config.maxInstances) {
+      created += 1;
+      const latency = config.coldStartMs + req.durationMs;
+      pool.push({ id: created, busyUntil: req.at + latency });
+      const billed = config.billColdStart ? latency : req.durationMs;
+      return { kind: "cold", instance: created, latencyMs: latency, billedMs: billedMs(billed) };
+    }
+    return { kind: "throttled", instance: null, latencyMs: 0, billedMs: 0 };
+  });
+}
+function monthlyCost(p) {
+  const gbSeconds = p.calls * (billedMs(p.avgMs) / 1000) * (p.memoryMb / 1024);
+  const total = gbSeconds * p.pricePerGbSecond + (p.calls / 1e6) * p.pricePerMillionCalls;
+  return Math.round(total * 100) / 100;
+}
+function breakEvenCalls(fixedMonthly, costPerMillionCalls) {
+  return Math.ceil((fixedMonthly * 1e6) / costPerMillionCalls);
+}
+
+const CFG = { coldStartMs: 400, idleTimeoutMs: 10000, maxInstances: 3, billColdStart: true };
+const sec = ms => (ms / 1000).toString().replace(/\.0$/, "") + " s";
+const money = n => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = n => n.toLocaleString("en-US");
+
+// What is in the pool at time "now", after the first "upto" requests were handled.
+// An instance is { id, busyUntil }. busyUntil is at + latency of the request it handled last.
+function poolAt(results, requests, upto, now, idleTimeoutMs) {
+  const byId = {};
+  for (let i = 0; i < upto; i++) {
+    if (results[i].instance !== null) byId[results[i].instance] = { id: results[i].instance, busyUntil: requests[i].at + results[i].latencyMs };
+  }
+  const all = Object.values(byId).sort((a, b) => a.id - b.id);
+  const alive = expireIdle(all, now, idleTimeoutMs);
+  return { alive };
+}
+// instances that are gone after request "upto" and are not already gone at time prevNow
+function removedBetween(results, requests, upto, prevNow, now, idle) {
+  const before = poolAt(results, requests, upto, prevNow, idle).alive.map(i => i.id);
+  const after = poolAt(results, requests, upto, now, idle).alive.map(i => i.id);
+  return before.filter(id => after.indexOf(id) < 0);
+}
+
+function instLayer(i, now, extra) {
+  const busy = i.busyUntil > now;
+  return Object.assign({
+    name: "Copy " + i.id,
+    size: busy ? "busy until " + sec(i.busyUntil) : "idle, ready",
+    state: busy ? "write" : "cached"
+  }, extra || {});
+}
+
+function simulateRequests(config, requests, intro) {
+  const steps = [];
+  const results = runPlatform(config, requests);
+  const total = (k, f) => results.slice(0, k).filter(f).length;
+  const billed = k => results.slice(0, k).reduce((s, r) => s + r.billedMs, 0);
+  steps.push({ layout: "three", hop: "Setup: an empty platform", phase: "setup",
+    note: intro,
+    boxes: [
+      { title: "Your function", cls: "user", tag: ["uploaded", ""], small: "", lines: ["no copy is running", "no cost yet"] },
+      { title: "The platform pool", cls: "lb", tag: ["0 copies", ""], small: "", lines: ["limit: " + config.maxInstances + " copies at once", "an idle copy is removed after " + sec(config.idleTimeoutMs), "a cold start takes " + config.coldStartMs + " ms"] },
+      { title: "Requests coming", cls: "fol", tag: [requests.length + " requests", "warn"], small: "", lines: requests.map((r, i) => "#" + (i + 1) + " at " + sec(r.at) + ", runs " + r.durationMs + " ms") }
+    ] });
+  requests.forEach((req, k) => {
+    const prevNow = k === 0 ? 0 : requests[k - 1].at;
+    if (k > 0) {
+      const removed = removedBetween(results, requests, k, prevNow + 0, req.at, config.idleTimeoutMs);
+      if (removed.length) {
+        const aliveBefore = poolAt(results, requests, k, prevNow, config.idleTimeoutMs).alive;
+        steps.push({ layout: "three", hop: "Quiet time before request #" + (k + 1), phase: "bad", badge: ["Scale to zero", "bad"],
+          note: "<b>Nobody calls for a while.</b> A copy that stays idle for " + sec(config.idleTimeoutMs) + " is removed. Here " + removed.length + " copy is removed, and the pool is <b>" + poolAt(results, requests, k, req.at, config.idleTimeoutMs).alive.length + " copies</b>. You pay <b>nothing</b> while it is empty. A real platform does not promise how long it keeps an idle copy, so " + sec(config.idleTimeoutMs) + " is an example.",
+          boxes: [
+            { title: "The platform pool", cls: "alarm", tag: ["0 copies", "bad"], small: "", layers: aliveBefore.filter(i => removed.indexOf(i.id) >= 0).map(i => ({ name: "Copy " + i.id, size: "removed", state: "rebuilt" })) },
+            { title: "The clock", cls: "user", tag: ["time passes", ""], small: "", big: { text: sec(req.at), neg: false }, bigLabel: "next request arrives at this time" },
+            { title: "Cost while empty", cls: "srv", tag: ["scale to zero", "ok"], small: "", big: { text: "$0", neg: false }, bigLabel: "no copy, no bill" }
+          ] });
+      }
+    }
+    const r = results[k];
+    const pool = poolAt(results, requests, k + 1, req.at, config.idleTimeoutMs).alive;
+    const before = poolAt(results, requests, k, req.at, config.idleTimeoutMs).alive;
+    const upto = k + 1;
+    let why;
+    if (r.kind === "cold") {
+      why = "<b>COLD.</b> No copy is free" + (before.length ? " (" + (before.length === 1 ? "the 1 copy is" : "all " + before.length + " copies are") + " busy)" : " (the pool is empty)") + ", and the pool is below its limit. The platform makes <b>copy " + r.instance + "</b>. It loads the code and runs the setup code first. That costs <b>" + config.coldStartMs + " ms</b>. Latency = " + config.coldStartMs + " + " + req.durationMs + " = <b>" + r.latencyMs + " ms</b>." + (config.billColdStart ? " The cold start is billed too (AWS Lambda bills the setup phase for most functions since 2025-08-01), so you pay for <b>" + r.billedMs + " ms</b>." : "");
+    } else if (r.kind === "warm") {
+      why = "<b>WARM.</b> Copy " + r.instance + " is free and still alive. The platform sends the request straight to it. No setup. Latency = <b>" + r.latencyMs + " ms</b>, and you pay for <b>" + r.billedMs + " ms</b>.";
+    } else {
+      why = "<b>THROTTLED.</b> All " + config.maxInstances + " copies are busy, and the limit is " + config.maxInstances + ". The platform <b>rejects</b> the request (on AWS Lambda a sync call gets a 429 error). Nothing runs, nothing is billed.";
+    }
+    steps.push({ layout: "three", hop: "Request #" + (k + 1) + " at " + sec(req.at), phase: r.kind === "cold" ? "chk" : r.kind === "warm" ? "srv" : "bad", badge: [r.kind.toUpperCase(), r.kind === "cold" ? "chk" : r.kind === "warm" ? "srv" : "bad"],
+      note: why,
+      boxes: [
+        { title: "Request #" + (k + 1), cls: r.kind === "throttled" ? "alarm" : r.kind === "cold" ? "fol" : "srv", tag: [r.kind, r.kind === "warm" ? "ok" : r.kind === "cold" ? "warn" : "bad"], small: "", big: { text: r.kind === "throttled" ? "rejected" : r.latencyMs + " ms", neg: r.kind !== "warm" }, bigLabel: r.kind === "throttled" ? "nothing ran" : "time the caller waited", lines: ["arrives at " + sec(req.at), "its code runs " + req.durationMs + " ms"] },
+        { title: "The platform pool", cls: "lb", tag: [pool.length + " of " + config.maxInstances + " copies", ""], small: "", layers: pool.length ? pool.map(i => instLayer(i, req.at, i.id === r.instance && r.kind === "cold" ? { lit: true, size: "new, busy until " + sec(i.busyUntil) } : (i.id === r.instance ? { lit: true } : {}))) : [{ name: "no copies", size: "", state: "wait" }] },
+        { title: "Counters so far", cls: "user", tag: ["after #" + upto, ""], small: "", lines: ["cold: " + total(upto, x => x.kind === "cold"), "warm: " + total(upto, x => x.kind === "warm"), "throttled: " + total(upto, x => x.kind === "throttled"), "billed time: " + billed(upto) + " ms"] }
+      ] });
+  });
+  return { steps, results };
+}
+
+function simulateColdWarm() {
+  const reqs = [{ at: 0, durationMs: 100 }, { at: 1000, durationMs: 100 }, { at: 2000, durationMs: 100 }];
+  const { steps, results } = simulateRequests(CFG, reqs, "<b>You uploaded a function. Nothing runs yet.</b> Three requests will come, one second apart, and each one needs 100 ms of work. The platform has no copy of your function ready. Press Next and watch what the first request costs.");
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Only the first request was cold:</b> " + results.map(r => r.latencyMs + " ms").join(", ") + ". The setup ran once, and the next two requests reused the copy. In a real Node test the same shape appeared: a fresh process took about 104 ms, its setup code took about 63 ms, and a second call took 0.002 ms.",
+    boxes: [
+      { title: "Cold request", cls: "alarm", tag: ["first call", "bad"], small: "", big: { text: results[0].latencyMs + " ms", neg: true }, bigLabel: "setup + code" },
+      { title: "Warm request", cls: "srv", tag: ["later calls", "ok"], small: "", big: { text: results[1].latencyMs + " ms", neg: false }, bigLabel: "code only" }
+    ] });
+  return steps;
+}
+function simulateScaleToZero() {
+  const reqs = [{ at: 0, durationMs: 100 }, { at: 1000, durationMs: 100 }, { at: 30000, durationMs: 100 }];
+  const { steps, results } = simulateRequests(CFG, reqs, "<b>Same function, but the third request comes late.</b> Requests come at 0 s, 1 s and 30 s. The platform removes a copy that was idle for " + sec(CFG.idleTimeoutMs) + " (an example number). Predict the third one before you press Next.");
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The third request was cold again</b> (" + results[2].latencyMs + " ms), because the copy was removed during the quiet time. That is the price of scale to zero. The gain is that you paid $0 from about 11 s to 30 s. If a cold start hurts, you can pay to keep copies ready (AWS calls it provisioned concurrency).",
+    boxes: [
+      { title: "Calls", cls: "lb", tag: ["kinds", ""], small: "", lines: results.map((r, i) => "#" + (i + 1) + ": " + r.kind + ", " + r.latencyMs + " ms") },
+      { title: "Idle cost", cls: "srv", tag: ["scale to zero", "ok"], small: "", big: { text: "$0", neg: false }, bigLabel: "while no copy exists" }
+    ] });
+  return steps;
+}
+function simulateBurst() {
+  const reqs = [0, 0, 0, 0, 0].map(at => ({ at, durationMs: 500 })).concat([{ at: 5000, durationMs: 500 }]);
+  const { steps, results } = simulateRequests(CFG, reqs, "<b>Five requests arrive at the same moment.</b> Each copy handles one request at a time, so the platform needs five copies. But this platform allows only " + CFG.maxInstances + " at once (a concurrency limit). Predict how many requests are rejected. A sixth request comes later.");
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>" + results.filter(r => r.kind === "cold").length + " cold, " + results.filter(r => r.kind === "throttled").length + " throttled, " + results.filter(r => r.kind === "warm").length + " warm.</b> A burst makes many cold starts at once, and a limit protects you and the platform. On AWS Lambda the default limit is 1,000 copies at once in one region, and the throttled calls get an error to retry (AWS docs, checked 2026-11-13). The sixth request, later, reused copy 1.",
+    boxes: [
+      { title: "Burst of 5", cls: "alarm", tag: ["limit " + CFG.maxInstances, "bad"], small: "", lines: results.slice(0, 5).map((r, i) => "#" + (i + 1) + ": " + r.kind) },
+      { title: "After the burst", cls: "srv", tag: ["calm", "ok"], small: "", lines: ["#6: " + results[5].kind + " on copy " + results[5].instance] }
+    ] });
+  return steps;
+}
+
+// ---- Story 4: the bill ----
+const PRICE = { avgMs: 200, memoryMb: 512, pricePerGbSecond: 0.0000166667, pricePerMillionCalls: 0.2 };
+const SERVER = 20;
+function simulateBill() {
+  const steps = [];
+  const perMillion = monthlyCost(Object.assign({ calls: 1000000 }, PRICE));
+  const be = breakEvenCalls(SERVER, perMillion);
+  steps.push({ layout: "three", hop: "Setup: two ways to pay", phase: "setup",
+    note: "<b>The function runs 200 ms and uses 512 MB.</b> Serverless bills each call: " + money(perMillion) + " for every million calls (time price plus request price, free tier left out). A small always-on server costs a fixed <b>" + money(SERVER) + "</b> a month in this example. Press Next to raise the traffic.",
+    boxes: [
+      { title: "Serverless", cls: "lb", tag: ["pay per call", ""], small: "", lines: ["200 ms and 512 MB per call", "$0.20 per million requests", "$0.0000166667 per GB-second", "AWS Lambda x86, US East"] },
+      { title: "Server", cls: "fol", tag: ["fixed", "warn"], small: "", big: { text: money(SERVER), neg: false }, bigLabel: "per month, example number" },
+      { title: "Break even", cls: "user", tag: ["to find", ""], small: "", lines: ["breakEvenCalls(20, " + perMillion + ")", "is the number of calls where", "serverless costs as much"] }
+    ] });
+  [100000, 1000000, 10000000, be, 100000000].forEach(calls => {
+    const isBe = calls === be;
+    const cost = isBe ? SERVER : monthlyCost(Object.assign({ calls }, PRICE));
+    const cheaper = cost < SERVER;
+    steps.push({ layout: "three", hop: num(calls) + " calls a month" + (isBe ? " (break even)" : ""), phase: cheaper ? "srv" : "bad", badge: [isBe ? "Same price" : cheaper ? "Serverless wins" : "Server wins", isBe ? "chk" : cheaper ? "srv" : "bad"],
+      note: isBe
+        ? "<b>" + num(be) + " calls a month</b> is where serverless reaches " + money(SERVER) + ". That is about <b>" + num(Math.round(be / 30)) + " calls a day</b>. Below it, serverless is cheaper. Above it, the fixed server is cheaper. The model uses the rounded $" + perMillion + " per million calls, and counts only function time and requests. Real bills add data transfer, logs and more, so the real crossing can be earlier."
+        : "At <b>" + num(calls) + " calls</b> serverless costs <b>" + money(cost) + "</b>. The server costs " + money(SERVER) + ". " + (cheaper ? (cost < SERVER / 2 ? "Serverless is much cheaper at this traffic." : "Serverless is still cheaper, but the gap is small now. The crossing is close.") : "The fixed server is now cheaper, and the gap grows with every call."),
+      boxes: [
+        { title: "Serverless", cls: cheaper || isBe ? "srv" : "alarm", tag: [cheaper ? "cheaper" : isBe ? "equal" : "dearer", cheaper ? "ok" : isBe ? "warn" : "bad"], small: "", big: { text: money(cost), neg: !cheaper && !isBe }, bigLabel: "per month for " + num(calls) + " calls" },
+        { title: "Server", cls: "fol", tag: ["fixed", "warn"], small: "", big: { text: money(SERVER), neg: false }, bigLabel: "per month, always on" },
+        { title: "Per day", cls: "user", tag: ["traffic", ""], small: "", big: { text: num(Math.round(calls / 30)), neg: false }, bigLabel: "calls a day (a 30 day month)" }
+      ] });
+  });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Serverless is cheap when traffic is low or comes in bursts, because you pay only for the work.</b> A steady high load is cheaper on a fixed server. The exact crossing depends on your numbers, so work it out with your own call time, memory and price. Also, a server needs someone to patch and watch it. Add that time to the server side.",
+    boxes: [
+      { title: "Low or bursty traffic", cls: "srv", tag: ["serverless", "ok"], small: "", lines: ["idle time is free", "no server to look after"] },
+      { title: "Steady high traffic", cls: "fol", tag: ["server or container", "warn"], small: "", lines: ["a fixed price spreads thin", "you control copies and connections"] }
+    ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Cold, then warm", sim: simulateColdWarm,
+    why: "A new copy has to start and run its setup code first. That is the cold start. The next requests reuse the copy, so they skip it.",
+    predict: { q: "Three requests come one second apart. How many of them are cold?", options: ["All 3", "Only the first", "None"], answer: "Only the first" } },
+  { name: "2. Scale to zero", sim: simulateScaleToZero,
+    why: "The platform removes a copy that has been idle too long. With no copy there is no cost, and the next request has to start a new copy.",
+    predict: { q: "Requests at 0 s, 1 s and 30 s. Idle copies are removed after 10 s. How many are cold?", options: ["1", "2", "3"], answer: "2" } },
+  { name: "3. A burst and the limit", sim: simulateBurst,
+    why: "Each copy does one request at a time, so five requests at once need five copies. With a limit of 3, the other two are rejected.",
+    predict: { q: "Five requests arrive at the same moment. The limit is 3 copies. How many are rejected?", options: ["0", "2", "5"], answer: "2" } },
+  { name: "4. The bill", sim: simulateBill,
+    why: "Serverless costs a little for every call, so it wins when calls are few. A fixed server costs the same all month, so it wins when calls are many.",
+    predict: { q: "A server costs $20 a month. Serverless costs about $1.87 per million calls. At about how many calls a month do they cost the same?", options: ["About 100 thousand", "About 10 million", "About 10 billion"], answer: "About 10 million" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateColdWarm, simulateScaleToZero, simulateBurst, simulateBill, STORIES, runPlatform, expireIdle, billedMs, monthlyCost, breakEvenCalls };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

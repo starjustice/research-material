@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say what a pipeline does after every push, explain why a failed stage stops the line, tell continuous integration, continuous delivery and continuous deployment apart, say why you build once and keep old builds, and explain how a cache key is made.
 >
-> **Before this:** [Kubernetes objects](04-kubernetes-objects.md) · **Next:** Cloud models (planned)
+> **Before this:** [Kubernetes objects](04-kubernetes-objects.md) · **Next:** [Cloud models](06-cloud-models.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The pipeline in this lesson is a small script that was run for real on a laptop with Docker. What GitHub does on its own machines, and what CapRover does, comes from their docs (checked 2026-11-13) and is marked "from the docs, not run here". About 20 minutes for the cards.
 
@@ -726,8 +726,8 @@ Close this file. Explain a CI/CD pipeline out loud like to a new junior, in 4 pa
 
 - [Kubernetes objects](04-kubernetes-objects.md) - the lesson before. A pipeline builds the image and then updates the Deployment.
 - [Docker images and layers](02-docker-images-and-layers.md) - the build stage and the layer cache from card 6.
-- Cloud models (planned) - the next lesson. Where the deployed app runs.
-- Config and secrets (planned) - where the deploy token and other secrets are kept.
+- [Cloud models](06-cloud-models.md) - the next lesson. Where the deployed app runs.
+- [Config and secrets](09-config-and-secrets.md) - where the deploy token and other secrets are kept.
 - GitHub Actions in practice (planned) - the CI tool from card 2, in full.
 - Git branching and release strategies (planned) - when a pipeline runs, and what a release is.
 - What CapRover does for you (planned) - the stages after the pipeline.

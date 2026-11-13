@@ -52,8 +52,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 06 | Cloud models `06-cloud-models.md` | IaaS, PaaS, SaaS, FaaS | planned |
-| 07 | Serverless `07-serverless.md` | cold starts, limits, when it fits | planned |
+| 06 | [Cloud models](06-cloud-models.md) | IaaS, PaaS, SaaS, FaaS | ready |
+| 07 | [Serverless](07-serverless.md) | cold starts, limits, when it fits | ready |
 | 15 | The AWS map for a web developer `15-the-aws-map-for-a-web-developer.md` | EC2, S3, RDS, Lambda, ECS and what you pick | planned |
 | 16 | IAM and least privilege `16-iam-and-least-privilege.md` | users, roles, policies, why no star permissions | planned |
 | 17 | VPC networking basics `17-vpc-networking-basics.md` | subnets, security groups, NAT, what is public | planned |
@@ -62,8 +62,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 08 | Reverse proxy and Nginx `08-reverse-proxy-and-nginx.md` | what sits in front of your app | planned |
-| 09 | Config and secrets `09-config-and-secrets.md` | environment variables, secret stores | planned |
+| 08 | [Reverse proxy and Nginx](08-reverse-proxy-and-nginx.md) | what sits in front of your app | ready |
+| 09 | [Config and secrets](09-config-and-secrets.md) | environment variables, secret stores | ready |
 | 10 | Logs and monitoring `10-logs-and-monitoring.md` | what to watch in production | planned |
 | 18 | Linux survival skills `18-linux-survival-skills.md` | processes, ports, permissions, systemd, ssh | planned |
 | 19 | HTTPS and certificates in practice `19-https-and-certificates-in-practice.md` | TLS termination, Let's Encrypt, renewal | planned |

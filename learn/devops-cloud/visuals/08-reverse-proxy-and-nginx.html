@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reverse proxy and Nginx: one request, the rules, a pool of apps, and the headers</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/08-reverse-proxy-and-nginx" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Reverse proxy and Nginx: one request, the rules, a pool of apps, and the headers</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. The outputs come from real nginx 1.30.6 runs in Docker, and the steps run the same code as the practice answer. Steps that come from the model only say so.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> nginx picks the server by the Host header, the location by the longest prefix, and then sends the request to one app in the pool. The app only talks to nginx, so pass the host and the client address in headers. No app up means 502.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (pickServer, pickLocation,
+// forwardedFor, createProxy). The outputs in the notes come from real runs of nginx 1.30.6 in
+// Docker Desktop 29.3.1 (2026-11-13). Steps that come from the model only say so.
+// ---------------------------------------------------------------------------------------------
+function pickServer(servers, host) {
+  if (servers.length === 0) return null;
+  const exact = servers.find((server) => server.name === host);
+  return exact || servers[0];
+}
+function pickLocation(server, path) {
+  let best = null;
+  for (const location of server.locations) {
+    if (!path.startsWith(location.prefix)) continue;
+    if (best === null || location.prefix.length > best.prefix.length) best = location;
+  }
+  return best;
+}
+function forwardedFor(existing, clientIp) {
+  return existing ? existing + ", " + clientIp : clientIp;
+}
+function createProxy(config, health) {
+  const next = {};
+  return function handle(request) {
+    const server = pickServer(config.servers, request.host);
+    if (server === null) return { status: 404 };
+    const location = pickLocation(server, request.path);
+    if (location === null) return { status: 404 };
+    if (location.static) return { status: 200, from: "static" };
+    const apps = config.upstreams[location.upstream] || [];
+    const start = next[location.upstream] || 0;
+    for (let i = 0; i < apps.length; i++) {
+      const index = (start + i) % apps.length;
+      const app = apps[index];
+      if (health[app] !== true) continue;
+      next[location.upstream] = index + 1;
+      const sent = request.headers && request.headers["x-forwarded-for"];
+      return { status: 200, from: app, headers: { host: request.host, "x-forwarded-for": forwardedFor(sent, request.clientIp), "x-forwarded-proto": "http" } };
+    }
+    return { status: 502 };
+  };
+}
+
+const CONFIG = {
+  servers: [
+    { name: "shop.example.test", locations: [{ prefix: "/api/", upstream: "api_pool" }, { prefix: "/", static: true }] },
+    { name: "admin.example.test", locations: [{ prefix: "/", static: true }] }
+  ],
+  upstreams: { api_pool: ["app1", "app2"] }
+};
+const CLIENT = "172.18.0.5";   // the curl container, as printed in the real run
+const NGINX_IP = "172.18.0.4"; // the nginx container
+
+// small helpers for the boxes
+const appLayers = (health, lit) => CONFIG.upstreams.api_pool.map(a => ({ name: a, size: health[a] ? "up" : "down", state: lit === a ? "now" : (health[a] ? "cached" : "rebuilt"), lit: lit === a }));
+const serverLayers = (hostPicked) => CONFIG.servers.map(s => ({ name: "server_name " + s.name, size: s.name === hostPicked ? "picked" : "", state: s.name === hostPicked ? "now" : "base", lit: s.name === hostPicked }));
+const locLayers = (server, picked) => server.locations.map(l => ({ name: "location " + l.prefix, size: l === picked ? "picked" : "", state: l === picked ? "now" : "base", lit: l === picked }));
+
+// ---- Story 1: one request through nginx ----
+function simulateOneRequest() {
+  const steps = [];
+  const health = { app1: true, app2: true };
+  const req = { host: "shop.example.test", path: "/api/hello", clientIp: CLIENT };
+  const server = pickServer(CONFIG.servers, req.host);
+  const loc = pickLocation(server, req.path);
+  const answer = createProxy(CONFIG, health)(req);
+  steps.push({ layout: "three", hop: "The browser sends a request", phase: "setup",
+    note: "<b>A request arrives at nginx on port 80.</b> The first line says <code>GET /api/hello</code>. The <code>Host</code> header says which site the browser wants. In the real run, <code>curl</code> set it with <code>-H 'Host: shop.example.test'</code>. nginx has two <code>server</code> blocks and one pool of apps. Press Next.",
+    boxes: [
+      { title: "The request", cls: "user", tag: ["from the client", ""], small: "", lines: ["GET /api/hello", "Host: shop.example.test", "client address " + CLIENT] },
+      { title: "nginx", cls: "lb", tag: ["waiting", ""], small: "", layers: serverLayers(null) },
+      { title: "The apps", cls: "srv", tag: ["api_pool", ""], small: "", layers: appLayers(health, null) }
+    ] });
+  steps.push({ layout: "three", hop: "1. Pick the server block by Host", phase: "run",
+    note: "<b>nginx reads the Host header and picks a <code>server</code> block.</b> It compares the host with each <code>server_name</code>. <code>shop.example.test</code> matches the first one. (The nginx docs: nginx tests only the Host header to choose the server.)",
+    boxes: [
+      { title: "The request", cls: "user", tag: ["Host", ""], small: "", lines: ["Host: shop.example.test"] },
+      { title: "nginx: server blocks", cls: "lb", tag: ["picked one", "ok"], small: "", layers: serverLayers(server.name) },
+      { title: "The apps", cls: "srv", tag: ["not used yet", ""], small: "", layers: appLayers(health, null) }
+    ] });
+  steps.push({ layout: "three", hop: "2. Pick the location by path", phase: "run",
+    note: "<b>Inside that server, nginx picks a <code>location</code>.</b> Both <code>/api/</code> and <code>/</code> start the path <code>/api/hello</code>. The longest prefix wins, so <code>/api/</code> is picked. This is the line that says <code>proxy_pass</code>.",
+    boxes: [
+      { title: "The request", cls: "user", tag: ["path", ""], small: "", lines: ["/api/hello"] },
+      { title: "nginx: locations", cls: "lb", tag: ["longest prefix", "ok"], small: "", layers: locLayers(server, loc) },
+      { title: "The apps", cls: "srv", tag: ["not used yet", ""], small: "", layers: appLayers(health, null) }
+    ] });
+  steps.push({ layout: "three", hop: "3. proxy_pass picks one app", phase: "chk",
+    note: "<b><code>proxy_pass http://api_pool</code> sends the request to the pool.</b> nginx takes the apps in turn (round robin). This time it is <b>" + answer.from + "</b>. The browser never learns which app answers.",
+    boxes: [
+      { title: "The request", cls: "user", tag: ["waiting", ""], small: "", lines: ["GET /api/hello"] },
+      { title: "nginx: proxy_pass", cls: "lb", tag: ["round robin", ""], small: "", lines: ["proxy_pass http://api_pool", "next app in the list: " + answer.from] },
+      { title: "The apps", cls: "srv", tag: ["api_pool", ""], small: "", layers: appLayers(health, answer.from) }
+    ] });
+  steps.push({ layout: "two", hop: "4. nginx adds the headers", phase: "chk",
+    note: "<b>nginx makes a new request to the app, with headers it sets itself.</b> The app printed these lines in the real run. Notice that the app's socket address is <b>nginx</b> (" + NGINX_IP + "), and the real client address is only in <code>x-forwarded-for</code>.",
+    boxes: [
+      { title: "What the app received", cls: "srv", tag: [answer.from, "ok"], small: "", lines: ["url=/api/hello", "host=" + answer.headers.host, "x-forwarded-for=" + answer.headers["x-forwarded-for"], "x-forwarded-proto=" + answer.headers["x-forwarded-proto"], "socket-address=" + NGINX_IP + " (nginx)"] },
+      { title: "The three lines in nginx.conf", cls: "lb", tag: ["proxy_set_header", ""], small: "", lines: ["Host $host", "X-Forwarded-For $proxy_add_x_forwarded_for", "X-Forwarded-Proto $scheme"] }
+    ] });
+  steps.push({ layout: "three", hop: "5. The answer goes back", phase: "srv", badge: ["200 OK", "srv"],
+    note: "<b>The app answers, and nginx passes the answer back to the browser.</b> The browser talked to nginx only. If <code>" + answer.from + "</code> were down, nginx would try the other app first (story 3).",
+    boxes: [
+      { title: "The browser gets", cls: "user", tag: ["status " + answer.status, "ok"], small: "", lines: ["app=" + answer.from, "url=/api/hello"] },
+      { title: "nginx", cls: "lb", tag: ["done", ""], small: "", lines: ["1 Host picked the server", "2 path picked the location", "3 proxy_pass picked the app", "4 headers were added"] },
+      { title: "The apps", cls: "srv", tag: ["api_pool", ""], small: "", layers: appLayers(health, answer.from) }
+    ] });
+  return steps;
+}
+
+// ---- Story 2: which server, which location ----
+const REAL2 = {
+  "shop.example.test /": "<h1>shop home</h1>",
+  "shop.example.test /api/hello": "app=app1 ...",
+  "admin.example.test /": "admin site",
+  "other.test /": "<h1>shop home</h1>"
+};
+function simulateRules() {
+  const steps = [];
+  const health = { app1: true, app2: true };
+  const handle = createProxy(CONFIG, health);
+  steps.push({ layout: "two", hop: "Setup: two server blocks", phase: "setup",
+    note: "<b>The config has two <code>server</code> blocks.</b> The first has two locations. The second has one. I sent four requests with <code>curl -H 'Host: ...'</code> from a second container, and printed what came back. Press Next to follow each one.",
+    boxes: [
+      { title: "server_name shop.example.test", cls: "lb", tag: ["first block", ""], small: "", layers: CONFIG.servers[0].locations.map(l => ({ name: "location " + l.prefix, size: l.static ? "files" : "proxy_pass", state: "base" })) },
+      { title: "server_name admin.example.test", cls: "fol", tag: ["second block", ""], small: "", layers: CONFIG.servers[1].locations.map(l => ({ name: "location " + l.prefix, size: "return 200", state: "base" })) }
+    ] });
+  const reqs = [
+    { host: "shop.example.test", path: "/", why: "The host matches the first block. Only <code>/</code> starts the path <code>/</code>, so nginx serves a file from the folder." },
+    { host: "shop.example.test", path: "/api/hello", why: "The host matches the first block. <code>/api/</code> is longer than <code>/</code>, so it wins, and the request goes to an app." },
+    { host: "admin.example.test", path: "/", why: "The host matches the second block, which only returns a fixed text." },
+    { host: "other.test", path: "/", why: "No <code>server_name</code> matches. nginx uses the <b>default server</b> for the port, which is the first block. (From the docs, and it is what the real run printed.)" }
+  ];
+  reqs.forEach((r, k) => {
+    const server = pickServer(CONFIG.servers, r.host);
+    const loc = pickLocation(server, r.path);
+    const out = handle(Object.assign({ clientIp: CLIENT }, r));
+    const key = r.host + " " + r.path;
+    const printed = REAL2[key];
+    steps.push({ layout: "three", hop: "Request " + (k + 1) + ": " + r.host + r.path, phase: out.status === 200 ? "srv" : "bad",
+      note: "<b>" + r.why + "</b> The real run printed <code>" + printed.replace(/</g, "&lt;").replace(/>/g, "&gt;") + "</code>.",
+      boxes: [
+        { title: "The request", cls: "user", tag: ["Host and path", ""], small: "", lines: ["Host: " + r.host, "GET " + r.path] },
+        { title: "Server blocks", cls: "lb", tag: [r.host === server.name ? "exact match" : "default server", r.host === server.name ? "ok" : "warn"], small: "", layers: serverLayers(server.name) },
+        { title: "Locations in that block", cls: "fol", tag: ["longest prefix", ""], small: "", layers: locLayers(server, loc) }
+      ] });
+  });
+  const odd = pickLocation(CONFIG.servers[0], "/apis");
+  steps.push({ layout: "two", hop: "One more, from the model only", phase: "chk",
+    note: "<b>Does <code>/apis</code> go to <code>/api/</code>?</b> No. <code>/apis</code> does not start with <code>/api/</code>, so the model picks <code>" + odd.prefix + "</code>. (This one was not sent to real nginx. The nginx docs say a prefix location is a string that the path must start with.)",
+    boxes: [
+      { title: "Path /apis", cls: "user", tag: ["model", "warn"], small: "", lines: ["starts with /api/ ? no", "starts with / ? yes"] },
+      { title: "Locations", cls: "lb", tag: ["picked " + odd.prefix, "ok"], small: "", layers: locLayers(CONFIG.servers[0], odd) }
+    ] });
+  return steps;
+}
+
+// ---- Story 3: the pool, one app dies, both die ----
+function simulatePool() {
+  const steps = [];
+  const health = { app1: true, app2: true };
+  const handle = createProxy(CONFIG, health);
+  const req = { host: "shop.example.test", path: "/api/hello", clientIp: CLIENT };
+  const log = [];
+  const show = (hop, phase, note, extra) => steps.push(Object.assign({ layout: "three", hop, phase, note,
+    boxes: [
+      { title: "The apps", cls: "srv", tag: ["api_pool", ""], small: "", layers: appLayers(health, extra && extra.lit) },
+      { title: "Answers so far", cls: "user", tag: ["last 6", ""], small: "", lines: log.slice(-6).length ? log.slice(-6) : ["none yet"] },
+      { title: "nginx", cls: extra && extra.alarm ? "alarm" : "lb", tag: [extra && extra.tag || "ready", extra && extra.alarm ? "bad" : ""], small: "", lines: extra && extra.lines || ["round robin over the apps that are up"] }
+    ] }, extra && extra.badge ? { badge: extra.badge } : {}));
+  show("Setup: two apps, both up", "setup", "<b>Two apps sit in <code>api_pool</code>.</b> Both answer. Press Next to send requests. The model starts at the first app. In the real run the first answer came from app2, because nginx had already served a request. The order alternates in the same way.");
+  for (let i = 0; i < 4; i++) { const a = handle(req); log.push("request " + (i + 1) + ": 200 from " + a.from); }
+  show("Four requests, both apps up", "run", "<b>nginx takes the apps in turn.</b> " + log.join(", ") + ". The real run printed <code>app2 app1 app2 app1 app2 app1</code> for six requests.", { lit: "app2" });
+  health.app1 = false;
+  show("docker stop app1", "bad", "<b>app1 is stopped.</b> The browser still waits for an answer. The next request may try app1 first, and the connection is refused (the nginx log said <code>connect() failed (111: Connection refused)</code>). nginx then tries the next app for the <b>same request</b>. That is the default (<code>proxy_next_upstream error timeout</code>).", { tag: "app1 down", alarm: true, lines: ["a refused connection means: try the next app", "the user does not see it"] });
+  for (let i = 0; i < 4; i++) { const a = handle(req); log.push("request " + (5 + i) + ": " + a.status + " from " + a.from); }
+  show("Requests with one app down", "srv", "<b>Every request is answered, from app2.</b> In the real run, four requests gave <code>200 200 200 200</code>, and three more printed <code>app=app2</code>. Nobody got an error. The cost: app2 now carries all the work.", { lit: "app2", tag: "one app left", lines: ["answers: " + log.slice(-4).join("; ")] });
+  health.app2 = false;
+  const out = handle(req);
+  log.push("request 9: " + out.status);
+  show("docker stop app2 too", "bad", "<b>No app is up.</b> nginx has nobody to try, so it answers <b>" + out.status + " Bad Gateway</b>. The log in the real run: <code>no live upstreams while connecting to upstream</code>. 502 means: nginx is fine, but the thing behind it did not give an answer.", { alarm: true, tag: "502", badge: ["502 Bad Gateway", "bad"], lines: ["status " + out.status, "log: no live upstreams"] });
+  health.app1 = true; health.app2 = true;
+  steps.push({ layout: "two", hop: "Both apps start again: real polling", phase: "chk",
+    note: "<b>The apps are back, and users still got 502 for about 10 seconds.</b> nginx marks an app as failed and leaves it alone for <code>fail_timeout</code>, which is 10 seconds by default (nginx docs). I started both apps and sent one request every second. The model answers 200 at once. Real nginx did not.",
+    boxes: [
+      { title: "Real run: seconds after the start", cls: "alarm", tag: ["measured", "bad"], small: "", lines: ["t+0s 502", "t+1s 502", "t+3s 502", "t+4s 502", "t+5s 502", "t+7s 502", "t+8s 502", "t+9s 502", "t+10s 200", "t+12s 200 (and on)"] },
+      { title: "Model: the same moment", cls: "srv", tag: ["no timer", "ok"], small: "", layers: appLayers(health, null), lines: ["the model has no 10 second wait"] }
+    ] });
+  const a = handle(req);
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>One app down: users are fine. All apps down: 502. Apps back: wait up to the fail timeout.</b> The model's answer after the restart is <code>" + a.status + " from " + a.from + "</code>. Check the real behavior with the nginx log, not only with the status code.",
+    boxes: [
+      { title: "One app down", cls: "srv", tag: ["200", "ok"], small: "", lines: ["nginx tries the next app", "same request, no error"] },
+      { title: "No app up", cls: "alarm", tag: ["502", "bad"], small: "", lines: ["nginx is up, apps are not", "stays for about 10 seconds after they return"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 4: headers ----
+function simulateHeaders() {
+  const steps = [];
+  steps.push({ layout: "two", hop: "Setup: the app sits behind nginx", phase: "setup",
+    note: "<b>A request that goes through nginx is a new connection.</b> The app talks to nginx, not to the browser. So the app sees nginx's address as the sender. Press Next to see what the app printed in the real runs.",
+    boxes: [
+      { title: "Browser or curl", cls: "user", tag: ["address " + CLIENT, ""], small: "", lines: ["sends: GET /api/hello"] },
+      { title: "App behind nginx", cls: "srv", tag: ["sees nginx", ""], small: "", lines: ["socket-address=" + NGINX_IP, "(that is nginx, not the client)"] }
+    ] });
+  steps.push({ layout: "two", hop: "No proxy_set_header lines", phase: "bad", badge: ["Wrong headers", "bad"],
+    note: "<b>Without any <code>proxy_set_header</code> line,</b> the app sees <code>host=lesson08-app3:3000</code> and not the host the browser asked for (nginx's default is the name in <code>proxy_pass</code>). The client sent <code>X-Forwarded-For: 1.2.3.4</code>, and the app got it back unchanged. nginx added nothing, so a client can lie.",
+    boxes: [
+      { title: "What the client sent", cls: "user", tag: ["real run", ""], small: "", lines: ["Host: lesson08-solo", "X-Forwarded-For: 1.2.3.4"] },
+      { title: "What the app printed", cls: "alarm", tag: ["real run", "bad"], small: "", lines: ["host=lesson08-app3:3000", "x-forwarded-for=1.2.3.4", "x-forwarded-proto=undefined", "socket-address=nginx"] }
+    ] });
+  const handle = createProxy(CONFIG, { app1: true, app2: true });
+  const plain = handle({ host: "shop.example.test", path: "/api/hello", clientIp: CLIENT });
+  steps.push({ layout: "two", hop: "With the three lines: no earlier header", phase: "srv", badge: ["Under control", "srv"],
+    note: "<b>With the three lines from the lesson,</b> the app gets the host the browser used, the client address, and the protocol. <code>forwardedFor(undefined, '" + CLIENT + "')</code> gives <code>" + plain.headers["x-forwarded-for"] + "</code>.",
+    boxes: [
+      { title: "Lines in nginx.conf", cls: "lb", tag: ["proxy_set_header", ""], small: "", lines: ["Host $host", "X-Forwarded-For $proxy_add_x_forwarded_for", "X-Forwarded-Proto $scheme"] },
+      { title: "What the app printed", cls: "srv", tag: ["real run", "ok"], small: "", lines: ["host=" + plain.headers.host, "x-forwarded-for=" + plain.headers["x-forwarded-for"], "x-forwarded-proto=" + plain.headers["x-forwarded-proto"], "socket-address=nginx"] }
+    ] });
+  const lied = handle({ host: "shop.example.test", path: "/api/hello", clientIp: CLIENT, headers: { "x-forwarded-for": "1.2.3.4" } });
+  steps.push({ layout: "two", hop: "With the three lines: a client that lies", phase: "chk", badge: ["Read from the right", "chk"],
+    note: "<b>nginx adds to the list. It does not replace it.</b> The client sent <code>1.2.3.4</code>, and the app printed <code>" + lied.headers["x-forwarded-for"] + "</code>. The last address is the one your own nginx saw. The first one is whatever the client wrote.",
+    boxes: [
+      { title: "The list the app gets", cls: "fol", tag: ["real run", "warn"], small: "", layers: [{ name: "1.2.3.4", size: "written by the client", state: "rebuilt" }, { name: CLIENT, size: "added by nginx", state: "cached" }] },
+      { title: "What to do", cls: "lb", tag: ["rule", ""], small: "", lines: ["trust only the entries your own proxies added", "in Express: set trust proxy, then use req.ip"] }
+    ] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The app only talks to nginx.</b> Three header lines tell it the truth about the client: the host, the address and the protocol. Express shows nginx's address in <code>req.ip</code> unless you set <code>trust proxy</code> (Express docs).",
+    boxes: [
+      { title: "Host", cls: "lb", tag: ["$host", ""], small: "", lines: ["the site the browser asked for"] },
+      { title: "X-Forwarded-For", cls: "lb", tag: ["a list", ""], small: "", lines: ["each proxy adds one address", "the client can write the first ones"] }
+    ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. One request", sim: simulateOneRequest,
+    why: "nginx picks the server block by the Host header, then the location by the longest prefix. proxy_pass then picks one app from the pool and makes a new request to it, with the headers you set.",
+    predict: { q: "A request for Host: shop.example.test and path /api/hello arrives. Which location handles it: /api/ or /?", options: ["/ because it is listed last", "/api/ because it is the longest matching prefix", "Whichever the app chooses"], answer: "/api/ because it is the longest matching prefix" } },
+  { name: "2. Server and path rules", sim: simulateRules,
+    why: "The Host header picks the server block. A host that matches no server_name goes to the default server, the first block. The path then picks the longest matching prefix.",
+    predict: { q: "A request arrives with Host: other.test, which no server_name has. What does nginx do?", options: ["It answers 404 at once", "It uses the default server, the first block", "It refuses the connection"], answer: "It uses the default server, the first block" } },
+  { name: "3. A pool and 502", sim: simulatePool,
+    why: "A refused connection makes nginx try the next app for the same request, so one dead app costs no errors. When no app is left, the answer is 502. After the apps return, nginx still waits about 10 seconds before it tries them again.",
+    predict: { q: "app1 stops. app2 still runs. What do users get?", options: ["Every second request fails with 502", "200 for every request, from app2", "502 for every request"], answer: "200 for every request, from app2" } },
+  { name: "4. Headers", sim: simulateHeaders,
+    why: "The app only talks to nginx, so you must pass the host, the client address and the protocol in headers. nginx adds to X-Forwarded-For and does not replace it, so read the list from the right.",
+    predict: { q: "Behind nginx with no proxy_set_header lines, what does your Express app see as the address of the sender?", options: ["The real client address", "nginx's address", "No address at all"], answer: "nginx's address" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateOneRequest, simulateRules, simulatePool, simulateHeaders, STORIES, pickServer, pickLocation, forwardedFor, createProxy };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>
