@@ -208,6 +208,38 @@
   "count": 7
  },
  {
+  "slug": "learn/devops-cloud/01-containers-vs-virtual-machines",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "01",
+  "title": "Containers vs virtual machines",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/02-docker-images-and-layers",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "02",
+  "title": "Docker images and layers",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/03-docker-compose",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "03",
+  "title": "Docker Compose",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/04-kubernetes-objects",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "04",
+  "title": "Kubernetes objects",
+  "count": 6
+ },
+ {
   "slug": "learn/problem-solving/01-big-o-time-and-space",
   "subject": "problem-solving",
   "subjectTitle": "Problem Solving Practice (JavaScript)",

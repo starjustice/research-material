@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes objects: Deployment, pods, Service and Ingress, step by step</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code, .result code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .col.dim { opacity: .55; border-style: dashed; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/04-kubernetes-objects" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Kubernetes objects: Deployment, pods, Service and Ingress, step by step</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. There is no real cluster behind this page: it runs the same small model as the practice in the lesson, and the pod names and nodes are examples. Real pod names look like <code>shop-api-&lt;hash&gt;-&lt;random letters&gt;</code>.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> you write what you want, and loops keep reality equal to it. A Deployment keeps the right number of pods. A Service sends traffic to ready pods that match its label. An Ingress needs a controller, and then it sends each request to a Service by host and path.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The five functions below are the same code as the practice answer in the lesson
+// (learn/devops-cloud/practice/04-kubernetes-objects.js). Every list of actions, every list of
+// endpoints and every route on this page comes from them. The pod names and nodes are examples.
+// ---------------------------------------------------------------------------------------------
+function reconcile(desiredReplicas, pods) {
+  const missing = desiredReplicas - pods.length;
+  const actions = [];
+  for (let i = 0; i < missing; i++) actions.push("create");
+  for (let i = 0; i < -missing; i++) actions.push("delete " + pods[pods.length - 1 - i].name);
+  return actions;
+}
+function applyActions(pods, actions, makePod) {
+  let next = pods.slice();
+  for (const action of actions) {
+    if (action === "create") next.push(makePod());
+    else if (action.startsWith("delete ")) {
+      const name = action.slice("delete ".length);
+      next = next.filter((p) => p.name !== name);
+    }
+  }
+  return next;
+}
+function selectorMatches(selector, labels) {
+  const keys = Object.keys(selector);
+  if (keys.length === 0) return false;
+  return keys.every((key) => labels[key] === selector[key]);
+}
+function serviceEndpoints(service, pods) {
+  return pods.filter((pod) => pod.ready && selectorMatches(service.selector, pod.labels)).map((pod) => pod.name);
+}
+const parts = (path) => path.split("/").filter(Boolean);
+function pathMatches(rule, path) {
+  if (rule.pathType === "Exact") return path === rule.path;
+  const wanted = parts(rule.path), got = parts(path);
+  return wanted.every((piece, i) => got[i] === piece);
+}
+function ingressRoute(rules, host, path) {
+  let best = null;
+  for (const rule of rules) {
+    if (rule.host !== host || !pathMatches(rule, path)) continue;
+    const size = parts(rule.path).length;
+    const better = best === null || size > best.size || (size === best.size && rule.pathType === "Exact" && best.rule.pathType !== "Exact");
+    if (better) best = { rule, size };
+  }
+  return best === null ? null : best.rule.service;
+}
+
+// ---- small helpers for the pictures ----
+const API = { app: "shop-api" };
+const newPod = (name, ready, labels) => ({ name, labels: labels || API, ready: !!ready });
+const podCol = (p, state, cls) => ({ cls: cls || (p.ready ? "new" : ""), name: p.name, state: state });
+const list = (a) => a.length ? "[" + a.map((x) => '"' + x + '"').join(", ") + "]" : "[]";
+
+// ---- Story 1: apply a Deployment ----
+function simulateDeployment() {
+  const steps = [];
+  const mk = (hop, phase, note, you, ctl, pods, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    Object.assign({ title: "You", cls: "user", small: "the file on your laptop" }, you),
+    Object.assign({ title: "Controllers", cls: "lb", small: "the loops inside the cluster" }, ctl),
+    Object.assign({ title: "Pods", cls: "srv", small: "what really runs" }, pods)
+  ] });
+  const cluster = [];
+  mk("Start: an empty cluster", "setup",
+    "<b>An empty cluster.</b> On your laptop is a file, <code>deployment.yaml</code>. It says <code>replicas: 3</code> and gives a blueprint for a pod: the image <code>shop-api:1.4.0</code>, port 3000. Nothing is running yet.",
+    { tag: ["not applied", ""], lines: ["replicas: 3", "image: shop-api:1.4.0"] },
+    { tag: ["idle", ""], lines: ["nothing to do"] },
+    { tag: ["empty", ""], big: { text: "0", neg: false }, bigLabel: "pods running" });
+  mk("kubectl apply -f deployment.yaml", "run",
+    "<b>You say what you want.</b> You do not say \"start a container\". <code>kubectl</code> sends the file to the API server. The API server stores it as the Deployment <code>shop-api</code>. This stored record is the <b>wanted state</b> (interview word: desired state).",
+    { tag: ["sent", "ok"], lines: ["kubectl apply -f deployment.yaml"] },
+    { tag: ["API server", ""], lines: ["stores the Deployment shop-api", "wanted: 3 pods"] },
+    { tag: ["empty", ""], big: { text: "0", neg: false }, bigLabel: "pods running" });
+  mk("The Deployment makes a ReplicaSet", "run",
+    "<b>The Deployment controller wakes up.</b> It sees a new Deployment with no ReplicaSet, so it creates one. A <b>ReplicaSet</b> is a helper object with one job: keep this many copies of the pod blueprint alive. You never write it by hand.",
+    { tag: ["wants 3", ""], lines: ["Deployment shop-api", "replicas: 3"] },
+    { cls: "lb", tag: ["new ReplicaSet", "ok"], lines: ["Deployment controller creates ReplicaSet shop-api-&lt;hash&gt;", "replicas: 3, same pod blueprint"] },
+    { tag: ["empty", ""], big: { text: "0", neg: false }, bigLabel: "pods running" });
+  const acts = reconcile(3, cluster);
+  mk("The ReplicaSet compares", "chk",
+    "<b>The loop.</b> The ReplicaSet counts the pods it has (<b>" + cluster.length + "</b>) and compares with the number you want (<b>3</b>). The difference is three, so it says: " + list(acts) + ". This is the same <code>reconcile(3, [])</code> as in the practice.",
+    { tag: ["wants 3", ""], lines: ["replicas: 3"] },
+    { cls: "fol", tag: ["3 missing", "warn"], lines: ["want 3, have 0", "actions: " + list(acts)] },
+    { tag: ["empty", ""], big: { text: "0", neg: false }, bigLabel: "pods running" }, ["Compare", "chk"]);
+  let n = 0; const names = ["shop-api-a", "shop-api-b", "shop-api-c"];
+  const made = applyActions(cluster, acts, () => newPod(names[n++], false));
+  const nodes = ["node 1", "node 2", "node 1"];
+  mk("Three pods are created", "run",
+    "<b>Three pods appear.</b> The scheduler picks a machine (a node) for each one. Here it is an example: node 1, node 2, node 1. On each node a helper called the kubelet starts the container. The pods are not ready yet.",
+    { tag: ["wants 3", ""], lines: ["replicas: 3"] },
+    { tag: ["scheduler", ""], lines: ["picks a node for each pod", "kubelet starts the containers"] },
+    { tag: ["starting", "warn"], big: { text: "3", neg: false }, bigLabel: "pods, none ready yet", cols: made.map((p, i) => podCol(p, "starting on " + nodes[i])) });
+  const ready = made.map((p) => Object.assign({}, p, { ready: true }));
+  const acts2 = reconcile(3, ready);
+  mk("The pods are ready", "srv",
+    "<b>All three are ready.</b> A pod is ready when it passes its check. Now the ReplicaSet counts again: want 3, have 3, so the actions are " + list(acts2) + ". Nothing to do. <b>But the loop never stops.</b> It checks again and again, for as long as the Deployment exists.",
+    { tag: ["wants 3", ""], lines: ["replicas: 3"] },
+    { cls: "srv", tag: ["in agreement", "ok"], lines: ["want 3, have 3", "actions: " + list(acts2)] },
+    { cls: "srv", tag: ["ready", "ok"], big: { text: "3", neg: false }, bigLabel: "pods, all ready", cols: ready.map((p, i) => podCol(p, "ready on " + nodes[i])) }, ["Under control", "srv"]);
+  steps.push({ layout: "two", hop: "What you wrote and what you got", phase: "done", badge: ["Finished", "done"],
+    note: "<b>One file, five objects.</b> You wrote one Deployment. Kubernetes made one ReplicaSet and three pods, and it keeps watching them. You said what you want, not how to get it. On a real cluster, <code>kubectl get deploy,rs,pods</code> lists all five (the local lab linked in the lesson shows how).",
+    boxes: [
+      { title: "You wrote", cls: "user", tag: ["1 object", ""], lines: ["Deployment shop-api, replicas: 3"] },
+      { title: "Kubernetes made", cls: "srv", tag: ["4 objects", "ok"], lines: ["1 ReplicaSet", "3 pods", "and a loop that keeps them at 3"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 2: a pod dies, and scaling ----
+function simulateSelfHealing() {
+  const steps = [];
+  let n = 0; const fresh = ["shop-api-d", "shop-api-e", "shop-api-f"];
+  const make = () => newPod(fresh[n++], false);
+  const mk = (hop, phase, note, want, loop, pods, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    Object.assign({ title: "What you want", cls: "user", small: "replicas in the Deployment" }, want),
+    Object.assign({ title: "The ReplicaSet loop", cls: "lb", small: "reconcile(want, pods)" }, loop),
+    Object.assign({ title: "Pods that exist", cls: "srv", small: "what really runs" }, pods)
+  ] });
+  const want = (k) => ({ tag: ["wanted", ""], big: { text: String(k), neg: false }, bigLabel: "pods wanted" });
+  let pods = [newPod("shop-api-a", true), newPod("shop-api-b", true), newPod("shop-api-c", true)];
+  const cols = (ps, extra) => ps.map((p) => podCol(p, p.ready ? "ready" : "starting")).concat(extra || []);
+  let a = reconcile(3, pods);
+  mk("Start: three pods, three wanted", "setup",
+    "<b>All is well.</b> You want 3 pods, and 3 exist. The loop compares, finds no difference, and does nothing: " + list(a) + ".",
+    want(3), { tag: ["in agreement", "ok"], lines: ["want 3, have 3", "actions: " + list(a)] }, { tag: ["3 ready", "ok"], cols: cols(pods) });
+  const dead = pods[1];
+  pods = pods.filter((p) => p !== dead);
+  mk("Pod b dies", "bad",
+    "<b>A pod is gone.</b> In real life this can be a machine that fails, or someone who runs <code>kubectl delete pod</code>. Now only two pods exist. Nobody told Kubernetes. It has not noticed yet.",
+    want(3), { tag: ["not yet", ""], lines: ["the loop has not run yet"] },
+    { cls: "alarm", tag: ["2 left", "bad"], cols: cols(pods, [{ cls: "bad dim", name: dead.name, state: "gone" }]) }, ["A pod died", "bad"]);
+  a = reconcile(3, pods);
+  mk("The loop sees the gap", "chk",
+    "<b>Compare.</b> The ReplicaSet counts <b>2</b> pods and wants <b>3</b>. So: " + list(a) + ". It does not ask why the pod died. It only sees the number.",
+    want(3), { cls: "fol", tag: ["1 missing", "warn"], lines: ["want 3, have 2", "actions: " + list(a)] }, { tag: ["2 left", "warn"], cols: cols(pods) }, ["Compare", "chk"]);
+  pods = applyActions(pods, a, make);
+  mk("A new pod with a new name", "run",
+    "<b>The pod is replaced, not repaired.</b> The new pod is called <b>" + pods[pods.length - 1].name + "</b>. It has a new name and a new IP address (Kubernetes docs: pods are disposable). It is not ready yet, so it does not count as working.",
+    want(3), { tag: ["acted", "ok"], lines: ["created 1 pod"] }, { tag: ["starting", "warn"], cols: cols(pods) });
+  pods = pods.map((p) => Object.assign({}, p, { ready: true }));
+  a = reconcile(3, pods);
+  mk("The new pod is ready", "srv",
+    "<b>Back to three.</b> Want 3, have 3, actions " + list(a) + ". You were not woken up. This is what \"self-healing\" means here: a loop that never gets tired.",
+    want(3), { cls: "srv", tag: ["in agreement", "ok"], lines: ["want 3, have 3", "actions: " + list(a)] }, { cls: "srv", tag: ["3 ready", "ok"], cols: cols(pods) }, ["Under control", "srv"]);
+  a = reconcile(5, pods);
+  const grown = applyActions(pods, a, make);
+  mk("You change replicas to 5", "run",
+    "<b>You change the number in the file</b> and apply it again. The loop does the same thing as before with a different number: want 5, have 3, actions " + list(a) + ". Two new pods start.",
+    want(5), { cls: "fol", tag: ["2 missing", "warn"], lines: ["want 5, have 3", "actions: " + list(a)] }, { tag: ["5 pods, 2 starting", "warn"], cols: cols(grown) });
+  pods = grown.map((p) => Object.assign({}, p, { ready: true }));
+  a = reconcile(2, pods);
+  const shrunk = applyActions(pods, a, make);
+  mk("Then you change it to 2", "run",
+    "<b>Too many pods.</b> Want 2, have 5, so the loop says " + list(a) + ". In this model it deletes from the end of the list. <i>Real Kubernetes has its own rules for which pods to remove, so do not rely on the order.</i>",
+    want(2), { cls: "fol", tag: ["3 extra", "warn"], lines: ["want 2, have 5", "actions: " + list(a)] },
+    { tag: ["2 left", "ok"], cols: cols(shrunk, pods.slice(2).map((p) => ({ cls: "bad dim", name: p.name, state: "deleted" }))) });
+  steps.push({ layout: "two", hop: "The same loop for everything", phase: "done", badge: ["Finished", "done"],
+    note: "<b>One loop, three jobs.</b> It made the first pods, replaced a dead pod, and changed the size. Each time it only compared two numbers. One more thing: if the <i>process</i> inside a pod crashes, the kubelet restarts the container in the same pod. That is a different loop, shown in the local lab.",
+    boxes: [
+      { title: "A pod died", cls: "srv", tag: ["replaced", "ok"], lines: ["new name, new IP", "nobody typed a command"] },
+      { title: "You change the number", cls: "srv", tag: ["scaled", "ok"], lines: ["edit replicas, apply again", "the loop does the rest"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 3: a Service picks pods by label ----
+function simulateService() {
+  const steps = [];
+  const svc = { name: "shop-api", selector: { app: "shop-api" } };
+  const web = { app: "shop-web" };
+  const mk = (hop, phase, note, service, pods, who, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    Object.assign({ title: "Service shop-api", cls: "lb", small: "one stable name" }, service),
+    Object.assign({ title: "Pods and their labels", cls: "srv", small: "a pod joins when label matches AND ready" }, pods),
+    Object.assign({ title: "Gets traffic", cls: "user", small: "serviceEndpoints(service, pods)" }, who)
+  ] });
+  const sel = (s) => ["selector: app=" + s.selector.app];
+  const podBoxes = (ps) => ps.map((p) => ({ cls: p.ready ? (p.labels.app === svc.selector.app ? "new" : "dim") : "", name: p.name + "  (app=" + p.labels.app + ")", state: p.ready ? "ready" : "not ready" }));
+  const who = (service, ps) => { const e = serviceEndpoints(service, ps); return { tag: [e.length + " pods", e.length ? "ok" : "bad"], lines: e.length ? e : ["nobody", "no pod matches and is ready"] }; };
+  let pods = [newPod("shop-api-a", true), newPod("shop-api-b", true), newPod("shop-api-c", true), newPod("shop-web-x", true, web)];
+  mk("Start: four ready pods", "setup",
+    "<b>The Service picks by label.</b> It has the selector <code>app=shop-api</code>. Pods a, b and c have that label and are ready, so they get traffic. The pod <code>shop-web-x</code> has another label, so the Service ignores it.",
+    { tag: ["ClusterIP", ""], lines: sel(svc) }, { tag: ["4 ready", "ok"], cols: podBoxes(pods) }, who(svc, pods));
+  pods = pods.map((p) => p.name === "shop-api-b" ? Object.assign({}, p, { ready: false }) : p);
+  mk("Pod b fails its readiness check", "bad",
+    "<b>Not ready means no traffic.</b> Pod b still has the right label, but it says it is not ready. The Service takes it out of the list. The pod is not restarted for this. It just gets no requests until it is ready again.",
+    { tag: ["ClusterIP", ""], lines: sel(svc) }, { cls: "fol", tag: ["b not ready", "warn"], cols: podBoxes(pods) }, who(svc, pods), ["b is out", "bad"]);
+  pods = pods.concat([newPod("shop-api-d", false)]);
+  mk("A new pod d starts", "run",
+    "<b>A new pod appears</b> (for example the Deployment made it). It has the right label, but it is not ready, so it gets no traffic yet.",
+    { tag: ["ClusterIP", ""], lines: sel(svc) }, { tag: ["d starting", "warn"], cols: podBoxes(pods) }, who(svc, pods));
+  pods = pods.map((p) => p.name === "shop-api-d" ? Object.assign({}, p, { ready: true }) : p);
+  mk("Pod d becomes ready", "srv",
+    "<b>d joins.</b> Label matches and it is ready. The Service adds it to the list. The users did not do anything and never saw a new address. They use the Service name.",
+    { tag: ["ClusterIP", ""], lines: sel(svc) }, { tag: ["d ready", "ok"], cols: podBoxes(pods) }, who(svc, pods), ["d joined", "srv"]);
+  pods = pods.map((p) => p.name === "shop-api-b" ? Object.assign({}, p, { ready: true }) : p);
+  mk("Pod b recovers", "srv",
+    "<b>b is ready again</b> and goes back in the list. The list follows the pods, not the other way round.",
+    { tag: ["ClusterIP", ""], lines: sel(svc) }, { tag: ["all ready", "ok"], cols: podBoxes(pods) }, who(svc, pods), ["b is back", "srv"]);
+  const typo = { name: "shop-api", selector: { app: "shop-apii" } };
+  mk("A typo in the selector", "bad",
+    "<b>The mistake to watch for.</b> The selector says <code>app=shop-apii</code> (one letter too many). Every pod is ready and healthy, but nothing matches the label, so the list is empty. The Service exists, and nobody gets traffic. Check the selector against the pod labels first.",
+    { cls: "alarm", tag: ["wrong selector", "bad"], lines: sel(typo) }, { tag: ["all ready", "ok"], cols: podBoxes(pods) }, who(typo, pods), ["Empty list", "bad"]);
+  steps.push({ layout: "two", hop: "Three ways to reach a Service", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Pods move, the Service stays.</b> The Service keeps one name and one IP. Inside the cluster you call <code>http://shop-api</code>. The type decides who can reach it from outside (Kubernetes docs, checked 2026-11-13).",
+    boxes: [
+      { title: "ClusterIP (the default)", cls: "srv", tag: ["inside only", "ok"], lines: ["other pods can call it", "good for service to service calls"] },
+      { title: "NodePort and LoadBalancer", cls: "fol", tag: ["from outside", "warn"], lines: ["NodePort: a port on every node", "LoadBalancer: asks the cloud for a public load balancer"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 4: Ingress routes by host and path ----
+function simulateIngress() {
+  const steps = [];
+  const rules = [
+    { host: "shop.example.com", path: "/api", pathType: "Prefix", service: "shop-api" },
+    { host: "shop.example.com", path: "/", pathType: "Prefix", service: "shop-web" }
+  ];
+  const mk = (hop, phase, note, req, rulesBox, dest, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    Object.assign({ title: "A request", cls: "user", small: "from a browser" }, req),
+    Object.assign({ title: "Ingress rules", cls: "lb", small: "read by the ingress controller" }, rulesBox),
+    Object.assign({ title: "Goes to", cls: "srv", small: "ingressRoute(rules, host, path)" }, dest)
+  ] });
+  const ruleCols = (hit) => rules.map((r) => ({ cls: hit === r.service ? "new" : "", name: r.host + "  " + r.path + " (" + r.pathType + ")", state: "send to Service " + r.service }));
+  mk("Start: rules, but no controller", "bad",
+    "<b>An Ingress is only a list of rules.</b> You applied it, but no ingress controller runs in the cluster. The Kubernetes docs say it plainly: \"Only creating an Ingress resource has no effect.\" The request has nowhere to go.",
+    { tag: ["shop.example.com/api/orders", ""], lines: ["GET /api/orders"] },
+    { cls: "alarm", tag: ["no controller", "bad"], cols: ruleCols(null) }, { cls: "alarm", tag: ["nothing", "bad"], lines: ["no program reads the rules"] }, ["Nothing happens", "bad"]);
+  mk("An ingress controller is running", "run",
+    "<b>Now there is a reader.</b> An ingress controller is a program that runs in the cluster (for example Traefik or an Envoy based one), reads the Ingress rules, and sends each request on. Kubernetes does not install one for you. Pick one and install it.",
+    { tag: ["shop.example.com/api/orders", ""], lines: ["GET /api/orders"] },
+    { cls: "lb", tag: ["controller reads", "ok"], cols: ruleCols(null) }, { tag: ["ready", "ok"], lines: ["the controller can route"] }, ["Controller added", "run"]);
+  const route = (host, path) => ingressRoute(rules, host, path);
+  let r = route("shop.example.com", "/api/orders");
+  mk("/api/orders", "srv",
+    "<b>Two rules match</b>, <code>/api</code> and <code>/</code> (every path starts with <code>/</code>). The longest path wins, so the answer is <b>" + r + "</b>.",
+    { tag: ["host and path", ""], lines: ["shop.example.com", "/api/orders"] }, { tag: ["2 match", "warn"], cols: ruleCols(r) }, { cls: "srv", tag: ["Service", "ok"], big: { text: r, neg: false }, bigLabel: "the longest matching path wins" }, ["Routed", "srv"]);
+  r = route("shop.example.com", "/apis");
+  mk("/apis", "chk",
+    "<b>Prefix compares whole pieces</b>, split at <code>/</code>. The pieces of <code>/apis</code> are [apis], and [apis] does not start with [api]. So only <code>/</code> matches, and the answer is <b>" + r + "</b>. (The docs: <code>/foo/bar</code> matches <code>/foo/bar/baz</code> but not <code>/foo/barbaz</code>.)",
+    { tag: ["host and path", ""], lines: ["shop.example.com", "/apis"] }, { tag: ["1 matches", "warn"], cols: ruleCols(r) }, { cls: "srv", tag: ["Service", "ok"], big: { text: r, neg: false }, bigLabel: "/api is not a prefix of /apis" }, ["Routed", "chk"]);
+  r = route("shop.example.com", "/about");
+  mk("/about", "srv",
+    "<b>The catch-all.</b> A Prefix rule on <code>/</code> matches every path, so everything that is not <code>/api</code> goes to <b>" + r + "</b>.",
+    { tag: ["host and path", ""], lines: ["shop.example.com", "/about"] }, { tag: ["1 matches", "warn"], cols: ruleCols(r) }, { cls: "srv", tag: ["Service", "ok"], big: { text: r, neg: false }, bigLabel: "the / rule catches the rest" }, ["Routed", "srv"]);
+  r = route("other.example.com", "/api");
+  mk("Another host", "bad",
+    "<b>No rule for this host.</b> Both rules are for <code>shop.example.com</code>, so the answer is <b>" + r + "</b>. What the controller does with such a request is up to the controller (the docs say it goes to a default backend, which the controller provides).",
+    { tag: ["host and path", ""], lines: ["other.example.com", "/api"] }, { tag: ["0 match", "bad"], cols: ruleCols(null) }, { cls: "alarm", tag: ["no route", "bad"], big: { text: String(r), neg: true }, bigLabel: "the default backend answers" }, ["No rule", "bad"]);
+  steps.push({ layout: "two", hop: "Ingress today", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Checked on 2026-11-13.</b> The Kubernetes docs say the project recommends Gateway API instead of Ingress, and that the Ingress API is frozen: no more changes, and no plan to remove it. The popular ingress-nginx controller was retired in March 2026. The idea you learned here, rules that choose a Service by host and path, carries over to Gateway API.",
+    boxes: [
+      { title: "Ingress", cls: "fol", tag: ["frozen", "warn"], lines: ["one kind of object: Ingress", "needs an ingress controller", "still works, no new features"] },
+      { title: "Gateway API", cls: "srv", tag: ["recommended", "ok"], lines: ["kinds: GatewayClass, Gateway, HTTPRoute", "also needs a controller that supports it", "an add-on, not built in"] }
+    ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Apply a Deployment", sim: simulateDeployment,
+    why: "You write a Deployment. It makes a ReplicaSet, and the ReplicaSet makes the pods, by comparing the number it wants with the number that exist. You never start pods yourself.",
+    predict: { q: "You apply a Deployment with replicas: 3. Who creates the three pods?", options: ["You, with three commands", "The ReplicaSet that the Deployment made", "The Service"], answer: "The ReplicaSet that the Deployment made" } },
+  { name: "2. A pod dies", sim: simulateSelfHealing,
+    why: "The loop only compares two numbers: pods wanted and pods that exist. A missing pod means a new pod with a new name. The same loop handles a change in replicas.",
+    predict: { q: "One of your 3 pods is deleted. What does the ReplicaSet do?", options: ["Nothing, you must start a new pod", "It creates a new pod with a new name", "It brings back the same pod"], answer: "It creates a new pod with a new name" } },
+  { name: "3. A Service picks pods", sim: simulateService,
+    why: "A Service sends traffic to pods whose labels match its selector and that are ready. A pod that is not ready is left out, and a selector that matches no label gives an empty list.",
+    predict: { q: "Pod b has the right label but fails its readiness check. Does the Service send it traffic?", options: ["Yes, the label matches", "No, it must also be ready", "Only if the other pods are busy"], answer: "No, it must also be ready" } },
+  { name: "4. Ingress routes", sim: simulateIngress,
+    why: "Ingress rules do nothing without an ingress controller. With one, each request goes to the Service of the longest matching path, and Prefix compares whole pieces split at the slash.",
+    predict: { q: "The rules have /api (Prefix) and / (Prefix). Which Service gets a request for /apis?", options: ["shop-api", "shop-web", "none"], answer: "shop-web" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser.
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.cols) h += '<div class="cols">' + b.cols.map(c => '<div class="col ' + c.cls + '"><b>' + c.name + "</b><span>" + c.state + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateDeployment, simulateSelfHealing, simulateService, simulateIngress, STORIES, reconcile, applyActions, selectorMatches, serviceEndpoints, ingressRoute };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

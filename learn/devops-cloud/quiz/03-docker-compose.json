@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What is Docker Compose made for?",
+    "options": [
+      "Running a whole app (web, database, cache) on one machine from one file",
+      "Spreading an app over many servers with self healing",
+      "Making Docker images smaller",
+      "Replacing the database with a cache"
+    ],
+    "answer": 0,
+    "why": "A Compose file describes the services, the network and the volumes of one app, and one command starts all of it. It controls one Docker engine, so one machine. For many servers you move to Swarm or Kubernetes."
+  },
+  {
+    "q": "In a Compose stack, the web service uses DATABASE_URL with the host name localhost. Postgres runs in the db service on the same network. What happens?",
+    "options": [
+      "It works, because both services share a network",
+      "It reaches the Postgres on your laptop",
+      "Connection refused, because localhost inside web is the web container itself",
+      "Compose rewrites localhost to db"
+    ],
+    "answer": 2,
+    "why": "Inside a container, localhost is that container. Nothing listens on port 5432 in web, so the connection is refused. Use the service name, db, as the host name. In the real run this failed with ECONNREFUSED even when the database had been ready for a long time."
+  },
+  {
+    "q": "The web service has ports: - \"3100:3000\". Another container on the same network wants to call web. Which port does it use?",
+    "options": [
+      "3100, the host port",
+      "3000, the container port",
+      "Either one works",
+      "Neither, containers cannot call each other"
+    ],
+    "answer": 1,
+    "why": "The first number is the host port, for your laptop. Service to service traffic uses the container port, so the other container calls web:3000. The Docker docs say service to service communication uses the CONTAINER_PORT."
+  },
+  {
+    "q": "The database has 3 rows, stored on a named volume. Which command deletes them?",
+    "options": [
+      "docker compose stop",
+      "docker compose down",
+      "docker compose down -v",
+      "docker compose restart"
+    ],
+    "answer": 2,
+    "why": "down removes the containers and the network but keeps named volumes, so the rows were still there after down and up. Only down -v removes the named volume. In the real run the count went from 3 to 0."
+  },
+  {
+    "q": "web has depends_on: [db] with no condition. On a fresh machine it crashes with ECONNREFUSED to Postgres. Why?",
+    "options": [
+      "Compose does not start db at all",
+      "Compose waits only until db is running, not until Postgres is ready",
+      "web and db are on different networks",
+      "Postgres has a different password"
+    ],
+    "answer": 1,
+    "why": "A depends_on with no condition means service_started: the container is running. A fresh Postgres needs about a second more to build its files. In the real run web connected 0.1 s after db started and was refused, and Postgres was ready 0.6 s after web had already exited."
+  },
+  {
+    "q": "Which change makes web wait until Postgres is really ready?",
+    "options": [
+      "A healthcheck on db (pg_isready) and condition: service_healthy in web's depends_on",
+      "ports on the db service",
+      "A profile on the web service",
+      "restart: always on db"
+    ],
+    "answer": 0,
+    "why": "The healthcheck is a command Docker runs inside db, and service_healthy keeps web waiting until it passes. It costs up to one check interval, about 2 seconds in the real run. service_healthy on a service with no healthcheck stops Compose with an error."
+  }
+]

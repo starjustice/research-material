@@ -1,0 +1,68 @@
+[
+  {
+    "q": "You start two containers from one image. Inside the first container a program writes /tmp/note.txt. Where does the file live, and can the second container see it?",
+    "options": [
+      "In the image's top layer, so the second container sees it",
+      "In the first container's own thin writable layer, so the second container does not see it",
+      "In a new image that Docker saves, so every new container sees it",
+      "On the host disk, so every container sees it"
+    ],
+    "answer": 1,
+    "why": "An image is read only. Each container adds one thin writable layer on top, and writes go there. The second container has its own empty layer, and the file disappears when the first container is removed."
+  },
+  {
+    "q": "A Dockerfile has COPY . . and then RUN npm ci. You change one letter in src/server.ts and build again. What does Docker do with RUN npm ci?",
+    "options": [
+      "Reuses the cached layer, because package.json did not change",
+      "Runs it again, because COPY . . made a new layer and everything after a changed layer is rebuilt",
+      "Runs it again only if you pass --no-cache",
+      "Skips it, because npm ci never runs twice"
+    ],
+    "answer": 1,
+    "why": "COPY . . copies every file, so one edited file changes that layer. The cache is checked from the top, and the first changed line and every line after it are rebuilt. In my test this order took 7.9 s to rebuild."
+  },
+  {
+    "q": "The Dockerfile copies package*.json, runs npm ci, then copies the source. You add a new library to package.json and build. What happens?",
+    "options": [
+      "Only the last line reruns",
+      "Everything is cached, because the source did not change",
+      "The cache breaks at COPY package*.json, so the install and every line after it rerun",
+      "Docker installs just the new library and keeps the rest"
+    ],
+    "answer": 2,
+    "why": "The layer cache works from the top. A changed package.json changes the first COPY layer, so the install and all later lines rebuild. The fast order only helps while the library list stays the same."
+  },
+  {
+    "q": "Line 1 of a Dockerfile makes a 50 MB file. Line 2 is RUN rm on that file. About how big are the layers these two lines add?",
+    "options": [
+      "About 0 MB, the file is gone",
+      "About 50 MB, line 2 only hides the file in a new layer",
+      "About 100 MB, the file is stored twice",
+      "About 25 MB, Docker compresses it"
+    ],
+    "answer": 1,
+    "why": "A layer is never changed. Line 2 adds a layer that hides the file, and the 50 MB stays in the layer below. In my test the image was 59.2 MB, against 9.2 MB when the file was made and removed in one RUN line."
+  },
+  {
+    "q": "In a multi-stage build, the first stage installs typescript and eslint and builds the app. The last stage copies only dist with COPY --from. Are typescript and eslint in the final image?",
+    "options": [
+      "Yes, every stage becomes part of the image",
+      "Yes, but they are hidden",
+      "No, only the last stage becomes the image, and it contains only what it installed or copied",
+      "Only if they are listed in dependencies"
+    ],
+    "answer": 2,
+    "why": "Only the last stage is the image. The build stage is a workshop that is thrown away. In my test, the one stage image was 240.0 MB and the multi-stage image was 187.2 MB."
+  },
+  {
+    "q": "A production Dockerfile starts with FROM node:latest. It built fine in June. In November the same Dockerfile fails, and nothing in your repo changed. What is the most likely cause?",
+    "options": [
+      "Docker deleted the cache",
+      "The latest tag now points to different bytes, a newer Node version",
+      "Your Dockerfile has a typo",
+      "A tag always points to the same bytes, so this cannot happen"
+    ],
+    "answer": 1,
+    "why": "Tags are names the publisher can move to new images. Only a digest (sha256:...) names exact bytes. Pin the base by digest when you need the same result every time, and update it on purpose."
+  }
+]

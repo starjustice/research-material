@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Containers vs virtual machines: a process with limits, two views, a memory limit, and which to pick</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/01-containers-vs-virtual-machines" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Containers vs virtual machines: a process with limits, two views, a memory limit, and which to pick</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. Stories 1 to 3 use numbers from real runs on Docker Desktop 29.3.1 (2026-11-13). Story 4 is a decision game.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a container is a normal process. Namespaces limit what it sees. Cgroups limit what it uses. The kernel is shared, so it starts fast but the wall is weaker than a VM's.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The functions below are the same code as the practice answer in the lesson (memoryLimitBytes,
+// runResult, namespacesSeen, chooseIsolation). The numbers in stories 1 to 3 come from real runs
+// on Docker Desktop 29.3.1 on a Mac (2026-11-13). Story 4 is a decision game.
+// ---------------------------------------------------------------------------------------------
+function memoryLimitBytes(text) {
+  const m = /^(\d+)([kmg]?)b?$/i.exec(String(text).trim());
+  if (!m) throw new Error("not a memory size: " + text);
+  const unit = { "": 1, k: 1024, m: 1024 ** 2, g: 1024 ** 3 }[m[2].toLowerCase()];
+  return Number(m[1]) * unit;
+}
+function runResult({ limit, usedMiB }) {
+  const killed = usedMiB * 1024 * 1024 > memoryLimitBytes(limit);
+  return { killed, exitCode: killed ? 137 : 0 };
+}
+function namespacesSeen(flags) {
+  const seen = { mnt: "own", pid: "own", net: "own", uts: "own", ipc: "own" };
+  const SHARE = { "--pid=host": "pid", "--network=host": "net", "--net=host": "net", "--uts=host": "uts", "--ipc=host": "ipc" };
+  for (const flag of flags) if (SHARE[flag]) seen[SHARE[flag]] = "host";
+  return seen;
+}
+function chooseIsolation({ needsOtherKernel, runsUntrustedCode, startsOften }) {
+  if (needsOtherKernel) return "vm";
+  if (runsUntrustedCode) return startsOften ? "microvm" : "vm";
+  return "container";
+}
+
+// ---- Story 1: start a container (real run) ----
+function simulateStart() {
+  const steps = [];
+  const mk = (hop, phase, note, a, b, c, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "Your Mac", cls: a.cls || "user", tag: a.tag, small: "kernel: Darwin 25.2.0", lines: a.lines },
+    { title: "Docker's hidden Linux VM", cls: b.cls || "lb", tag: b.tag, small: "kernel: Linux 6.12.76-linuxkit", lines: b.lines },
+    { title: "The container process", cls: c.cls || "srv", tag: c.tag, small: "", big: c.big ? { text: c.big, neg: false } : null, bigLabel: c.label, lines: c.lines }
+  ] });
+  const bytes = memoryLimitBytes("64m");
+  mk("You type the command", "setup", "<b>You run</b> <code>docker run --rm --memory=64m alpine:3.22 ps</code>. On a Mac the Docker command talks to Docker's engine, which lives in a hidden Linux VM. Linux containers need a Linux kernel, and the Mac does not have one.", { tag: ["you are here", ""], lines: ["docker run --rm --memory=64m alpine:3.22 ps"] }, { tag: ["idle", ""], lines: ["8 processors, 7.65 GiB shared by all containers"] }, { tag: ["not started", ""], lines: ["nothing yet"] });
+  mk("Docker asks the kernel for boxes", "run", "<b>Six new namespaces.</b> The kernel makes new boxes for this program: <b>mnt, pid, net, uts, ipc and cgroup</b>. The <code>user</code> and <code>time</code> boxes stay the VM's own. These boxes decide <b>what the program can see</b>. Nothing boots.", { tag: ["waiting", ""], lines: ["the request went to the VM"] }, { tag: ["making boxes", "warn"], lines: ["new mnt 4026532544", "new pid 4026532547", "new net 4026532549", "new uts 4026532545", "new ipc 4026532546", "new cgroup 4026532548"] }, { tag: ["boxes ready", ""], lines: ["still no program"] }, ["Namespaces", "run"]);
+  mk("Docker writes the limit", "run", "<b>A cgroup.</b> The kernel makes a cgroup, and Docker writes the limit into its file <code>memory.max</code>. The number is <b>" + bytes + "</b>, which is 64 times 1024 times 1024. This decides <b>how much the program can use</b>.", { tag: ["waiting", ""], lines: ["still waiting"] }, { cls: "fol", tag: ["cgroup made", "warn"], lines: ["memory.max = " + bytes] }, { tag: ["limit set", ""], big: bytes, label: "bytes allowed, read from memory.max" }, ["Cgroup", "chk"]);
+  mk("The program starts", "run", "<b>A normal process starts.</b> The kernel starts <code>ps</code> inside those boxes. Inside, it is <b>PID 1</b>. From outside, the VM sees an ordinary process with an ordinary number. The files it sees are the Alpine image, a set of files (lesson 02).", { tag: ["waiting", ""], lines: ["still waiting"] }, { tag: ["one more process", "ok"], lines: ["ps has a normal number here, for example 1532 in my sleep test"] }, { cls: "srv", tag: ["running", "ok"], lines: ["inside: PID 1", "root filesystem: Alpine files"] });
+  mk("ps prints", "srv", "<b>One line.</b> <code>ps</code> lists the processes in its own PID box, so it lists only itself: <code>1 root 0:00 ps</code>. The Mac's programs and the VM's other processes are hidden from it.", { tag: ["output", ""], lines: ["PID USER TIME COMMAND", "1 root 0:00 ps"] }, { tag: ["hidden", ""], lines: ["about 170 other processes exist, but ps cannot see them"] }, { tag: ["done", "ok"], lines: ["sees only itself"] }, ["It works", "srv"]);
+  mk("ps ends and the boxes go away", "chk", "<b>Cleanup.</b> <code>ps</code> ends. The kernel removes the namespaces and the cgroup. <code>--rm</code> removes the container record. In ten runs of <code>docker run --rm alpine true</code> the whole thing took between <b>217 and 333 ms</b>. No kernel was booted.", { tag: ["finished", ""], lines: ["prompt is back"] }, { tag: ["clean", "ok"], lines: ["namespaces removed", "cgroup removed"] }, { tag: ["gone", ""], big: "233 ms", label: "middle of 10 runs, start to finish" }, ["Done", "done"]);
+  steps.push({ layout: "two", hop: "What was never created", phase: "done", badge: ["Summary", "done"], note: "<b>No second computer.</b> A VM must build a pretend computer and boot a kernel. A container only asks the one kernel for some boxes and a limit, then starts a process.", boxes: [
+    { title: "What the container got", cls: "srv", tag: ["created", "ok"], lines: ["6 new namespaces", "1 cgroup with a memory limit", "1 normal process"], small: "" },
+    { title: "What it did not get", cls: "alarm", tag: ["not created", "bad"], lines: ["its own kernel", "a hypervisor", "a boot sequence", "pretend hardware"], small: "" }
+  ] });
+  return steps;
+}
+
+// ---- Story 2: two views of one process (real run) ----
+function simulateTwoViews() {
+  const steps = [];
+  const off = namespacesSeen(["--pid=host"]);
+  const mk = (hop, phase, note, a, b, c, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "Inside the container", cls: a.cls || "srv", tag: a.tag, small: "its own PID box", lines: a.lines },
+    { title: "The Docker VM", cls: b.cls || "lb", tag: b.tag, small: "the host's view", lines: b.lines },
+    { title: "Box numbers", cls: c.cls || "fol", tag: c.tag, small: "from /proc/&lt;pid&gt;/ns", lines: c.lines }
+  ] });
+  mk("Start a sleeping container", "setup", "<b>Setup.</b> You run <code>docker run -d --memory=64m alpine:3.22 sleep 300</code>. The program <code>sleep 300</code> just waits for 300 seconds. We will look at this one process from two sides.", { tag: ["running", "ok"], lines: ["one program: sleep 300"] }, { tag: ["running", "ok"], lines: ["many processes, one of them is the sleep"] }, { tag: ["not read yet", ""], lines: ["we will read the boxes next"] });
+  mk("Look from inside", "run", "<b>Inside.</b> <code>docker exec demo-sleep ps</code> shows two lines: <code>1 root 0:00 sleep 300</code> and <code>7 root 0:00 ps</code> (the <code>ps</code> we just started). The sleep program is <b>PID 1</b>.", { tag: ["PID 1", "ok"], lines: ["1 root sleep 300", "7 root ps"] }, { tag: ["not looked at", ""], lines: ["we have not looked yet"] }, { tag: ["not read yet", ""], lines: ["read in the next steps"] }, ["Inside view", "run"]);
+  mk("Look from the VM", "chk", "<b>Outside.</b> A second container with <code>--pid=host</code> runs <code>ps</code> and finds <code>1532 sleep sleep 300</code>. <code>docker inspect</code> also says <code>1532</code>. It is the <b>same process</b> with a second number.", { tag: ["PID 1", "ok"], lines: ["1 root sleep 300"] }, { cls: "fol", tag: ["PID 1532", "warn"], lines: ["1532 sleep sleep 300"] }, { tag: ["not read yet", ""], lines: ["read in the next steps"] }, ["Outside view", "chk"]);
+  mk("Compare the box numbers", "chk", "<b>The boxes differ.</b> Read from outside, the sleep process (1532) is in pid box <b>4026532547</b>. The VM's own processes are in pid box <b>4026531836</b>. Two boxes, one kernel. The mnt box (4026532544 against 4026531841) and the net box (4026532549 against 4026531840) differ in the same way.", { tag: ["pid 4026532547", ""], lines: ["its own box"] }, { tag: ["pid 4026531836", ""], lines: ["the host's box"] }, { cls: "lb", tag: ["different", "warn"], lines: ["container pid: 4026532547", "VM pid: 4026531836"] }, ["Two boxes", "run"]);
+  mk("Switch the PID box off", "bad", "<b>A setting, not a wall.</b> <code>docker run --pid=host alpine ps</code> prints about <b>170 lines</b>: the whole VM, starting with <code>1 root /initd</code>. The practice function says <code>namespacesSeen([\"--pid=host\"])</code> gives <code>pid: \"" + off.pid + "\"</code> and every other box <code>\"own\"</code>.", { cls: "alarm", tag: ["pid is host", "bad"], lines: ["sees about 170 lines", "1 root /initd", "2 root [kthreadd]", "..."] }, { tag: ["same VM", ""], lines: ["nothing changed here"] }, { cls: "alarm", tag: ["box off", "bad"], lines: ["pid: " + off.pid, "net: " + off.net, "mnt: " + off.mnt] }, ["Box switched off", "bad"]);
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Summary", "done"], note: "<b>One process, two names.</b> The namespace decides which list a process looks at. Docker sets the boxes when it starts the container, and flags like <code>--pid=host</code> can turn one off. The boxes work only as well as the kernel that guards them.", boxes: [
+    { title: "Normal container", cls: "srv", tag: ["own boxes", "ok"], lines: ["pid: own", "sees only itself", "safe by default"], small: "" },
+    { title: "With --pid=host", cls: "alarm", tag: ["shared", "bad"], lines: ["pid: host", "sees the whole VM", "use only on purpose"], small: "" }
+  ] });
+  return steps;
+}
+
+// ---- Story 3: the memory limit (real run) ----
+function simulateMemory() {
+  const steps = [];
+  const limit = "64m";
+  const bytes = memoryLimitBytes(limit);
+  const mk = (hop, phase, note, used, a, b, c, badge) => steps.push({ layout: "three", hop, phase, note, badge, boxes: [
+    { title: "The cgroup file", cls: a.cls || "lb", tag: a.tag, small: "/sys/fs/cgroup/memory.max", big: { text: String(bytes), neg: false }, bigLabel: "bytes the kernel allows", lines: a.lines },
+    { title: "The program", cls: b.cls || "srv", tag: b.tag, small: "tail /dev/zero keeps reading", big: { text: used + " MiB", neg: !!b.neg }, bigLabel: "memory in use", meter: { pct: Math.min(100, Math.round(100 * used / 64)), hot: !!b.hot }, lines: b.lines },
+    { title: "What free -m shows", cls: c.cls || "fol", tag: c.tag, small: "inside the container", big: { text: "7837 MB", neg: false }, bigLabel: "total memory, the whole VM", lines: c.lines }
+  ] });
+  mk("Start with a 64 MB limit", "setup", "<b>Setup.</b> You run <code>docker run --memory=64m --memory-swap=64m alpine:3.22 tail /dev/zero</code>. The kernel file says <b>" + bytes + "</b>. Swap (disk used as extra memory) is off, so the result is the same every time. But <code>free -m</code> inside still says <b>7837 MB</b>: it reads the machine, not the limit.", 0, { tag: ["limit set", "ok"], lines: ["memoryLimitBytes(\"64m\") = " + bytes] }, { tag: ["not started", ""], lines: ["nothing yet"] }, { tag: ["trap", "warn"], lines: ["free reads the VM", "the limit is only in the file"] });
+  mk("The program starts", "run", "<b>It starts small.</b> An idle container showed about <b>528 KiB</b>. <code>tail</code> starts to read <code>/dev/zero</code>. That file never ends and never has a line break, so <code>tail</code> keeps everything in memory.", 1, { tag: ["watching", ""], lines: ["no change"] }, { tag: ["running", "ok"], lines: ["runResult: killed false"] }, { tag: ["same", ""], lines: ["still 7837"] }, ["Small", "run"]);
+  let r = runResult({ limit, usedMiB: 30 });
+  mk("It grows to 30 MiB", "run", "<b>Growing.</b> 30 MiB is below the limit. <code>runResult</code> says killed: <b>" + r.killed + "</b>, exit code " + r.exitCode + ". The program is fine. Nothing tells it a limit exists.", 30, { tag: ["watching", ""], lines: ["30 of 64 MiB used"] }, { tag: ["running", "ok"], lines: ["killed: " + r.killed] }, { tag: ["same", ""], lines: ["still 7837"] }, ["Under the limit", "run"]);
+  r = runResult({ limit, usedMiB: 60 });
+  mk("It grows to 60 MiB", "chk", "<b>Close.</b> 60 MiB is still below 64. <code>runResult</code> still says killed: <b>" + r.killed + "</b>. The next few megabytes decide it.", 60, { cls: "fol", tag: ["almost full", "warn"], lines: ["60 of 64 MiB used"] }, { cls: "fol", tag: ["close", "warn"], lines: ["killed: " + r.killed] }, { tag: ["same", ""], lines: ["still 7837"] }, ["Close", "chk"]);
+  r = runResult({ limit, usedMiB: 100 });
+  mk("It asks for more than 64 MiB", "bad", "<b>The kernel kills it.</b> The program asks for more memory than the cgroup allows. <code>runResult</code> says killed: <b>" + r.killed + "</b>, exit code <b>" + r.exitCode + "</b>. In the real run, <code>docker inspect</code> said <code>OOMKilled=true ExitCode=137</code>. There was no error message and no stack trace.", 64, { cls: "alarm", tag: ["limit hit", "bad"], lines: ["the kernel cannot give more"] }, { cls: "alarm", tag: ["KILLED", "bad"], neg: true, hot: true, lines: ["exit code " + r.exitCode, "137 = 128 + 9, the SIGKILL signal"] }, { tag: ["same", ""], lines: ["still 7837"] }, ["Killed", "bad"]);
+  steps.push({ layout: "two", hop: "Memory kills, CPU slows", phase: "done", badge: ["Summary", "done"], note: "<b>Two limits, two results.</b> Over the memory limit the kernel kills the program. Over the CPU limit it only makes the program wait. In my test, <code>--cpus=0.5</code> wrote <code>50000 100000</code> into <code>cpu.max</code>. Three endless loops ran 2 seconds and together used only about 1.07 CPU seconds. They were held back in 21 of 23 time slices, and they did not fail.", boxes: [
+    { title: "Memory limit", cls: "alarm", tag: ["kills", "bad"], lines: ["the program dies", "exit code 137", "you see a dead container"], small: "" },
+    { title: "CPU limit", cls: "fol", tag: ["slows", "warn"], lines: ["the program waits", "no error, no exit", "you see slow answers"], small: "" }
+  ] });
+  return steps;
+}
+
+// ---- Story 4: container, VM or microVM ----
+function simulateChoice() {
+  const steps = [];
+  const cases = [
+    { hop: "Case 1: your own Node API", input: { needsOtherKernel: false, runsUntrustedCode: false, startsOften: false }, text: "<b>Your own trusted API on Linux.</b> You wrote the code, it needs Linux and nothing else. A container gives you fast starts, small size and easy deploys. The shared kernel is a small risk when you trust the code.", why: ["needs another kernel: no", "strangers' code: no"] },
+    { hop: "Case 2: an app that needs Windows", input: { needsOtherKernel: true, runsUntrustedCode: false, startsOften: false }, text: "<b>The app needs Windows, and the server runs Linux.</b> A container cannot bring its own kernel, so there is no Windows kernel to call. You need a VM, which brings its own.", why: ["needs another kernel: yes", "so: a VM, always"] },
+    { hop: "Case 3: strangers' code, many short jobs", input: { needsOtherKernel: false, runsUntrustedCode: true, startsOften: true }, text: "<b>Customers upload code and you run thousands of short jobs a minute.</b> You do not trust the code, so you want a separate kernel. A full VM would be slow to boot. A <b>microVM</b> (a tiny VM, such as Firecracker, which claims boot in under 125 ms) is the middle path.", why: ["strangers' code: yes", "starts often: yes", "so: a microVM"] },
+    { hop: "Case 4: strangers' code, long running", input: { needsOtherKernel: false, runsUntrustedCode: true, startsOften: false }, text: "<b>A customer gets a whole server that runs for months.</b> You do not trust the code, but it starts once. The boot time does not matter, so a normal VM gives the strongest wall at a fair price.", why: ["strangers' code: yes", "starts often: no", "so: a normal VM"] }
+  ];
+  steps.push({ layout: "two", hop: "The question", phase: "setup", badge: ["Setup", ""], note: "<b>Ask who wrote the code, and which kernel it needs.</b> A container shares the host's kernel, so it starts fast and is light. A VM has its own kernel on a hypervisor, so it has a stronger wall. The function <code>chooseIsolation</code> from the practice makes the choice. Press Next for four cases.", boxes: [
+    { title: "Container", cls: "srv", tag: ["shared kernel", "ok"], lines: ["a process with limits", "starts in about 230 ms (my test)", "weaker wall"], small: "" },
+    { title: "VM", cls: "lb", tag: ["own kernel", ""], lines: ["a pretend computer", "boots a whole kernel", "stronger wall"], small: "" }
+  ] });
+  cases.forEach(c => {
+    const out = chooseIsolation(c.input);
+    const cls = out === "container" ? "srv" : out === "microvm" ? "fol" : "lb";
+    steps.push({ layout: "three", hop: c.hop, phase: "run", badge: ["Decide", "chk"], note: c.text, boxes: [
+      { title: "The need", cls: "user", tag: ["input", ""], small: "", lines: [ "needsOtherKernel: " + c.input.needsOtherKernel, "runsUntrustedCode: " + c.input.runsUntrustedCode, "startsOften: " + c.input.startsOften ] },
+      { title: "chooseIsolation says", cls: cls, tag: [out, out === "container" ? "ok" : "warn"], small: "", big: { text: out, neg: false }, bigLabel: "the pick" },
+      { title: "Why", cls: "lb", tag: ["rule", ""], small: "", lines: c.why }
+    ] });
+  });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Summary", "done"], note: "<b>The kernel is the line.</b> Trusted code on Linux: a container. Another kernel or strangers' code that runs long: a VM. Strangers' code that starts often: a microVM, a tiny VM that boots fast. In real life they mix: Docker's page says teams often run containers inside VMs.", boxes: [
+    { title: "Pick a container when", cls: "srv", tag: ["fast, light", "ok"], lines: ["you wrote the code", "it runs on Linux", "you want quick starts"], small: "" },
+    { title: "Pick a VM or microVM when", cls: "alarm", tag: ["strong wall", "bad"], lines: ["it needs another kernel", "the code is from strangers", "you need a hardware wall"], small: "" }
+  ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Start a container", sim: simulateStart,
+    why: "A container is a normal process. The kernel makes six namespaces (what it sees) and a cgroup (how much it uses), then starts the program. Inside it is PID 1. Nothing boots, so the whole run took about 233 ms in the test.",
+    predict: { q: "Inside a container, which PID does the program you started have?", options: ["PID 1", "The same big number the VM shows", "No PID, containers are not processes"], answer: "PID 1" } },
+  { name: "2. Two views", sim: simulateTwoViews,
+    why: "One process has two numbers, one in each PID box: 1 inside, 1532 outside in the test. The boxes are settings, and --pid=host turns one off.",
+    predict: { q: "Inside the container, sleep 300 is PID 1. What PID does the Docker VM give the same process?", options: ["1", "A different, ordinary number", "The VM cannot see it"], answer: "A different, ordinary number" } },
+  { name: "3. Memory limit", sim: simulateMemory,
+    why: "The limit is the number in memory.max (67108864 for 64m). Over the limit the kernel kills the program and the exit code is 137. free -m still shows the whole VM.",
+    predict: { q: "A container with --memory=64m uses more than 64 MiB. What happens?", options: ["It gets slow but keeps running", "The kernel kills it, exit code 137", "Docker pauses it and asks you"], answer: "The kernel kills it, exit code 137" } },
+  { name: "4. Container or VM?", sim: simulateChoice,
+    why: "A container shares the kernel, so it is light but the wall is weaker. Another kernel needs a VM. Strangers' code that starts often fits a microVM. Strangers' code that runs long fits a VM.",
+    predict: { q: "You run thousands of short jobs a minute from code written by strangers. Best pick?", options: ["A plain container", "A microVM", "A full VM for each job"], answer: "A microVM" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.meter) h += '<div class="meter"><i class="' + (b.meter.hot ? "hot" : "") + '" style="width:' + b.meter.pct + '%"></i></div>';
+  if (b.dots) h += '<div class="dots">' + b.dots.map(d => '<span class="dot ' + (d.on ? "on" : "") + '"><b>' + d.label + "</b>" + d.b + "</span>").join("") + "</div>";
+  if (b.cols) h += '<div class="cols">' + b.cols.map(c => '<div class="col ' + c.cls + '"><b>' + c.name + "</b><span>" + c.state + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateStart, simulateTwoViews, simulateMemory, simulateChoice, STORIES, memoryLimitBytes, runResult, namespacesSeen, chooseIsolation };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

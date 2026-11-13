@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What is the one big difference inside a container and a virtual machine?",
+    "options": [
+      "A VM has its own kernel. A container shares the host's kernel.",
+      "A container has its own kernel. A VM shares the host's kernel.",
+      "Containers run only on Linux and VMs run only on Windows.",
+      "A container needs a hypervisor and a VM does not."
+    ],
+    "answer": 0,
+    "why": "A VM boots its own kernel on a hypervisor. A container is a normal process on the host's kernel. Speed, size and the strength of the wall all follow from this."
+  },
+  {
+    "q": "On a Mac, you run `docker run --rm alpine uname -sr` and the Mac itself says Darwin. What does the container print?",
+    "options": [
+      "Darwin 25.2.0, the Mac's kernel",
+      "Linux 6.12.76-linuxkit, the kernel of Docker's hidden Linux VM",
+      "Alpine 3.22, because the image brings its own kernel",
+      "An error, because Macs cannot run Linux containers"
+    ],
+    "answer": 1,
+    "why": "An image brings files, not a kernel. A Linux container needs a Linux kernel, so Docker Desktop runs one hidden Linux VM and your containers are processes inside it. Alpine and busybox both printed the same kernel."
+  },
+  {
+    "q": "Which pair is right? Namespaces decide ___ and cgroups decide ___.",
+    "options": [
+      "how much a program can use, then what it can see",
+      "what a program can see, then how much it can use",
+      "which files are saved, then which are deleted",
+      "who can log in, then who can read the logs"
+    ],
+    "answer": 1,
+    "why": "A namespace gives a process its own view: process list, network, hostname, files. A cgroup sets a limit on memory, CPU or process count."
+  },
+  {
+    "q": "You start a container with `--memory=64m`. Inside it, `free -m` prints 7837 for the total memory. What does that mean?",
+    "options": [
+      "The limit failed, so the container is free to use all 7837 MB",
+      "Docker ignored the flag because the image is too large for 64 MB",
+      "free reads the size of the whole machine, and the real limit is in memory.max (67108864)",
+      "The limit is 7837 MB, because Docker rounds a small limit up to the VM size"
+    ],
+    "answer": 2,
+    "why": "free reads the machine, not the cgroup file. The same is true for the number of CPUs. A program that sizes itself from the machine can pick numbers that are too big for its limit."
+  },
+  {
+    "q": "A container goes over its memory limit, and another one goes over its CPU limit. What happens to each?",
+    "options": [
+      "Both are killed by the kernel with exit code 137",
+      "Both only get slower, and neither one is ever killed",
+      "The memory one is killed with exit 137, and the CPU one is only slowed",
+      "The CPU one is killed with exit 137, and the memory one is paused"
+    ],
+    "answer": 2,
+    "why": "Over the memory limit the kernel kills the program, with no error message (137 is 128 plus signal 9). Over the CPU limit the kernel makes the program wait. In my test three endless loops were held back in 21 of 23 time slices and did not fail."
+  },
+  {
+    "q": "Customers upload code and you run thousands of short jobs a minute from it. Which choice fits best?",
+    "options": [
+      "A plain container, because containers are secure by default",
+      "A microVM such as Firecracker, a tiny VM with its own kernel that boots fast",
+      "A full VM for each job, whatever the boot time",
+      "No isolation, because the jobs are short"
+    ],
+    "answer": 1,
+    "why": "The kernel is shared in a container, so a kernel bug can cross the wall, and strangers' code is the risky case. A microVM gives a separate kernel with a start time close to a container's. A sandbox such as gVisor is another middle path."
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "q": "Docker Compose runs 3 copies of your API on one server, and the server loses power. What happens to the copies?",
+    "options": [
+      "Compose starts them again on another server",
+      "All 3 stop, because Compose only manages the machine it runs on",
+      "Two stop and one keeps running",
+      "Nothing, containers do not need a server"
+    ],
+    "answer": 1,
+    "why": "Compose looks after containers on one machine and does not know that other machines exist. Kubernetes treats many machines as one group, so it can start the pods on a machine that is still alive."
+  },
+  {
+    "q": "A Deployment says replicas: 3. Someone deletes one of the 3 pods by hand. What happens, and who types a command?",
+    "options": [
+      "Nothing happens until you run kubectl apply again",
+      "The same pod is repaired and keeps its name",
+      "A loop sees 2 pods where 3 are wanted and creates a new pod with a new name, and nobody types a command",
+      "The Service creates a new pod"
+    ],
+    "answer": 2,
+    "why": "You write what you want, and a loop (the ReplicaSet) compares what you want with what exists, again and again. It counts 2, wants 3, and creates one. The new pod is a new pod, not the old one brought back."
+  },
+  {
+    "q": "A pod dies and a new pod takes its place. Which statement is true?",
+    "options": [
+      "The new pod has the same name and the same IP address",
+      "The new pod has a new name and a new IP address, so you should call a Service and not a pod",
+      "The new pod has the same IP address but a new name",
+      "You must change the config to use the new IP address"
+    ],
+    "answer": 1,
+    "why": "A pod is disposable: it is replaced, not repaired. Because the address changes, other parts of the system call a Service, which keeps one stable name and IP."
+  },
+  {
+    "q": "You change the image tag in a Deployment from 1.4.0 to 1.5.0 and apply it. What does Kubernetes do?",
+    "options": [
+      "It changes the image inside the running containers",
+      "It makes a new ReplicaSet and moves the pods over a few at a time",
+      "It stops everything and then starts the new version",
+      "Nothing, you must delete the old pods by hand"
+    ],
+    "answer": 1,
+    "why": "A change to the pod blueprint starts a rolling update: the Deployment makes a new ReplicaSet, scales it up and scales the old one down. The old ReplicaSet is kept, which makes a rollback with kubectl rollout undo possible."
+  },
+  {
+    "q": "A Service has the selector app=shop-api. Which pods get its traffic?",
+    "options": [
+      "Every pod in the cluster",
+      "Pods whose labels match app=shop-api, even when they are not ready",
+      "Pods whose labels match app=shop-api and that are ready",
+      "Only the oldest pod"
+    ],
+    "answer": 2,
+    "why": "A pod needs both: the label matches, and it is ready. A pod that fails its readiness check is left out until it is ready again, and a selector that matches no label gives an empty list."
+  },
+  {
+    "q": "You apply an Ingress to a new cluster that has no ingress controller. What happens to the requests?",
+    "options": [
+      "They are routed by the rules anyway",
+      "Nothing: an Ingress is only rules, and a controller must read them",
+      "Kubernetes installs a controller for you",
+      "The Deployment restarts"
+    ],
+    "answer": 1,
+    "why": "The Kubernetes docs say: only creating an Ingress resource has no effect. You must run an ingress controller. For new work the project recommends Gateway API, because the Ingress API is frozen."
+  }
+]

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker images and layers: layers, the build cache, and a multi-stage build</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/02-docker-images-and-layers" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Docker images and layers: layers, the build cache, and a multi-stage build</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. Stories 2 and 3 use numbers from a real test on Postgres 18.3. The clock times in stories 1 and 4 are examples.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> an image is a stack of read-only layers, and a container adds one thin layer on top. Docker reuses the layers from the top until the first line that changed, then rebuilds everything after it. So put the lines that change least at the top, and ship only what runs.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (buildPlan, rebuildSeconds,
+// imageSize). The numbers come from real builds on Docker Desktop 29.3.1 with node:24-alpine
+// (2026-11-13). The step seconds are what BuildKit printed for each line.
+// ---------------------------------------------------------------------------------------------
+function copySources(line) {
+  const words = line.split(/\s+/).slice(1).filter(w => !w.startsWith("--"));
+  return words.slice(0, -1);
+}
+function matches(source, file) {
+  if (source === "." || source === "./") return true;
+  const clean = source.replace(/^\.\//, "").replace(/\/$/, "");
+  const escaped = clean.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*");
+  return new RegExp("^" + escaped + "(/.*)?$").test(file);
+}
+function copyChanged(line, changedFiles) {
+  if (!/^(COPY|ADD)\s/.test(line)) return false;
+  return copySources(line).some(src => changedFiles.some(f => matches(src, f)));
+}
+function buildPlan(oldLines, newLines, changedFiles) {
+  let broken = false;
+  return newLines.map((line, i) => {
+    if (line !== oldLines[i] || copyChanged(line, changedFiles)) broken = true;
+    return { line, status: broken ? "REBUILT" : "CACHED" };
+  });
+}
+function rebuildSeconds(plan, seconds) {
+  const total = plan.filter(p => p.status === "REBUILT").reduce((sum, p) => sum + (seconds[p.line] || 0), 0);
+  return Math.round(total * 10) / 10;
+}
+function imageSize(layers) { return Math.round(layers.reduce((sum, l) => sum + l.mb, 0) * 10) / 10; }
+
+const CMD = 'CMD ["node", "dist/server.js"]';
+const BAD = ["FROM node:24-alpine", "WORKDIR /usr/src/app", "COPY . .", "RUN npm ci", "RUN npm run build", CMD];
+const GOOD = ["FROM node:24-alpine", "WORKDIR /usr/src/app", "COPY package*.json ./", "RUN npm ci", "COPY . .", "RUN npm run build", CMD];
+const SECONDS = { "RUN npm ci": 2.8, "RUN npm run build": 2.7 };   // what BuildKit printed for the two slow lines
+
+const kb = n => (n >= 1000 ? (n / 1000).toFixed(1) + " MB" : n + " kB");
+const mb = n => n.toFixed(1) + " MB";
+
+// ---- Story 1: image, layers and containers ----
+const GOOD_LAYERS = [
+  { name: "FROM node:24-alpine (4 layers)", size: "176.1 MB", mb: 176.1, state: "base" },
+  { name: "WORKDIR /usr/src/app", size: "16 kB", mb: 0.0164, state: "base" },
+  { name: "COPY package*.json ./", size: "98 kB", mb: 0.0983, state: "base" },
+  { name: "RUN npm ci", size: "62.3 MB", mb: 62.3, state: "base" },
+  { name: "COPY . .", size: "37 kB", mb: 0.0369, state: "base" },
+  { name: "RUN npm run build", size: "1.4 MB", mb: 1.42, state: "base" }
+];
+function simulateImage() {
+  const steps = [];
+  const total = imageSize(GOOD_LAYERS);
+  const imageBox = (lit) => ({ title: "The image", cls: "lb", tag: ["read only", ""], small: "9 layers, " + mb(total), layers: GOOD_LAYERS.map(l => Object.assign({}, l)).reverse(), lit });
+  const cbox = (title, cls, tag, layers, lines, big, label) => ({ title, cls, tag, small: "", layers, lines, big, bigLabel: label });
+  const wl = (size, text) => [{ name: text || "thin writable layer", size, state: "write" }];
+  steps.push({ layout: "three", hop: "Start: one image, no containers", phase: "setup",
+    note: "<b>The image is a pile of read-only layers.</b> Each Dockerfile line that changes files made one layer. <code>docker history</code> printed these sizes. The layers add up to <b>" + mb(total) + "</b> of files. Nothing is running yet.",
+    boxes: [
+      { title: "Dockerfile", cls: "user", tag: ["the recipe", ""], small: "", lines: ["FROM node:24-alpine", "WORKDIR /usr/src/app", "COPY package*.json ./", "RUN npm ci", "COPY . .", "RUN npm run build", "CMD [\"node\", \"dist/server.js\"]"] },
+      imageBox(true),
+      cbox("Containers", "fol", ["none yet", ""], null, ["nothing is running"], null, "")
+    ] });
+  steps.push({ layout: "three", hop: "docker run: container A", phase: "run",
+    note: "<b>Container A starts.</b> Docker does not copy the image. It puts <b>one new empty writable layer</b> on top. The container sees the layers below as one folder tree. In my test that thin layer was <b>4.1 kB</b>, while the image is " + mb(total) + ".",
+    boxes: [
+      { title: "Dockerfile", cls: "user", tag: ["unchanged", ""], small: "", lines: ["the recipe is not used again"] },
+      imageBox(false),
+      cbox("Container A", "srv", ["running", "ok"], wl("4.1 kB", "writable layer, new and empty"), [], { text: "4.1 kB", neg: false }, "what the container added")
+    ] });
+  steps.push({ layout: "three", hop: "A writes /tmp/note.txt", phase: "chk",
+    note: "<b>A writes a file.</b> The file goes into A's writable layer, and nowhere else. <code>docker diff</code> printed <code>A /tmp/note.txt</code>. The layer grew to <b>12.3 kB</b>. The image layers did not change at all.",
+    boxes: [
+      { title: "Dockerfile", cls: "user", tag: ["unchanged", ""], small: "", lines: ["the recipe is not used again"] },
+      imageBox(false),
+      cbox("Container A", "srv", ["wrote a file", "warn"], wl("12.3 kB", "writable layer with note.txt"), ["A /tmp/note.txt"], { text: "12.3 kB", neg: false }, "what the container added")
+    ] });
+  steps.push({ layout: "three", hop: "docker run: container B", phase: "run",
+    note: "<b>Container B starts from the same image.</b> It shares every read-only layer with A and gets its own empty writable layer (4.1 kB). B does <b>not</b> see <code>note.txt</code>: reading it printed <code>No such file or directory</code>. Two containers did not cost 2 times " + mb(total) + ".",
+    boxes: [
+      { title: "Container A", cls: "srv", tag: ["running", "ok"], small: "", layers: wl("12.3 kB", "writable layer with note.txt"), lines: [] },
+      imageBox(true),
+      cbox("Container B", "srv", ["running", "ok"], wl("4.1 kB", "writable layer, new and empty"), ["no note.txt here"], { text: "4.1 kB", neg: false }, "what the container added")
+    ] });
+  steps.push({ layout: "three", hop: "docker rm A", phase: "bad",
+    note: "<b>A is removed, and its layer goes with it.</b> <code>note.txt</code> is gone for good. This is why a database needs a volume (a folder outside the container). The image and container B did not change.",
+    badge: ["A's data is lost", "bad"],
+    boxes: [
+      { title: "Container A", cls: "alarm", tag: ["removed", "bad"], small: "", lines: ["its writable layer is deleted", "note.txt is gone"] },
+      imageBox(false),
+      cbox("Container B", "srv", ["still running", "ok"], wl("4.1 kB", "writable layer"), [], { text: "4.1 kB", neg: false }, "what the container added")
+    ] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done",
+    note: "<b>Image: read only, shared.</b> <b>Container: the image plus one thin layer that is thrown away.</b> Anything you want to keep goes in a volume. And a layer, once made, is never changed. That is the fact that makes the cache in the next story work.",
+    boxes: [
+      { title: "Image", cls: "lb", tag: ["shared", ""], small: "", lines: ["layers never change", "many containers use the same one"] },
+      { title: "Container", cls: "srv", tag: ["private", ""], small: "", lines: ["one thin writable layer", "dies with the container"] }
+    ] });
+  return steps;
+}
+
+// ---- Stories 2 and 3: the build cache, line by line ----
+function simulateCache(oldLines, newLines, changed, seconds, extra) {
+  const steps = [];
+  const plan = buildPlan(oldLines, newLines, changed);
+  const secs = line => seconds[line] || 0;
+  const stackAt = k => newLines.map((line, i) => ({
+    name: line, size: i < k ? (plan[i].status === "CACHED" ? "CACHED" : "REBUILT") : (i === k ? "checking" : "waiting"),
+    state: i < k ? (plan[i].status === "CACHED" ? "cached" : "rebuilt") : (i === k ? "now" : "wait")
+  }));
+  const clock = k => rebuildSeconds(plan.map((p, i) => i < k ? p : { line: p.line, status: "CACHED" }), seconds);
+  const files = changed.length ? changed.join(", ") : "nothing";
+  steps.push({ layout: "three", hop: "Setup: the last build is stored", phase: "setup",
+    note: "<b>The last build left one layer for each line.</b> Docker keeps them as the build cache. You edit one file now: <code>" + files + "</code> (<code>hello v1</code> becomes <code>hello v2</code>). Press Next. Docker will check the lines from the top.",
+    boxes: [
+      { title: "Dockerfile lines", cls: "lb", tag: ["last build", "ok"], small: "", layers: newLines.map(l => ({ name: l, size: "stored", state: "cached" })) },
+      { title: "What changed", cls: "fol", tag: ["your edit", "warn"], small: "", lines: ["changed: " + files, "package.json: not changed"] },
+      { title: "Clock", cls: "user", tag: ["rebuild", ""], small: "", big: { text: "0.0 s", neg: false }, bigLabel: "time of lines that had to rerun" }
+    ] });
+  newLines.forEach((line, k) => {
+    const st = plan[k].status;
+    const before = k > 0 ? plan[k - 1].status : "CACHED";
+    const isCopy = /^(COPY|ADD)\s/.test(line);
+    let why;
+    if (k === 0) why = "The base image is already on this machine, so Docker does not download it again. <b>CACHED</b>.";
+    else if (st === "CACHED") why = isCopy ? "Same line. The files it copies have the same content. The layer below is cached. So <b>CACHED</b>: Docker reuses the stored layer." : "Same text as last time, and the layer below is cached. So <b>CACHED</b>.";
+    else if (before === "CACHED" && (isCopy)) why = "Same line, but a file it copies changed (<code>" + files + "</code>). Docker takes the checksum of the files, and it is new. So <b>REBUILT</b>: a new layer is made. <b>The cache is broken from here.</b>";
+    else if (before === "CACHED") why = "This line changed. <b>REBUILT</b>. The cache is broken from here.";
+    else why = "The text is the same, but the layer below it is new, so this layer cannot be reused. <b>REBUILT</b>" + (secs(line) ? " (it took " + secs(line) + " s)." : ".") + (/npm ci/.test(line) && changed.indexOf("package.json") < 0 ? " Notice that <code>package.json</code> did not change." : "");
+    const upto = k + 1;
+    steps.push({ layout: "three", hop: "Line " + (k + 1) + " of " + newLines.length + ": " + line, phase: st === "CACHED" ? "srv" : "bad",
+      badge: [st, st === "CACHED" ? "srv" : "bad"],
+      note: why,
+      boxes: [
+        { title: "Dockerfile lines", cls: "lb", tag: ["top to bottom", ""], small: "", layers: stackAt(k + 1).map((l, i) => i === k ? Object.assign(l, { size: st, state: st === "CACHED" ? "cached" : "rebuilt", lit: true }) : l) },
+        { title: "Docker asks", cls: st === "CACHED" ? "srv" : "alarm", tag: [st, st === "CACHED" ? "ok" : "bad"], small: "", lines: ["same line as before? " + (line === oldLines[k] ? "yes" : "no"), isCopy ? "same file contents? " + (copyChanged(line, changed) ? "no" : "yes") : "(no files to check)", "layer below cached? " + (before === "CACHED" ? "yes" : "no")] },
+        { title: "Clock", cls: "user", tag: ["so far", ""], small: "", big: { text: clock(upto).toFixed(1) + " s", neg: clock(upto) > 3 }, bigLabel: "time of lines that had to rerun" }
+      ] });
+  });
+  const total = rebuildSeconds(plan, seconds), n = plan.filter(p => p.status === "REBUILT" && !/^CMD/.test(p.line)).length;
+  steps.push(Object.assign({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"] }, extra(plan, total, n)));
+  return steps;
+}
+function simulateSlowOrder() {
+  return simulateCache(BAD, BAD, ["src/server.ts"], SECONDS, (plan, total, n) => ({
+    note: "<b>" + n + " of " + plan.filter(p => !/^CMD/.test(p.line)).length + " build steps were rebuilt</b>, and <code>npm ci</code> was one of them, for a one letter edit. Docker added up <b>" + total + " s</b> of slow lines. The real rebuild took <b>7.9 s</b> in total (the rest is saving the image). The first build took 8.0 s, so the cache saved almost nothing.",
+    boxes: [
+      { title: "Slow order", cls: "alarm", tag: ["COPY . . first", "bad"], small: "", big: { text: "7.9 s", neg: true }, bigLabel: "real rebuild after one edit" },
+      { title: "The cause", cls: "fol", tag: ["rule", ""], small: "", lines: ["COPY . . sees every file", "any edit changes that layer", "so the install reruns every time"] }
+    ] }));
+}
+function simulateFastOrder() {
+  const steps = simulateCache(GOOD, GOOD, ["src/server.ts"], SECONDS, (plan, total, n) => ({
+    note: "<b>Only " + n + " of " + plan.filter(p => !/^CMD/.test(p.line)).length + " build steps were rebuilt</b>, and <code>npm ci</code> was not one of them (it printed CACHED). Docker added up <b>" + total + " s</b>. The real rebuild took <b>3.2 s</b>, against 7.9 s for the slow order. On a real app, where the install takes a minute, the gap is bigger.",
+    boxes: [
+      { title: "Fast order", cls: "srv", tag: ["package*.json first", "ok"], small: "", big: { text: "3.2 s", neg: false }, bigLabel: "real rebuild after one edit" },
+      { title: "The cause", cls: "lb", tag: ["rule", ""], small: "", lines: ["the library list is copied alone", "it did not change, so the install is cached", "only the source lines rerun"] }
+    ] }));
+  const plan2 = buildPlan(GOOD, GOOD, ["package.json", "package-lock.json"]);
+  steps.push({ layout: "two", hop: "Now you add a library", phase: "bad", badge: ["Cache broken early", "bad"],
+    note: "<b>The cache only helps while the library list stays the same.</b> If you add a library, <code>package.json</code> and the lock file change. The plan from <code>buildPlan</code>: " + plan2.map(p => p.status === "CACHED" ? "CACHED" : "REBUILT").join(", ") + ". That is right: the install must run, because the list is new.",
+    boxes: [
+      { title: "Lines after a new library", cls: "alarm", tag: ["from line 3", "bad"], small: "", layers: plan2.map(p => ({ name: p.line, size: p.status, state: p.status === "CACHED" ? "cached" : "rebuilt" })) },
+      { title: "What to remember", cls: "lb", tag: ["rule", ""], small: "", lines: ["order lines from changes rarely", "to changes often", "the first change breaks the rest"] }
+    ] });
+  return steps;
+}
+
+// ---- Story 4: multi-stage build and a small image ----
+function simulateMultiStage() {
+  const steps = [];
+  const base = { name: "FROM node:24-alpine (4 layers)", size: "176.1 MB", mb: 176.1 };
+  const single = [base, { name: "WORKDIR + COPY package*.json", size: "0.1 MB", mb: 0.1147 }, { name: "RUN npm ci (all libraries)", size: "62.3 MB", mb: 62.3 }, { name: "COPY . . and RUN npm run build", size: "1.5 MB", mb: 1.4569 }];
+  const singleTotal = imageSize(single);
+  const runtime = [base, { name: "WORKDIR + COPY package*.json", size: "0.1 MB", mb: 0.1147 }, { name: "RUN npm ci --omit=dev", size: "11.0 MB", mb: 11 }, { name: "COPY --from=build dist", size: "25 kB", mb: 0.0246 }];
+  const runtimeTotal = imageSize(runtime);
+  const L = (list, state) => list.map(l => ({ name: l.name, size: l.size, state: state || "base" }));
+  steps.push({ layout: "three", hop: "One stage ships everything", phase: "setup",
+    note: "<b>The problem.</b> The build needs <code>typescript</code> and <code>eslint</code> to make <code>dist</code>. A one stage Dockerfile installs them, so they ship to production too. The image is <b>" + mb(singleTotal) + "</b>, and <code>npm ci</code> alone is 62.3 MB of it.",
+    boxes: [
+      { title: "One stage image", cls: "alarm", tag: ["fat", "bad"], small: "", layers: L(single).reverse() },
+      { title: "What runs in production", cls: "srv", tag: ["needs", ""], small: "", lines: ["node", "express", "dist/server.js"] },
+      { title: "What ships but never runs", cls: "fol", tag: ["waste", "warn"], small: "", lines: ["typescript", "eslint", "type definitions", "src and config files"] }
+    ] });
+  steps.push({ layout: "three", hop: "Stage 1, named build", phase: "run",
+    note: "<b>Stage 1 (<code>FROM node:24-alpine AS build</code>)</b> does the same work as before: install everything, copy the source, run <code>npm run build</code>. It makes <code>dist</code>. This stage is only a workshop.",
+    boxes: [
+      { title: "Stage build", cls: "fol", tag: ["workshop", "warn"], small: "", layers: L(single, "wait").reverse() },
+      { title: "It produces", cls: "srv", tag: ["the result", "ok"], small: "", lines: ["dist/server.js"] },
+      { title: "Final image so far", cls: "user", tag: ["nothing yet", ""], small: "", lines: ["only the last stage becomes the image"] }
+    ] });
+  steps.push({ layout: "three", hop: "Stage 2, a fresh start", phase: "run",
+    note: "<b>Stage 2 starts again from a clean <code>FROM node:24-alpine</code>.</b> It runs <code>npm ci --omit=dev</code>, which skips <code>typescript</code> and <code>eslint</code>. That layer is <b>11.0 MB</b> instead of 62.3 MB.",
+    boxes: [
+      { title: "Stage build", cls: "fol", tag: ["waiting", ""], small: "", lines: ["not copied into the image"] },
+      { title: "Stage 2: runtime", cls: "srv", tag: ["building", "ok"], small: "", layers: L(runtime.slice(0, 3), "rebuilt").reverse() },
+      { title: "Saved here", cls: "lb", tag: ["layer size", ""], small: "", big: { text: "51.3 MB", neg: false }, bigLabel: "62.3 MB minus 11.0 MB" }
+    ] });
+  steps.push({ layout: "three", hop: "COPY --from=build", phase: "chk",
+    note: "<b><code>COPY --from=build /usr/src/app/dist ./dist</code></b> takes only the finished folder from stage 1. It is <b>25 kB</b>. Nothing else from the workshop comes along.",
+    boxes: [
+      { title: "Stage build", cls: "fol", tag: ["source of dist", ""], small: "", lines: ["dist/server.js is copied out"] },
+      { title: "Stage 2: runtime", cls: "srv", tag: ["building", "ok"], small: "", layers: L(runtime, "rebuilt").reverse() },
+      { title: "Image size so far", cls: "user", tag: ["sum of layers", ""], small: "", big: { text: mb(runtimeTotal), neg: false }, bigLabel: "imageSize of these layers" }
+    ] });
+  steps.push({ layout: "three", hop: "USER node and CMD", phase: "srv",
+    note: "<b>Last two lines.</b> <code>USER node</code> makes the app run as user 1000, not root (I checked with <code>id</code>). <code>CMD</code> sets the start command. Both only change the config card, not the files. Stage 1 is thrown away.",
+    badge: ["Image is ready", "srv"],
+    boxes: [
+      { title: "Stage build", cls: "alarm", tag: ["thrown away", "bad"], small: "", lines: ["never part of the image", "its cache stays on your machine"] },
+      { title: "The final image", cls: "srv", tag: ["thin", "ok"], small: "", layers: L(runtime, "cached").reverse() },
+      { title: "Config card", cls: "lb", tag: ["metadata", ""], small: "", lines: ["USER node (uid 1000)", "NODE_ENV=production", CMD] }
+    ] });
+  steps.push({ layout: "two", hop: "The size, measured", phase: "done", badge: ["Finished", "done"],
+    note: "<b>" + mb(singleTotal) + " became " + mb(runtimeTotal) + "</b> (about " + Math.round(100 * (singleTotal - runtimeTotal) / singleTotal) + " percent smaller). The base image is most of what is left: 176.1 MB. A smaller base helps next. Download sizes of the Node 24 bases I measured: full <b>401.1 MB</b>, slim <b>81.0 MB</b>, alpine <b>62.3 MB</b>. Alpine uses a different C library (musl), so some native packages need the slim image instead.",
+    boxes: [
+      { title: "One stage", cls: "alarm", tag: ["before", "bad"], small: "", big: { text: mb(singleTotal), neg: true }, bigLabel: "unpacked, on alpine" },
+      { title: "Multi-stage", cls: "srv", tag: ["after", "ok"], small: "", big: { text: mb(runtimeTotal), neg: false }, bigLabel: "unpacked, on alpine" }
+    ] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Image and container", sim: simulateImage,
+    why: "A container does not copy the image. It adds one thin writable layer (4.1 kB at the start). Two containers share every read-only layer, and a file written in one is invisible in the other.",
+    predict: { q: "You start 2 containers from one 240 MB image. About how much new disk do the 2 containers use together?", options: ["About 480 MB", "A few kilobytes", "About 240 MB"], answer: "A few kilobytes" } },
+  { name: "2. Cache: slow order", sim: simulateSlowOrder,
+    why: "COPY . . copies every file, so one edited file makes a new layer. Every line after a changed line is rebuilt, so npm ci reruns even though package.json did not change.",
+    predict: { q: "Dockerfile: COPY . . then RUN npm ci. You change one letter in src/server.ts. Does npm ci run again?", options: ["No, package.json did not change", "Yes, it runs again", "Only if you add --no-cache"], answer: "Yes, it runs again" } },
+  { name: "3. Cache: fast order", sim: simulateFastOrder,
+    why: "Only package*.json is copied before the install. It did not change, so the install layer is reused. The cache breaks at COPY . . and only the lines after it rebuild.",
+    predict: { q: "Dockerfile: COPY package*.json, RUN npm ci, then COPY . . You change src/server.ts. Which lines are rebuilt?", options: ["All of them", "Only COPY . . and the lines after it", "Only the last line"], answer: "Only COPY . . and the lines after it" } },
+  { name: "4. Multi-stage build", sim: simulateMultiStage,
+    why: "The build stage holds typescript and eslint. Only what COPY --from copies reaches the final image, so the runtime stage installs just the libraries the app needs.",
+    predict: { q: "The build stage installs typescript. Is typescript inside the final image of a multi-stage build?", options: ["Yes, every stage is in the image", "No, only the last stage is the image", "Only if it is in package.json"], answer: "No, only the last stage is the image" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateImage, simulateSlowOrder, simulateFastOrder, simulateMultiStage, STORIES, buildPlan, rebuildSeconds, imageSize };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>
