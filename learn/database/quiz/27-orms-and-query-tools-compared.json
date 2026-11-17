@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What is the difference between a query builder (Kysely) and an ORM (Prisma, Drizzle)?",
+    "options": [
+      "There is no difference, the words mean the same",
+      "A query builder lets you write the SQL shape in code with type checks. An ORM also has models, relations and often migrations, and writes most of the SQL for you",
+      "A query builder only works with MySQL",
+      "An ORM never produces SQL"
+    ],
+    "answer": 1,
+    "why": "Kysely's own site calls it a type-safe SQL query builder and says it is not an ORM. Under every tool here there is still SQL and a list of values."
+  },
+  {
+    "q": "You mistype a column as `total_cent`. With which tool do you find out BEFORE the program runs?",
+    "options": [
+      "Raw SQL text sent with pg",
+      "Kysely or Drizzle, as a TypeScript error in the editor",
+      "None of them, every tool finds out at run time",
+      "Only Hasura"
+    ],
+    "answer": 1,
+    "why": "Raw SQL is just text until PostgreSQL runs it (`column \"total_cent\" does not exist`). Kysely and Drizzle know the columns, so the compiler complains first."
+  },
+  {
+    "q": "Why do values go in `$1` and not into the SQL text?",
+    "options": [
+      "It makes the query run faster in every case",
+      "A value pasted into the text can become SQL (injection). A parameter is sent apart and is always treated as a value",
+      "Because SQL cannot contain numbers",
+      "Because `$1` encrypts the value"
+    ],
+    "answer": 1,
+    "why": "Text like `paid'; DROP TABLE orders; --` is harmless as a parameter. Pasted into the text it becomes a command."
+  },
+  {
+    "q": "A user may pick the sort column of a list. Can you bind it as `ORDER BY $1`? What do you do?",
+    "options": [
+      "Yes, `$1` works for column names",
+      "No, `$1` binds values only. Check the name against an allow list, then put it in the text",
+      "Yes, but only for `asc` and `desc`",
+      "Never allow sorting"
+    ],
+    "answer": 1,
+    "why": "Names (tables, columns, asc and desc) cannot be parameters. A builder checks them against the schema. Without one, you must keep an allow list yourself."
+  },
+  {
+    "q": "A page runs 101 queries for 100 stores. The ORM code type-checks fine. Why does nothing warn you, and what do you do?",
+    "options": [
+      "Types do not see query counts. Read the query log, and load the relation in one call (for example `include`, or a JOIN)",
+      "The type checker is broken, so reinstall it",
+      "ORMs never cause N+1",
+      "Switch to a different ORM and the problem goes away"
+    ],
+    "answer": 0,
+    "why": "An ORM hides the SQL, including how many queries it sends. Lesson 12 has the fixes. Every tool here can have an N+1 if you loop and query."
+  },
+  {
+    "q": "You find a two-year-old tutorial for a Prisma setup. What do you check before you copy it?",
+    "options": [
+      "Nothing, setup never changes",
+      "The version in the tutorial, and the tool's current release status and docs",
+      "Only the author's name",
+      "Only the number of likes"
+    ],
+    "answer": 1,
+    "why": "Prisma 7 changed how the client is built and made driver adapters required, and Prisma 8 is a release candidate with a new API. Check the version and the current docs."
+  }
+]

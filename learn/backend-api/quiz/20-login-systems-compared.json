@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A site has a \"Sign in with Google\" button. Which one is it, and what comes back that OAuth alone does not give?",
+    "options": [
+      "OAuth 2.0, and an access token that says who the user is",
+      "OpenID Connect, and an ID token that says who the user is",
+      "SAML, and a session cookie from Google",
+      "An API key from Google"
+    ],
+    "answer": 1,
+    "why": "OIDC is login built on top of OAuth. It adds the ID token. OAuth alone gives an app permission, not the user's identity."
+  },
+  {
+    "q": "A print shop app should read one user's files, but must never see her password. What do you use?",
+    "options": [
+      "OAuth 2.0 with the authorization code flow and PKCE",
+      "Ask the user to paste her password into the app",
+      "SAML",
+      "A session cookie shared between both sites"
+    ],
+    "answer": 0,
+    "why": "OAuth gives the app a limited access token. The user logs in at the login server and says Allow, so her password never goes near the app."
+  },
+  {
+    "q": "An ID token has the right issuer and has not expired, but its `aud` is `other-app`. Your client id is `my-app`. What do you do?",
+    "options": [
+      "Accept it, because the signature is valid",
+      "Accept it, because the issuer is right",
+      "Reject it, because the token was made for another app",
+      "Accept it but ask the user to confirm"
+    ],
+    "answer": 2,
+    "why": "A correctly signed token can still be meant for someone else. `aud` must contain your own client id, or an attacker can hand you a token from their app."
+  },
+  {
+    "q": "A build script calls your API at 3am. What is the simplest fit, and what do you store?",
+    "options": [
+      "A session cookie, and you store the cookie",
+      "An API key with scopes, and you store only a hash of it",
+      "OIDC, and you store the ID token",
+      "SAML, and you store the XML"
+    ],
+    "answer": 1,
+    "why": "A key stands for a program with no person present. Store only a hash, so a database leak does not leak the keys, and let it carry scopes."
+  },
+  {
+    "q": "The login server accepts any redirect address that STARTS WITH the registered one. What is wrong?",
+    "options": [
+      "Nothing, this is the safe way to match",
+      "An attacker can use an address like `/callback/evil` and steer the one-time code to themselves",
+      "It makes the login slower",
+      "It only matters for SAML"
+    ],
+    "answer": 1,
+    "why": "RFC 6749 says to compare redirect addresses with simple string comparison. Match exactly, including case and the query string."
+  },
+  {
+    "q": "A big customer's IT team says staff sign in with the company's own system and they only support SAML. What travels from their login system to your app?",
+    "options": [
+      "A JSON ID token, sent straight from server to server",
+      "A signed XML assertion, carried through the browser",
+      "An API key",
+      "The staff member's password"
+    ],
+    "answer": 1,
+    "why": "In SAML the identity provider sends a signed XML assertion. The browser carries it to your app, so both sides must check signatures."
+  }
+]

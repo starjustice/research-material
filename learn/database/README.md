@@ -80,6 +80,7 @@ Short cards with a guess before each answer. Every number was run on PostgreSQL 
 | 21 | [Replication and read replicas](21-replication-and-read-replicas.md) | scaling reads, replication lag, and reading your own writes | ready |
 | 22 | [Partitioning and sharding](22-partitioning-and-sharding.md) | splitting a big table into drawers, dropping old data fast, and why sharding is the last step | ready |
 | 23 | [SQL vs NoSQL and Redis](23-sql-vs-nosql-and-redis.md) | which box fits the job, documents in Postgres, and a cache in front of Postgres (cache-aside, stale data, stampede) | ready |
+| 27 | [ORMs and query tools compared](27-orms-and-query-tools-compared.md) | raw SQL, Kysely, Drizzle, Prisma and Hasura in one table, typos at compile time against run time, values in parameters, and how to pick | ready |
 
 **To make the next lesson:** in a chat with this folder open, say `/learn database 04` to learn it live with Claude, or ask "make lesson database 04" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

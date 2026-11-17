@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A team has 2 services on one small rented server and 200 users. Which option is the right size?",
+    "options": [
+      "Kubernetes, so they are ready to grow",
+      "Docker Compose, or CapRover if they want a dashboard and automatic HTTPS",
+      "AWS Lambda, because it needs no server",
+      "A cluster of five servers"
+    ],
+    "answer": 1,
+    "why": "Pick the smallest option that solves today's problem. Kubernetes adds a lot to learn and run, and gives nothing extra at this size."
+  },
+  {
+    "q": "Which two options mean YOU look after the machines, and which of the two can use more than one machine?",
+    "options": [
+      "Compose and CapRover. Only CapRover (built on Swarm) can use more than one machine",
+      "Lambda and Fargate. Only Fargate can use more than one machine",
+      "Kubernetes and Lambda. Only Kubernetes",
+      "A hosted platform and Fargate. Both"
+    ],
+    "answer": 0,
+    "why": "On Compose and CapRover you rent and patch the servers. Compose controls one Docker engine, so it stays on one machine. CapRover rides on Swarm."
+  },
+  {
+    "q": "A team runs 5 copies of an API with Compose on one server. The server dies. What happens?",
+    "options": [
+      "Compose starts the copies on another server",
+      "Only one copy dies, the other four carry on",
+      "All 5 copies die, because they were all on one machine",
+      "Nothing, Compose keeps a backup"
+    ],
+    "answer": 2,
+    "why": "Copies on one machine are not safety. To spread copies and replace them on other machines you need an orchestrator such as Swarm, ECS or Kubernetes."
+  },
+  {
+    "q": "What do Swarm (so CapRover), ECS and Kubernetes have in common that Compose lacks?",
+    "options": [
+      "They all use YAML",
+      "They keep a desired count of copies alive with a loop that compares what you want with what is running",
+      "They only run on AWS",
+      "They need no containers"
+    ],
+    "answer": 1,
+    "why": "You say how many copies you want. The loop starts or stops copies to make it true, and a crashed copy is replaced on the next pass."
+  },
+  {
+    "q": "A job runs for 25 minutes and needs 2 GB of memory. Is plain AWS Lambda a good fit, and why?",
+    "options": [
+      "Yes, because 2 GB is within the limit",
+      "Yes, because Lambda has no time limit",
+      "No, because one call can run at most 15 minutes. Use a container task or split the job",
+      "No, because Lambda cannot use more than 128 MB"
+    ],
+    "answer": 2,
+    "why": "The memory is fine (up to 10,240 MB), but one Lambda call stops at 900 seconds. Read the limits before you pick Lambda."
+  },
+  {
+    "q": "Steady high traffic, 24 hours a day. Which bill shape usually gets expensive?",
+    "options": [
+      "A right-sized always-on container",
+      "A rented server that is on all month",
+      "Per use, as with Lambda, where you pay for each call",
+      "None of them, the bill is always the same"
+    ],
+    "answer": 2,
+    "why": "At steady high load an always-on container is often cheaper, because you stop paying a premium per call. At low or spiky load, Lambda wins because nothing idles."
+  }
+]

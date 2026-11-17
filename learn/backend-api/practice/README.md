@@ -24,6 +24,7 @@ node --test learn/backend-api/practice/06-sessions-vs-jwt.test.js
 | `17-websockets-and-server-sent-events.js` | [WebSockets and Server-Sent Events](../17-websockets-and-server-sent-events.md) |
 | `18-choosing-an-api-style.js` | [Choosing an API style](../18-choosing-an-api-style.md) |
 | `19-access-control-models.js` | [Access control models](../19-access-control-models.md) |
+| `20-login-systems-compared.js` | [Login systems compared](../20-login-systems-compared.md) |
 
 Nothing to install. These use only built-in modules (`node:crypto`, `node:test` and `node:assert`), so Node 18 or newer is enough. Lessons 14, 15 and 18 use `Object.hasOwn`, which needs Node 16.9 or newer. (Lesson 09 mentions `crypto.argon2Sync`, which needs Node 24.7 or newer, but the exercise uses `scrypt`, which works everywhere.)
 

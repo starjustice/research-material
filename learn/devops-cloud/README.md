@@ -57,6 +57,7 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 15 | The AWS map for a web developer `15-the-aws-map-for-a-web-developer.md` | EC2, S3, RDS, Lambda, ECS and what you pick | planned |
 | 16 | IAM and least privilege `16-iam-and-least-privilege.md` | users, roles, policies, why no star permissions | planned |
 | 17 | VPC networking basics `17-vpc-networking-basics.md` | subnets, security groups, NAT, what is public | planned |
+| 26 | [Ways to run your app compared](26-ways-to-run-your-app.md) | Compose, CapRover, a hosted platform, ECS on Fargate, Kubernetes and Lambda in one table, Lambda limits, and how to pick | ready |
 
 ### Running it in production
 

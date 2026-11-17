@@ -611,4 +611,5 @@ Open these when you are ready. None of them is needed for the cards above.
 - [The event loop](../javascript/11-the-event-loop.md) (JavaScript): what a tick is, and why DataLoader can collect keys before it sends.
 - [Pagination](17-pagination.md) (lesson 17): keep the parent list small, so the batch stays small.
 - [Connection pooling](20-connection-pooling.md) (lesson 20): many trips also hold a database connection for longer.
+- [ORMs and query tools compared](27-orms-and-query-tools-compared.md) (lesson 27): Prisma, Drizzle, Kysely, raw SQL and Hasura side by side, and why types do not see query counts.
 - [PostgreSQL queries and indexing guide](postgresql-queries-interview-guide.md): the longer guide, for revision.

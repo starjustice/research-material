@@ -464,6 +464,18 @@ OWASP's list says to keep stateless JWTs short-lived and to use refresh tokens f
 
 ## 10. Picking one, and what it costs
 
+**The five side by side.**
+
+| | One answer for | Good at | Hurts when |
+|---|---|---|---|
+| **Role** (RBAC) | a whole kind of user | few kinds of staff, easy to explain | you need "this one, not that one" (role explosion) |
+| **List on the item** (ACL) | one item | sharing one thing with one person, easy undo | you ask "what may Ana open?", and the rows pile up |
+| **Rule on facts** (ABAC) | this one request | "own store, under 100, paid" | the rules grow, and they are code to test |
+| **Folders** (inheritance, a small ReBAC) | everything inside a parent | one grant instead of 400 | the tree is deep, or a copy of the answer goes stale |
+| **Scope** | one token | limiting a partner app or a script | people think it adds rights (it only takes away) |
+
+**Which one for which situation.**
+
 | Situation | Use | Why |
 |---|---|---|
 | A few kinds of staff, the same rights everywhere | role | one table, easy to explain |

@@ -8,6 +8,14 @@
   "count": 6
  },
  {
+  "slug": "learn/backend-api/20-login-systems-compared",
+  "subject": "backend-api",
+  "subjectTitle": "Backend and API",
+  "num": "20",
+  "title": "Login systems compared",
+  "count": 6
+ },
+ {
   "slug": "learn/database/01-sql-basics-and-query-order",
   "subject": "database",
   "subjectTitle": "Database",
@@ -216,6 +224,14 @@
   "count": 7
  },
  {
+  "slug": "learn/database/27-orms-and-query-tools-compared",
+  "subject": "database",
+  "subjectTitle": "Database",
+  "num": "27",
+  "title": "ORMs and query tools compared",
+  "count": 6
+ },
+ {
   "slug": "learn/devops-cloud/01-containers-vs-virtual-machines",
   "subject": "devops-cloud",
   "subjectTitle": "DevOps and Cloud",
@@ -293,6 +309,14 @@
   "subjectTitle": "DevOps and Cloud",
   "num": "10",
   "title": "Logs and monitoring",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/26-ways-to-run-your-app",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "26",
+  "title": "Ways to run your app compared",
   "count": 6
  },
  {

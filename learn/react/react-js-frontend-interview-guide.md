@@ -754,6 +754,26 @@ Organized the way companies actually run rounds. Outlines only — the deep mate
 
 ## Tradeoffs to Be Ready For
 
+**Side by side.** The same points as the list below, as two tables you can scan in an interview.
+
+| Rendering | Good at | Costs you | Pick it for |
+|---|---|---|---|
+| **CSR** (client side) | the simplest operations | the worst first paint and SEO | editor-like tools after login |
+| **SSR** (server, each request) | fresh data and a fast first paint | server cost on every request | personalized pages, such as a feed |
+| **ISR** (static, rebuilt in the background) | CDN speed, and eventually fresh | only for shareable, non-personalized pages | marketing and content pages |
+| **RSC** (server components) | less JavaScript, data access on the server | the most complex mental model | logged-in data pages, with streaming |
+
+The senior sentence: pick **per page type**, not per app.
+
+| State tool | Good at | Costs you | Pick it for |
+|---|---|---|---|
+| **React Query / SWR** | server state: caching, refetching | it is for server data only | anything that comes from an API (ask this first) |
+| **Context** | built into React | every consumer re-renders, no selectors | low-frequency globals, such as theme or locale |
+| **Zustand** | selectors, tiny, no providers | less enforced structure | shared client state that changes often |
+| **Redux Toolkit** | structure, middleware, devtools | more setup | large teams and genuinely complex domains |
+
+The list below has the longer reasons.
+
 - **Manual memoization vs React Compiler:** manual = precise control, works everywhere today; compiler = whole-app coverage with zero noise, but you must understand memoization to debug bail-outs. 2026 answer: adopt the compiler, keep the mental model.
 - **CSR vs SSR vs ISR vs RSC:** CSR = simplest ops, worst first paint/SEO; SSR = fresh + fast first paint, per-request server cost; ISR = CDN-fast + eventually fresh, only for shareable (non-personalized) pages; RSC = less JS + server data access, most complex mental model. Pick **per page type**, not per app — that sentence is the senior answer.
 - **Context vs Zustand vs Redux Toolkit:** Context = built-in, but all consumers re-render, no selectors; Zustand = selectors + tiny + no providers; RTK = structure/middleware/devtools for big teams. First ask: is it server state? Then none of these — React Query.

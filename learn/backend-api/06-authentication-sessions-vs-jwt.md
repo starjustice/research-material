@@ -760,3 +760,4 @@ Open these when you are ready. None of them is needed for the cards above.
 - [Password hashing](09-password-hashing.md): how the password is checked safely before the session or token is made.
 - [Hasura: when and when not](14-hasura-when-and-when-not.md): Hasura reads a JWT and takes the role and user id from its claims.
 - [Express middleware](03-express-middleware.md): the place where the cookie or token is checked before your route runs.
+- [Login systems compared](20-login-systems-compared.md): sessions and JWT next to API keys, OAuth, OpenID Connect and SAML, in one table.

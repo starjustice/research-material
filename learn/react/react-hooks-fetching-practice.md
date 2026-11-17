@@ -594,3 +594,14 @@ function UserListRN() {
 ## What's next
 
 In a real production app, you'd reach for **TanStack Query (React Query)** or **SWR** instead of hand-rolling `useFetch` — they add caching, retries, deduping, and background refetching on top of everything you just built by hand. The point of this workbook was to understand *what those libraries are actually doing for you* — see the "state management" and "frontend caching" sections of [react-js-frontend-interview-guide.md](react-js-frontend-interview-guide.md) for that layer.
+
+**Three ways to fetch, side by side.**
+
+| | Where it runs | Cache | What you write | Pick it when |
+|---|---|---|---|---|
+| **`useEffect` + `fetch`** (this workbook) | the browser | none: if the component unmounts and mounts again, it fetches again | the state, loading, error and the cleanup (an `ignore` flag or `AbortController`) | learning, a tiny app, a one-off |
+| **TanStack Query or SWR** | the browser | yes, a shared cache | a query function and a key | an app with server data in the browser |
+| **A framework** (Next.js Server Components) | the server | the framework's | an `async` component | data you can fetch before the page is sent |
+
+The React docs ("Synchronizing with Effects", checked 2026-11-17) say fetching directly in Effects usually means you do not preload or cache data, and that Effects do not run on the server. Their advice: use your framework's built-in data fetching, or otherwise use or build a client-side cache, and they name TanStack Query and SWR. TanStack Query describes itself as making fetching, caching, synchronizing and updating server state easier.
+

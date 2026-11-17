@@ -698,3 +698,4 @@ Close this file. Explain serverless out loud like to a new junior, in 4 parts (p
 - [Connection pooling](../database/20-connection-pooling.md) - the fix for the database trap in card 7.
 - [Load balancers](../system-design/03-load-balancers.md) and [proxies and API gateways](../system-design/17-proxies-and-api-gateways.md) - what sits in front of your functions.
 - [Safe deploys](../system-design/27-safe-deploys.md) - releasing a new version of a function without a gap.
+- [Ways to run your app compared](26-ways-to-run-your-app.md) - Lambda next to Compose, CapRover, Fargate and Kubernetes, with the Lambda limits in one table.

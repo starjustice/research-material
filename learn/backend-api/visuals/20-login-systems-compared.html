@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login Systems Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/backend-api/README">← Backend and API lessons</a>
+    <a href="../../../viewer.html?note=learn/backend-api/20-login-systems-compared">Open the lesson ↗</a>
+  </div>
+  <h1>Login systems stepper</h1>
+  <p class="sub">Four ways to prove who someone is, or what they may do, one story each: an API key, OAuth, OpenID Connect and SAML. Press Next and watch what travels, and what each side checks.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> <b>OAuth</b> is permission ("this app may read my files"). <b>OIDC</b> is login, built on OAuth ("this user is 1138"). <b>SAML</b> is company login in XML. An <b>API key</b> is a password for a program.
+  <ul>
+    <li><b>PKCE:</b> the app sends a hash of a secret first, and the secret later. Someone who steals only the one-time code cannot use it.</li>
+    <li><b>ID token:</b> a signed JWT that says who logged in. Check <code>iss</code>, <code>aud</code>, <code>exp</code>, <code>nonce</code> and the signature.</li>
+    <li><b>Assertion:</b> the SAML package of statements about a person, in XML and signed.</li>
+    <li><b>Scope:</b> a limit written on one token or key (lesson 19).</li>
+  </ul></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "script",
+  "title": "The script",
+  "sub": "no person, just a program",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "api",
+  "title": "Your API",
+  "sub": "the check",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "table",
+  "title": "Table api_keys",
+  "sub": "what the database keeps",
+  "color": "c3",
+  "empty": "empty"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "1 API key",
+  "question": "A build script calls your API at 3am. No person is there to type a password. What does the script send, and what does your server keep?",
+  "codeTitle": "What the API runs",
+  "boxes": [
+   {
+    "key": "script",
+    "title": "The script",
+    "sub": "no person, just a program",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "api",
+    "title": "Your API",
+    "sub": "the check",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "table",
+    "title": "Table api_keys",
+    "sub": "what the database keeps",
+    "color": "c3",
+    "empty": "empty"
+   }
+  ],
+  "code": [
+   "// when you create a key",
+   "const key = \"sk_\" + randomBytes(32).toString(\"base64url\");",
+   "await db.apiKey.create({ hash: sha256(key), owner: \"build-bot\", scopes: [\"read\"] });",
+   "// on every request",
+   "const row = await db.apiKey.findUnique({ where: { hash: sha256(req.get(\"x-api-key\")) } });",
+   "if (!row || row.revoked) return res.sendStatus(401);",
+   "if (!row.scopes.includes(\"read\")) return res.sendStatus(403);",
+   "res.json(data);"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "script": [],
+     "api": [],
+     "table": []
+    },
+    "note": "An API key is one long random secret that stands for a program, not a person. Think of a password for a machine."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "You",
+     "Your API",
+     "create a key for build-bot, scope read"
+    ],
+    "boxes": {
+     "script": [
+      [
+       "Key (shown once, then gone)",
+       "sk_9fQ2...x7",
+       "new"
+      ]
+     ],
+     "table": [
+      [
+       "hash",
+       "a3f1...(SHA-256 of the key)",
+       ""
+      ],
+      [
+       "owner",
+       "build-bot",
+       ""
+      ],
+      [
+       "scopes",
+       "read",
+       ""
+      ]
+     ]
+    },
+    "note": "The server makes a random key and shows it to you <b>once</b>. It saves only a <b>hash</b> of it. If the database leaks, the thieves get hashes, not keys."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Script",
+     "Your API",
+     "GET /reports   x-api-key: sk_9fQ2...x7"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Hash of the key sent",
+       "a3f1...",
+       ""
+      ]
+     ]
+    },
+    "note": "At 3am the script sends the key in a header. The server hashes it the same way and looks the hash up."
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Your API",
+     "Script",
+     "200 OK"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Hash of the key sent",
+       "a3f1...",
+       ""
+      ],
+      [
+       "Found, not revoked",
+       "yes",
+       "good"
+      ],
+      [
+       "Scope read",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "The hash is in the table, the key is not revoked, and the scope allows it. The answer is yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Your API",
+     "Script",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "script": [
+      [
+       "Key (shown once, then gone)",
+       "sk_9fQ2...x7",
+       ""
+      ],
+      [
+       "Request",
+       "DELETE /reports/1",
+       "warn"
+      ]
+     ],
+     "api": [
+      [
+       "Found, not revoked",
+       "yes",
+       "good"
+      ],
+      [
+       "Scope delete",
+       "no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The same key tries to delete. The key has only the scope read. Scopes limit a key, like they limit a token (lesson 19).",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Your API",
+     "Script",
+     "401 Unauthorized"
+    ],
+    "boxes": {
+     "table": [
+      [
+       "hash",
+       "a3f1...",
+       ""
+      ],
+      [
+       "owner",
+       "build-bot",
+       ""
+      ],
+      [
+       "revoked",
+       "yes",
+       "bad"
+      ]
+     ],
+     "api": [
+      [
+       "Found, not revoked",
+       "no, it is revoked",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Someone finds the key in a log. You mark it revoked. The next request gets 401 at once, because the server looks the key up every time.",
+    "status": [
+     "bad",
+     "401"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> the script sends the <b>key</b>, and the server keeps only a <b>hash</b>. An API key proves \"this is build-bot\", with no person and no login page. It lasts until you revoke it, so treat it like a password."
+ },
+ {
+  "tab": "2 OAuth (permission)",
+  "question": "A print shop app wants to read Ana's files from your file service. Ana must not give it her password. How does the app get a key that can only read?",
+  "codeTitle": "The steps in order",
+  "boxes": [
+   {
+    "key": "app",
+    "title": "Print shop app",
+    "sub": "the client",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "auth",
+    "title": "Login server",
+    "sub": "where Ana logs in",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "api",
+    "title": "File service API",
+    "sub": "holds Ana's files",
+    "color": "c2",
+    "empty": "nothing yet"
+   }
+  ],
+  "code": [
+   "1 app makes a secret verifier, sends its hash (challenge)",
+   "2 browser goes to the login server, Ana logs in and says Allow",
+   "3 login server sends the browser back with a one-time code",
+   "4 app swaps code + verifier for an access token",
+   "5 app calls the API with the access token"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [],
+     "auth": [],
+     "api": [
+      [
+       "Ana's files",
+       "plan.pdf, photo.jpg",
+       ""
+      ]
+     ]
+    },
+    "note": "OAuth is a way to give another app <b>limited</b> access, without giving it your password. Like a valet key: it starts the car, but does not open the trunk."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "App via the browser",
+     "Login server",
+     "GET /authorize?response_type=code&scope=files.read&code_challenge=E9Mel...&code_challenge_method=S256&redirect_uri=https://printshop.example/cb&state=xyz"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Verifier (kept secret)",
+       "dBjftJeZ...OEjXk",
+       ""
+      ],
+      [
+       "Challenge (sent)",
+       "E9Melhoa...stw-cM",
+       "new"
+      ]
+     ]
+    },
+    "note": "The app makes a random <b>verifier</b>, and sends only its <b>hash</b> (the challenge). This is <b>PKCE</b>. The app also asks for one scope, <code>files.read</code>."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Ana",
+     "Login server",
+     "logs in, presses Allow"
+    ],
+    "boxes": {
+     "auth": [
+      [
+       "Ana",
+       "logged in HERE, not in the app",
+       "good"
+      ],
+      [
+       "Asked",
+       "PrintShop wants files.read",
+       ""
+      ],
+      [
+       "Ana says",
+       "Allow",
+       "good"
+      ]
+     ]
+    },
+    "note": "Ana types her password at the <b>login server</b>, not in the app. She sees what the app asks for, and presses Allow."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Login server",
+     "App via the browser",
+     "302 https://printshop.example/cb?code=SplxlOBe...&state=xyz"
+    ],
+    "boxes": {
+     "auth": [
+      [
+       "Ana",
+       "logged in HERE, not in the app",
+       "good"
+      ],
+      [
+       "Asked",
+       "PrintShop wants files.read",
+       ""
+      ],
+      [
+       "Ana says",
+       "Allow",
+       "good"
+      ],
+      [
+       "Gave out",
+       "one-time code (short life)",
+       "new"
+      ]
+     ]
+    },
+    "note": "The login server sends the browser back to the app's registered address (it must match <b>exactly</b>). The code is a one-time ticket. It is not the key yet."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "App",
+     "Login server",
+     "POST /token   code + code_verifier"
+    ],
+    "boxes": {
+     "auth": [
+      [
+       "Check",
+       "sha256(verifier) = challenge ?",
+       ""
+      ],
+      [
+       "Result",
+       "yes, it matches",
+       "good"
+      ]
+     ]
+    },
+    "note": "The app sends the code and the secret verifier. The login server hashes the verifier and compares it with the challenge it saw in step 1. Someone who stole only the code has no verifier."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Login server",
+     "App",
+     "{ access_token, scope: files.read, expires_in: 300 }"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Verifier (kept secret)",
+       "dBjftJeZ...OEjXk",
+       ""
+      ],
+      [
+       "Access token",
+       "files.read, 5 minutes",
+       "good"
+      ]
+     ]
+    },
+    "note": "The app gets an <b>access token</b>. It is limited to <code>files.read</code>, and it ends soon."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "App",
+     "File service API",
+     "GET /files   Authorization: Bearer <token>"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Ana's files",
+       "plan.pdf, photo.jpg",
+       ""
+      ],
+      [
+       "Token scope",
+       "files.read",
+       ""
+      ],
+      [
+       "Read allowed?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "The app reads Ana's files with the token. The API checks the scope (lesson 19) and says yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 4,
+    "wire": [
+     "App",
+     "File service API",
+     "DELETE /files/1   Authorization: Bearer <token>"
+    ],
+    "boxes": {
+     "api": [
+      [
+       "Token scope",
+       "files.read",
+       ""
+      ],
+      [
+       "Delete allowed?",
+       "no, no delete scope",
+       "bad"
+      ]
+     ]
+    },
+    "note": "The app tries to delete. The token has no delete scope, so the answer is no. This is what the valet key means.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> with the <b>authorization code flow plus PKCE</b>. Ana logs in at the login server, the app gets a limited access token, and the password never goes near the app. Notice what the app still does <b>not</b> know: who Ana is. OAuth is about <b>permission</b>, not about login."
+ },
+ {
+  "tab": "3 OIDC (sign in with Google)",
+  "question": "Your site has a \"Sign in with Google\" button. What extra thing comes back, compared with the OAuth story, and what must you check before you believe it?",
+  "codeTitle": "The steps in order",
+  "boxes": [
+   {
+    "key": "app",
+    "title": "Your website",
+    "sub": "the client",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "auth",
+    "title": "Google-like login",
+    "sub": "the OpenID provider",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "session",
+    "title": "Your session",
+    "sub": "what you keep after login",
+    "color": "c2",
+    "empty": "none yet"
+   }
+  ],
+  "code": [
+   "1 send the user to the provider with scope openid email, a nonce, PKCE",
+   "2 the user logs in at the provider",
+   "3 the browser comes back with a code",
+   "4 swap code + verifier for tokens",
+   "5 check the ID token: iss, aud, exp, nonce, signature",
+   "6 start your own session for sub"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "app": [
+      [
+       "Wants to know",
+       "who is this person?",
+       ""
+      ]
+     ],
+     "auth": [],
+     "session": []
+    },
+    "note": "Same road as OAuth, but now you want to know <b>who</b> the user is. The extra word in the request is <code>openid</code>. That is <b>OpenID Connect (OIDC)</b>: login built on top of OAuth."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "Your site via the browser",
+     "Provider",
+     "GET /authorize?scope=openid email&nonce=n-0S6&code_challenge=...&state=xyz"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Sent",
+       "scope openid email, nonce n-0S6, challenge",
+       "new"
+      ]
+     ]
+    },
+    "note": "You send the user to the provider with <code>scope=openid email</code> and a random <b>nonce</b>. You remember the nonce."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "User",
+     "Provider",
+     "logs in, agrees to share email"
+    ],
+    "boxes": {
+     "auth": [
+      [
+       "User",
+       "logged in at the provider",
+       "good"
+      ],
+      [
+       "Shares",
+       "email",
+       ""
+      ]
+     ]
+    },
+    "note": "The user logs in at the provider. Your site never sees the password."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Provider",
+     "Your site via the browser",
+     "302 /callback?code=...&state=xyz"
+    ],
+    "boxes": {
+     "auth": [
+      [
+       "User",
+       "logged in at the provider",
+       "good"
+      ],
+      [
+       "Shares",
+       "email",
+       ""
+      ],
+      [
+       "Gave out",
+       "one-time code",
+       "new"
+      ]
+     ]
+    },
+    "note": "The provider sends the browser back with a one-time code."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Provider",
+     "Your site",
+     "{ id_token, access_token }"
+    ],
+    "boxes": {
+     "app": [
+      [
+       "Sent",
+       "scope openid email, nonce n-0S6, challenge",
+       ""
+      ],
+      [
+       "Got",
+       "id_token (a JWT) and access_token",
+       "new"
+      ]
+     ]
+    },
+    "note": "You swap the code (and the PKCE verifier) for tokens. The new thing is the <b>ID token</b>. It is a signed JWT that says who the user is."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "app": [
+      [
+       "ID token says",
+       "iss google, aud my-app, sub 1138, exp later, nonce n-0S6",
+       ""
+      ],
+      [
+       "iss is exactly the provider?",
+       "yes",
+       "good"
+      ],
+      [
+       "aud has my client id?",
+       "yes",
+       "good"
+      ],
+      [
+       "exp is still in the future?",
+       "yes",
+       "good"
+      ],
+      [
+       "nonce equals the one I sent?",
+       "yes",
+       "good"
+      ],
+      [
+       "signature checks with provider keys?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Now you <b>check</b> the ID token: who issued it (<code>iss</code>), who it is for (<code>aud</code>), that it has not ended (<code>exp</code>), that it is the answer to <b>your</b> request (<code>nonce</code>), and the signature. Any \"no\" means: reject."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Your site",
+     "Browser",
+     "Set-Cookie: session=...   (user 1138 is logged in)"
+    ],
+    "boxes": {
+     "session": [
+      [
+       "Session for",
+       "sub = 1138",
+       "new"
+      ]
+     ]
+    },
+    "note": "From here it is your own login, as in lesson 06: you start a <b>session</b> for the user's <code>sub</code>. You do not call the provider on every click.",
+    "status": [
+     "ok",
+     "logged in"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> an <b>ID token</b>. Check <code>iss</code>, <code>aud</code>, <code>exp</code>, the <code>nonce</code> and the signature before you believe it. OIDC is OAuth plus a way to say <b>who</b> logged in. Then you start your own session."
+ },
+ {
+  "tab": "4 SAML (company login)",
+  "question": "A customer's IT team says: \"our staff sign in with our own system, and we only support SAML\". What travels between the two sides, and in what format?",
+  "codeTitle": "The steps in order",
+  "boxes": [
+   {
+    "key": "sp",
+    "title": "Your app",
+    "sub": "the service provider (SP)",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "idp",
+    "title": "Company login",
+    "sub": "the identity provider (IdP)",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "session",
+    "title": "Your session",
+    "sub": "what you keep after login",
+    "color": "c2",
+    "empty": "none yet"
+   }
+  ],
+  "code": [
+   "1 staff opens your app, you are not logged in",
+   "2 the browser is sent to the company login, with a login request",
+   "3 staff sign in at the company login",
+   "4 the company login sends a signed XML assertion through the browser",
+   "5 your app checks the signature and the conditions",
+   "6 your app starts its own session"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "sp": [
+      [
+       "Customer",
+       "Acme Corp, 3,000 staff",
+       ""
+      ]
+     ],
+     "idp": [
+      [
+       "Acme's own login system",
+       "knows every Acme employee",
+       ""
+      ]
+     ],
+     "session": []
+    },
+    "note": "SAML is an older standard for company single sign-on. Acme's login system (the <b>identity provider</b>) says who the staff are. Your app (the <b>service provider</b>) trusts it."
+   },
+   {
+    "line": 0,
+    "wire": [
+     "Staff member",
+     "Your app",
+     "GET /dashboard"
+    ],
+    "boxes": {
+     "sp": [
+      [
+       "Customer",
+       "Acme Corp, 3,000 staff",
+       ""
+      ],
+      [
+       "Logged in?",
+       "no",
+       "warn"
+      ]
+     ]
+    },
+    "note": "A staff member opens your app. You do not know them yet."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Your app via the browser",
+     "Company login",
+     "redirect with a SAML login request"
+    ],
+    "boxes": {
+     "sp": [
+      [
+       "Customer",
+       "Acme Corp, 3,000 staff",
+       ""
+      ],
+      [
+       "Logged in?",
+       "no, sent to Acme's login",
+       "warn"
+      ]
+     ]
+    },
+    "note": "Your app sends the browser to Acme's login system with a small request. The browser carries the message. The two servers never call each other."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Staff member",
+     "Company login",
+     "signs in (their usual company way)"
+    ],
+    "boxes": {
+     "idp": [
+      [
+       "Acme's own login system",
+       "knows every Acme employee",
+       ""
+      ],
+      [
+       "Staff member",
+       "signed in",
+       "good"
+      ]
+     ]
+    },
+    "note": "The staff member signs in the way they always do at work. Your app does not see any password."
+   },
+   {
+    "line": 3,
+    "wire": [
+     "Company login via the browser",
+     "Your app",
+     "HTML form POST: signed XML assertion"
+    ],
+    "boxes": {
+     "idp": [
+      [
+       "Acme's own login system",
+       "knows every Acme employee",
+       ""
+      ],
+      [
+       "Staff member",
+       "signed in",
+       "good"
+      ],
+      [
+       "Sends",
+       "assertion: who, email, groups, valid until",
+       "new"
+      ]
+     ]
+    },
+    "note": "Acme's login system sends a <b>signed XML assertion</b>: a package of statements about the person (who they are, their email, their groups). The browser posts it to your app."
+   },
+   {
+    "line": 4,
+    "wire": null,
+    "boxes": {
+     "sp": [
+      [
+       "Customer",
+       "Acme Corp, 3,000 staff",
+       ""
+      ],
+      [
+       "Signature matches Acme's key?",
+       "yes",
+       "good"
+      ],
+      [
+       "Valid time not over?",
+       "yes",
+       "good"
+      ],
+      [
+       "Meant for my app?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Your app checks the <b>signature</b> against the key Acme gave you earlier, that the assertion is still valid, and that it is meant for your app. Any \"no\" means: reject."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Your app",
+     "Browser",
+     "Set-Cookie: session=...   (staff member is logged in)"
+    ],
+    "boxes": {
+     "session": [
+      [
+       "Session for",
+       "the staff member at Acme",
+       "new"
+      ]
+     ]
+    },
+    "note": "Now your app starts its own session, as in lesson 06.",
+    "status": [
+     "ok",
+     "logged in"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> a <b>signed XML assertion</b>, carried by the browser from the company's login system to your app. SAML solves the same problem as OIDC (login with an account that lives elsewhere), but it is XML, and it is older and very common in big companies. You will often support it because a customer asks."
+ }
+];
+
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

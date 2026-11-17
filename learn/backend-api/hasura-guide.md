@@ -149,6 +149,17 @@ Day-to-day rule: **console via CLI in dev** (clicks become files you commit), **
 - **The company pivoted toward AI:** Hasura's focus since 2025 is PromptQL (AI agents querying business data through the same connector layer). Practical takeaway: expect v2 to stay stable rather than gain big features.
 - **Alternatives in one line each:** **PostGraphile** — the closest OSS equivalent (Postgres → GraphQL, RLS-based permissions); **Supabase** — Postgres platform with auth/storage, REST + GraphQL, its own ecosystem; **Prisma + Yoga/Apollo** — full control, you write every resolver (my [auth tutorial](express-graphql-auth-tutorial.md) stack).
 
+**Side by side.** The same four options from the line above, as a table.
+
+| | What it is | You write | Permissions | Pick it when |
+|---|---|---|---|---|
+| **Hasura v2** | Postgres to GraphQL, self-hosted, open source | tracked tables and permission rules | configured per role, table and action | mostly CRUD over Postgres, with row and column rules |
+| **PostGraphile** | the closest open-source equivalent, Postgres to GraphQL | the database schema | row level security in Postgres | you want the rules inside the database |
+| **Supabase** | a Postgres platform with auth and storage, REST and GraphQL | tables and policies | its own ecosystem | you want the whole backend as a service |
+| **Prisma + Yoga/Apollo** | a library stack where you write the API | every resolver | your own code | the domain is mostly custom logic, you want full control |
+
+For how a role, a list on the item and a rule on facts differ in your own API, see [Access control models](19-access-control-models.md).
+
 ## Likely Interview Questions
 
 ### Q: How does Hasura avoid the N+1 problem?
