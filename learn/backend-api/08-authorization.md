@@ -595,7 +595,7 @@ Open these when you are ready. None of them is needed for the cards above.
 
 <details><summary>Models, the database, and the OWASP list</summary>
 
-**RBAC, ABAC, ReBAC.** RBAC (role-based) gives permissions to roles. ABAC (attribute-based) decides from facts about the user, the thing and the situation, for example "the note is public" or "the order belongs to your store". ReBAC (relationship-based) decides from links, for example "member of the team that owns the project". The OWASP Authorization Cheat Sheet says ABAC and ReBAC should typically be preferred for application development, because RBAC struggles with object-level decisions, multi-tenancy and role explosion.
+**RBAC, ABAC, ReBAC.** RBAC (role-based) gives permissions to roles. ABAC (attribute-based) decides from facts about the user, the thing and the situation, for example "the note is public" or "the order belongs to your store". ReBAC (relationship-based) decides from links, for example "member of the team that owns the project". The OWASP Authorization Cheat Sheet says ABAC and ReBAC should typically be preferred for application development, because RBAC struggles with object-level decisions, multi-tenancy and role explosion. [Lesson 19, Access control models](19-access-control-models.md), goes through roles, ACL lists, rules on facts, folder inheritance and token scopes with runnable code.
 
 **OWASP's prevention list for A01:2025** (shortened):
 

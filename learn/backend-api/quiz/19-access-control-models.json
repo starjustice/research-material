@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A company has 50 teams and 3 levels (viewer, editor, admin). Someone suggests one role for each team and level, like `editor-team-a`. What is the problem?",
+    "options": [
+      "A role cannot have a dash in its name",
+      "You get 150 roles that nobody can keep straight. This is role explosion",
+      "Roles cannot be checked on the server",
+      "A role can only be used once per user"
+    ],
+    "answer": 1,
+    "why": "A role gives one answer for a whole kind of user. When you need \"this team only\", use a list on the item or a rule on a fact like `user.teamId === doc.teamId`."
+  },
+  {
+    "q": "You share one document with one friend. Which model fits best?",
+    "options": [
+      "A new role for that friend",
+      "A rule on facts about the time of day",
+      "A list on the document (an ACL): one new line saying `friend: viewer`",
+      "Give the friend the admin role"
+    ],
+    "answer": 2,
+    "why": "A role is for a kind of user. A list on the item answers for one item, and sharing is one new row."
+  },
+  {
+    "q": "doc-1 has the list `{ ana: \"owner\", budi: \"viewer\" }`. Write needs level 2, and viewer is level 1. May Budi write? May Ana read doc-2, which does not list her?",
+    "options": [
+      "Budi: yes. Ana: yes, because she owns doc-1",
+      "Budi: no. Ana: no, because she is not on the list of doc-2",
+      "Budi: no. Ana: yes, because owners may read everything",
+      "Budi: yes. Ana: no"
+    ],
+    "answer": 1,
+    "why": "Budi's level 1 is below 2, so no. Owning doc-1 gives Ana nothing on doc-2. \"Not on the list\" means no."
+  },
+  {
+    "q": "Ana has an editor grant on `folder-A`. Nobody shared `file-9` (inside folder-B, inside folder-A) with her. May she write to it?",
+    "options": [
+      "No, because file-9 has no grant for her",
+      "No, because she would need a grant on folder-B too",
+      "Yes, because the best grant on the file or on any parent above it counts",
+      "Only if she is also an admin"
+    ],
+    "answer": 2,
+    "why": "The server walks from the file up through its parents and keeps the best level. Editor on folder-A is level 2, and write needs 2."
+  },
+  {
+    "q": "Siti is an admin. A partner app has a token for her with `scopes: [\"read\"]`. The app sends a delete. What happens, and why?",
+    "options": [
+      "It is allowed, because Siti is an admin",
+      "It is denied, because both the role and the scope must say yes, and the token has no `delete`",
+      "It is allowed, because scopes only apply to viewers",
+      "It is denied, because admins may not use tokens"
+    ],
+    "answer": 1,
+    "why": "A scope is a limit on one token. The answer is the smaller of the role and the scope. A scope never adds rights."
+  },
+  {
+    "q": "A list page must show only the 12 documents Ana may open, out of 100,000. How do you build it?",
+    "options": [
+      "Load a page of 20, then drop the ones she may not see in code",
+      "Load all 100,000 into memory, then filter",
+      "Put the permission in the query, for example a join on the grants table with an index on `user_id`",
+      "Hide the others with CSS in the app"
+    ],
+    "answer": 2,
+    "why": "If you filter after loading a page, pages come out short or empty. When the permission is in the query, every page is full and the count is right. Hiding things in the app is not security."
+  }
+]

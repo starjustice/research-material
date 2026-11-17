@@ -81,7 +81,13 @@ Each ready lesson has a step-through page in [visuals/](visuals/) and a practice
 | 17 | [WebSockets and Server-Sent Events](17-websockets-and-server-sent-events.md) | polling, SSE and WebSocket, reconnects with backoff, and why many servers need a message bus | ready |
 | 18 | [Choosing an API style](18-choosing-an-api-style.md) | four questions that pick REST, GraphQL, tRPC or gRPC, and what each one costs | ready |
 
-Each lesson from 06 to 18 (the Auth, Senior level and API styles groups) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
+### More on access
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 19 | [Access control models](19-access-control-models.md) | roles, a list on each item (ACL), rules on facts (ABAC), folder inheritance, token scopes, and how to design who may open what | ready |
+
+Each lesson from 06 to 19 (the Auth, Senior level, API styles and More on access groups) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
 
 **To make the next lesson:** in a chat with this folder open, say `/learn backend-api 01` to learn it live with Claude, or ask "make lesson backend-api 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

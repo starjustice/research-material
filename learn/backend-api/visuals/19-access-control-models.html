@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access Control Models Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --new: #1f7a4d; --new-bg: #e3f5ea;
+    --bad: #c0392b; --bad-bg: #fdecea;
+    --warn: #8a6d00; --warn-bg: #fff4cc;
+    --c1: #2563a8; --c1-bg: #e3eefe;
+    --c2: #1f7a4d; --c2-bg: #e3f5ea;
+    --c3: #7c3aed; --c3-bg: #efe7ff;
+    --c4: #c0392b; --c4-bg: #fdecea;
+    --code: #1e2a33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; font-family: ui-monospace, Menlo, monospace; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .predict {
+    background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .92rem;
+  }
+  .predict input {
+    font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 340px; max-width: 100%; margin-top: 6px;
+  }
+
+  .grid { display: grid; grid-template-columns: 0.8fr 1.4fr; gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .grid > * { min-width: 0; }
+  .wrap, .panel, .box, .note, .wire { min-width: 0; max-width: 100%; }
+  .wire .msg { overflow-wrap: anywhere; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; margin: 0 0 8px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  pre.code { margin: 0; background: var(--code); color: #e8eef2; border-radius: 10px; padding: 8px 0; font-size: .78rem; overflow-x: auto; line-height: 1.55; }
+  pre.code .ln { display: block; padding: 0 12px; white-space: pre; border-left: 4px solid transparent; }
+  pre.code .ln.hl { background: #33475a; border-left-color: var(--accent); color: #fff; }
+  pre.code .ln.dim { color: #8aa0b0; }
+
+  .wire {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 12px;
+  }
+  .wire .who { font-weight: 700; font-size: .85rem; }
+  .wire .arrow { color: var(--muted); font-size: 1.1rem; }
+  .wire .msg { font-family: ui-monospace, Menlo, monospace; font-size: .8rem; background: #efe9db; border-radius: 6px; padding: 3px 8px; }
+  .wire .none { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .wire .status { margin-left: auto; border-radius: 999px; padding: 3px 12px; font-size: .78rem; font-weight: 700; color: #fff; }
+  .status.ok { background: var(--new); } .status.bad { background: var(--bad); } .status.info { background: var(--muted); } .status.warn { background: #b58900; }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .box { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 10px 12px; min-height: 120px; }
+  .box h3 { margin: 0; font-size: .95rem; }
+  .box .sub2 { color: var(--muted); font-size: .72rem; margin: 0 0 8px; }
+  .box.c1 { border-color: var(--c1); background: linear-gradient(var(--c1-bg), var(--c1-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c2 { border-color: var(--c2); background: linear-gradient(var(--c2-bg), var(--c2-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c3 { border-color: var(--c3); background: linear-gradient(var(--c3-bg), var(--c3-bg)) top / 100% 36px no-repeat, var(--card); }
+  .box.c4 { border-color: var(--c4); background: linear-gradient(var(--c4-bg), var(--c4-bg)) top / 100% 36px no-repeat, var(--card); }
+  .row { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px; font-size: .78rem; background: #fcfaf5; word-break: break-word; }
+  .row .k { color: var(--muted); font-size: .7rem; display: block; }
+  .row .v { font-family: ui-monospace, Menlo, monospace; font-weight: 650; }
+  .row.new { border-color: var(--new); background: var(--new-bg); animation: pop .35s ease-out; }
+  .row.good { border-color: var(--new); }
+  .row.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .row.warn { border-color: #b58900; background: var(--warn-bg); }
+  .empty { color: var(--muted); font-size: .78rem; font-style: italic; margin-top: 8px; }
+  @keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+
+  .note {
+    margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--new); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--new-bg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .86rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .key { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; font-size: .75rem; }
+  .key span { border: 1.5px solid; border-radius: 7px; padding: 2px 8px; font-weight: 650; }
+  .key .kn { color: var(--new); background: var(--new-bg); border-color: var(--new); }
+  .key .kb { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+  .key .kw { color: var(--warn); background: var(--warn-bg); border-color: #b58900; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/backend-api/README">← Backend and API lessons</a>
+    <a href="../../../viewer.html?note=learn/backend-api/19-access-control-models">Open the lesson ↗</a>
+  </div>
+  <h1>Access control models stepper</h1>
+  <p class="sub">A small documents app with three people: Ana, Budi and Siti. Five stories, one for each way to answer "may this person do this?". Press Next and watch the check run.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Guess first.</b> <span id="question"></span><br>
+    <input id="guess" placeholder="write your guess here, then press Next" autocomplete="off" aria-label="your guess">
+  </div>
+
+  <div class="wire" id="wire"></div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2 id="codeTitle">What the server runs</h2>
+      <pre class="code" id="code"></pre>
+    </div>
+    <div>
+      <div class="boxes" id="boxes"></div>
+      <div class="key"><span class="kn">just changed</span><span class="kw">careful</span><span class="kb">problem</span></div>
+    </div>
+  </div>
+
+  <div class="note" id="note" aria-live="polite"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="legend"><b>The rule to remember:</b> three ways to say yes. A <b>role</b> is one answer for a whole kind of user. A <b>list on the item</b> (ACL) is one answer for one item. A <b>rule on facts</b> (ABAC) is one answer from the facts of this request. Real apps mix them, and the default is always <b>no</b>.
+  <ul>
+    <li><b>ACL:</b> access control list. A list on each item, such as "ana: owner, budi: viewer".</li>
+    <li><b>ABAC:</b> a rule that reads facts about the user, the thing and the situation.</li>
+    <li><b>Inheritance:</b> a grant on a folder reaches what is inside it.</li>
+    <li><b>Scope:</b> a limit written on one token. The token can do the smaller of its scopes and its user's rights.</li>
+  </ul></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------- the data
+const BOXES = [
+ {
+  "key": "request",
+  "title": "Request",
+  "sub": "who asks and for what",
+  "color": "c1",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "check",
+  "title": "The check",
+  "sub": "one step at a time",
+  "color": "c2",
+  "empty": "nothing yet"
+ },
+ {
+  "key": "data",
+  "title": "Role table",
+  "sub": "ROLES",
+  "color": "c3",
+  "empty": "empty"
+ }
+];
+const SCENARIOS = [
+ {
+  "tab": "1 Roles",
+  "question": "Ana is an <code>editor</code>. May she write? May she delete? What if her role were <code>hacker</code>?",
+  "codeTitle": "What the server runs",
+  "boxes": [
+   {
+    "key": "request",
+    "title": "Request",
+    "sub": "who asks and for what",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "check",
+    "title": "The check",
+    "sub": "one step at a time",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "data",
+    "title": "Role table",
+    "sub": "ROLES",
+    "color": "c3",
+    "empty": "empty"
+   }
+  ],
+  "code": [
+   "const ROLES = {",
+   "  viewer: [\"read\"],",
+   "  editor: [\"read\", \"write\"],",
+   "  admin: [\"read\", \"write\", \"delete\"],",
+   "};",
+   "function canRole(role, action) {",
+   "  return Object.hasOwn(ROLES, role)",
+   "    && ROLES[role].includes(action);",
+   "}"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [],
+     "check": [],
+     "data": [
+      [
+       "viewer",
+       "read",
+       ""
+      ],
+      [
+       "editor",
+       "read, write",
+       ""
+      ],
+      [
+       "admin",
+       "read, write, delete",
+       ""
+      ]
+     ]
+    },
+    "note": "One table says what each role may do. No person's name is in it. Every editor gets the same answer."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Ana",
+     "Server",
+     "PUT /docs/1   (write)"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "Ana",
+       ""
+      ],
+      [
+       "Role",
+       "editor",
+       ""
+      ],
+      [
+       "Action",
+       "write",
+       ""
+      ]
+     ]
+    },
+    "note": "Ana asks to write. The server calls <code>canRole(\"editor\", \"write\")</code>."
+   },
+   {
+    "line": 6,
+    "wire": null,
+    "boxes": {
+     "check": [
+      [
+       "Is editor in the table?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "First question: is <code>editor</code> a role we know? Yes."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Ana",
+     "200 OK"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "Is editor in the table?",
+       "yes",
+       "good"
+      ],
+      [
+       "Does its list have write?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "The list for editor is read, write. It has <code>write</code>. The answer is yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Ana",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "Ana",
+       ""
+      ],
+      [
+       "Role",
+       "editor",
+       ""
+      ],
+      [
+       "Action",
+       "delete",
+       "warn"
+      ]
+     ],
+     "check": [
+      [
+       "Is editor in the table?",
+       "yes",
+       "good"
+      ],
+      [
+       "Does its list have delete?",
+       "no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Now Ana asks to delete. The list for editor is read, write. No <code>delete</code>, so the answer is no.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Server",
+     "Someone",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "someone",
+       ""
+      ],
+      [
+       "Role",
+       "hacker",
+       "warn"
+      ],
+      [
+       "Action",
+       "read",
+       ""
+      ]
+     ],
+     "check": [
+      [
+       "Is hacker in the table?",
+       "no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "A role that is not in the table gets no. This is <b>deny by default</b>: the server says yes only when a rule says yes.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> write: yes. delete: no. A role that is not in the table: no. The role gives the <b>same answer for every document</b>. It cannot say \"this document, but not that one\". For that, you need a list on the item, or a rule on facts."
+ },
+ {
+  "tab": "2 A list on each item (ACL)",
+  "question": "Budi is a <code>viewer</code> on doc-1. May he read it? May he write it? May Ana read doc-2?",
+  "codeTitle": "What the server runs",
+  "boxes": [
+   {
+    "key": "request",
+    "title": "Request",
+    "sub": "who asks and for what",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "check",
+    "title": "The check",
+    "sub": "one step at a time",
+    "color": "c2",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "data",
+    "title": "The lists (acl)",
+    "sub": "one list on each item",
+    "color": "c3",
+    "empty": "empty"
+   }
+  ],
+  "code": [
+   "const acl = {",
+   "  \"doc-1\": { ana: \"owner\", budi: \"viewer\" },",
+   "  \"doc-2\": { budi: \"owner\" },",
+   "};",
+   "function aclAllows(itemId, userId, action) {",
+   "  const level = acl[itemId]?.[userId];",
+   "  return level !== undefined",
+   "    && RANK[level] >= NEED[action];",
+   "}"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "request": [],
+     "check": [],
+     "data": [
+      [
+       "doc-1",
+       "ana: owner, budi: viewer",
+       ""
+      ],
+      [
+       "doc-2",
+       "budi: owner",
+       ""
+      ]
+     ]
+    },
+    "note": "Each document has its own list. The list says who may use it, and at what level. Levels: viewer is 1, editor is 2, owner is 3."
+   },
+   {
+    "line": 5,
+    "wire": [
+     "Budi",
+     "Server",
+     "GET /docs/1   (read)"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "Budi",
+       ""
+      ],
+      [
+       "Item",
+       "doc-1",
+       ""
+      ],
+      [
+       "Action",
+       "read (needs level 1)",
+       ""
+      ]
+     ],
+     "check": [
+      [
+       "Budi's level on doc-1",
+       "viewer = 1",
+       "good"
+      ]
+     ]
+    },
+    "note": "The server opens the list of <code>doc-1</code> and looks for Budi. It finds <code>viewer</code>, which is level 1."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Budi",
+     "200 OK"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "Budi's level on doc-1",
+       "viewer = 1",
+       "good"
+      ],
+      [
+       "1 >= 1 ?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Read needs level 1. Budi has 1. The answer is yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Budi",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "Budi",
+       ""
+      ],
+      [
+       "Item",
+       "doc-1",
+       ""
+      ],
+      [
+       "Action",
+       "write (needs level 2)",
+       "warn"
+      ]
+     ],
+     "check": [
+      [
+       "Budi's level on doc-1",
+       "viewer = 1",
+       "good"
+      ],
+      [
+       "1 >= 2 ?",
+       "no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Now Budi tries to write. Write needs level 2. Budi has 1. The answer is no.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 6,
+    "wire": [
+     "Server",
+     "Ana",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "Ana",
+       ""
+      ],
+      [
+       "Item",
+       "doc-2",
+       ""
+      ],
+      [
+       "Action",
+       "read (needs level 1)",
+       ""
+      ]
+     ],
+     "check": [
+      [
+       "Ana's level on doc-2",
+       "not on the list",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Ana is the owner of doc-1, but she is not on the list of doc-2. Not on the list means no.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Ana",
+     "Server",
+     "share doc-1 with Cika as viewer"
+    ],
+    "boxes": {
+     "request": [
+      [
+       "Who",
+       "Ana (owner of doc-1)",
+       ""
+      ],
+      [
+       "Action",
+       "share",
+       ""
+      ]
+     ],
+     "check": [
+      [
+       "Ana's level on doc-1",
+       "owner = 3, share needs 3",
+       "good"
+      ]
+     ],
+     "data": [
+      [
+       "doc-1",
+       "ana: owner, budi: viewer, cika: viewer",
+       "new"
+      ],
+      [
+       "doc-2",
+       "budi: owner",
+       ""
+      ]
+     ]
+    },
+    "note": "Sharing is one new line in one list. Only an owner may do it (share needs level 3). Cika can now read doc-1."
+   }
+  ],
+  "answer": "<b>Answer:</b> read: yes. write: no. Ana on doc-2: no, she is not on its list. An ACL (access control list) is a <b>list on each item</b>. It is easy to answer \"who may open this document?\". It is harder to answer \"what may Ana open?\", because you must look at many lists."
+ },
+ {
+  "tab": "3 Rules on facts (ABAC)",
+  "question": "The order is 250 and paid, from store 1. Sam is staff of store 1. Mia is a manager of store 1. Raj is a manager of store 2. Who may refund?",
+  "codeTitle": "What the server runs",
+  "boxes": [
+   {
+    "key": "user",
+    "title": "The user",
+    "sub": "facts about who asks",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "order",
+    "title": "The order",
+    "sub": "facts about the thing",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "check",
+    "title": "The check",
+    "sub": "one rule at a time",
+    "color": "c2",
+    "empty": "nothing yet"
+   }
+  ],
+  "code": [
+   "function canRefund(user, order) {",
+   "  if (user.role !== \"staff\") return false;",
+   "  if (user.storeId !== order.storeId) return false;",
+   "  if (order.status !== \"paid\") return false;",
+   "  return order.total <= 100 || user.isManager;",
+   "}"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "user": [
+      [
+       "Sam",
+       "staff, store 1, not a manager",
+       ""
+      ]
+     ],
+     "order": [
+      [
+       "Order 10",
+       "store 1, paid, total 250",
+       ""
+      ]
+     ],
+     "check": []
+    },
+    "note": "No role and no list can say \"under 100, in your own store, only paid orders\". The server reads <b>facts</b> about the user and the order, at the moment of the request."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Sam",
+     "Server",
+     "POST /orders/10/refund"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "role is staff?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Rule 1: the user must be staff. Sam is staff."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "check": [
+      [
+       "role is staff?",
+       "yes",
+       "good"
+      ],
+      [
+       "same store? 1 and 1",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Rule 2: same store. Sam is in store 1, the order is from store 1."
+   },
+   {
+    "line": 3,
+    "wire": null,
+    "boxes": {
+     "check": [
+      [
+       "role is staff?",
+       "yes",
+       "good"
+      ],
+      [
+       "same store? 1 and 1",
+       "yes",
+       "good"
+      ],
+      [
+       "order is paid?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Rule 3: the order must be paid. It is."
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Sam",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "role is staff?",
+       "yes",
+       "good"
+      ],
+      [
+       "same store? 1 and 1",
+       "yes",
+       "good"
+      ],
+      [
+       "order is paid?",
+       "yes",
+       "good"
+      ],
+      [
+       "250 <= 100, or manager?",
+       "no and no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Rule 4: 250 is over 100, and Sam is not a manager. The answer is no.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 4,
+    "wire": [
+     "Server",
+     "Mia",
+     "200 OK"
+    ],
+    "boxes": {
+     "user": [
+      [
+       "Mia",
+       "staff, store 1, a manager",
+       ""
+      ]
+     ],
+     "check": [
+      [
+       "first three rules",
+       "pass",
+       "good"
+      ],
+      [
+       "250 <= 100, or manager?",
+       "manager: yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Mia passes the first three rules. A manager may go over 100. The answer is yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Raj",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "user": [
+      [
+       "Raj",
+       "staff, store 2, a manager",
+       ""
+      ]
+     ],
+     "check": [
+      [
+       "role is staff?",
+       "yes",
+       "good"
+      ],
+      [
+       "same store? 2 and 1",
+       "no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Raj is a manager, but of store 2. Rule 2 stops him before the manager rule is read.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> Sam: no. Mia: yes. Raj: no. This is <b>ABAC</b> (attribute-based access control), a rule that reads facts. It is flexible, but the rules are code that you must test. Every new rule is a new way to be wrong."
+ },
+ {
+  "tab": "4 Folders (inheritance)",
+  "question": "Ana is an editor on <code>folder-A</code> only. Nobody shared <code>file-9</code> with her. May she write to it?",
+  "codeTitle": "What the server runs",
+  "boxes": [
+   {
+    "key": "tree",
+    "title": "The tree",
+    "sub": "parent and grants",
+    "color": "c3",
+    "empty": "empty"
+   },
+   {
+    "key": "walk",
+    "title": "The walk",
+    "sub": "from the file upwards",
+    "color": "c2",
+    "empty": "not started"
+   },
+   {
+    "key": "result",
+    "title": "Result",
+    "sub": "the best level found",
+    "color": "c1",
+    "empty": "not known yet"
+   }
+  ],
+  "code": [
+   "function levelOnTree(nodeId, userId) {",
+   "  let best = 0;",
+   "  for (let n = nodeId; n; n = parents[n]) {",
+   "    const level = grants[n]?.[userId];",
+   "    if (level && RANK[level] > best)",
+   "      best = RANK[level];",
+   "  }",
+   "  return best;",
+   "}"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "tree": [
+      [
+       "folder-A",
+       "parent: none.  grant: ana = editor",
+       ""
+      ],
+      [
+       "folder-B",
+       "parent: folder-A.  grant: budi = viewer",
+       ""
+      ],
+      [
+       "file-9",
+       "parent: folder-B.  grant: none",
+       ""
+      ]
+     ],
+     "walk": [],
+     "result": []
+    },
+    "note": "A grant on a folder reaches everything inside it. Nobody wrote a line for file-9. The server finds Ana's right by walking up."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Ana",
+     "Server",
+     "PUT /files/file-9   (write needs 2)"
+    ],
+    "boxes": {
+     "walk": [
+      [
+       "file-9",
+       "grant for Ana: none. best = 0",
+       ""
+      ]
+     ],
+     "result": [
+      [
+       "best so far",
+       "0",
+       ""
+      ]
+     ]
+    },
+    "note": "Start at the file itself. Ana has no grant on file-9. Best level so far: 0."
+   },
+   {
+    "line": 2,
+    "wire": null,
+    "boxes": {
+     "walk": [
+      [
+       "file-9",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-B",
+       "grant for Ana: none. best = 0",
+       ""
+      ]
+     ]
+    },
+    "note": "Step up to the parent, folder-B. There is a grant for Budi, but not for Ana."
+   },
+   {
+    "line": 5,
+    "wire": null,
+    "boxes": {
+     "walk": [
+      [
+       "file-9",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-B",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-A",
+       "Ana = editor = 2. best = 2",
+       "good"
+      ]
+     ],
+     "result": [
+      [
+       "best so far",
+       "2",
+       "good"
+      ]
+     ]
+    },
+    "note": "Step up again, to folder-A. Ana is an editor here. Editor is level 2, so best becomes 2."
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Ana",
+     "200 OK"
+    ],
+    "boxes": {
+     "walk": [
+      [
+       "file-9",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-B",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-A",
+       "Ana = editor = 2. best = 2",
+       "good"
+      ],
+      [
+       "above folder-A",
+       "no parent. the loop ends",
+       ""
+      ]
+     ],
+     "result": [
+      [
+       "best level",
+       "2",
+       "good"
+      ],
+      [
+       "write needs 2",
+       "2 >= 2: yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "There is no parent above folder-A, so the loop ends. Best is 2. Write needs 2, so the answer is yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Budi",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "walk": [
+      [
+       "file-9",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-B",
+       "Budi = viewer = 1. best = 1",
+       "good"
+      ],
+      [
+       "folder-A",
+       "no grant for Budi. best stays 1",
+       ""
+      ]
+     ],
+     "result": [
+      [
+       "best level",
+       "1",
+       "warn"
+      ],
+      [
+       "write needs 2",
+       "1 >= 2: no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Now Budi tries to write file-9. His best level on the way is 1 (viewer on folder-B). Write needs 2, so the answer is no.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 7,
+    "wire": [
+     "Server",
+     "Zed",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "walk": [
+      [
+       "file-9",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-B",
+       "none. best = 0",
+       ""
+      ],
+      [
+       "folder-A",
+       "none. best = 0",
+       ""
+      ]
+     ],
+     "result": [
+      [
+       "best level",
+       "0",
+       "bad"
+      ],
+      [
+       "read needs 1",
+       "0 >= 1: no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Zed has no grant anywhere on the way up. Best stays 0, so the answer is no, even to read.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> yes. The grant on <code>folder-A</code> flows down to every file inside. This is <b>inheritance</b>. Sharing one folder replaces hundreds of single lists. The cost: \"who may open this file?\" now means checking the file and every parent above it."
+ },
+ {
+  "tab": "5 Roles plus token scopes",
+  "question": "Siti is an admin. A partner app has a token for Siti that says <code>scopes: [\"read\"]</code>. May the app delete a document?",
+  "codeTitle": "What the server runs",
+  "boxes": [
+   {
+    "key": "user",
+    "title": "The user",
+    "sub": "what Siti may do",
+    "color": "c1",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "token",
+    "title": "The token",
+    "sub": "what this token may do",
+    "color": "c3",
+    "empty": "nothing yet"
+   },
+   {
+    "key": "check",
+    "title": "The check",
+    "sub": "both must say yes",
+    "color": "c2",
+    "empty": "nothing yet"
+   }
+  ],
+  "code": [
+   "function allowed(user, token, action) {",
+   "  return canRole(user.role, action)",
+   "    && token.scopes.includes(action);",
+   "}"
+  ],
+  "steps": [
+   {
+    "line": null,
+    "wire": null,
+    "boxes": {
+     "user": [
+      [
+       "Siti",
+       "role admin: read, write, delete",
+       ""
+      ]
+     ],
+     "token": [
+      [
+       "Token A (Siti's own app)",
+       "scopes: read, write, delete",
+       ""
+      ]
+     ],
+     "check": []
+    },
+    "note": "Two lists now. The <b>role</b> says what Siti may do. The <b>scope</b> says what this one token may do. A token can only do less than its user, never more."
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Siti's own app",
+     "Server",
+     "DELETE /docs/1   Bearer token A"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "role admin may delete?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "First question: does the role allow delete? Admin does."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Siti's own app",
+     "200 OK"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "role admin may delete?",
+       "yes",
+       "good"
+      ],
+      [
+       "token A has delete?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "Second question: does the token have the scope? Token A does. Both say yes.",
+    "status": [
+     "ok",
+     "200"
+    ]
+   },
+   {
+    "line": 1,
+    "wire": [
+     "Partner app",
+     "Server",
+     "DELETE /docs/1   Bearer token B"
+    ],
+    "boxes": {
+     "token": [
+      [
+       "Token B (a partner app)",
+       "scopes: read",
+       "warn"
+      ]
+     ],
+     "check": [
+      [
+       "role admin may delete?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "A partner app has token B for Siti, and Siti only agreed to \"read\". The role check passes, because Siti is an admin."
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "Partner app",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "check": [
+      [
+       "role admin may delete?",
+       "yes",
+       "good"
+      ],
+      [
+       "token B has delete?",
+       "no",
+       "bad"
+      ]
+     ]
+    },
+    "note": "Token B has no delete scope. Both must say yes, so the answer is no. The partner app cannot use Siti's power.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   },
+   {
+    "line": 2,
+    "wire": [
+     "Server",
+     "App",
+     "403 Forbidden"
+    ],
+    "boxes": {
+     "user": [
+      [
+       "Vera",
+       "role viewer: read",
+       ""
+      ]
+     ],
+     "token": [
+      [
+       "Token C",
+       "scopes: read, write, delete",
+       "warn"
+      ]
+     ],
+     "check": [
+      [
+       "role viewer may delete?",
+       "no",
+       "bad"
+      ],
+      [
+       "token C has delete?",
+       "yes",
+       "good"
+      ]
+     ]
+    },
+    "note": "The other way round: Vera is a viewer, and her token has every scope. The scope does not give her more than her role. The answer is still no.",
+    "status": [
+     "bad",
+     "403"
+    ]
+   }
+  ],
+  "answer": "<b>Answer:</b> no. A scope is a limit on one token. The user's own rights still apply. The final answer is the <b>smaller</b> of the two: role <b>and</b> scope. Writing <code>||</code> instead of <code>&&</code> is the classic bug."
+ }
+];
+
+// Every step lists only the boxes that change. The other boxes keep what they had.
+const $ = (id) => document.getElementById(id);
+let sc = 0, step = 0, timer = null;
+
+function snapshots(scenario) {
+  const snaps = [];
+  let cur = {};
+  scenario.steps.forEach((s) => {
+    cur = Object.assign({}, cur, s.boxes || {});
+    snaps.push(cur);
+  });
+  return snaps;
+}
+const SNAPS = SCENARIOS.map(snapshots);
+
+function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  SCENARIOS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.tab;
+    b.className = i === sc ? "on" : "";
+    b.onclick = () => { sc = i; step = 0; stop(); $("guess").value = ""; renderTabs(); render(); };
+    $("tabs").appendChild(b);
+  });
+}
+
+function render() {
+  const s = SCENARIOS[sc], st = s.steps[step], snap = SNAPS[sc][step];
+  const prev = step > 0 ? SNAPS[sc][step - 1] : {};
+  $("question").innerHTML = s.question;
+  $("codeTitle").textContent = s.codeTitle || "What the server runs";
+
+  // code with the current line marked
+  const codeLines = st.code || s.code;
+  $("code").innerHTML = codeLines.map((line, i) => {
+    const cls = st.line === i ? "ln hl" : (st.line == null ? "ln" : "ln dim");
+    return '<span class="' + cls + '">' + esc(line) + "</span>";
+  }).join("");
+
+  // the message on the wire
+  const w = st.wire;
+  let wireHtml = w
+    ? '<span class="who">' + esc(w[0]) + '</span><span class="arrow">→</span><span class="who">' + esc(w[1]) + '</span><span class="msg">' + esc(w[2]) + "</span>"
+    : '<span class="none">nothing is travelling in this step</span>';
+  if (st.status) wireHtml += '<span class="status ' + st.status[0] + '">' + esc(st.status[1]) + "</span>";
+  $("wire").innerHTML = wireHtml;
+
+  // the boxes
+  $("boxes").innerHTML = (s.boxes || BOXES).map((b) => {
+    const rows = snap[b.key] || [];
+    const old = prev[b.key] || [];
+    const html = rows.length ? rows.map((r) => {
+      const same = old.some((o) => o[0] === r[0] && o[1] === r[1]);
+      const cls = ["row", same ? "" : "new", r[2] || ""].join(" ");
+      return '<div class="' + cls + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + "</span></div>";
+    }).join("") : '<div class="empty">' + esc(b.empty || "empty") + "</div>";
+    return '<div class="box ' + b.color + '"><h3>' + esc(b.title) + '</h3><p class="sub2">' + esc(b.sub) + "</p>" + html + "</div>";
+  }).join("");
+
+  $("note").innerHTML = st.note;
+  const total = s.steps.length;
+  $("count").textContent = "Step " + (step + 1) + " of " + total;
+  $("bar").style.width = ((step + 1) / total * 100) + "%";
+  $("back1").disabled = step === 0;
+  $("next1").disabled = step === total - 1;
+  const last = step === total - 1;
+  $("result").className = "result" + (last ? " show" : "");
+  $("result").innerHTML = last ? s.answer : "";
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } };
+$("back1").onclick = () => { if (step > 0) { step--; render(); } };
+$("reset").onclick = () => { step = 0; stop(); render(); };
+$("play").onclick = () => {
+  if (timer) { stop(); return; }
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => {
+    if (step < SCENARIOS[sc].steps.length - 1) { step++; render(); } else { stop(); }
+  }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") $("next1").click();
+  if (e.key === "ArrowLeft") $("back1").click();
+});
+
+renderTabs();
+render();
+</script>
+</body>
+</html>

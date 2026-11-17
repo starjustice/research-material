@@ -1,5 +1,13 @@
 [
  {
+  "slug": "learn/backend-api/19-access-control-models",
+  "subject": "backend-api",
+  "subjectTitle": "Backend and API",
+  "num": "19",
+  "title": "Access control models",
+  "count": 6
+ },
+ {
   "slug": "learn/database/01-sql-basics-and-query-order",
   "subject": "database",
   "subjectTitle": "Database",
