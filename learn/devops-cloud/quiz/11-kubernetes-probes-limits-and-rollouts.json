@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A readiness probe on one pod fails 3 times in a row. What does Kubernetes do?",
+    "options": [
+      "It removes the pod from the Service's list and does not restart it",
+      "It restarts the container, then puts the pod back in the Service's list",
+      "It deletes the pod, and the Deployment makes a new one with a new name",
+      "It rolls back the whole Deployment to the version before"
+    ],
+    "answer": 0,
+    "why": "Readiness decides who gets traffic. A failed readiness probe only removes the pod from the Service's list. The container keeps running, the kubelet keeps asking, and the pod rejoins when a check passes. Only a failed liveness or startup probe restarts the container."
+  },
+  {
+    "q": "Your app needs 60 seconds to start. Liveness checks every 10 seconds and allows 3 failures, and there is no startup probe. The pod keeps restarting. What do you add?",
+    "options": [
+      "A readiness probe with a longer period",
+      "A startup probe with a high failureThreshold",
+      "A CPU limit, so the app starts more calmly",
+      "A second liveness probe that also checks the database"
+    ],
+    "answer": 1,
+    "why": "Liveness kills the container after about 30 seconds, before it is up, and the loop repeats. A startup probe (for example 24 failures every 5 seconds, so 120 seconds) holds back liveness and readiness until it passes. After that, liveness takes over."
+  },
+  {
+    "q": "What is the difference between a request and a limit?",
+    "options": [
+      "A request is the ceiling the kernel enforces. A limit is what the scheduler reserves.",
+      "They are the same number. Kubernetes only reads one of them.",
+      "A request is what the scheduler reserves. A limit is the ceiling the kernel enforces.",
+      "A request is for memory only. A limit is for CPU only."
+    ],
+    "answer": 2,
+    "why": "The scheduler adds up requests to find a machine with room. The kubelet and the Linux kernel enforce limits. Docker's --memory and --cpus set the same kernel limits."
+  },
+  {
+    "q": "One container goes over its memory limit. Another goes over its CPU limit. What happens?",
+    "options": [
+      "Both are killed by the kernel with exit code 137",
+      "Both are throttled: slower, with no error",
+      "Memory: throttled and slower. CPU: killed with exit code 137",
+      "Memory: killed (OOMKilled, exit 137). CPU: throttled, slower, no error."
+    ],
+    "answer": 3,
+    "why": "Over the memory limit the kernel kills the container. In my Docker run it ended with OOMKilled=true and exit code 137. Over the CPU limit the kernel makes it wait: a job that needs 1000 ms took 1960 ms with a limit of 0.5, and nothing failed."
+  },
+  {
+    "q": "A Deployment has 3 replicas, maxSurge 1 and maxUnavailable 0. During a rolling update, what is the most pods that exist and the fewest that are ready?",
+    "options": [
+      "At most 4 exist, and at least 3 are ready",
+      "At most 3 exist, and at least 2 are ready",
+      "At most 4 exist, and at least 2 are ready",
+      "At most 6 exist, and at least 3 are ready"
+    ],
+    "answer": 0,
+    "why": "maxSurge 1 allows one extra pod, so 3 + 1 = 4 at most. maxUnavailable 0 means all 3 wanted pods must stay ready, so 3 - 0 = 3 at least. Kubernetes starts a new pod, waits for ready, and only then removes an old one."
+  },
+  {
+    "q": "The new version never passes its readiness probe, and the rollout is stuck for 10 minutes. What happens?",
+    "options": [
+      "Kubernetes rolls back to the old version by itself after the deadline",
+      "The old pods keep serving. Kubernetes only reports it, and you run kubectl rollout undo.",
+      "The new pods get traffic anyway once the deadline passes",
+      "All old pods are removed so that the new version can start"
+    ],
+    "answer": 1,
+    "why": "With maxUnavailable 0, no old pod is removed while the new pod is not ready. The Deployment docs say Kubernetes takes no action on a stalled Deployment other than to report a status condition, and kubectl rollout status ends with an error. With no readiness probe the new pods would count as ready at once and the bug would go live."
+  }
+]

@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say where a container's logs go and how long they live, stop logs from filling the disk, write log lines you can search, turn error lines into an alert that does not cry wolf, explain what a health check does and does not do, and say why you also check the site from outside.
 >
-> **Before this:** [Config and secrets](09-config-and-secrets.md) · **Next:** Kubernetes probes, limits and rollouts (planned)
+> **Before this:** [Config and secrets](09-config-and-secrets.md) · **Next:** [Kubernetes probes, limits and rollouts](11-kubernetes-probes-limits-and-rollouts.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Every log line, number and command output in this lesson came from a real run on Docker Desktop 29.3.1 unless the text says "from the docs, not run here". About 20 minutes for the cards.
 
@@ -301,7 +301,7 @@ docker ps: Up 29 seconds (unhealthy)
 |---|---|
 | Plain Docker | Only the state changes (measured above) |
 | Docker Swarm | The docs say the scheduler "may reschedule your running service containers at any time if they become unhealthy or unreachable" ([Swarm services](https://docs.docker.com/engine/swarm/services/), opened 2026-11-13). From the docs, not run here |
-| Kubernetes | A liveness probe can restart the container. That is the next lesson (planned) |
+| Kubernetes | A liveness probe can restart the container. That is the next lesson ([lesson 11](11-kubernetes-probes-limits-and-rollouts.md)) |
 
 An idea, not a fact: CapRover runs on Swarm, so a `HEALTHCHECK` in your Dockerfile may matter there. I did not test CapRover.
 
@@ -688,7 +688,7 @@ Close this file. Explain logs and monitoring out loud like to a new junior, in 4
 ## Connected lessons
 
 - [Config and secrets](09-config-and-secrets.md) - the lesson before. Card 8 there shows how to mask a secret before it is logged.
-- Kubernetes probes, limits and rollouts (planned) - the next lesson. A liveness probe is where a failed check can restart a container.
+- [Kubernetes probes, limits and rollouts](11-kubernetes-probes-limits-and-rollouts.md) - the next lesson. A liveness probe is where a failed check can restart a container.
 - [Reverse proxy and Nginx](08-reverse-proxy-and-nginx.md) - the proxy writes its own access log, and a request id header can start there.
 - [Docker Compose](03-docker-compose.md) - the `logging:` block in card 2 goes in a Compose service.
 - [Kubernetes objects](04-kubernetes-objects.md) - the pods whose logs `kubectl logs` reads.

@@ -1,0 +1,68 @@
+[
+  {
+    "q": "A script says \"create 1 server\" and you run it twice. A declarative file says \"I want 1 server\" and the tool runs twice. How many servers does each give?",
+    "options": [
+      "The script gives 2 and the declarative file gives 1",
+      "Both give 1",
+      "Both give 2",
+      "The script gives 1 and the declarative file gives 2"
+    ],
+    "answer": 0,
+    "why": "Declarative means you write what you want, not the steps. The tool looks first, so the second run finds the server already there and does nothing. A steps script does the same step again."
+  },
+  {
+    "q": "The plan says \"Plan: 2 to add, 0 to change, 0 to destroy\". What has been built so far?",
+    "options": [
+      "Both new things exist in the cloud",
+      "Nothing, because plan only shows a preview",
+      "Only the state file has changed",
+      "One of them exists, to test it"
+    ],
+    "answer": 1,
+    "why": "plan shows and apply does. The tool compares your code with what exists and prints a list, but it changes nothing. Read the plan first, and look hardest at the delete lines and the -/+ (rebuild) lines."
+  },
+  {
+    "q": "The cloud has 2 servers from last week. You delete the state file, then run apply. What does the tool plan to do?",
+    "options": [
+      "Nothing, because it can see the 2 servers in the cloud",
+      "Create 2 more servers, because it has no notes and thinks nothing exists",
+      "Delete the 2 servers, because they are not in the code",
+      "Rebuild the state file from the cloud by itself"
+    ],
+    "answer": 1,
+    "why": "The state is the tool's notes about which real thing has which name. Without it the tool forgets what it owns, so it plans to create everything again. You get duplicates, or an error when names must be unique."
+  },
+  {
+    "q": "Ana is running apply. Ben starts apply on the same state, and the state is in a shared bucket with a lock. What happens to Ben's run?",
+    "options": [
+      "It runs at the same time as Ana's",
+      "It replaces Ana's run",
+      "It stops with an error that names who holds the lock, and Ben tries again later",
+      "It waits forever and cannot be stopped"
+    ],
+    "answer": 2,
+    "why": "The lock lets one run change the state at a time. Without it, both runs could read the same notes and create the same thing twice. With Terraform's S3 backend you turn the lock on with use_lockfile."
+  },
+  {
+    "q": "A teammate made the web server bigger in the console. The code and the state still say large. You run apply with no change in the code. What happens?",
+    "options": [
+      "The tool keeps the console change, because it is newer",
+      "The tool rewrites your code to match the cloud",
+      "Nothing, because the tool cannot see the cloud",
+      "The tool puts the server back to large, as the code says"
+    ],
+    "answer": 3,
+    "why": "This gap is drift. plan looks at the real cloud first, notices the change, and plans to revert it. If the console change was a good fix, put it in the code first, so the code matches the cloud."
+  },
+  {
+    "q": "You mark a database password variable as sensitive in Terraform. Where is the real value still stored?",
+    "options": [
+      "Nowhere, sensitive removes it everywhere",
+      "Only in the terminal history",
+      "In the state file, in plain text",
+      "In the pull request comment that shows the plan"
+    ],
+    "answer": 2,
+    "why": "sensitive hides a value from the screen, not from the state. The Terraform docs say it is still stored in the state. So keep the state out of Git, store it remotely, encrypt it, and limit who can read it."
+  }
+]

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infrastructure as code: plan and apply, drift, a lock, a module, a secret</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/14-infrastructure-as-code" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Infrastructure as code: plan and apply, drift, a lock, a module, a secret</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of how Terraform works. It runs the same <code>plan</code>, <code>apply</code>, lock, <code>maskSensitive</code> and <code>webModule</code> code as the practice answer in the lesson. Nothing here talks to a real cloud. The lines of a plan follow the shape in the Terraform docs, written by hand and not copied from a run.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> write down what you want in code. <b>plan</b> shows what would change, and <b>apply</b> does it. The <b>state</b> is the tool's notes, so keep it in a shared place with a lock. Someone who clicks in the console causes <b>drift</b>. A secret in the code ends up in the state, so protect the state like a password.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (plan, apply, takeLock,
+// releaseLock, maskSensitive, webModule). It is a model: no cloud is used. The plan lines follow
+// the shape in the Terraform docs and were written by hand, not copied from a real run.
+// ---------------------------------------------------------------------------------------------
+const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+function differingKeys(a, b) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].filter((k) => !has(a, k) || !has(b, k) || a[k] !== b[k]).sort();
+}
+
+function plan(desired, state, real) {
+  const drift = [];
+  const actions = [];
+  const names = [...new Set([...Object.keys(desired), ...Object.keys(state)])].sort();
+  for (const name of names) {
+    const inState = has(state, name);
+    const inReal = has(real, name);
+    if (inState) {
+      if (!inReal) drift.push({ name, kind: "missing" });
+      else {
+        const keys = differingKeys(state[name], real[name]);
+        if (keys.length > 0) drift.push({ name, kind: "changed", keys });
+      }
+    }
+    if (has(desired, name)) {
+      if (!inState || !inReal) actions.push({ name, action: "create" });
+      else {
+        const keys = differingKeys(desired[name], real[name]);
+        if (keys.length > 0) actions.push({ name, action: "update", keys });
+      }
+    } else if (inReal) {
+      actions.push({ name, action: "delete" });
+    }
+  }
+  return { drift, actions };
+}
+
+function apply(actions, desired, state, real) {
+  const newState = {};
+  for (const name of Object.keys(state)) {
+    if (has(real, name)) newState[name] = { ...real[name] };
+  }
+  const newReal = {};
+  for (const name of Object.keys(real)) newReal[name] = { ...real[name] };
+  for (const { name, action } of actions) {
+    if (action === "delete") {
+      delete newReal[name];
+      delete newState[name];
+    } else {
+      newReal[name] = { ...desired[name] };
+      newState[name] = { ...desired[name] };
+    }
+  }
+  return { state: newState, real: newReal };
+}
+
+function takeLock(holder, who) {
+  if (holder === null) return { ok: true, holder: who };
+  return { ok: false, holder };
+}
+
+function releaseLock(holder, who) {
+  if (holder !== null && holder === who) return { ok: true, holder: null };
+  return { ok: false, holder };
+}
+
+function maskSensitive(settings, sensitiveKeys) {
+  const copy = { ...settings };
+  for (const key of sensitiveKeys) {
+    if (has(copy, key)) copy[key] = "(sensitive value)";
+  }
+  return copy;
+}
+
+const SIZES = ["small", "medium", "large"];
+
+function webModule(name, size) {
+  if (typeof name !== "string" || name === "") throw new Error("name is required");
+  if (!SIZES.includes(size)) throw new Error("size must be small, medium or large");
+  return {
+    resources: {
+      [name + "-web"]: { size, port: 3000 },
+      [name + "-db"]: { size: "small" },
+    },
+    outputs: { url: "https://" + name + ".example.test" },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that draw the three columns and the plan. They only show things, they change nothing.
+// ---------------------------------------------------------------------------------------------
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const fmt = (settings) => Object.keys(settings).map((k) => k + "=" + settings[k]).join(" ");
+
+function resBox(title, cls, tagText, small, map, marks) {
+  marks = marks || {};
+  const names = Object.keys(map).sort();
+  const layers = names.length
+    ? names.map((n) => ({ name: n, size: fmt(map[n]), state: marks[n] || "cached", lit: marks[n] === "now" || marks[n] === "rebuilt" }))
+    : [{ name: "empty", size: "nothing yet", state: "wait" }];
+  return { title, cls, tag: [tagText, ""], small, layers };
+}
+function trio(code, state, real, marks) {
+  marks = marks || {};
+  return [
+    resBox("Your code", "user", "in Git", "what you want", code, marks.code),
+    resBox("State file", "fol", "the tool's notes", "what the tool thinks it made", state, marks.state),
+    resBox("The real cloud", "srv", "what exists", "the servers you pay for", real, marks.real)
+  ];
+}
+function planLines(p, desired, real) {
+  const out = [];
+  p.drift.forEach((d) => out.push("Changed outside the tool: " + d.name + (d.kind === "missing" ? " is gone" : " (" + d.keys.join(", ") + ")")));
+  p.actions.forEach((a) => {
+    let line = ({ create: "+ create ", update: "~ update ", delete: "- delete " })[a.action] + a.name;
+    if (a.action === "update") line += ": " + a.keys.map((k) => k + " " + real[a.name][k] + " to " + desired[a.name][k]).join(", ");
+    out.push(line);
+  });
+  const c = (n) => p.actions.filter((a) => a.action === n).length;
+  out.push(p.actions.length ? "Plan: " + c("create") + " to add, " + c("update") + " to change, " + c("delete") + " to destroy." : "No changes.");
+  return out;
+}
+const planBox = (p, desired, real, tag) => ({ wide: true, title: "The plan (a preview, nothing is changed)", cls: "lb", tag: tag || [p.actions.length ? "something to do" : "nothing to do", p.actions.length ? "warn" : "ok"], small: "", lines: planLines(p, desired, real) });
+
+// ---- Story 1: code, plan, apply, and running it again ----
+function simulatePlanApply() {
+  const steps = [];
+  let code = { web: { size: "small" }, db: { size: "small" } };
+  let state = {}, real = {};
+  steps.push({ layout: "three", hop: "Setup: code, and an empty cloud", phase: "setup",
+    note: "<b>You wrote a file.</b> It says: I want a <code>web</code> server and a <code>db</code> server, both small. Nothing exists yet. The state file is empty and the cloud is empty. Three places hold three different pictures. Press Next to ask the tool what it would do.",
+    boxes: trio(code, state, real, { code: { web: "now", db: "now" } }) });
+
+  const p1 = plan(code, state, real);
+  steps.push({ layout: "three", hop: "plan: ask what would change", phase: "chk",
+    note: "<b><code>plan</code> compares the code, the state and the real cloud.</b> It finds 2 things in the code that do not exist, so it lists 2 creates. <b>It built nothing.</b> Look at the right column: still empty. Read this list before you go on. A <code>-</code> line means something will be deleted.",
+    boxes: trio(code, state, real).concat([planBox(p1, code, real)]) });
+
+  const a1 = apply(p1.actions, code, state, real);
+  state = a1.state; real = a1.real;
+  steps.push({ layout: "three", hop: "apply: do it", phase: "run",
+    note: "<b><code>apply</code> does what the plan said.</b> The cloud now has both servers. After the cloud answers, the tool writes the notes in the state file: it remembers which real server belongs to which name in your code.",
+    boxes: trio(code, state, real, { state: { web: "now", db: "now" }, real: { web: "now", db: "now" } }) });
+
+  const code2 = { web: { size: "large" }, db: { size: "small" } };
+  steps.push({ layout: "three", hop: "You change the code", phase: "run",
+    note: "<b>Traffic grows, so you change one word in the file:</b> <code>size=large</code> for <code>web</code>. You did not touch the cloud. Code and cloud now disagree.",
+    boxes: trio(code2, state, real, { code: { web: "rebuilt" } }) });
+
+  const p2 = plan(code2, state, real);
+  steps.push({ layout: "three", hop: "plan: only the difference", phase: "chk",
+    note: "<b>The plan lists one line only.</b> <code>db</code> already matches, so the tool leaves it alone. You do not write steps like \"find the web server and resize it\". The tool works that out.",
+    boxes: trio(code2, state, real, { code: { web: "rebuilt" }, real: { web: "rebuilt" } }).concat([planBox(p2, code2, real)]) });
+
+  const a2 = apply(p2.actions, code2, state, real);
+  code = code2; state = a2.state; real = a2.real;
+  steps.push({ layout: "three", hop: "apply: change one thing", phase: "run",
+    note: "<b>The cloud and the state both say <code>size=large</code> now.</b> Whether the tool changes a thing in place or deletes it and builds it again depends on the setting. The plan marks a rebuild with <code>-/+</code>, so read it.",
+    boxes: trio(code, state, real, { state: { web: "now" }, real: { web: "now" } }) });
+
+  const p3 = plan(code, state, real);
+  steps.push({ layout: "three", hop: "Run plan again", phase: "srv",
+    note: "<b>Nothing to do.</b> You said what you want, not how to get there, so running the tool again changes nothing. This is the meaning of <b>declarative</b>. A script that says \"create a server\" would make a second one.",
+    boxes: trio(code, state, real).concat([planBox(p3, code, real)]) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>plan looks, apply acts.</b> The state is the tool's notes about which real thing is which name. In a team, the plan is what you review in a pull request, and apply runs after the merge.",
+    boxes: [{ title: "plan", cls: "lb", tag: ["safe", "ok"], small: "", lines: ["compares code, state and the cloud", "changes nothing", "you read it, and so does a reviewer"] }, { title: "apply", cls: "srv", tag: ["acts", "warn"], small: "", lines: ["does what the plan said", "writes the state afterwards", "run it again and nothing changes"] }] });
+  return steps;
+}
+
+// ---- Story 2: drift, someone clicks in the console ----
+function simulateDrift() {
+  const steps = [];
+  const code = { web: { size: "large" }, db: { size: "small" } };
+  const state = clone(code);
+  let real = clone(code);
+  steps.push({ layout: "three", hop: "Setup: all three match", phase: "setup",
+    note: "<b>Day one: the code, the state and the cloud all agree.</b> <code>web</code> is large and <code>db</code> is small. A plan would say \"No changes\".",
+    boxes: trio(code, state, real) });
+
+  real = clone(code); real.web = { size: "xlarge" };
+  steps.push({ layout: "three", hop: "Someone clicks in the console", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>It is late and the site is slow.</b> A teammate opens the cloud console and makes <code>web</code> bigger: <code>size=xlarge</code>. Nobody told the tool. The code and the state still say <code>large</code>. The real cloud has moved away from them. This gap is <b>drift</b>.",
+    boxes: trio(code, state, real, { real: { web: "rebuilt" } }) });
+
+  const p = plan(code, state, real);
+  steps.push({ layout: "three", hop: "plan finds the drift", phase: "chk",
+    note: "<b>The tool looks at the real cloud first.</b> It compares what it finds with its notes, and reports that <code>web</code> changed outside the tool. Then it compares the cloud with your code and plans an update to put <code>web</code> back to <code>large</code>.",
+    boxes: trio(code, state, real, { real: { web: "rebuilt" } }).concat([planBox(p, code, real)]) });
+
+  const aA = apply(p.actions, code, state, real);
+  steps.push({ layout: "three", hop: "Choice A: apply", phase: "bad",
+    note: "<b>Apply puts it back.</b> <code>web</code> is <code>large</code> again, and the site is slow again. This is right if the console change was a mistake. It is wrong if it was a good fix.",
+    boxes: trio(code, aA.state, aA.real, { real: { web: "now" } }) });
+
+  const codeB = { web: { size: "xlarge" }, db: { size: "small" } };
+  const pB = plan(codeB, state, real);
+  steps.push({ layout: "three", hop: "Choice B: keep the change", phase: "chk",
+    note: "<b>Rewind. This time you put the new size into the code.</b> You edit the file to <code>xlarge</code>, and run plan. It still reports the drift in the state, but the code now matches the cloud, so there is no action.",
+    boxes: trio(codeB, state, real, { code: { web: "now" }, real: { web: "cached" }, state: { web: "rebuilt" } }).concat([planBox(pB, codeB, real)]) });
+
+  const aB = apply(pB.actions, codeB, state, real);
+  steps.push({ layout: "three", hop: "Choice B: apply updates the notes", phase: "srv",
+    note: "<b>Apply changes no server.</b> It only brings the state file up to date: <code>web</code> is <code>xlarge</code> in all three places. The next plan is clean. The fix is now in Git, with a reviewer and a history.",
+    boxes: trio(codeB, aB.state, aB.real, { state: { web: "now" } }) });
+
+  const realC = clone(aB.real); delete realC.db;
+  const pC = plan(codeB, aB.state, realC);
+  steps.push({ layout: "three", hop: "Someone deletes the db", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Another change by hand: someone deletes <code>db</code>.</b> The plan reports it as gone and lists a create. The tool builds a new, empty server. That brings back the server, not the data that was inside it. That is a job for backups.",
+    boxes: trio(codeB, aB.state, realC, { real: {}, state: { db: "rebuilt" } }).concat([planBox(pC, codeB, realC)]) });
+
+  steps.push({ layout: "two", hop: "Find it and prevent it", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Drift is normal. The question is whether you see it.</b> Run a plan on a schedule and look at the drift lines. Then pick: put it back, or put the change in the code. Better still, stop most console changes before they happen.",
+    boxes: [{ title: "Find it", cls: "lb", tag: ["plan", ""], small: "", lines: ["plan shows drift and what it would revert", "a refresh-only plan shows drift and changes nothing", "run it on a schedule in CI"] }, { title: "Prevent it", cls: "srv", tag: ["habits", "ok"], small: "", lines: ["make changes in code, through a pull request", "give most people a read-only console", "an emergency click is fine, then write it down in the code"] }] });
+  return steps;
+}
+
+// ---- Story 3: two people and one lock ----
+function simulateLock() {
+  const steps = [];
+  const code = { web: { size: "small" }, db: { size: "small" } };
+  let state = { web: { size: "small" } };
+  let real = { web: { size: "small" } };
+  let holder = null;
+  const person = (name, lines, cls, tag) => ({ title: name, cls: cls || "user", tag: tag || ["laptop", ""], small: "", lines });
+  const bucket = (stateMap, lockText, cls, tag) => ({ title: "Shared bucket", cls: cls || "fol", tag: tag || ["state + lock", ""], small: "", layers: Object.keys(stateMap).sort().map((n) => ({ name: n, size: fmt(stateMap[n]), state: "cached" })).concat([{ name: "lock", size: lockText, state: holder ? "rebuilt" : "wait" }]) });
+
+  steps.push({ layout: "three", hop: "Setup: two people, one state", phase: "setup",
+    note: "<b>Ana and Ben work on the same infrastructure.</b> The state file sits in a shared bucket, so both can reach it. The cloud has <code>web</code>. The code now also asks for <code>db</code>, and both of them want to apply it. First, see what happens with no lock.",
+    boxes: [person("Ana", ["wants to add db", "state read: web only"]), person("Ben", ["wants to add db", "state read: web only"]), bucket(state, "free")] });
+
+  const pA = plan(code, state, real);
+  steps.push({ layout: "three", hop: "No lock: both run plan", phase: "chk",
+    note: "<b>Both plans read the same state, so both say the same thing:</b> <code>" + planLines(pA, code, real)[0] + "</code>. Each plan is correct on its own. Neither one knows that the other person is about to do the same.",
+    boxes: [person("Ana", ["plan: " + planLines(pA, code, real)[0]]), person("Ben", ["plan: " + planLines(pA, code, real)[0]]), bucket(state, "no lock")] });
+
+  steps.push({ layout: "three", hop: "No lock: both apply", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The cloud now has two databases, and the state knows about one.</b> The second writer replaces the first one's notes. One server is paid for and tracked by nobody. This is the problem a lock prevents.",
+    boxes: [person("Ana", ["applied: made a db"], "alarm", ["done", "bad"]), person("Ben", ["applied: made a db"], "alarm", ["done", "bad"]), { title: "The mess", cls: "alarm", tag: ["no lock", "bad"], small: "", lines: ["cloud: 2 db servers", "state: 1 db (the last writer)", "1 server nobody tracks"] }] });
+
+  steps.push({ layout: "three", hop: "With a lock: Ana takes it", phase: "run",
+    note: "<b>Now rewind and use a shared state with a lock.</b> Ana starts her run. The tool first asks for the lock, and <code>takeLock</code> says <code>ok: " + takeLock(holder, "ana").ok + "</code>. While the lock is held, nobody else can change the state.",
+    boxes: (() => { const r = takeLock(holder, "ana"); holder = r.holder; return [person("Ana", ["takes the lock", "holder: " + holder], "srv", ["running", "ok"]), person("Ben", ["waiting"]), bucket(state, "held by " + holder, "fol", ["locked", "warn"])]; })() });
+
+  const rB = takeLock(holder, "ben");
+  steps.push({ layout: "three", hop: "Ben tries: the lock is taken", phase: "chk",
+    note: "<b>Ben's run stops.</b> <code>takeLock</code> says <code>ok: " + rB.ok + ", holder: " + rB.holder + "</code>. The tool tells him that the state is locked and by whom. He cannot start a second change on the same state.",
+    boxes: [person("Ana", ["still running", "holder: " + holder], "srv", ["running", "ok"]), person("Ben", ["Error: the state is locked", "held by " + rB.holder, "run stopped"], "alarm", ["stopped", "bad"]), bucket(state, "held by " + holder, "fol", ["locked", "warn"])] });
+
+  const pL = plan(code, state, real);
+  const aL = apply(pL.actions, code, state, real);
+  state = aL.state; real = aL.real;
+  steps.push({ layout: "three", hop: "Ana applies", phase: "run",
+    note: "<b>Ana's apply creates one <code>db</code>.</b> The cloud and the state both have it now. The lock is still held, so the state cannot change under her.",
+    boxes: [person("Ana", ["apply done", "created db"], "srv", ["running", "ok"]), person("Ben", ["waiting"]), bucket(state, "held by " + holder, "fol", ["locked", "warn"])] });
+
+  const rr = releaseLock(holder, "ana");
+  holder = rr.holder;
+  steps.push({ layout: "three", hop: "Ana lets go", phase: "run",
+    note: "<b>The tool releases the lock when the run ends.</b> <code>releaseLock</code> only works for the person who holds it, so Ben cannot free Ana's lock by accident. If a run crashes and leaves a stuck lock, there is a manual unlock command, and the docs say to be very careful with it.",
+    boxes: [person("Ana", ["done", "lock released"]), person("Ben", ["waiting"]), bucket(state, "free")] });
+
+  const rB2 = takeLock(holder, "ben");
+  holder = rB2.holder;
+  const pB = plan(code, state, real);
+  steps.push({ layout: "three", hop: "Ben goes next", phase: "srv",
+    note: "<b>Ben takes the lock and runs plan.</b> He reads the new state, which already has <code>db</code>, so his plan says \"" + planLines(pB, code, real)[0] + "\". No second database. One at a time is slower, and it is correct.",
+    boxes: [person("Ana", ["done"]), person("Ben", ["takes the lock", "plan: " + planLines(pB, code, real)[0]], "srv", ["running", "ok"]), bucket(state, "held by " + holder, "fol", ["locked", "warn"])] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Keep the state in a shared place and let the backend lock it.</b> On AWS that is an S3 bucket. Terraform's S3 backend can lock with a small file in the same bucket, using the setting <code>use_lockfile</code>. The older way, a DynamoDB table, is deprecated in Terraform. From the docs, not run here.",
+    boxes: [{ title: "Without a lock", cls: "alarm", tag: ["risk", "bad"], small: "", lines: ["two runs read the same notes", "both create the same thing", "the state loses track of one"] }, { title: "With a lock", cls: "srv", tag: ["safe", "ok"], small: "", lines: ["one run at a time", "the second run stops with an error", "the next run reads the new state"] }] });
+  return steps;
+}
+
+// ---- Story 4: a module is a function ----
+function simulateModule() {
+  const steps = [];
+  const inputs = { title: "Inputs (variables)", cls: "user", tag: ["arguments", ""], small: "", lines: ["name: staging or prod", "size: small, medium or large"] };
+  const resLayers = (m) => Object.keys(m.resources).sort().map((n) => ({ name: n, size: fmt(m.resources[n]), state: "cached" }));
+  const resBoxFor = (title, m, cls) => ({ title, cls: cls || "srv", tag: ["resources", ""], small: "", layers: resLayers(m) });
+  const staging = webModule("staging", "small");
+  const prod = webModule("prod", "large");
+  steps.push({ layout: "two", hop: "Setup: one recipe, two places", phase: "setup",
+    note: "<b>You want a staging copy and a production copy of the same setup:</b> one web server and one database. Copying the code twice would drift apart. So you write it once, as a <b>module</b>, and call it twice. If you know JavaScript: a module is a function.",
+    boxes: [inputs, { title: "Result (outputs)", cls: "lb", tag: ["return value", ""], small: "", lines: ["resources: a web server and a db", "outputs: url"] }] });
+  steps.push({ layout: "two", hop: "Call it for staging", phase: "run",
+    note: "<b><code>webModule(\"staging\", \"small\")</code></b> gives back two resources, both with names that start with <code>staging</code>, and an output: the address of the site. The size you passed went to the web server only.",
+    boxes: [resBoxFor("staging", staging), { title: "outputs", cls: "lb", tag: ["return value", ""], small: "", lines: ["url: " + staging.outputs.url] }] });
+  steps.push({ layout: "two", hop: "Call it again for prod", phase: "run",
+    note: "<b><code>webModule(\"prod\", \"large\")</code></b> uses the same recipe with other inputs. Same shape, new names, a bigger web server.",
+    boxes: [resBoxFor("staging", staging), resBoxFor("prod", prod)] });
+  const all = Object.assign({}, staging.resources, prod.resources);
+  steps.push({ layout: "two", hop: "Four things, no clash", phase: "srv",
+    note: "<b>Together there are " + Object.keys(all).length + " things, and no two have the same name.</b> The name is the key in the state file, so a clash would break it. In Terraform, each thing in a module gets an address that starts with <code>module.&lt;name&gt;</code>, so two calls cannot clash. In my model the name prefix does that job.",
+    boxes: [{ title: "All things in the state", cls: "fol", tag: ["4 things", ""], small: "", layers: Object.keys(all).sort().map((n) => ({ name: n, size: fmt(all[n]), state: "cached" })) }, { title: "The outputs", cls: "lb", tag: ["return values", ""], small: "", lines: ["staging: " + staging.outputs.url, "prod: " + prod.outputs.url, "a parent reads them, for example as module.prod.url"] }] });
+  let err = "";
+  try { webModule("prod", "huge"); } catch (e) { err = e.message; }
+  steps.push({ layout: "two", hop: "A bad input", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A variable can check its own value.</b> <code>webModule(\"prod\", \"huge\")</code> stops with an error before anything is built. That is cheaper than finding the mistake in the cloud bill.",
+    boxes: [{ title: "Call", cls: "user", tag: ["input", ""], small: "", lines: ["webModule(\"prod\", \"huge\")"] }, { title: "Result", cls: "alarm", tag: ["error", "bad"], small: "", lines: [err, "nothing was planned or built"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A module is a function: variables go in, outputs come out.</b> Write the recipe once and call it for each place. The limit of the comparison: a function runs and goes away, but a module's resources stay alive and are tracked in the state.",
+    boxes: [{ title: "Like a function", cls: "srv", tag: ["same idea", "ok"], small: "", lines: ["variables are the arguments", "outputs are the return value", "one recipe, many calls"] }, { title: "Not like a function", cls: "fol", tag: ["careful", "warn"], small: "", lines: ["the resources stay alive after the call", "each one is tracked in the state", "removing a call deletes the resources"] }] });
+  return steps;
+}
+
+// ---- Story 5: a secret in the state ----
+function simulateSecret() {
+  const steps = [];
+  const dbSettings = { user: "app", password: "not-a-real-secret" };
+  steps.push({ layout: "two", hop: "Setup: a password for the database", phase: "setup",
+    note: "<b>Your code creates a database with a password.</b> The password comes from a variable that you marked <code>sensitive</code>. The value here is made up: <code>not-a-real-secret</code>. The question: where does that text end up?",
+    boxes: [{ title: "Your code", cls: "user", tag: ["variable marked sensitive", ""], small: "", lines: ["db user: app", "db password: from the variable"] }, { title: "The tool", cls: "lb", tag: ["plan and apply", ""], small: "", lines: ["builds the database", "writes the state file"] }] });
+  const shown = maskSensitive(dbSettings, ["password"]);
+  steps.push({ layout: "two", hop: "On the screen", phase: "srv",
+    note: "<b>The plan hides the value.</b> You see <code>" + shown.password + "</code> where the password is. This is what <code>sensitive</code> does: it keeps the text off your screen and out of the pipeline log. It looks safe.",
+    boxes: [{ title: "What plan prints", cls: "srv", tag: ["screen", "ok"], small: "", lines: ["user: " + shown.user, "password: " + shown.password] }, { title: "State file", cls: "fol", tag: ["not looked at yet", ""], small: "", lines: ["wait: what is in here?"] }] });
+  steps.push({ layout: "two", hop: "In the state file", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The state file holds the real value, in plain text.</b> The tool needs it to remember what it built, so it writes it down. The Terraform docs say that values marked sensitive are still stored in the state. Anyone who can read the state can read the password.",
+    boxes: [{ title: "What plan prints", cls: "srv", tag: ["screen", "ok"], small: "", lines: ["user: " + shown.user, "password: " + shown.password] }, { title: "State file", cls: "alarm", tag: ["plain text", "bad"], small: "", lines: ["user: " + dbSettings.user, "password: " + dbSettings.password] }] });
+  steps.push({ layout: "two", hop: "Where the state file goes", phase: "bad",
+    note: "<b>A local state file sits in your project folder.</b> A careless <code>git add .</code> puts it into Git, and then everyone with the repo has the password, even after you delete the file (see lesson 09, card 3). On a shared drive it is the same story.",
+    boxes: [{ title: "Local state", cls: "alarm", tag: ["risky", "bad"], small: "", lines: ["terraform.tfstate in the project folder", "one wrong git add and it is in history", "anyone with the folder can read it"] }, { title: "If it leaks", cls: "fol", tag: ["lesson 09", ""], small: "", lines: ["treat the secret as public", "change it first", "then clean up"] }] });
+  steps.push({ layout: "two", hop: "Protect the state", phase: "srv",
+    note: "<b>Treat the state like a password file.</b> The docs advise: keep it out of Git, store it remotely, encrypt it, limit who can read it, and log who reads it. Better still, keep secrets out of the state when you can, with ephemeral values or by letting the app read the secret from a secret store.",
+    boxes: [{ title: "Do this", cls: "srv", tag: ["from the docs", "ok"], small: "", lines: ["remote state, encrypted at rest", "a short list of people who can read it", "never in Git", "an access log"] }, { title: "Even better", cls: "lb", tag: ["idea", ""], small: "", lines: ["keep the password out of the state", "ephemeral values (Terraform)", "or a secret store (lesson 09)"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b><code>sensitive</code> hides a value from the screen, not from the state.</b> The state file holds the real text, so protect it like a password.",
+    boxes: [{ title: "Hides it from", cls: "srv", tag: ["sensitive does", "ok"], small: "", lines: ["the terminal", "the plan in a pull request", "the CI log"] }, { title: "Does not hide it from", cls: "alarm", tag: ["sensitive does not", "bad"], small: "", lines: ["the state file", "a saved plan file", "anyone who can read the bucket"] }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Plan and apply", sim: simulatePlanApply,
+    why: "plan compares the code, the state and the real cloud, and only prints a preview. apply does the work. Because you describe what you want, a second run finds nothing to do.",
+    predict: { q: "The plan says \"Plan: 2 to add\". Has the tool built anything yet?", options: ["Yes, two things exist now", "No, plan only shows what would change", "Only the state file changed"], answer: "No, plan only shows what would change" } },
+  { name: "2. Drift", sim: simulateDrift,
+    why: "A change made by hand is not in the code or in the state. The next plan finds it. If you apply without changing the code, the tool puts the thing back to what the code says.",
+    predict: { q: "A teammate changes web in the console. You run apply with no change in the code. What happens to web?", options: ["It keeps the console change", "The tool puts it back to what the code says", "The tool rewrites your code"], answer: "The tool puts it back to what the code says" } },
+  { name: "3. A lock", sim: simulateLock,
+    why: "Two runs that read the same state can both create the same thing. A lock lets one run at a time change the state, and the second run stops with an error.",
+    predict: { q: "Ana is running apply. Ben starts apply on the same state, and the state has a lock. What happens to Ben's run?", options: ["Both run at the same time", "Ben's run stops, because the state is locked", "Ben's run replaces Ana's"], answer: "Ben's run stops, because the state is locked" } },
+  { name: "4. A module", sim: simulateModule,
+    why: "A module is a recipe you call with different inputs, like a function. Each call gives its own set of resources with its own names, and outputs work like a return value.",
+    predict: { q: "You call the same module twice, for staging and for prod. How many sets of resources exist?", options: ["One, the second call replaces the first", "Two, one for each call", "None until you run it a third time"], answer: "Two, one for each call" } },
+  { name: "5. A secret in state", sim: simulateSecret,
+    why: "sensitive only hides a value from the screen. The state file keeps the real text, so protect the state like a password and keep it out of Git.",
+    predict: { q: "You mark a variable sensitive. Is its value stored in the state file?", options: ["No, it is hidden everywhere", "Yes, in plain text", "Only if you pass a flag"], answer: "Yes, in plain text" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulatePlanApply, simulateDrift, simulateLock, simulateModule, simulateSecret, STORIES, plan, apply, takeLock, releaseLock, maskSensitive, webModule };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

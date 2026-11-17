@@ -312,6 +312,22 @@
   "count": 6
  },
  {
+  "slug": "learn/devops-cloud/11-kubernetes-probes-limits-and-rollouts",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "11",
+  "title": "Kubernetes probes, limits and rollouts",
+  "count": 6
+ },
+ {
+  "slug": "learn/devops-cloud/14-infrastructure-as-code",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "14",
+  "title": "Infrastructure as code",
+  "count": 6
+ },
+ {
   "slug": "learn/devops-cloud/26-ways-to-run-your-app",
   "subject": "devops-cloud",
   "subjectTitle": "DevOps and Cloud",
