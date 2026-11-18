@@ -1,0 +1,127 @@
+[
+  {
+    "type": "tf",
+    "q": "Hoisting means JavaScript moves your code to the top of the file before it runs.",
+    "answer": false,
+    "why": "No. Your code stays where it is. JavaScript only makes a slot in memory for every name before line 1 runs."
+  },
+  {
+    "q": "What does line 1 print?",
+    "code": "console.log(a);\nvar a = 5;\nconsole.log(a);",
+    "options": [
+      "`undefined`",
+      "`5`",
+      "A `ReferenceError`",
+      "`null`"
+    ],
+    "answer": 0,
+    "why": "The slot for `a` was made before line 1 and started as `undefined`. Reading it early gives a quiet `undefined`, not an error."
+  },
+  {
+    "q": "What happens when line 1 runs?",
+    "code": "console.log(b);\nlet b = 5;\nconsole.log(b);",
+    "options": [
+      "A `ReferenceError`, and the program stops",
+      "It prints `undefined`, then `5`",
+      "It prints `5` twice",
+      "A `TypeError`"
+    ],
+    "answer": 0,
+    "why": "A `let` slot starts locked. Reading it before its line throws a `ReferenceError`, and nobody catches it, so lines 2 and 3 never run."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these slots start **locked** before line 1 runs?",
+    "options": [
+      "`let b = 5`",
+      "`const c = 5`",
+      "`var a = 5`",
+      "`function hello() {}`"
+    ],
+    "answer": [0, 1],
+    "why": "`let` and `const` start locked (the temporal dead zone). `var` starts as `undefined`, and a function declaration starts as the whole function."
+  },
+  {
+    "type": "tf",
+    "q": "A function declaration written at the bottom of a file can be called from the top of the file.",
+    "answer": true,
+    "why": "Yes. The slot of a function declaration holds the whole function from the start, so it works anywhere in its scope."
+  },
+  {
+    "q": "What happens in this code?",
+    "code": "greet();\nvar greet = function () {\n  console.log(\"hi\");\n};",
+    "options": [
+      "`TypeError: greet is not a function`",
+      "It prints `hi`",
+      "`ReferenceError: greet is not defined`",
+      "Nothing happens"
+    ],
+    "answer": 0,
+    "why": "Only the name `greet` was made early, as `undefined`. Calling `undefined` is a `TypeError`. A function expression in a `var` is not hoisted whole."
+  },
+  {
+    "type": "fill",
+    "q": "What does `show()` print? Type the one word.",
+    "code": "var x = \"outer\";\nfunction show() {\n  console.log(x);\n  var x = \"inner\";\n}\nshow();",
+    "answer": "undefined",
+    "why": "The `var x` inside `show` makes a new slot at the start of `show`, holding `undefined`. It hides the outer `x` for the whole function, even in the line above it."
+  },
+  {
+    "type": "order",
+    "q": "JavaScript looks for a name from the inside out. Put the places in the order it searches.",
+    "items": [
+      "The block, inside the curly braces",
+      "The function",
+      "The global scope",
+      "Not found anywhere: a `ReferenceError`"
+    ],
+    "why": "It stops at the first room that has the name. If no room has it, the result is a `ReferenceError`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these statements are true?",
+    "options": [
+      "`var` leaks out of the curly braces of an `if` or a `for`",
+      "`let` and `const` stay inside the nearest curly braces",
+      "A `var` slot starts locked until its line runs",
+      "`const` freezes everything inside an object"
+    ],
+    "answer": [0, 1],
+    "why": "`var` belongs to the function, so it ignores curly braces. `let` and `const` belong to the block. A `var` starts as `undefined`, not locked. `const` only locks the name."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three numbers with spaces between them.",
+    "code": "for (var i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i), 0);\n}",
+    "answer": ["3 3 3", "3, 3, 3"],
+    "why": "`var` makes ONE `i` for the whole function. The timers run after the loop is done, when `i` is already 3."
+  },
+  {
+    "q": "The loop above prints `3 3 3`. Which one change makes it print `0 1 2`?",
+    "options": [
+      "Change `var` to `let`",
+      "Change `setTimeout` to `setInterval`",
+      "Change `i < 3` to `i <= 3`",
+      "Change `0` to `1` in the timer"
+    ],
+    "answer": 0,
+    "why": "With `let`, each pass of the loop gets its own `i`, and each timer callback remembers its own. This is a closure (lesson 05)."
+  },
+  {
+    "type": "tf",
+    "q": "`const user = { name: \"Ana\" }` then `user.name = \"Budi\"` throws a `TypeError`.",
+    "answer": false,
+    "why": "No. `const` protects the name `user` (the arrow), not the inside of the object. Only `user = {}` would throw."
+  },
+  {
+    "q": "Which is the simple rule for new code?",
+    "options": [
+      "Use `const` by default, `let` when the value must change, and not `var`",
+      "Use `var` everywhere, because it is the oldest and works",
+      "Use `let` for everything, and `const` only for numbers",
+      "Use `var` for functions and `const` for text"
+    ],
+    "answer": 0,
+    "why": "`const` and `let` stay inside the block and fail loudly when read too early. You still need to read `var`, because old code is full of it."
+  }
+]

@@ -1,0 +1,127 @@
+[
+  {
+    "type": "tf",
+    "q": "`setTimeout(fn, 0)` runs `fn` on the very next line of your code.",
+    "answer": false,
+    "why": "No. `setTimeout` only says \"call this later\". `fn` waits until the call stack is empty, and until every promise callback has run."
+  },
+  {
+    "q": "Who does the waiting for a `setTimeout` timer or a `fetch` request?",
+    "options": [
+      "The browser (Web APIs), not JavaScript",
+      "The call stack, which pauses until the timer is done",
+      "The microtask queue",
+      "A second JavaScript thread"
+    ],
+    "answer": 0,
+    "why": "JavaScript has one chef and does not wait. The browser keeps the timer on the side and puts the callback in a queue when it is done."
+  },
+  {
+    "q": "A promise is already done and you call `.then(fn)` on it. Where does `fn` wait before it runs?",
+    "options": [
+      "In the microtask queue",
+      "In the task queue, behind the timers",
+      "In the browser Web APIs",
+      "On the call stack, so it runs at once"
+    ],
+    "answer": 0,
+    "why": "Promise callbacks wait in the microtask queue. It is a faster waiting line that is emptied before the next task."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these callbacks wait in the microtask queue, so they run before the next timer?",
+    "options": [
+      "The `.then` callback of a promise that is already done",
+      "The callback of `setTimeout(fn, 0)`",
+      "The code after an `await`",
+      "The callback of a button click"
+    ],
+    "answer": [0, 2],
+    "why": "Promise callbacks and the code after `await` are microtasks. Timers and clicks are tasks, and tasks wait until all microtasks are done."
+  },
+  {
+    "type": "order",
+    "q": "Put the letters in the order this code prints them.",
+    "code": "console.log(\"A\");\nsetTimeout(() => console.log(\"B\"), 0);\nPromise.resolve().then(() => console.log(\"C\"));\nconsole.log(\"D\");",
+    "items": ["A", "D", "C", "B"],
+    "why": "A and D are plain code, so they run first. Then the microtask C. Then the task B. The rule: sync code, then microtasks, then one task."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three letters in order, with spaces between them.",
+    "code": "setTimeout(() => console.log(\"x\"), 0);\nPromise.resolve().then(() => console.log(\"y\"));\nconsole.log(\"z\");",
+    "answer": ["z y x", "z, y, x"],
+    "why": "`z` is plain code, so it runs first. Then the microtask `y`. The timer `x` is a task, so it comes last."
+  },
+  {
+    "type": "tf",
+    "q": "The event loop empties the whole microtask queue before it takes the next task, even when a microtask adds a new microtask.",
+    "answer": true,
+    "why": "Yes. That is why `c` and `d` in the lesson's practice A both run before the first timer. A microtask that adds another microtask just joins the same emptying."
+  },
+  {
+    "type": "order",
+    "q": "Put one turn of the event loop in the right order.",
+    "items": [
+      "The plain code runs until the call stack is empty",
+      "All the microtasks run",
+      "One task runs, for example a timer callback",
+      "The loop goes back to the microtasks"
+    ],
+    "why": "Sync code first, then every microtask, then exactly one task. After that task the loop looks at the microtasks again before it takes another task."
+  },
+  {
+    "q": "What does `setTimeout(fn, 100)` really promise?",
+    "options": [
+      "`fn` runs after at least 100 ms, when the call stack is free",
+      "`fn` runs after exactly 100 ms",
+      "`fn` runs within 100 ms, before the next task",
+      "`fn` pauses the code for 100 ms, then runs"
+    ],
+    "answer": 0,
+    "why": "The time is a minimum. If the stack is busy, `fn` waits longer. A timer of 0 ms means \"at least 0 ms\", not \"now\"."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the five numbers in order, with spaces between them.",
+    "code": "console.log(\"1\");\nsetTimeout(() => console.log(\"2\"), 0);\nPromise.resolve().then(() => console.log(\"3\")).then(() => console.log(\"4\"));\nconsole.log(\"5\");",
+    "answer": ["1 5 3 4 2", "1, 5, 3, 4, 2"],
+    "why": "`1` and `5` are plain code. Then both microtasks run, `3` and then `4` (it is added while the microtasks are being emptied). The timer `2` comes last."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these can stop timers and clicks from running for a while?",
+    "options": [
+      "A `while` loop that runs for 3 seconds",
+      "A `fetch` request that takes 5 seconds to answer",
+      "A promise callback that keeps adding a new promise callback forever",
+      "A `setTimeout` of 5000 ms"
+    ],
+    "answer": [0, 2],
+    "why": "A long loop keeps the stack busy. Endless microtasks never let a task or a screen update have its turn. A `fetch` or a timer is waited on by the browser, not by JavaScript, so it blocks nothing."
+  },
+  {
+    "q": "A `while` loop keeps the stack busy for 300 ms. A timer of 0 ms was set just before it. When does the timer callback run?",
+    "code": "setTimeout(() => console.log(\"timer\"), 0);\nconst t0 = Date.now();\nwhile (Date.now() - t0 < 300) {}\nconsole.log(\"loop finished\");",
+    "options": [
+      "After the loop is finished, about 300 ms late",
+      "At once, because the browser runs it in parallel",
+      "Never, because the loop cancels the timer",
+      "Between two turns of the loop"
+    ],
+    "answer": 0,
+    "why": "A callback can only start when the call stack is empty. A long loop blocks the timers and the clicks too."
+  },
+  {
+    "q": "`console.log(loadUser())` prints `undefined`. What is the reason?",
+    "code": "function loadUser() {\n  let user;\n  setTimeout(() => { user = { name: \"Stephen\" }; }, 0);\n  return user;\n}",
+    "options": [
+      "`return user` runs before the timer callback, so `user` is still empty",
+      "`setTimeout` deletes the `user` variable",
+      "A timer of 0 ms is ignored by JavaScript",
+      "`let` variables cannot be changed inside a callback"
+    ],
+    "answer": 0,
+    "why": "The timer callback waits for the stack to empty, so it runs after `return`. Return a promise instead, so the caller can wait for the value."
+  }
+]

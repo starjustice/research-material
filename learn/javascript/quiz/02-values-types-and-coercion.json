@@ -1,0 +1,126 @@
+[
+  {
+    "q": "A form field gives you the text `\"2\"` in `qty`. What is `qty + 1`?",
+    "options": [
+      "The text `\"21\"`: the two are joined as text",
+      "The number `3`",
+      "A `TypeError`",
+      "`NaN`"
+    ],
+    "answer": 0,
+    "why": "If either side of `+` is text, `+` joins. JavaScript turned the number `1` into the text `\"1\"`. No error, so the bug hides."
+  },
+  {
+    "q": "`qty` is the text `\"2\"`. What is `qty - 1`?",
+    "options": [
+      "The number `1`",
+      "The text `\"21\"`",
+      "The text `\"2-1\"`",
+      "`NaN`"
+    ],
+    "answer": 0,
+    "why": "`-`, `*` and `/` only work on numbers, so they turn both sides into numbers first. `\"2\"` becomes `2`."
+  },
+  {
+    "type": "tf",
+    "q": "`typeof null` gives `\"null\"`.",
+    "answer": false,
+    "why": "It gives `\"object\"`. That is an old mistake in the language that was never fixed."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these give `\"object\"` when you use `typeof`?",
+    "options": [
+      "`typeof null`",
+      "`typeof []`",
+      "`typeof function () {}`",
+      "`typeof undefined`"
+    ],
+    "answer": [0, 1],
+    "why": "`null` and arrays both give `\"object\"`. A function gives `\"function\"`, and `undefined` gives `\"undefined\"`. To check for an array, use `Array.isArray(x)`."
+  },
+  {
+    "type": "fill",
+    "q": "What do these three lines print? Type the three answers with spaces between them.",
+    "code": "console.log(\"5\" == 5);\nconsole.log(\"5\" === 5);\nconsole.log(null == undefined);",
+    "answer": ["true false true", "true, false, true"],
+    "why": "`==` turns the text into a number first, so the first is `true`. `===` never changes a type, so the second is `false`. `null` equals `undefined` and nothing else, so the third is `true`."
+  },
+  {
+    "type": "order",
+    "q": "Put the rounds of `[] == false` in the right order.",
+    "items": [
+      "`false` becomes `0`, so it is `[] == 0`",
+      "The array becomes empty text, so it is `\"\" == 0`",
+      "The empty text becomes `0`, so it is `0 == 0`",
+      "Both sides are the same type, and the answer is `true`"
+    ],
+    "why": "Every round changes only one side, then starts the checklist again from the top."
+  },
+  {
+    "type": "tf",
+    "q": "An empty array `[]` counts as false inside an `if`.",
+    "answer": false,
+    "why": "No. An empty array is not on the list of 8 values that count as false, so `if ([])` runs. Yet `[] == false` is `true`. `==` and `if` use different rules."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these count as false inside an `if`?",
+    "options": [
+      "The number `0`",
+      "The text `\"0\"`",
+      "`NaN`",
+      "An empty object `{}`"
+    ],
+    "answer": [0, 2],
+    "why": "Only 8 values count as false: `false`, `0`, `-0`, `0n`, `\"\"`, `null`, `undefined` and `NaN`. A text with something in it, like `\"0\"`, and any object count as true."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them.",
+    "code": "console.log(typeof []);\nconsole.log(\"6\" / \"2\");\nconsole.log(false + 1);",
+    "answer": ["object 3 1", "object, 3, 1"],
+    "why": "An array is an object. `/` turns both texts into numbers, so `6 / 2` is `3`. There is no text in `false + 1`, so `+` adds numbers and `false` becomes `0`."
+  },
+  {
+    "q": "A free item has a price of `0`. `priceLabel(0)` returns `\"Price missing\"`. Why?",
+    "code": "function priceLabel(price) {\n  if (!price) return \"Price missing\";\n  return \"$\" + price;\n}",
+    "options": [
+      "`0` counts as false, so a real price looks like a missing one",
+      "`!price` only works for text",
+      "`0` is `null` in disguise",
+      "`return` stops the function too early"
+    ],
+    "answer": 0,
+    "why": "`0` is on the list of 8 values that count as false, but here it is a real price. Fix: `if (price == null)`, which only catches `null` and `undefined`."
+  },
+  {
+    "q": "`count` is `0`. What does `count ?? 10` give?",
+    "options": [
+      "`0`",
+      "`10`",
+      "`null`",
+      "`undefined`"
+    ],
+    "answer": 0,
+    "why": "`??` only replaces `null` and `undefined`, so it keeps `0`. `count || 10` would give `10`, because `0` counts as false."
+  },
+  {
+    "q": "In React, `messageCount` is `0`. What does the screen show for this line?",
+    "code": "{messageCount && <p>New messages</p>}",
+    "options": [
+      "A `0`",
+      "Nothing at all",
+      "The text `New messages`",
+      "An error message"
+    ],
+    "answer": 0,
+    "why": "`&&` gives back the left value when it counts as false. That value is `0`, and React draws numbers. Fix: `{messageCount > 0 && <p>New messages</p>}`."
+  },
+  {
+    "type": "tf",
+    "q": "`NaN === NaN` is `true`.",
+    "answer": false,
+    "why": "`NaN` is the one value that is not equal to itself, so `n === NaN` is always `false`. Check with `Number.isNaN(n)`."
+  }
+]

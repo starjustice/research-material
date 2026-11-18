@@ -1,5 +1,6 @@
 // The quiz card inside a lesson (viewer.html). Needs quiz-helpers.js first.
 // Quiz.mount(box, { slug, title, questions }) draws one question at a time, marks each answer at once, and saves the score in this browser.
+// Question types (see quiz-helpers.js): single, multi, tf, order, fill. Each one has a small drawing function in RENDER below.
 (function () {
   const H = window.QuizHelpers;
 
@@ -27,6 +28,165 @@
     return node;
   }
 
+  // ---- One drawing function per question type ----
+  // Each gets the empty area `zone`, the question `item`, and `done(correct)`, which it calls once when the learner has answered.
+  // Everything shared (progress bar, question text, the "why" box, the Next button) is drawn by mount().
+
+  const HINT = {
+    single: "Pick one answer.",
+    multi: "Pick all that are true. There can be more than one.",
+    tf: "True or false?",
+    order: "Tap the items in the right order, first to last.",
+    fill: "Type your answer.",
+  };
+
+  function button(label, cls, onClick) {
+    const b = el("button", cls, label);
+    b.type = "button";
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  // The list of answer buttons. choices: [{ label, right }]. One tap answers the question.
+  function pickOne(zone, choices, done) {
+    const grid = el("div", "quiz-options");
+    const buttons = choices.map(c => {
+      const b = el("button", "quiz-opt");
+      b.type = "button";
+      fill(b, c.label);
+      b.addEventListener("click", () => {
+        buttons.forEach((other, k) => {
+          other.disabled = true;
+          if (choices[k].right) other.classList.add("right");
+        });
+        if (!c.right) b.classList.add("wrong");
+        done(!!c.right);
+      });
+      grid.appendChild(b);
+      return b;
+    });
+    zone.appendChild(grid);
+  }
+
+  const RENDER = {
+    single(zone, item, done) {
+      const choices = H.shuffledOrder(item.options.length).map(k => ({ label: item.options[k], right: k === item.answer }));
+      pickOne(zone, choices, done);
+    },
+
+    tf(zone, item, done) {
+      pickOne(zone, [{ label: "True", right: item.answer === true }, { label: "False", right: item.answer === false }], done);
+      zone.firstChild.classList.add("quiz-row");
+    },
+
+    // Tap to switch an option on or off, then press Check. All or nothing: a missed option or an extra one is wrong.
+    multi(zone, item, done) {
+      const order = H.shuffledOrder(item.options.length);
+      const picked = new Set();
+      const grid = el("div", "quiz-options");
+      const check = button("Check my answer", "quiz-btn primary", () => {
+        const correct = H.checkAnswer(item, [...picked]);
+        buttons.forEach((b, k) => {
+          const orig = order[k];
+          b.disabled = true;
+          if (item.answer.includes(orig)) b.classList.add(picked.has(orig) ? "right" : "missed");
+          else if (picked.has(orig)) b.classList.add("wrong");
+        });
+        check.hidden = true;
+        done(correct);
+      });
+      check.disabled = true;
+      const buttons = order.map(orig => {
+        const b = el("button", "quiz-opt multi");
+        b.type = "button";
+        b.setAttribute("aria-pressed", "false");
+        fill(b, item.options[orig]);
+        b.addEventListener("click", () => {
+          if (picked.has(orig)) picked.delete(orig); else picked.add(orig);
+          b.classList.toggle("picked", picked.has(orig));
+          b.setAttribute("aria-pressed", String(picked.has(orig)));
+          check.disabled = picked.size === 0;
+        });
+        grid.appendChild(b);
+        return b;
+      });
+      zone.append(grid, check);
+    },
+
+    // Tap the items one by one to build the order. Tap a placed item to take it out again.
+    order(zone, item, done) {
+      const shown = H.shuffledOrder(item.items.length, Math.random, { notSorted: true });
+      let picked = []; // item numbers, in the order the learner tapped them
+      let locked = false;
+      const mine = el("ol", "quiz-order");
+      const pool = el("div", "quiz-options");
+      const check = button("Check my order", "quiz-btn primary", () => {
+        locked = true;
+        draw();
+        done(H.checkAnswer(item, picked));
+      });
+      const reset = button("Start over", "quiz-btn", () => { picked = []; draw(); });
+      const poolLabel = el("p", "quiz-label", "Items");
+
+      function draw() {
+        mine.replaceChildren();
+        pool.replaceChildren();
+        if (!picked.length) mine.appendChild(el("li", "quiz-empty", "Nothing yet. Tap an item below."));
+        picked.forEach((k, pos) => {
+          const li = el("li", "quiz-step" + (locked ? (k === pos ? " right" : " wrong") : ""));
+          if (locked) fill(li, item.items[k]);
+          else {
+            const b = el("button", "quiz-opt");
+            b.type = "button";
+            b.title = "Tap to take it out";
+            fill(b, item.items[k]);
+            b.addEventListener("click", () => { picked.splice(pos, 1); draw(); });
+            li.appendChild(b);
+          }
+          mine.appendChild(li);
+        });
+        if (locked) { pool.hidden = poolLabel.hidden = check.hidden = reset.hidden = true; return; }
+        shown.filter(k => !picked.includes(k)).forEach(k => {
+          const b = el("button", "quiz-opt");
+          b.type = "button";
+          fill(b, item.items[k]);
+          b.addEventListener("click", () => { picked.push(k); draw(); });
+          pool.appendChild(b);
+        });
+        pool.hidden = poolLabel.hidden = pool.childElementCount === 0;
+        check.disabled = picked.length !== item.items.length;
+        reset.disabled = picked.length === 0;
+      }
+
+      zone.append(el("p", "quiz-label", "Your order"), mine, poolLabel, pool, check, reset);
+      draw();
+    },
+
+    // Type the answer. Extra spaces and line breaks do not matter. A long answer (with line breaks) gets a bigger box.
+    fill(zone, item, done) {
+      const multiline = /\n/.test(H.correctText(item));
+      const input = el(multiline ? "textarea" : "input", "quiz-input");
+      if (multiline) input.rows = 4; else input.type = "text";
+      input.setAttribute("aria-label", "Your answer");
+      input.setAttribute("autocomplete", "off");
+      input.setAttribute("autocapitalize", "off");
+      input.spellcheck = false;
+      const check = button("Check my answer", "quiz-btn primary", () => {
+        const correct = H.checkAnswer(item, input.value);
+        input.disabled = true;
+        input.classList.add(correct ? "right" : "wrong");
+        check.hidden = true;
+        done(correct);
+      });
+      check.disabled = true;
+      input.addEventListener("input", () => { check.disabled = !input.value.trim(); });
+      // preventDefault: the same key press must not also click the Next button, which gets the focus when the answer is checked.
+      input.addEventListener("keydown", e => { if (e.key === "Enter" && !multiline) { e.preventDefault(); if (!check.disabled) check.click(); } });
+      zone.append(input, check);
+      input.focus({ preventScroll: true });
+    },
+  };
+
   function mount(box, { slug, title, questions }) {
     let store = loadStore();
     let saveFailed = false;
@@ -35,7 +195,7 @@
       const sum = H.summarizeLesson(store.lessons[slug]);
       const p = el("p", "quiz-last");
       if (!sum) {
-        p.textContent = "You have not tried this quiz yet. " + questions.length + " questions, about 3 minutes. ";
+        p.textContent = "You have not tried this quiz yet. " + questions.length + " questions, about " + Math.max(2, Math.round(questions.length / 2)) + " minutes. ";
       } else {
         p.textContent = "Last: " + sum.last.score + "/" + sum.last.total + " (" + sum.lastPct + "%) · Best: " + sum.bestPct + "% · Tried " + sum.tries + (sum.tries === 1 ? " time. " : " times. ");
       }
@@ -60,6 +220,7 @@
 
       function ask() {
         const item = list[i];
+        const type = H.questionType(item);
         box.replaceChildren();
         const bar = el("div", "quiz-bar");
         const fillBar = el("i");
@@ -70,41 +231,31 @@
         box.appendChild(fill(el("p", "quiz-q"), item.q));
         if (item.code) box.appendChild(el("pre", "quiz-code", item.code));
 
-        const opts = el("div", "quiz-options");
-        opts.setAttribute("role", "group");
+        box.appendChild(el("p", "quiz-hint", HINT[type]));
+        const zone = el("div", "quiz-zone");
+        zone.setAttribute("role", "group");
+        zone.setAttribute("aria-label", HINT[type]);
         const feedback = el("div", "quiz-why");
         feedback.setAttribute("aria-live", "polite");
+        feedback.hidden = true;
         const next = el("button", "quiz-btn primary", i === list.length - 1 ? "See my score" : "Next question");
         next.type = "button";
         next.hidden = true;
         next.addEventListener("click", () => { i++; if (i < list.length) ask(); else finish(); });
+        box.append(zone, feedback, next);
 
-        const order = H.shuffledOrder(item.options.length);
-        const buttons = order.map(orig => {
-          const b = el("button", "quiz-opt");
-          b.type = "button";
-          fill(b, item.options[orig]);
-          b.addEventListener("click", () => {
-            const correct = orig === item.answer;
-            results.push({ q: item.q, correct, item });
-            buttons.forEach((other, k) => {
-              other.disabled = true;
-              if (order[k] === item.answer) other.classList.add("right");
-            });
-            if (!correct) b.classList.add("wrong");
-            feedback.replaceChildren(el("b", "", correct ? "✅ Right. " : "❌ Not quite. "), fill(el("span"), item.why));
-            feedback.hidden = false;
-            feedback.classList.add(correct ? "good" : "bad");
-            next.hidden = false;
-            next.focus();
-          });
-          opts.appendChild(b);
-          return b;
+        // Called once by the drawing function of the question type, when the learner has answered.
+        RENDER[type](zone, item, (correct) => {
+          results.push({ q: item.q, correct, item });
+          feedback.replaceChildren(el("b", "", correct ? "✅ Right. " : "❌ Not quite. "));
+          // For these two the page cannot highlight the right answer, so say it.
+          if (!correct && (type === "order" || type === "fill")) feedback.appendChild(fill(el("span", "quiz-answer"), "Answer: " + H.correctText(item) + ". "));
+          feedback.appendChild(fill(el("span"), item.why));
+          feedback.hidden = false;
+          feedback.classList.add(correct ? "good" : "bad");
+          next.hidden = false;
+          next.focus();
         });
-        box.appendChild(opts);
-        feedback.hidden = true;
-        box.appendChild(feedback);
-        box.appendChild(next);
       }
 
       function finish() {
@@ -127,7 +278,7 @@
           missed.forEach(r => {
             const row = el("div", "quiz-miss");
             row.appendChild(fill(el("p", "quiz-q"), r.item.q));
-            row.appendChild(fill(el("p", "quiz-answer", ""), "Answer: " + r.item.options[r.item.answer]));
+            row.appendChild(fill(el("p", "quiz-answer", ""), "Answer: " + H.correctText(r.item)));
             row.appendChild(fill(el("p", "quiz-explain"), r.item.why));
             box.appendChild(row);
           });

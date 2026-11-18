@@ -17,7 +17,7 @@ for (const lesson of index) {
     assert.ok(list.length >= 4, "a quiz should have at least 4 questions");
     // Options are shuffled when shown, so "all of the above" would point at the wrong place.
     for (const item of list) {
-      for (const o of item.options) assert.ok(!/^(all|none) of the above/i.test(o), `lazy option: ${o}`);
+      for (const o of item.options || item.items || []) assert.ok(!/^(all|none) of the above/i.test(o), `lazy option: ${o}`);
     }
   });
 }

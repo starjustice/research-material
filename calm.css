@@ -193,6 +193,33 @@ body.look-calm {
 .look-calm article .quiz-q { font-size: 1.05rem; font-weight: 600; margin: 4px 0 10px; }
 .look-calm .quiz-code { margin: 0 0 12px; }
 .look-calm .quiz-options { display: grid; gap: 10px; }
+/* The buttons set their own display, which would beat the hidden attribute (Next and Check must stay hidden until needed). */
+.look-calm .quiz-btn:disabled, .look-calm .quiz-btn.primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; background: #fff; }
+.look-calm .quiz-btn[hidden], .look-calm .quiz-opt[hidden], .look-calm .quiz-options[hidden] { display: none; }
+/* More question types: true or false, pick all, put in order, type the answer. */
+.look-calm article .quiz-hint, .look-calm article .quiz-label { font-size: .82rem; font-weight: 700; color: var(--muted); margin: 0 0 8px; }
+.look-calm article .quiz-label { margin: 12px 0 6px; }
+.look-calm .quiz-options.quiz-row { grid-template-columns: 1fr 1fr; }
+.look-calm .quiz-opt.multi::before { content: "\2610\00a0\00a0"; font-weight: 700; }
+.look-calm .quiz-opt.multi.picked { background: var(--c-yellow); }
+.look-calm .quiz-opt.multi.picked::before { content: "\2611\00a0\00a0"; }
+.look-calm .quiz-opt.multi.picked.right { background: var(--c-green); }
+.look-calm .quiz-opt.multi.picked.wrong { background: var(--c-pink); }
+.look-calm .quiz-opt.missed { background: var(--c-green); border-style: dashed; opacity: 1; }
+.look-calm .quiz-opt.missed::after { content: "  \2190 you missed this"; font-weight: 700; }
+.look-calm .quiz-order { margin: 0 0 6px; padding-left: 28px; display: grid; gap: 8px; }
+.look-calm .quiz-order .quiz-empty { list-style: none; margin-left: -28px; color: var(--muted); font-size: .9rem; }
+.look-calm .quiz-step { font-weight: 700; padding-left: 4px; }
+.look-calm .quiz-step.right, .look-calm .quiz-step.wrong { border: var(--line); border-radius: 10px; padding: 8px 14px; margin-left: -4px; }
+.look-calm .quiz-step.right { background: var(--c-green); }
+.look-calm .quiz-step.wrong { background: var(--c-pink); }
+.look-calm .quiz-step.right::marker, .look-calm .quiz-step.wrong::marker { content: ""; }
+.look-calm .quiz-input {
+  display: block; width: 100%; box-sizing: border-box; font: inherit; font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--ink); background: #fff; border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); padding: 10px 14px;
+}
+.look-calm .quiz-input.right { background: var(--c-green); opacity: 1; }
+.look-calm .quiz-input.wrong { background: var(--c-pink); opacity: 1; }
 .look-calm .quiz-opt, .look-calm .quiz-btn {
   display: block; width: 100%; text-align: left; cursor: pointer; color: var(--ink); background: #fff;
   border: var(--line); border-radius: 10px; box-shadow: var(--shadow-s); padding: 10px 14px;

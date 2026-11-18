@@ -112,3 +112,90 @@ test("overview counts tried lessons, the average of the last scores, and answers
   s = Q.recordAttempt(s, "zzz", "Not in the list", [{ q: "1", correct: true }]);
   assert.deepStrictEqual(Q.overview(s, manifest), { lessonsTotal: 3, lessonsTried: 2, answered: 4, average: 75 });
 });
+
+// ---- question types: single (default), multi, tf, order, fill ----
+
+const one = (extra) => [{ q: "Q?", why: "Because.", ...extra }];
+const problems = (extra) => Q.validateQuiz(one(extra)).join(" | ");
+
+test("a question without a type is a single choice question", () => {
+  assert.strictEqual(Q.questionType(good()[0]), "single");
+  assert.strictEqual(Q.questionType({ type: "tf" }), "tf");
+});
+
+test("validateQuiz accepts one good question of every type", () => {
+  assert.deepStrictEqual(problems({ type: "single", options: ["a", "b"], answer: 0 }), "");
+  assert.deepStrictEqual(problems({ type: "multi", options: ["a", "b", "c"], answer: [0, 2] }), "");
+  assert.deepStrictEqual(problems({ type: "tf", answer: false }), "");
+  assert.deepStrictEqual(problems({ type: "order", items: ["one", "two", "three"] }), "");
+  assert.deepStrictEqual(problems({ type: "fill", answer: "a b" }), "");
+  assert.deepStrictEqual(problems({ type: "fill", answer: ["a b", "a, b"] }), "");
+});
+
+test("validateQuiz names the problems of the new types", () => {
+  assert.match(problems({ type: "poll", options: ["a", "b"], answer: 0 }), /type/);
+  assert.match(problems({ type: "multi", options: ["a", "b", "c"], answer: 1 }), /answer/);
+  assert.match(problems({ type: "multi", options: ["a", "b", "c"], answer: [] }), /answer/);
+  assert.match(problems({ type: "multi", options: ["a", "b", "c"], answer: [1, 1] }), /answer/);
+  assert.match(problems({ type: "multi", options: ["a", "b", "c"], answer: [5] }), /answer/);
+  assert.match(problems({ type: "multi", options: ["a", "b"], answer: [0] }), /3 to 6/);
+  assert.match(problems({ type: "tf", answer: "true" }), /true or false/);
+  assert.match(problems({ type: "order", items: ["one", "two"] }), /3 to 6/);
+  assert.match(problems({ type: "order", items: ["one", "two", "two"] }), /same/);
+  assert.match(problems({ type: "order", items: ["one", "", "three"] }), /empty/);
+  assert.match(problems({ type: "fill", answer: "" }), /answer/);
+  assert.match(problems({ type: "fill", answer: [] }), /answer/);
+  assert.match(problems({ type: "fill", answer: 5 }), /answer/);
+});
+
+test("normalizeText ignores extra spaces and line breaks, but keeps letter case", () => {
+  assert.strictEqual(Q.normalizeText("  a   d\n c\tb "), "a d c b");
+  assert.notStrictEqual(Q.normalizeText("A"), Q.normalizeText("a"));
+  assert.strictEqual(Q.normalizeText(undefined), "");
+});
+
+test("checkAnswer for single, tf, multi, order and fill", () => {
+  assert.strictEqual(Q.checkAnswer(good()[0], 1), true);
+  assert.strictEqual(Q.checkAnswer(good()[0], 0), false);
+
+  const tf = { type: "tf", answer: false };
+  assert.strictEqual(Q.checkAnswer(tf, false), true);
+  assert.strictEqual(Q.checkAnswer(tf, true), false);
+
+  const multi = { type: "multi", options: ["a", "b", "c", "d"], answer: [2, 0] };
+  assert.strictEqual(Q.checkAnswer(multi, [0, 2]), true, "order of the picks does not matter");
+  assert.strictEqual(Q.checkAnswer(multi, [2, 0]), true);
+  assert.strictEqual(Q.checkAnswer(multi, [0]), false, "a missed option is wrong");
+  assert.strictEqual(Q.checkAnswer(multi, [0, 2, 3]), false, "an extra option is wrong");
+  assert.strictEqual(Q.checkAnswer(multi, []), false);
+
+  const order = { type: "order", items: ["x", "y", "z"] };
+  assert.strictEqual(Q.checkAnswer(order, [0, 1, 2]), true);
+  assert.strictEqual(Q.checkAnswer(order, [0, 2, 1]), false);
+  assert.strictEqual(Q.checkAnswer(order, [0, 1]), false, "a half finished order is wrong");
+
+  const fill = { type: "fill", answer: ["z y x", "z, y, x"] };
+  assert.strictEqual(Q.checkAnswer(fill, "z y x"), true);
+  assert.strictEqual(Q.checkAnswer(fill, " z   y\nx "), true);
+  assert.strictEqual(Q.checkAnswer(fill, "z, y, x"), true);
+  assert.strictEqual(Q.checkAnswer(fill, "z x y"), false);
+  assert.strictEqual(Q.checkAnswer(fill, "Z Y X"), false);
+  assert.strictEqual(Q.checkAnswer(fill, ""), false);
+});
+
+test("correctText gives one readable line for the answer", () => {
+  assert.strictEqual(Q.correctText(good()[0]), "2");
+  assert.strictEqual(Q.correctText({ type: "tf", answer: true }), "True");
+  assert.strictEqual(Q.correctText({ type: "tf", answer: false }), "False");
+  assert.strictEqual(Q.correctText({ type: "multi", options: ["a", "b", "c"], answer: [2, 0] }), "a; c");
+  assert.strictEqual(Q.correctText({ type: "order", items: ["x", "y", "z"] }), "x → y → z");
+  assert.strictEqual(Q.correctText({ type: "fill", answer: ["z y x", "z, y, x"] }), "z y x");
+  assert.strictEqual(Q.correctText({ type: "fill", answer: "z y x" }), "z y x");
+});
+
+test("shuffledOrder never shows an order question already solved when asked not to", () => {
+  // rng 0.999 never moves anything, so the plain shuffle would give the solved order
+  assert.deepStrictEqual(Q.shuffledOrder(4, () => 0.999, { notSorted: true }), [1, 2, 3, 0]);
+  assert.deepStrictEqual(Q.shuffledOrder(3, () => 0, { notSorted: true }), [1, 2, 0]);
+  assert.deepStrictEqual(Q.shuffledOrder(4, () => 0.999), [0, 1, 2, 3], "without the option it is unchanged");
+});
