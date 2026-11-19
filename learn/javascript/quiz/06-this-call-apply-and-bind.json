@@ -1,0 +1,132 @@
+[
+  {
+    "type": "tf",
+    "q": "`this` is decided by how a function is called, not by where the function is written.",
+    "answer": true,
+    "why": "A function written inside an object does not always get that object as `this`. `user.hi()` has a dot, so `this` is `user`. The same function called as `f()` has no dot."
+  },
+  {
+    "q": "The file is in strict mode. What does `f()` do?",
+    "code": "\"use strict\";\nconst user = {\n  name: \"Ana\",\n  hi() { return this.name; },\n};\nconst f = user.hi;\nf();",
+    "options": [
+      "Throws a `TypeError`: `this` is `undefined`",
+      "Gives back `\"Ana\"`",
+      "Gives back `undefined`",
+      "Throws a `ReferenceError`"
+    ],
+    "answer": 0,
+    "why": "`const f = user.hi` copies only the function. The dot stays behind. `f()` is a plain call, so in strict mode `this` is `undefined`, and `this.name` throws a `TypeError`."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the two answers with a space between them.",
+    "code": "\"use strict\";\nconst user = {\n  name: \"Ana\",\n  hi() { return this.name; },\n};\nconsole.log(\n  user.hi.call({ name: \"Budi\" }),\n  user.hi.bind(user)()\n);",
+    "answer": [
+      "Budi Ana"
+    ],
+    "why": "`call` runs `hi` now with `this` as the Budi object. `bind(user)` makes a new function with `this` locked to `user`, and the `()` after it calls that function."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these run the function right away?",
+    "options": [
+      "`hi.call(ana, \"Hello\")`",
+      "`hi.apply(ana, [\"Hello\"])`",
+      "`hi.bind(ana, \"Hello\")`"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "`call` and `apply` run the function now. `bind` does not run it. It gives back a new bound function, to call later."
+  },
+  {
+    "q": "Which one takes the other inputs in one array?",
+    "options": [
+      "`apply`",
+      "`call`",
+      "`bind`",
+      "`new`"
+    ],
+    "answer": 0,
+    "why": "Call takes commas, apply takes an array, and bind is for before: lock it now, call it later."
+  },
+  {
+    "type": "order",
+    "q": "Put the questions in the order you ask them to find `this`. The first rule that matches wins.",
+    "items": [
+      "Is it an arrow function? Then it borrows `this` from where it was made",
+      "Is it called with `new`? Then `this` is a new empty object",
+      "Is it called with `call`, `apply` or `bind`? Then `this` is the object you pass",
+      "Is there a dot, like `obj.fn()`? Then `this` is the object left of the dot",
+      "Is it a plain call, like `fn()`? Then `this` is `undefined` in strict mode"
+    ],
+    "why": "Ask in this order and stop at the first match. A dot call is checked after call, apply and bind, so `hi.call(other)` uses `other` even if `hi` sits inside an object."
+  },
+  {
+    "type": "fill",
+    "q": "The file is in strict mode. What does this print? Type the two answers with a space between them.",
+    "code": "\"use strict\";\nconst team = {\n  name: \"Blue\",\n  show() {\n    const arrow = () => this.name;\n    function normal() { return this; }\n    console.log(arrow(), normal());\n  },\n};\nteam.show();",
+    "answer": [
+      "Blue undefined"
+    ],
+    "why": "The arrow has no `this` of its own. It borrows `this` from `show`, which is `team`. `normal` is a plain call with no dot, so its own `this` is `undefined`."
+  },
+  {
+    "q": "The file is in strict mode. What does it print?",
+    "code": "\"use strict\";\nconst user = {\n  name: \"Ana\",\n  hi() { console.log(this === user); }\n};\nsetTimeout(user.hi, 0);",
+    "options": [
+      "`false`: the timer calls `hi` without `user`",
+      "`true`: `hi` is written inside `user`",
+      "A `TypeError`",
+      "`undefined`"
+    ],
+    "answer": 0,
+    "why": "`setTimeout(user.hi, 0)` hands over only the function, the same as `const f = user.hi`. The timer calls it later as a plain call. In strict mode `this` is `undefined`, so `this === user` is `false`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these keep `this` as `user` when the timer calls `hi` later?",
+    "options": [
+      "`setTimeout(user.hi, 0)`",
+      "`setTimeout(() => user.hi(), 0)`",
+      "`setTimeout(user.hi.bind(user), 0)`",
+      "`const f = user.hi; setTimeout(f, 0)`"
+    ],
+    "answer": [
+      1,
+      2
+    ],
+    "why": "The arrow wrapper calls `hi` with a dot. `bind` locks `this`. The first and the last hand over the bare function, and the dot stays behind."
+  },
+  {
+    "q": "This runs in a Node file (CommonJS). What does it print?",
+    "code": "const user = { name: \"Ana\", hi: () => this.name };\nconsole.log(user.hi());",
+    "options": [
+      "`undefined`",
+      "`\"Ana\"`",
+      "A `TypeError`",
+      "`\"user\"`"
+    ],
+    "answer": 0,
+    "why": "An arrow ignores the dot. It takes `this` from the place where it was made. The braces of an object are not a box, so it gets the `this` of the file, which is an empty object in a Node file. `this.name` is `undefined`. Write `hi` as a normal method instead."
+  },
+  {
+    "q": "The file is in strict mode. What does `team.show()` do?",
+    "code": "\"use strict\";\nconst team = {\n  name: \"Blue\",\n  members: [\"Ana\"],\n  show() {\n    return this.members.map(function (m) {\n      return m + \" in \" + this.name;\n    });\n  },\n};\nteam.show();",
+    "options": [
+      "Throws a `TypeError`: the normal callback has `this` as `undefined`",
+      "Gives back `[\"Ana in Blue\"]`",
+      "Gives back `[\"Ana in undefined\"]`",
+      "Gives back an empty array"
+    ],
+    "answer": 0,
+    "why": "`map` calls the normal function as a plain call, so its `this` is `undefined`. Fix: use an arrow for the callback, because an arrow borrows `team` from `show`."
+  },
+  {
+    "type": "tf",
+    "q": "You can change the `this` of an arrow function with `call`, `apply` or `bind`.",
+    "answer": false,
+    "why": "No. An arrow has no `this` of its own, so there is nothing to change. It always borrows `this` from where it was made."
+  }
+]

@@ -1,0 +1,142 @@
+[
+  {
+    "q": "`let a = 5; let b = a; b = 10;` What is `a` now?",
+    "options": [
+      "`5`: `b` got its own copy of the number",
+      "`10`: `a` and `b` share the number",
+      "`undefined`",
+      "A `TypeError`"
+    ],
+    "answer": 0,
+    "why": "A number is a simple value. `b = a` puts a copy of 5 in `b`'s own slot. Changing `b` does not touch `a`."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them.",
+    "code": "const a = { n: 1 };\nconst b = a;\nb.n = 2;\nconsole.log(a.n, a === b, { n: 2 } === { n: 2 });",
+    "answer": [
+      "2 true false",
+      "2, true, false"
+    ],
+    "why": "`b = a` copies the arrow, so `a` and `b` are one object and `a.n` is `2`. `a === b` compares arrows, which are the same, so `true`. Two new `{ n: 2 }` are two objects with two arrows, so `false`."
+  },
+  {
+    "type": "tf",
+    "q": "Two objects with the same content are `===` to each other.",
+    "answer": false,
+    "why": "No. `===` on objects compares the arrows, not the content. Two `{ }` make two objects, so two different arrows. To compare content, compare the fields you care about, like `a.id === b.id`."
+  },
+  {
+    "q": "`const copy = { ...user }` is a shallow copy. Then you run `copy.address.city = \"Bandung\"`. What happens to `user.address.city`?",
+    "code": "const user = { name: \"Ana\", address: { city: \"Jakarta\" } };\nconst copy = { ...user };\ncopy.address.city = \"Bandung\";",
+    "options": [
+      "It also becomes `\"Bandung\"`",
+      "It stays the same",
+      "A `TypeError`",
+      "`user.address` becomes `undefined`"
+    ],
+    "answer": 0,
+    "why": "Spread copies one level. The `address` field holds an arrow, and the arrow is copied. Both objects point at one address object."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these give a copy where changing `copy.address.city` does NOT change `user`?",
+    "options": [
+      "`{ ...user }`",
+      "`structuredClone(user)`",
+      "`{ ...user, address: { ...user.address } }`",
+      "`Object.assign({}, user)`"
+    ],
+    "answer": [
+      1,
+      2
+    ],
+    "why": "`structuredClone` copies every level. The third one copies the `address` level on purpose. `{ ...user }` and `Object.assign` copy one level only, so `address` is still shared."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the two answers with a space between them.",
+    "code": "function addOne(list) {\n  list.push(1);\n  list = [9];\n  return list;\n}\nconst mine = [];\nconst out = addOne(mine);\nconsole.log(mine.length, out[0]);",
+    "answer": [
+      "1 9",
+      "1, 9"
+    ],
+    "why": "`push` changes the caller's array through the arrow, so `mine.length` is `1`. Then `list = [9]` points only the function's own slot at a new array. `mine` still points at the old one, and `out` is the new `[9]`, so `out[0]` is `9`."
+  },
+  {
+    "q": "`sortedNames(names)` returns `list.sort()`. After the call, what is true about the array `names`?",
+    "code": "function sortedNames(list) {\n  return list.sort();\n}\nconst names = [\"Citra\", \"Ana\", \"Budi\"];\nsortedNames(names);",
+    "options": [
+      "It is now sorted too, because `sort` changes the array in place",
+      "It is unchanged, because the function got a copy of the array",
+      "It is empty",
+      "The call throws an error"
+    ],
+    "answer": 0,
+    "why": "A parameter gets a copy of the arrow, not a copy of the array. `sort` changes the one shared array. Fix: `[...list].sort()`."
+  },
+  {
+    "q": "In React you run `cart.items.push(\"milk\"); setCart(cart);`. The screen does not change. Why?",
+    "options": [
+      "`cart` is still the same object, so React sees the same arrow and skips drawing",
+      "`push` does not work on arrays inside state",
+      "`setCart` only works with a number",
+      "React draws again only after a second click"
+    ],
+    "answer": 0,
+    "why": "React compares the old and new arrow with `Object.is`. You changed the object in place and passed the same arrow, so React thinks nothing changed. Make a new object and a new array: `setCart({ ...cart, items: [...cart.items, \"milk\"] })`."
+  },
+  {
+    "type": "order",
+    "q": "Put what JavaScript does in the right order.",
+    "items": [
+      "Make the object with `name: \"Ana\"` and put an arrow to it in `user`",
+      "`const other = user` copies the arrow into `other`. No new object",
+      "`other.name = \"Budi\"` follows the arrow and changes the one object",
+      "`user.name` follows its arrow to the same object and gives `\"Budi\"`"
+    ],
+    "why": "Only one object exists the whole time. Two variables hold arrows to it."
+  },
+  {
+    "q": "What is `typeof copy.when` after this?",
+    "code": "const copy = JSON.parse(JSON.stringify({ when: new Date() }));",
+    "options": [
+      "`\"string\"`",
+      "`\"object\"`",
+      "`\"number\"`",
+      "`\"undefined\"`"
+    ],
+    "answer": 0,
+    "why": "JSON has no date type. `JSON.stringify` turns the date into a text, and `JSON.parse` leaves it as text. So `copy.when.getFullYear()` is a `TypeError`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these change when you copy with `JSON.parse(JSON.stringify(x))`?",
+    "options": [
+      "A `Date` turns into a string",
+      "A field set to `undefined` is gone",
+      "A text field like `\"Ana\"`",
+      "A number like `5`"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "JSON only keeps text, numbers, `true`, `false`, `null`, arrays and plain objects. A `Date` becomes text, an `undefined` field disappears, `NaN` becomes `null`, a `Map` or `Set` becomes `{}`, and a function is dropped."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the answer.",
+    "code": "const user = { address: { city: \"Jakarta\" } };\nconst copy = { ...user };\ncopy.address.city = \"Bandung\";\nconst deep = structuredClone(user);\ndeep.address.city = \"Medan\";\nconsole.log(user.address.city);",
+    "answer": [
+      "Bandung"
+    ],
+    "why": "`copy` is shallow, so `copy.address` is the same object as `user.address`. Setting the city to `\"Bandung\"` through `copy` changes `user` too. `deep` is a full copy, so changing it to `\"Medan\"` does not touch `user`."
+  },
+  {
+    "type": "tf",
+    "q": "`structuredClone` can copy an object that holds a function.",
+    "answer": false,
+    "why": "No. `structuredClone` keeps `Date`, `Map` and `Set`, but it throws an error (`DataCloneError`) if the data holds a function. The JSON way does not throw, but it silently drops the function."
+  }
+]

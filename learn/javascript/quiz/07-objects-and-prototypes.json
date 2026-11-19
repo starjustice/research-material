@@ -1,0 +1,129 @@
+[
+  {
+    "q": "Here `rex` has the chain rex, dog, animal, `Object.prototype`, `null`. What does `rex.fly` give?",
+    "code": "const animal = { eats: true };\nconst dog = Object.create(animal);\ndog.bark = () => \"woof\";\nconst rex = Object.create(dog);\nrex.name = \"Rex\";",
+    "options": [
+      "`undefined`, with no error",
+      "A `TypeError`",
+      "A `ReferenceError`",
+      "`null`"
+    ],
+    "answer": 0,
+    "why": "Nobody on the chain owns `fly`. The chain ends at `null`, so the answer is `undefined`. A typo like `user.nmae` is quiet in the same way."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the four answers with spaces between them.",
+    "code": "const animal = { eats: true };\nconst dog = Object.create(animal);\ndog.bark = () => \"woof\";\nconst rex = Object.create(dog);\nrex.name = \"Rex\";\nconsole.log(rex.name, rex.bark(), rex.eats, rex.fly);",
+    "answer": [
+      "Rex woof true undefined"
+    ],
+    "why": "`rex` owns `name`. `dog` owns `bark`, so `rex` finds it one step up. `animal` owns `eats`, two steps up. Nobody owns `fly`, so it is `undefined`."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of reading `rex.eats` in the right order.",
+    "items": [
+      "JavaScript asks `rex`: it does not own `eats`",
+      "It follows the hidden link and asks `dog`: no",
+      "It follows the link and asks `animal`: yes, the value is `true`",
+      "It stops there, and never asks `Object.prototype`"
+    ],
+    "why": "Reading walks up the chain one object at a time and stops at the first owner."
+  },
+  {
+    "type": "tf",
+    "q": "Writing `rex.eats = false` changes `animal.eats` too.",
+    "answer": false,
+    "why": "No. Writing never walks up. It makes a new own property on the object you wrote on, `rex`. `animal.eats` is still `true`, and `rex.eats` now hides it."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them.",
+    "code": "const animal = { eats: true };\nconst dog = Object.create(animal);\ndog.bark = () => \"woof\";\nconst rex = Object.create(dog);\nrex.name = \"Rex\";\nrex.eats = false;\nconsole.log(rex.eats, animal.eats);\ndelete rex.eats;\nconsole.log(rex.eats);",
+    "answer": [
+      "false true true"
+    ],
+    "why": "The write puts an own `eats: false` on `rex`, so `rex.eats` is `false` and `animal.eats` is still `true`. `delete rex.eats` removes the own one, so reading `rex.eats` walks up to `animal` and finds `true` again."
+  },
+  {
+    "type": "tf",
+    "q": "If `bark` is on `Dog.prototype`, then `rex` and `fido` each carry their own copy of `bark`.",
+    "answer": false,
+    "why": "No. They share one function, so `rex.bark === fido.bark` is `true`. Each dog keeps only its own data, like `name`, and one hidden link. Put data on each object and functions on the prototype."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true?",
+    "options": [
+      "`rex.prototype` is `undefined` when `rex = new Dog(\"Rex\")`",
+      "`Object.getPrototypeOf(rex) === Dog.prototype` is `true`",
+      "`Dog.prototype` is the hidden link of the function `Dog` itself",
+      "`new Dog()` makes the hidden link of the new object point at `Dog.prototype`"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Only functions get a `prototype` property, and it is a normal property that `new` reads. It is not the hidden link of `Dog` itself. The hidden link of `rex` is read with `Object.getPrototypeOf(rex)`."
+  },
+  {
+    "type": "order",
+    "q": "Put the four things `new Dog(\"Rex\")` does in the right order.",
+    "items": [
+      "Make a blank object",
+      "Set its hidden link to `Dog.prototype`",
+      "Run `Dog` with `this` set to that object",
+      "Return the object"
+    ],
+    "why": "After this, `rex` owns `name`, and it reaches `bark` through the hidden link."
+  },
+  {
+    "type": "fill",
+    "q": "`user` never wrote `toString`. What do these three checks print? Type the three answers with spaces between them.",
+    "code": "const user = { name: \"Ana\" };\nconsole.log(\n  \"toString\" in user,\n  Object.hasOwn(user, \"toString\"),\n  Object.hasOwn(user, \"name\")\n);",
+    "answer": [
+      "true false true"
+    ],
+    "why": "`in` walks up the chain, so it finds the inherited `toString`. `Object.hasOwn` looks only at the object itself, so it is `false` for `toString` and `true` for `name`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these does the array `[1, 2]` own itself? Use `Object.hasOwn`.",
+    "options": [
+      "Its items, like index `0`",
+      "`length`",
+      "`map`",
+      "`toString`"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "An array owns only its items and `length`. `map` lives once on `Array.prototype`, shared by every array. `toString` is found further up."
+  },
+  {
+    "q": "Why is `Array.prototype.last = function () { ... }` a bad idea?",
+    "options": [
+      "Every array in the program and in every library shares it, and a library or a later version of JavaScript may add a different `last`",
+      "It throws an error as soon as it runs",
+      "It works only on the first array you make",
+      "It makes every array slower"
+    ],
+    "answer": 0,
+    "why": "A change to a built-in prototype reaches code you did not write. Write a normal function instead: `const last = (arr) => arr[arr.length - 1];`."
+  },
+  {
+    "q": "An array lives on a shared prototype. What does this print?",
+    "code": "const base = { tags: [] };\nconst a = Object.create(base);\nconst b = Object.create(base);\na.tags.push(\"x\");\nconsole.log(b.tags.length);",
+    "options": [
+      "`1`: `push` changed the one shared array",
+      "`0`: `a` has its own `tags`",
+      "`undefined`",
+      "A `TypeError`"
+    ],
+    "answer": 0,
+    "why": "`a.tags` is a read, so it walks up and finds the shared array on `base`. `push` then changes that one array, and `b` sees it too. Put data on each object, not on the prototype."
+  }
+]

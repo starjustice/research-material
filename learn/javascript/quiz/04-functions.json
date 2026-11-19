@@ -1,0 +1,141 @@
+[
+  {
+    "q": "A function reaches its last line and has no `return`. What does the call give back?",
+    "options": [
+      "`undefined`",
+      "`null`",
+      "`0`",
+      "An error"
+    ],
+    "answer": 0,
+    "why": "A recipe card with no \"serve\" step hands over nothing. The call gives back `undefined`."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the answer, one space between the parts.",
+    "code": "function greet(name, word = \"Hello\") {\n  return word + \" \" + name;\n}\nconst double = function (n) {\n  return n * 2;\n};\nconst twice = (fn, x) => fn(fn(x));\nconsole.log(greet(), twice(double, 3));",
+    "answer": [
+      "Hello undefined 12"
+    ],
+    "why": "`greet()` has no arguments. A missing argument is `undefined`, not an error, and the default `\"Hello\"` fills in `word`. So `\"Hello undefined\"`. `twice(double, 3)` is `double(double(3))`: 6, then 12."
+  },
+  {
+    "q": "What happens here?",
+    "code": "console.log(b());\nconst b = () => \"b\";",
+    "options": [
+      "A `ReferenceError`: the `const` slot is locked until its line runs",
+      "It prints `\"b\"`",
+      "A `TypeError`: `b` is `undefined`",
+      "It prints `undefined`"
+    ],
+    "answer": 0,
+    "why": "Only the slots are made early. A `const` slot is locked until its line runs. Only a function declaration holds the whole function from the start."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these give an error if you call them BEFORE their line?",
+    "options": [
+      "`function a() {}`",
+      "`const b = () => 1;`",
+      "`var c = function () {};`",
+      "`let d = function () {};`"
+    ],
+    "answer": [
+      1,
+      2,
+      3
+    ],
+    "why": "A declaration is ready anywhere in the file. A `const` or `let` slot is locked, so you get a `ReferenceError`. A `var` slot holds `undefined`, so you get a `TypeError`."
+  },
+  {
+    "q": "`var c = function () {};` is on line 5, and you call `c()` on line 1. What error do you get?",
+    "options": [
+      "`TypeError: c is not a function`",
+      "`ReferenceError: c is not defined`",
+      "`ReferenceError: Cannot access 'c' before initialization`",
+      "No error"
+    ],
+    "answer": 0,
+    "why": "A `var` slot is made early and holds `undefined`. Calling `undefined` is a `TypeError`. A `ReferenceError` is for a locked `let` or `const` slot."
+  },
+  {
+    "q": "What does this print?",
+    "code": "function sayHi() { return \"Hi\"; }\nfunction run(fn) { return fn(); }\nconsole.log(run(sayHi()));",
+    "options": [
+      "`TypeError: fn is not a function`",
+      "`Hi`",
+      "`undefined`",
+      "`ReferenceError`"
+    ],
+    "answer": 0,
+    "why": "`sayHi()` has brackets, so it runs first and gives back the text `\"Hi\"`. Then `run` tries to call a text. Fix: `run(sayHi)`, with no brackets."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the two answers with a space between them.",
+    "code": "const double = (n) => {\n  n * 2;\n};\nconsole.log(double(4), typeof double);",
+    "answer": [
+      "undefined function"
+    ],
+    "why": "With curly braces an arrow is like any function, so it needs a `return`. There is none, so the call gives `undefined`. A function is a value, and its type is `\"function\"`."
+  },
+  {
+    "type": "tf",
+    "q": "`const make = () => { id: 1 };` gives back the object `{ id: 1 }`.",
+    "answer": false,
+    "why": "No. JavaScript reads the curly braces as the function body, not as an object. So it gives `undefined`. To give back an object, wrap it in brackets: `() => ({ id: 1 })`."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of `twice(double, 3)` in the right order. `twice` is `(fn, x) => fn(fn(x))`.",
+    "items": [
+      "`twice` starts with a new box: `fn` is `double`, `x` is `3`",
+      "The inner `fn(x)` calls `double(3)` in a new box and gives `6`",
+      "The outer `fn(6)` calls `double` again in another new box and gives `12`",
+      "`twice` gives back `12`, and its box is thrown away"
+    ],
+    "why": "Each call gets its own new box. That is why `n = 3` and `n = 6` never mix."
+  },
+  {
+    "q": "In React, `<button onClick={handleClick()}>` causes trouble. Why?",
+    "options": [
+      "The brackets call `handleClick` during render, and React gets its result, not the function",
+      "React cannot use functions as props",
+      "`handleClick` runs twice on every click",
+      "Nothing is wrong. Both forms work the same"
+    ],
+    "answer": 0,
+    "why": "Brackets mean \"call it now\". Pass `handleClick`, not `handleClick()`, so React can call it later when the click happens."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true about a function in JavaScript?",
+    "options": [
+      "You can store it in a variable",
+      "You can pass it into another function",
+      "You can give it back from a function with `return`",
+      "Passing it makes a second copy of the function"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "A function is a value (the interview word is first-class functions). Passing it does not copy it. Both names point at the same function."
+  },
+  {
+    "type": "tf",
+    "q": "Two calls of the same function share their parameters, so `n` from the first call is still there in the second.",
+    "answer": false,
+    "why": "No. Every call makes a new scope box, and the parameters live inside it. When the call ends, the box is thrown away."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them.",
+    "code": "function tag(word = \"Hello\") {\n  return word;\n}\nconsole.log(tag(undefined), tag(null), tag());",
+    "answer": [
+      "Hello null Hello"
+    ],
+    "why": "A default fills in only when no value comes in, meaning the value is `undefined`. `tag(undefined)` and `tag()` both use `\"Hello\"`. `null` is a real value, so `tag(null)` gives back `null`."
+  }
+]

@@ -1,0 +1,153 @@
+[
+  {
+    "q": "Which method gives back a new array that can be shorter, and keeps the values it lets through unchanged?",
+    "options": [
+      "`filter`",
+      "`map`",
+      "`forEach`",
+      "`reduce`"
+    ],
+    "answer": 0,
+    "why": "`filter` leaves out the items that fail the test, and the items that stay are not changed. `map` always gives the same number of items, with new values. `forEach` gives back nothing, and `reduce` gives back one value."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three numbers with spaces between them.",
+    "code": "const prices = [10, 20, 30, 40];\nconsole.log(\n  prices.filter(p => p > 25).length,\n  prices.reduce((sum, p) => sum + p, 0),\n  prices.length\n);",
+    "answer": [
+      "2 100 4"
+    ],
+    "why": "`filter` keeps 30 and 40, so its length is `2`. `reduce` adds all four to get `100`. And `prices` itself never changed, so its length is still `4`."
+  },
+  {
+    "type": "order",
+    "q": "Put the calls of `[10, 20, 30, 40].reduce((sum, p) => sum + p, 0)` in the right order.",
+    "items": [
+      "The start value `0` becomes the running total",
+      "Call 1: `0 + 10`, so the total is `10`",
+      "Call 2: `10 + 20`, so the total is `30`",
+      "Call 3: `30 + 30`, so the total is `60`",
+      "Call 4: `60 + 40`, so `reduce` returns `100`"
+    ],
+    "why": "What one call returns becomes `sum` in the next call."
+  },
+  {
+    "q": "How many times is the callback called here?",
+    "code": "[10, 20, 30, 40].reduce((sum, p) => sum + p);",
+    "options": [
+      "`3`: with no start value, the first item becomes the running total",
+      "`4`: once for each item",
+      "`5`",
+      "It throws a `TypeError`"
+    ],
+    "answer": 0,
+    "why": "With no start value, the first item (10) is the running total. Call 1 already has `sum = 10`, `p = 20` and index 1. The answer is still `100`. Always give a start value."
+  },
+  {
+    "type": "tf",
+    "q": "`[].reduce((sum, p) => sum + p)` throws a `TypeError`.",
+    "answer": true,
+    "why": "With no start value, `reduce` uses the first item as the running total, and an empty array has no first item. With a start value, `[].reduce(fn, 0)` returns `0` and never calls `fn`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these change the array you call them on?",
+    "options": [
+      "`push`",
+      "`sort`",
+      "`map`",
+      "`slice`"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse` and `fill` change the original. `map`, `filter`, `slice` and `concat` build a new array. To keep the original, copy first or use `toSorted`."
+  },
+  {
+    "type": "tf",
+    "q": "`const a = [3, 1, 2];` Then `a.sort() === a` is `true`.",
+    "answer": true,
+    "why": "`sort` changes the original array and gives back the same array, not a copy. To keep the original, copy first: `[...a].sort()`."
+  },
+  {
+    "q": "What does `[10, 9, 1].sort()` give?",
+    "options": [
+      "`[1, 10, 9]`",
+      "`[1, 9, 10]`",
+      "`[10, 9, 1]`",
+      "`[9, 10, 1]`"
+    ],
+    "answer": 0,
+    "why": "With no compare function, `sort` compares the items as text, so `\"10\"` comes before `\"9\"`. To sort numbers, pass `(a, b) => a - b`."
+  },
+  {
+    "q": "What does `doubled` hold?",
+    "code": "const doubled = [1, 2, 3].map(n => {\n  n * 2;\n});",
+    "options": [
+      "`[undefined, undefined, undefined]`",
+      "`[2, 4, 6]`",
+      "`[]`",
+      "`[1, 2, 3]`"
+    ],
+    "answer": 0,
+    "why": "A function with curly braces gives back `undefined` unless it says `return`. Fix: `n => n * 2`, or add `return`."
+  },
+  {
+    "q": "What does `console.log(results)` print?",
+    "code": "const ids = [1, 2, 3];\nconst results = [];\nids.forEach(async (id) => {\n  await null;\n  results.push(id * 10);\n});\nconsole.log(results);",
+    "options": [
+      "`[]`: `forEach` does not wait for the async callbacks",
+      "`[10, 20, 30]`",
+      "`[undefined, undefined, undefined]`",
+      "A `TypeError`"
+    ],
+    "answer": 0,
+    "why": "`forEach` starts each async function and does not wait. The next line runs while `results` is still empty. To run them together and wait, use `await Promise.all(ids.map(async ...))`."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the four answers with spaces between them.",
+    "code": "const n = [5, 12, 8];\nconsole.log(\n  n.find(x => x > 6),\n  n.findIndex(x => x > 100),\n  n.some(x => x > 10),\n  [].every(x => x > 10)\n);",
+    "answer": [
+      "12 -1 true true"
+    ],
+    "why": "`find` gives the first item that passes, `12`. `findIndex` gives `-1` when nothing passes. `some` is `true` because 12 is above 10. `every` on an empty array is `true`, because no item fails."
+  },
+  {
+    "q": "`findIndex` gives `-1` when nothing matches. Why is `if (index)` a bad check?",
+    "options": [
+      "`0` is a real position, the first item, and `0` counts as false. `-1` counts as true",
+      "`findIndex` can give back `null`",
+      "`if` cannot read numbers",
+      "`-1` counts as false"
+    ],
+    "answer": 0,
+    "why": "A match at the first item gives `0`, which looks like \"not found\" inside an `if`. And `-1` counts as true. Write `if (index !== -1)`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true?",
+    "options": [
+      "`map` always gives back an array with the same number of items",
+      "`filter` changes the values it keeps",
+      "`forEach` gives back `undefined`",
+      "`reduce` can give back one value of any type, like an object"
+    ],
+    "answer": [
+      0,
+      2,
+      3
+    ],
+    "why": "`filter` keeps the same values and only decides which ones stay. The others are right. `reduce` can build a number, a string or an object."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three numbers it prints for `top`, with spaces between them.",
+    "code": "const scores = [50, 9, 100, 75, 8];\nconst top = scores.sort().reverse().slice(0, 3);\nconsole.log(top.join(\" \"));",
+    "answer": [
+      "9 8 75"
+    ],
+    "why": "With no compare function, `sort` compares text, so the numbers end up as `100, 50, 75, 8, 9`. `reverse` turns that around to `9, 8, 75, 50, 100`, and `slice(0, 3)` takes the first three. It also changed `scores` itself. Fix: `[...scores].sort((a, b) => b - a).slice(0, 3)` gives `100 75 50`."
+  }
+]

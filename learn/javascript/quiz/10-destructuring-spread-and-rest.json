@@ -1,0 +1,137 @@
+[
+  {
+    "type": "fill",
+    "q": "What does this print? Type the two answers with a space between them.",
+    "code": "const { name, role = \"guest\" } = { name: \"Ana\", age: 30 };\nconsole.log(name, role);",
+    "answer": [
+      "Ana guest"
+    ],
+    "why": "The pattern on the left matches by name. `name` is `\"Ana\"`. There is no `role` key, so the value is `undefined`, and the default `\"guest\"` is used."
+  },
+  {
+    "q": "Which of the three dots are rest, and which are spread?",
+    "code": "function total(label, ...nums) {\n  return label + \" \" + nums.length;\n}\ntotal(\"count\", ...list);",
+    "options": [
+      "`...nums` in the parameter list is rest. `...list` in the call is spread",
+      "`...nums` in the parameter list is spread. `...list` in the call is rest",
+      "Both are spread",
+      "Both are rest"
+    ],
+    "answer": 0,
+    "why": "Same three dots, opposite directions. On the left, in a pattern or a parameter list, the dots collect the leftovers (rest). On the right, in a call, an array or an object, they expand one value into pieces (spread)."
+  },
+  {
+    "q": "What does the last line print?",
+    "code": "const orig = {\n  name: \"Ana\",\n  address: { city: \"Jakarta\" }\n};\nconst copy = { ...orig };\ncopy.address.city = \"Bandung\";\nconsole.log(orig.address.city);",
+    "options": [
+      "`\"Bandung\"`: the original changed too",
+      "`\"Jakarta\"`: spread made a full copy",
+      "`undefined`",
+      "A `TypeError`"
+    ],
+    "answer": 0,
+    "why": "Spread copies one level. It copies the arrow to the address object, not the object. Both outer objects share one inner object. Fix: spread every level you change."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are shallow copies, where the objects inside are still shared?",
+    "options": [
+      "`{ ...obj }`",
+      "`[...list]`, when the list holds objects",
+      "`structuredClone(obj)`",
+      "`Object.assign({}, obj)`"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Spread and `Object.assign` copy the top level only. `structuredClone` copies every level."
+  },
+  {
+    "q": "What does this print?",
+    "code": "function getLimit({ limit = 10 } = {}) {\n  return limit;\n}\nconsole.log(getLimit({ limit: null }));",
+    "options": [
+      "`null`: a default is used only for `undefined`",
+      "`10`",
+      "`undefined`",
+      "A `TypeError`"
+    ],
+    "answer": 0,
+    "why": "`null` is a real value, so the default is not used. `0` and empty text are kept too. Use `??` when `null` should also get the fallback."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them.",
+    "code": "console.log(null ?? 10, 0 ?? 10, 0 || 10);",
+    "answer": [
+      "10 0 10"
+    ],
+    "why": "`??` gives the fallback only for `null` and `undefined`, so `null ?? 10` is `10` and `0 ?? 10` keeps the `0`. `||` gives the fallback for anything that counts as false, so `0 || 10` is `10`."
+  },
+  {
+    "q": "Which `size` do you get?",
+    "code": "const defaults = { theme: \"light\", size: 10 };\nconst mine = { size: 14 };\nconsole.log({ ...mine, ...defaults }.size);",
+    "options": [
+      "`10`: the later key wins",
+      "`14`: your own choice always wins",
+      "`undefined`",
+      "An error, because the key is in both"
+    ],
+    "answer": 0,
+    "why": "A later key replaces an earlier one. The defaults came last, so your `size: 14` is lost. Fix: defaults first, your changes last: `{ ...defaults, ...mine }`."
+  },
+  {
+    "type": "tf",
+    "q": "`function show({ name }) { return name; }`. Calling `show()` with no argument gives `undefined`.",
+    "answer": false,
+    "why": "No. With no argument, the parameter is `undefined`, and you cannot unpack `undefined`. It throws a `TypeError`. Fix: give the whole parameter a default, `show({ name } = {})`."
+  },
+  {
+    "type": "tf",
+    "q": "`function show({ name = \"guest\" } = {}) { ... }`. Calling `show(null)` also gives `\"guest\"`.",
+    "answer": false,
+    "why": "No. The `= {}` default fills in only for `undefined`, like every default. `null` is a real value, so JavaScript tries to unpack it and throws a `TypeError`."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them. For the third, type the key names of `rest` joined together with no spaces.",
+    "code": "const [a = 1, b = 2] = [null];\nconst { x, ...rest } = { x: 1, y: 2, z: 3 };\nconsole.log(a, b, Object.keys(rest).join(\"\"));",
+    "answer": [
+      "null 2 yz"
+    ],
+    "why": "`a` matches position 0, which holds `null`. `null` is not `undefined`, so the default `1` is not used. `b` has nothing at position 1, so its default `2` is used. `rest` collects the keys that were not named: `y` and `z`."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of `const older = { ...user, age: 31 }` in the right order. `user` is `{ name: \"Ana\", age: 30 }`.",
+    "items": [
+      "JavaScript starts a new object",
+      "`...user` copies `name` and `age: 30` into it",
+      "Then `age: 31` comes later, so it replaces `30`",
+      "`older` points at the new object, and `user.age` is still `30`"
+    ],
+    "why": "Spread only reads `user`. It builds a new object, and the original stays as it was."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these use the three dots as rest, to collect?",
+    "options": [
+      "`function f(a, ...others) { }`",
+      "`const [first, ...others] = list;`",
+      "`Math.max(...list)`",
+      "`const all = [...a, ...b];`"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "Rest is on the left: in a parameter list or a pattern. It collects the leftovers into a new array or object, and it must be last. Spread is on the right: in a call, an array or an object."
+  },
+  {
+    "type": "tf",
+    "q": "`const { password, ...safeUser } = user;` gives a new object `safeUser` that has every field of `user` except `password`.",
+    "answer": true,
+    "why": "Rest collects every key that was not named into a new object. This is a common way to drop a field before you send an object out."
+  }
+]

@@ -1,0 +1,129 @@
+[
+  {
+    "q": "`makeCounter()` has finished and left the call stack. What happens to its `count`?",
+    "options": [
+      "It stays alive, because the returned function still points at its box",
+      "It is thrown away as soon as the call ends",
+      "It moves to the global scope",
+      "It becomes `undefined`"
+    ],
+    "answer": 0,
+    "why": "The inner function carries a link to the box where it was made. The link keeps the box alive. That function is a closure."
+  },
+  {
+    "q": "What does this print?",
+    "code": "function next() {\n  let count = 0;\n  count = count + 1;\n  return count;\n}\nconsole.log(next(), next());",
+    "options": [
+      "`1 1`: each call makes a new `count` and forgets it",
+      "`1 2`: `count` is remembered",
+      "`0 1`",
+      "`undefined undefined`"
+    ],
+    "answer": 0,
+    "why": "A local variable dies when its call ends. Each call starts with a new `count` as 0, so both calls give `1`. A closure is what lets a function remember."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the four numbers with spaces between them.",
+    "code": "function makeCounter() {\n  let count = 0;\n  return function () {\n    count = count + 1;\n    return count;\n  };\n}\nconst a = makeCounter();\nconst b = makeCounter();\nconsole.log(a(), a(), b(), a());",
+    "answer": [
+      "1 2 1 3",
+      "1, 2, 1, 3"
+    ],
+    "why": "Every call of `makeCounter` makes a new box. `a` only touches box 1, and `b` only touches box 2. So `a()` gives 1, 2, then 3 later, and `b()` gives 1."
+  },
+  {
+    "q": "The function `read` is made, and then `x` changes. What does `make()()` print?",
+    "code": "function make() {\n  let x = 1;\n  const read = () => x;\n  x = 2;\n  return read;\n}\nconsole.log(make()());",
+    "options": [
+      "`2`: the function reads `x` from its box each time it runs",
+      "`1`: the function copied `x` when it was made",
+      "`undefined`",
+      "A `ReferenceError`"
+    ],
+    "answer": 0,
+    "why": "A closure keeps a link to the box, not a copy of the value. When `read` runs, it follows the link and sees the newest `x`."
+  },
+  {
+    "type": "tf",
+    "q": "A closure copies the value of a variable at the moment the function is made.",
+    "answer": false,
+    "why": "No. It keeps a link to the box, so the function always sees the newest value."
+  },
+  {
+    "q": "What does `show()` print?",
+    "code": "const name = \"global\";\nfunction show() {\n  console.log(name);\n}\nfunction run() {\n  const name = \"inside run\";\n  show();\n}\nrun();",
+    "options": [
+      "`\"global\"`: only where `show` was written matters",
+      "`\"inside run\"`: `run` is the one that calls it",
+      "`undefined`",
+      "A `ReferenceError`"
+    ],
+    "answer": 0,
+    "why": "A function reads names from the place where it was written, not from the place that calls it. The interview word is lexical scope."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print, after the timers run? Type the three numbers with spaces between them.",
+    "code": "for (var i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i), 0);\n}",
+    "answer": [
+      "3 3 3",
+      "3, 3, 3"
+    ],
+    "why": "With `var` there is one box for `i`. The three callbacks all link to it. The loop ends with `i` as 3, and then the callbacks run. With `let`, each pass has its own box, so it would print `0 1 2`."
+  },
+  {
+    "type": "multi",
+    "q": "What does a closure give you?",
+    "options": [
+      "Memory between calls, like a counter",
+      "Private data that nobody can reach except through your functions",
+      "Callbacks that remember the data around them",
+      "Faster code, because the variable is copied"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "A closure gives memory, privacy and callbacks that remember. It does not copy anything, and it does not make code faster. A box that stays alive uses memory."
+  },
+  {
+    "type": "order",
+    "q": "Put what happens in the right order.",
+    "items": [
+      "`makeCounter()` is called, and JavaScript makes a new box with `count = 0`",
+      "The inner function is made inside that box, so it gets a link to the box",
+      "`makeCounter` finishes and leaves the call stack",
+      "The box stays alive, because the returned function still points at it"
+    ],
+    "why": "A call leaves the stack when it finishes, but its box stays as long as something points at it."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the two answers with a space between them.",
+    "code": "function account() {\n  let balance = 0;\n  return {\n    deposit: (n) => { balance += n; },\n    read: () => balance,\n  };\n}\nconst acc = account();\nacc.deposit(5);\nacc.deposit(3);\nconsole.log(acc.read(), acc.balance);",
+    "answer": [
+      "8 undefined"
+    ],
+    "why": "`balance` lives in the box of `account()`. The two functions share that box, so `read()` gives 8. The object has no `balance` field, so `acc.balance` is `undefined`. Nobody can reach `balance` except through those functions."
+  },
+  {
+    "q": "In React, this effect runs once because of `[]`. What does the counter show over time?",
+    "code": "useEffect(() => {\n  const id = setInterval(\n    () => setCount(count + 1), 1000);\n  return () => clearInterval(id);\n}, []);",
+    "options": [
+      "It stays at `1`: the callback keeps the box of render 1, where `count` is 0",
+      "It counts `1, 2, 3, ...` every second",
+      "It shows `0` forever",
+      "React throws an error"
+    ],
+    "answer": 0,
+    "why": "The timer callback keeps the box of the first render, so it always reads `count = 0` and sets 1 again. That is a stale closure. Fix: `setCount(c => c + 1)`."
+  },
+  {
+    "type": "tf",
+    "q": "A timer you never clear can keep a big array alive, even after the function that made it has finished.",
+    "answer": true,
+    "why": "The timer keeps the callback, the callback keeps the box, and the box keeps the big array. Clear timers and remove listeners when you are done. In React, return a cleanup function from the effect."
+  }
+]

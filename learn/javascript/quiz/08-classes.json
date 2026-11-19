@@ -1,0 +1,142 @@
+[
+  {
+    "q": "You make 1000 dogs with `new Dog(\"Rex\")`. How many copies of the method `bark` exist?",
+    "options": [
+      "One, on `Dog.prototype`",
+      "1000, one for each dog",
+      "Two: one on `Dog` and one on `Object`",
+      "None, because `bark` is made only when it is called"
+    ],
+    "answer": 0,
+    "why": "A class is a function. Its methods sit once on `Dog.prototype`. Each dog keeps only its own data and one hidden link to that object."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the two answers with a space between them.",
+    "code": "class Animal {\n  constructor(name) { this.name = name; }\n  speak() { return this.name + \" makes a sound\"; }\n}\nclass Dog extends Animal {\n  constructor(name) {\n    super(name);\n    this.tricks = 0;\n  }\n  speak() { return super.speak() + \", woof\"; }\n}\nconst rex = new Dog(\"Rex\");\nconsole.log(rex.speak(), rex instanceof Animal);",
+    "answer": [
+      "Rex makes a sound, woof true"
+    ],
+    "why": "`rex.speak()` finds Dog's `speak` first. `super.speak()` starts the search one step up, at `Animal.prototype`, and gives `\"Rex makes a sound\"`. Then Dog adds `\", woof\"`. `rex instanceof Animal` is `true`, because `Animal.prototype` is on the chain of `rex`."
+  },
+  {
+    "q": "What happens with `new Dog(\"Rex\")`?",
+    "code": "class Animal {\n  constructor(name) { this.name = name; }\n  speak() { return this.name + \" makes a sound\"; }\n}\nclass Dog extends Animal {\n  constructor(name) {\n    this.tricks = 0;\n    super(name);\n  }\n}",
+    "options": [
+      "A `ReferenceError`: `this` is locked until `super()` has run",
+      "It works, and `tricks` is `0`",
+      "A `TypeError`: `Animal` is not a function",
+      "It works, but `name` is `undefined`"
+    ],
+    "answer": 0,
+    "why": "In a child class, the parent constructor makes the object. Before `super()` returns, there is no object for `this` to be. Fix: call `super(name)` first."
+  },
+  {
+    "type": "tf",
+    "q": "In a child class, you can use `this` in the constructor before you call `super()`.",
+    "answer": false,
+    "why": "No. The parent constructor makes the object. Until `super()` runs, `this` is locked, and using it throws a `ReferenceError`."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of `new Dog(\"Rex\")` in the right order. `Dog extends Animal`.",
+    "items": [
+      "`new Dog(\"Rex\")` starts Dog's constructor, with `this` locked",
+      "`super(name)` runs Animal's constructor, which makes the empty object",
+      "`this.name = name` writes the name on that object, and `this` is unlocked in Dog",
+      "`this.tricks = 0` runs, and `new` gives back the object"
+    ],
+    "why": "A child class does not make the object. The parent does, and its hidden link points at `Dog.prototype` because `new` was called on `Dog`."
+  },
+  {
+    "q": "What happens when you call `inc()`?",
+    "code": "class Counter {\n  count = 0;\n  inc() { this.count++; }\n}\nconst c = new Counter();\nconst inc = c.inc;\ninc();",
+    "options": [
+      "A `TypeError`: `this` is `undefined`",
+      "`count` becomes `1`",
+      "`count` becomes `NaN`",
+      "Nothing happens, and there is no error"
+    ],
+    "answer": 0,
+    "why": "`c.inc` gives only the function. The call has no dot, and class code is strict, so `this` is `undefined`. Fix: `() => c.inc()` or `c.inc.bind(c)`."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these let you call the method later without losing `this`?",
+    "options": [
+      "`const f = () => c.inc();`",
+      "`const f = c.inc.bind(c);`",
+      "`const f = c.inc;`",
+      "Write the method as an arrow field: `inc = () => { this.count++; };`"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "The arrow wrapper calls with a dot. `bind` locks `this`. An arrow field keeps `this`, but it makes one function for every instance. `const f = c.inc` leaves the object behind."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the three answers with spaces between them.",
+    "code": "class Account {\n  #balance = 0;\n  deposit(n) { this.#balance += n; }\n  get balance() { return this.#balance; }\n}\nconst a = new Account();\na.deposit(50);\nconsole.log(a.balance, a[\"#balance\"], Object.keys(a).length);",
+    "answer": [
+      "50 undefined 0"
+    ],
+    "why": "The getter `balance` reads the private slot from inside the class, so it gives `50`. Outside code has no name for the `#` slot, so `a[\"#balance\"]` is `undefined`. `Object.keys` does not see it either."
+  },
+  {
+    "type": "tf",
+    "q": "A property named `_balance` is really private. Outside code cannot read it.",
+    "answer": false,
+    "why": "No. `_balance` is only a polite sign. It is a normal property, and outside code can read and change it. Only a `#balance` slot is really private."
+  },
+  {
+    "q": "What happens here?",
+    "code": "class Account { #balance = 0; }\nclass Savings extends Account {\n  read() { return this.#balance; }\n}",
+    "options": [
+      "A `SyntaxError`: a `#` name belongs only to the class body where it is written",
+      "It works: `Savings` inherits `#balance`",
+      "`read()` gives `undefined`",
+      "A `TypeError` when `read()` is called"
+    ],
+    "answer": 0,
+    "why": "The file does not even start. A `#` name is not on the prototype chain. Fix: the parent offers a getter, `get balance() { return this.#balance; }`, and the child reads `this.balance`."
+  },
+  {
+    "type": "fill",
+    "q": "What does this print? Type the answer.",
+    "code": "class Animal {\n  constructor(name) { this.name = name; }\n  speak() { return this.name + \" makes a sound\"; }\n}\nclass Dog extends Animal {}\nconsole.log(new Dog(\"Rex\").name);",
+    "answer": [
+      "Rex"
+    ],
+    "why": "A child class with no constructor gets `constructor(...args) { super(...args); }` for free. So `\"Rex\"` goes up to Animal's constructor."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true about a `class`?",
+    "options": [
+      "A class is a function",
+      "Its methods sit once on the prototype, not on each instance",
+      "You must call it with `new`. Without `new` it throws a `TypeError`",
+      "Class code is not strict, so `this` becomes the global object in a plain call"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "A class is a shorter way to write a constructor function and its prototype, plus safety rules: `new` is required, and the code is always strict. So a lost `this` is `undefined`, not the global object."
+  },
+  {
+    "q": "Inside Dog's `speak`, what does `super.speak()` do?",
+    "options": [
+      "Starts the search one step up, at `Animal.prototype`, and runs Animal's version with `this` still the dog",
+      "Runs Dog's own `speak` again",
+      "Makes a new Animal object and calls `speak` on it",
+      "Copies Animal's `speak` onto the dog"
+    ],
+    "answer": 0,
+    "why": "`super.method()` runs the parent's version of the method. `this` is still the same object, so `this.name` is still the dog's name."
+  }
+]

@@ -352,6 +352,70 @@
   "count": 13
  },
  {
+  "slug": "learn/javascript/03-reference-vs-copy",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "03",
+  "title": "Reference vs copy",
+  "count": 13
+ },
+ {
+  "slug": "learn/javascript/04-functions",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "04",
+  "title": "Functions",
+  "count": 13
+ },
+ {
+  "slug": "learn/javascript/05-closures",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "05",
+  "title": "Closures",
+  "count": 12
+ },
+ {
+  "slug": "learn/javascript/06-this-call-apply-and-bind",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "06",
+  "title": "this, call, apply and bind",
+  "count": 12
+ },
+ {
+  "slug": "learn/javascript/07-objects-and-prototypes",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "07",
+  "title": "Objects and prototypes",
+  "count": 12
+ },
+ {
+  "slug": "learn/javascript/08-classes",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "08",
+  "title": "Classes",
+  "count": 13
+ },
+ {
+  "slug": "learn/javascript/09-arrays-and-higher-order-functions",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "09",
+  "title": "Arrays and higher order functions",
+  "count": 14
+ },
+ {
+  "slug": "learn/javascript/10-destructuring-spread-and-rest",
+  "subject": "javascript",
+  "subjectTitle": "JavaScript",
+  "num": "10",
+  "title": "Destructuring, spread and rest",
+  "count": 13
+ },
+ {
   "slug": "learn/javascript/11-the-event-loop",
   "subject": "javascript",
   "subjectTitle": "JavaScript",
