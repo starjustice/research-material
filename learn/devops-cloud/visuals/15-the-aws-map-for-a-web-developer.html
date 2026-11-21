@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The AWS map: a page request, an upload, the database, a pick, a review</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/15-the-aws-map-for-a-web-developer" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>The AWS map: a page request, an upload, the database, a pick, a review</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of how the AWS pieces fit together. It runs the same <code>cdnGet</code>, <code>checkPresigned</code>, <code>dbConnections</code>, <code>pickCompute</code> and <code>reviewSetup</code> code as the practice answer in the lesson. Nothing here talks to a real AWS account. The numbers are made up to show the idea.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a web app is a few small pieces, each with one job. <b>Route 53</b> finds you, <b>CloudFront</b> keeps copies near the users, a <b>load balancer</b> shares the work, your code runs on <b>Fargate</b> (or Lambda, or EC2), <b>S3</b> keeps files and <b>RDS</b> keeps the data. Pick by who looks after the machine.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The five functions below are the same code as the practice answer in the lesson. They are a
+// model: no AWS account is used, and the numbers are made up to show the idea.
+// ---------------------------------------------------------------------------------------------
+function cdnGet(cache, path, now, ttlSeconds) {
+  const next = {};
+  for (const key of Object.keys(cache)) next[key] = { ...cache[key] };
+  const entry = cache[path];
+  if (entry && now - entry.storedAt < ttlSeconds) {
+    return { from: "edge", cache: next };
+  }
+  next[path] = { storedAt: now };
+  return { from: "origin", cache: next };
+}
+
+function checkPresigned(link, request) {
+  if (request.now > link.expiresAt) return { ok: false, reason: "expired" };
+  if (request.key !== link.key) return { ok: false, reason: "wrong key" };
+  if (request.method !== link.method) return { ok: false, reason: "wrong method" };
+  return { ok: true };
+}
+
+function dbConnections(parallelCalls, proxyPool) {
+  const calls = Math.max(0, parallelCalls);
+  if (proxyPool === null) return calls;
+  return Math.min(calls, proxyPool);
+}
+
+function pickCompute(job) {
+  if (job.needsFullControl) return "ec2";
+  if (job.maxMinutes > 15) return "fargate";
+  if (job.traffic === "steady") return "fargate";
+  return "lambda";
+}
+
+function reviewSetup(setup) {
+  const problems = [];
+  if (setup.databasePublic === true) problems.push("database is open to the internet");
+  if (setup.uploadsOn === "server-disk") problems.push("uploads are on the server disk");
+  if (setup.compute === "lambda" && !setup.dbProxy) problems.push("lambda without a proxy may use up database connections");
+  if (setup.secretsInCode === true) problems.push("secrets are in the code");
+  return problems;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that draw the boxes. They only show things, they change nothing.
+// ---------------------------------------------------------------------------------------------
+const lay = (name, size, state, lit) => ({ name, size, state, lit });
+// B(title, color, [tag text, tag color], lines, lit, layers)
+const B = (title, cls, tag, lines, lit, layers) => ({ title, cls, tag, small: "", lines: layers ? undefined : lines, layers, lit });
+const WIDE = (b) => Object.assign({ wide: true }, b);
+
+// ---- Story 1: one page request, then a second and a third ----
+function simulatePageRequest() {
+  const steps = [];
+  const TTL = 60;
+  let cache = {};
+  const cacheLayers = (now) => {
+    const names = Object.keys(cache);
+    return names.length ? names.map((n) => lay(n, "stored at " + cache[n].storedAt + " s", now ? "now" : "cached", false)) : [lay("empty", "no copy yet", "wait")];
+  };
+  const six = (o) => {
+    o = o || {};
+    const idle = (t) => [t, ""];
+    const off = ["not used", ""];
+    return [
+      B("Browser", "user", o.browser || idle("a visitor"), o.browserLines || ["wants shop.example.test/products"], o.lit === "browser"),
+      B("Route 53", "lb", o.route53 || idle("DNS"), o.route53Lines || ["a phone book: a name gives an address"], o.lit === "route53"),
+      B("CloudFront", "fol", o.cloudfront || idle("copies near users"), null, o.lit === "cloudfront", cacheLayers(o.cacheNow)),
+      B("Load balancer", "lb", o.alb || (o.skipOrigin ? off : idle("one front door")), o.albLines || ["shares requests between copies", "2 copies of the API, both healthy"], o.lit === "alb"),
+      B("Express on Fargate", "srv", o.express || (o.skipOrigin ? off : idle("your code")), o.expressLines || ["reads the database", "builds the page"], o.lit === "express"),
+      B("Postgres on RDS", "fol", o.rds || (o.skipOrigin ? off : idle("the data")), o.rdsLines || ["AWS does backups and patches"], o.lit === "rds")
+    ];
+  };
+
+  steps.push({ layout: "three", hop: "Setup: a visitor wants a page", phase: "setup",
+    note: "<b>A visitor types shop.example.test/products.</b> Six pieces can meet this request. Each has one job. The CloudFront box is empty, so it holds no copy yet. Press Next and follow the request from the browser to the database.",
+    boxes: six({ lit: "browser" }) });
+
+  steps.push({ layout: "three", hop: "Route 53: name to address", phase: "run",
+    note: "<b>The browser asks Route 53:</b> where is <code>shop.example.test</code>? Route 53 is a DNS service, a phone book for names. It answers with the address of CloudFront, because you set the name to point there. (Your name could point at a load balancer instead.)",
+    boxes: six({ lit: "route53", route53: ["answers", "ok"], route53Lines: ["shop.example.test", "points to CloudFront"] }) });
+
+  const r1 = cdnGet(cache, "/products", 0, TTL);
+  steps.push({ layout: "three", hop: "CloudFront looks in its cache", phase: "chk",
+    note: "<b>CloudFront checks for a fresh copy of /products.</b> <code>cdnGet</code> says <code>from: \"" + r1.from + "\"</code>. The cache is empty, so this visitor is a miss. CloudFront must ask the origin, which is your own server.",
+    boxes: six({ lit: "cloudfront", cloudfront: ["miss", "warn"] }) });
+  cache = r1.cache;
+
+  steps.push({ layout: "three", hop: "The load balancer picks a copy", phase: "run",
+    note: "<b>The load balancer is one front door for many copies.</b> It checks which copies are healthy and sends the request to one of them. If one copy dies, it stops sending requests there.",
+    boxes: six({ lit: "alb", cloudfront: ["miss", "warn"], alb: ["picks copy 1", "ok"], albLines: ["copy 1: healthy", "copy 2: healthy", "sends the request to copy 1"] }) });
+
+  steps.push({ layout: "three", hop: "Express asks Postgres", phase: "run",
+    note: "<b>Your Express code runs in a container on Fargate.</b> It asks Postgres for the products, builds the page, and sends it back. RDS is Postgres that AWS looks after: backups, patches and a standby copy if you turn that on.",
+    boxes: six({ lit: "rds", cloudfront: ["miss", "warn"], express: ["running", "ok"], expressLines: ["select * from products", "builds the page"], rds: ["answers", "ok"], rdsLines: ["returns 20 rows"] }) });
+
+  steps.push({ layout: "three", hop: "The answer goes back, CloudFront keeps a copy", phase: "srv",
+    note: "<b>The page travels back the same way.</b> On the way, CloudFront stores a copy of <code>/products</code> at time 0 and lets it live for " + TTL + " seconds. This first visitor paid for the whole trip: one origin request.",
+    boxes: six({ lit: "cloudfront", cloudfront: ["stored a copy", "ok"], cacheNow: true }) });
+
+  const r2 = cdnGet(cache, "/products", 30, TTL);
+  steps.push({ layout: "three", hop: "A second visitor, 30 seconds later", phase: "srv",
+    note: "<b>CloudFront answers on its own.</b> <code>cdnGet</code> says <code>from: \"" + r2.from + "\"</code>, because the copy is 30 seconds old and may live " + TTL + ". The load balancer, Express and Postgres did no work. This is what a CDN is for: less work for you, and a shorter trip for the visitor.",
+    boxes: six({ lit: "cloudfront", cloudfront: ["hit", "ok"], skipOrigin: true }) });
+  cache = r2.cache;
+
+  const r3 = cdnGet(cache, "/products", 70, TTL);
+  steps.push({ layout: "three", hop: "A third visitor, 70 seconds after the first", phase: "chk",
+    note: "<b>The copy is 70 seconds old, and it may live only " + TTL + ".</b> <code>cdnGet</code> says <code>from: \"" + r3.from + "\"</code>. CloudFront asks your origin again and stores a fresh copy. If a price changes, visitors see it after at most one lifetime.",
+    boxes: six({ lit: "cloudfront", cloudfront: ["old copy, miss", "warn"], alb: ["asked again", "ok"], express: ["asked again", "ok"], rds: ["asked again", "ok"] }) });
+  cache = r3.cache;
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The request meets a few small pieces, each with one job.</b> A copy that is fresh stops the trip at CloudFront. A stale or missing copy sends it all the way to the database.",
+    boxes: [B("The trip", "srv", ["every miss", "warn"], ["Route 53, then CloudFront", "load balancer", "Express on Fargate", "Postgres on RDS"]), B("The shortcut", "lb", ["a hit", "ok"], ["Route 53, then CloudFront", "answer from the copy", "your servers are not asked", "good for pages that are the same for everyone"])] });
+  return steps;
+}
+
+// ---- Story 2: where does an uploaded photo go? ----
+function simulateUpload() {
+  const steps = [];
+  const link = { key: "photos/cat.jpg", method: "PUT", expiresAt: 300 };
+  const boxes3 = (a, b, c) => [a, b, c];
+  const browser = (lines, lit, tag) => B("Browser", "user", tag || ["a visitor", ""], lines, lit);
+  const api = (lines, lit, tag) => B("Your API on Fargate", "srv", tag || ["your code", ""], lines, lit);
+  const bucket = (layers, lit, tag) => B("S3 bucket (private)", "fol", tag || ["files", ""], null, lit, layers);
+  const disk = (layers, tag, lit) => B("Task disk", "alarm", tag || ["goes away with the task", "bad"], null, lit, layers);
+
+  steps.push({ layout: "three", hop: "Setup: a visitor uploads cat.jpg", phase: "setup",
+    note: "<b>A visitor picks a photo.</b> Where should it be kept? There are two ways. First, the way that looks easy: send the file to your API and let the API save it. Press Next to see what happens.",
+    boxes: boxes3(browser(["picks cat.jpg"], true), api(["task 1 is running"]), bucket([lay("empty", "no files yet", "wait")])) });
+
+  steps.push({ layout: "three", hop: "Way A: save it on the server disk", phase: "run",
+    note: "<b>The file goes through your API and is saved on the disk of the container.</b> It works. The page shows the photo. Nothing looks wrong yet.",
+    boxes: boxes3(browser(["sent cat.jpg"]), api(["received cat.jpg", "saved it on its own disk"], true, ["task 1", "ok"]), disk([lay("cat.jpg", "on task 1", "now")], ["task 1 disk", "warn"], true)) });
+
+  steps.push({ layout: "three", hop: "Way A: a deploy replaces the task", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>You deploy a new version.</b> ECS starts task 2 and stops task 1. The disk of task 1 is ephemeral storage, which means it belongs to the task and is not kept. Task 2 starts with an empty disk, so the photo is gone. The same happens when a task crashes, and a second copy of the API cannot see the first copy's disk.",
+    boxes: boxes3(browser(["asks for cat.jpg", "gets an error"]), api(["task 2 is running", "has never seen cat.jpg"], true, ["task 2", "bad"]), disk([lay("empty", "cat.jpg was on task 1", "rebuilt")], ["task 2 disk", "bad"])) });
+
+  steps.push({ layout: "three", hop: "Way B: the API makes a link", phase: "run",
+    note: "<b>Start again with the better way.</b> The browser asks your API: may I upload cat.jpg? The API signs a link that allows one thing: <code>PUT</code> of the key <code>" + link.key + "</code>, until second " + link.expiresAt + " (5 minutes). The file itself does not go through your API.",
+    boxes: boxes3(browser(["asks for an upload link"]), api(["signs a link", "key: " + link.key, "method: PUT", "expires: " + link.expiresAt + " s"], true, ["signed", "ok"]), bucket([lay("empty", "no files yet", "wait")])) });
+
+  const c1 = checkPresigned(link, { key: "photos/cat.jpg", method: "PUT", now: 100 });
+  steps.push({ layout: "three", hop: "The browser sends the file straight to S3", phase: "srv",
+    note: "<b>S3 checks the link:</b> <code>checkPresigned</code> says <code>ok: " + c1.ok + "</code>. The file lands in the bucket as an object with the key <code>photos/cat.jpg</code>. It stays there when tasks come and go. The bucket stays private: only this link allowed this one upload.",
+    boxes: boxes3(browser(["PUT photos/cat.jpg", "at second 100"]), api(["not involved", "no file bytes pass through"]), bucket([lay("photos/cat.jpg", "stored", "now")], true, ["accepted", "ok"])) });
+
+  const c2 = checkPresigned(link, { key: "photos/dog.jpg", method: "PUT", now: 120 });
+  steps.push({ layout: "three", hop: "A different key with the same link", phase: "chk",
+    note: "<b>Someone tries to reuse the link for photos/dog.jpg.</b> <code>checkPresigned</code> says <code>ok: " + c2.ok + ", reason: \"" + c2.reason + "\"</code>. The link was signed for one key only, so it cannot be used to write anywhere else in your bucket.",
+    boxes: boxes3(browser(["PUT photos/dog.jpg"], false, ["same link", "warn"]), api(["not involved"]), bucket([lay("photos/cat.jpg", "stored", "cached"), lay("photos/dog.jpg", "refused: " + c2.reason, "rebuilt")], true, ["refused", "bad"])) });
+
+  const c3 = checkPresigned(link, { key: "photos/cat.jpg", method: "PUT", now: 700 });
+  steps.push({ layout: "three", hop: "The same link, ten minutes later", phase: "chk",
+    note: "<b>The link has an end time.</b> At second 700 <code>checkPresigned</code> says <code>ok: " + c3.ok + ", reason: \"" + c3.reason + "\"</code>. If the browser needs more time, it asks the API for a new link.",
+    boxes: boxes3(browser(["PUT photos/cat.jpg", "at second 700"], false, ["old link", "warn"]), api(["not involved"]), bucket([lay("photos/cat.jpg", "stored", "cached"), lay("a second upload", "refused: " + c3.reason, "rebuilt")], true, ["refused", "bad"])) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Keep files in S3, not on the disk of a server.</b> Let the browser upload straight to the bucket with a short, single-purpose link. Your API only signs the link.",
+    boxes: [B("Task disk", "alarm", ["risky", "bad"], ["gone when a task is replaced", "not shared between copies", "fills up"]), B("S3 bucket", "srv", ["safe", "ok"], ["stays when tasks come and go", "shared by every copy", "private unless you open it", "a presigned link allows one key, one method, a short time"])] });
+  return steps;
+}
+
+// ---- Story 3: Lambda, Postgres and connections ----
+function simulateConnections() {
+  const steps = [];
+  const MAX = 100; // Postgres says its default max_connections is typically 100. This is a made up round number for the model.
+  const calls = (lines, lit, tag) => B("Lambda calls", "srv", tag || ["at the same moment", ""], lines, lit);
+  const proxy = (lines, lit, tag) => B("RDS Proxy", "lb", tag || ["shares connections", ""], lines, lit);
+  const noProxy = () => B("No proxy", "lb", ["direct", ""], ["each call connects by itself"]);
+  const pg = (lines, lit, tag) => B("Postgres", "fol", tag || ["limit: " + MAX + " connections", ""], lines, lit);
+
+  steps.push({ layout: "three", hop: "Setup: a small app on Lambda", phase: "setup",
+    note: "<b>Your API runs on Lambda.</b> Each call that runs at the same moment gets its own copy of your code, and each copy opens its own connection to Postgres. Postgres allows only a limited number of connections. In this model the limit is " + MAX + ".",
+    boxes: [calls(["no calls yet"]), noProxy(), pg(["0 connections in use"])] });
+
+  const small = dbConnections(3, null);
+  steps.push({ layout: "three", hop: "Quiet day: 3 calls, no proxy", phase: "srv",
+    note: "<b>Three calls make " + small + " connections.</b> That is far below " + MAX + ", so everything works. This is why Lambda with a database feels fine in a test.",
+    boxes: [calls(["3 calls"], true), noProxy(), pg([small + " connections in use", "limit " + MAX], true, ["fine", "ok"])] });
+
+  const big = dbConnections(500, null);
+  steps.push({ layout: "three", hop: "A sale starts: 500 calls, no proxy", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Five hundred calls make " + big + " connections.</b> Postgres allows " + MAX + ". It refuses about " + (big - MAX) + " of them with an error such as <code>too many clients</code>. Your customers see errors at the moment you have the most customers.",
+    boxes: [calls(["500 calls"], true, ["a sale", "warn"]), noProxy(), pg([big + " wanted", MAX + " allowed", (big - MAX) + " refused"], true, ["too many", "bad"])] });
+
+  const withProxy = dbConnections(500, 20);
+  steps.push({ layout: "three", hop: "Add RDS Proxy with a pool of 20", phase: "run",
+    note: "<b>The calls now connect to the proxy.</b> The proxy keeps a pool of 20 connections to Postgres and shares them. <code>dbConnections(500, 20)</code> gives <code>" + withProxy + "</code>. Postgres sees " + withProxy + " connections, far below " + MAX + ". The AWS docs say a proxy lets a function reach high concurrency without exhausting the database connections.",
+    boxes: [calls(["500 calls"], true, ["a sale", "warn"]), proxy(["500 clients in", withProxy + " connections out", "calls wait for a free one"], true, ["pool of 20", "ok"]), pg([withProxy + " connections in use", "limit " + MAX], true, ["fine", "ok"])] });
+
+  const few = dbConnections(5, 20);
+  steps.push({ layout: "three", hop: "Quiet again: 5 calls, with the proxy", phase: "srv",
+    note: "<b>A proxy never makes more connections than there are calls.</b> <code>dbConnections(5, 20)</code> gives <code>" + few + "</code>. The pool is a ceiling, not a number that is always used.",
+    boxes: [calls(["5 calls"], true), proxy(["5 clients in", few + " connections out"], true, ["pool of 20", "ok"]), pg([few + " connections in use", "limit " + MAX], false, ["fine", "ok"])] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Many short Lambda calls plus Postgres need a pool in the middle.</b> The AWS docs call a proxy recommended for production. It has its own hourly price. A container on Fargate does not have this problem as much, because a few long-lived copies each keep a small pool.",
+    boxes: [B("Lambda straight to Postgres", "alarm", ["risk", "bad"], ["one connection per call at the same moment", "a spike can use them all", "the error comes at your busiest time"]), B("Lambda, proxy, Postgres", "srv", ["safe", "ok"], ["the proxy shares a small pool", "Postgres sees a steady number", "costs extra every hour"])] });
+  return steps;
+}
+
+// ---- Story 4: where does each job run? ----
+function simulatePick() {
+  const steps = [];
+  const jobs = [
+    { name: "The shop API", job: { needsFullControl: false, maxMinutes: 1, traffic: "steady" }, why: "Traffic is steady all day, so a few containers that stay up are simpler and cheaper per call than a function started for every request." },
+    { name: "Make a thumbnail after an upload", job: { needsFullControl: false, maxMinutes: 1, traffic: "spiky" }, why: "It is short, and it runs only when someone uploads. Lambda costs nothing between uploads." },
+    { name: "A video job, 40 minutes, once a night", job: { needsFullControl: false, maxMinutes: 40, traffic: "rare" }, why: "Lambda stops a call at 15 minutes. A container task on Fargate can run longer." },
+    { name: "A job that needs a GPU", job: { needsFullControl: true, maxMinutes: 30, traffic: "rare" }, why: "Fargate has no GPU, and Lambda is not for this. You pick the machine yourself, so EC2 (the AWS container guide also lists ECS Managed Instances for this)." },
+  ];
+  const place = (name, cls, picked, lines) => B(name, cls, picked ? ["picked", "ok"] : ["", ""], lines, picked);
+  const three = (picked, extra) => [
+    place("EC2", "fol", picked === "ec2", ["you rent a machine", "you patch it", "most control"]),
+    place("Fargate", "srv", picked === "fargate", ["you give a container", "AWS runs the machines", "long runs are fine"]),
+    place("Lambda", "lb", picked === "lambda", ["you give a function", "one call at a time, up to 15 minutes", "nothing runs between calls"]),
+  ].concat(extra ? [WIDE(extra)] : []);
+
+  steps.push({ layout: "three", hop: "Setup: three places for your code", phase: "setup",
+    note: "<b>Three places to run code.</b> They differ in who looks after the machine. EC2: you do. Fargate: AWS does, and you give a container. Lambda: AWS does, and you give a function. Press Next to run <code>pickCompute</code> on four jobs.",
+    boxes: three(null) });
+
+  jobs.forEach((j) => {
+    const p = pickCompute(j.job);
+    const desc = "full control: " + (j.job.needsFullControl ? "yes" : "no") + ", longest run: " + j.job.maxMinutes + " min, traffic: " + j.job.traffic;
+    steps.push({ layout: "three", hop: j.name, phase: "chk",
+      note: "<b>" + j.name + ".</b> " + desc + ". <code>pickCompute</code> says <code>\"" + p + "\"</code>. " + j.why,
+      boxes: three(p, { title: "The job", cls: "user", tag: ["input", ""], small: "", lines: [j.name, desc] }) });
+  });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The model is a rule of thumb.</b> The rule: needing a machine of your own means EC2. A run over 15 minutes, or steady traffic, means a container on Fargate. Short and not steady means Lambda. A real choice also looks at your team and the bill.",
+    boxes: [B("Order of the rules", "lb", ["pickCompute", ""], ["1. full control: EC2", "2. longer than 15 min: Fargate", "3. steady traffic: Fargate", "4. otherwise: Lambda"]), B("Not in the model", "fol", ["think about it", "warn"], ["how much your team knows", "the price of each option", "ECS Express Mode for a quick start", "a mix is normal"])] });
+  return steps;
+}
+
+// ---- Story 5: review a setup ----
+function simulateReview() {
+  const steps = [];
+  let setup = { compute: "lambda", databasePublic: true, uploadsOn: "server-disk", dbProxy: false, secretsInCode: true };
+  const setupBox = (s, lit) => B("The setup", "user", ["on paper", ""], [
+    "runs on: " + s.compute,
+    "database public: " + s.databasePublic,
+    "uploads on: " + s.uploadsOn,
+    "database proxy: " + s.dbProxy,
+    "secrets in the code: " + s.secretsInCode
+  ], lit);
+  const findings = (s) => {
+    const p = reviewSetup(s);
+    return WIDE(B("reviewSetup finds " + p.length, p.length ? "alarm" : "srv", [p.length ? "fix these" : "clean", p.length ? "bad" : "ok"], p.length ? p : ["no problems found"], false));
+  };
+
+  steps.push({ layout: "two", hop: "Setup: a setup on paper", phase: "setup",
+    note: "<b>A team describes its setup.</b> The app runs on Lambda, talks to Postgres, and stores photos. Read the five lines and guess how many problems you can see. Then press Next.",
+    boxes: [setupBox(setup, true)] });
+
+  steps.push({ layout: "two", hop: "reviewSetup looks at it", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Four problems.</b> The database can be reached from the whole internet. The photos sit on a disk that goes away. Lambda connects straight to Postgres. A secret is written in the code (see lesson 09).",
+    boxes: [setupBox(setup, false), findings(setup)] });
+
+  setup = Object.assign({}, setup, { databasePublic: false });
+  steps.push({ layout: "two", hop: "Fix 1: make the database private", phase: "run",
+    note: "<b>Put the database where only your app can reach it.</b> Only your app needs to talk to it, so there is no reason for the internet to. How you do that (subnets and security groups) belongs to a later lesson, VPC networking basics, which is planned.",
+    boxes: [setupBox(setup, true), findings(setup)] });
+
+  setup = Object.assign({}, setup, { uploadsOn: "s3" });
+  steps.push({ layout: "two", hop: "Fix 2: uploads go to S3", phase: "run",
+    note: "<b>Files go to a bucket.</b> A bucket outlives every task, and every copy of the app can reach it.",
+    boxes: [setupBox(setup, true), findings(setup)] });
+
+  setup = Object.assign({}, setup, { dbProxy: true });
+  steps.push({ layout: "two", hop: "Fix 3: add a proxy for Lambda", phase: "run",
+    note: "<b>A proxy shares the connections.</b> The other way is to leave Lambda and run the API in a container on Fargate, where a few long-lived copies keep a small pool each.",
+    boxes: [setupBox(setup, true), findings(setup)] });
+
+  setup = Object.assign({}, setup, { secretsInCode: false });
+  steps.push({ layout: "two", hop: "Fix 4: secrets out of the code", phase: "srv",
+    note: "<b>Secrets live in a secret store or in settings that the platform gives the app.</b> Lesson 09 shows how. Now <code>reviewSetup</code> finds nothing. That does not mean the setup is perfect, only that these four classic mistakes are gone.",
+    boxes: [setupBox(setup, true), findings(setup)] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Most cloud mistakes are the same few.</b> A public database, files on a disk, no pool for Lambda, and secrets in the code. A short review before launch catches them.",
+    boxes: [B("The four classics", "alarm", ["check these", "bad"], ["a database open to the internet", "uploads on the server disk", "Lambda straight to Postgres", "secrets in the code"]), B("The fixes", "srv", ["do these", "ok"], ["private database", "files in S3", "a proxy, or containers", "a secret store"])] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A page request", sim: simulatePageRequest,
+    why: "A fresh copy in CloudFront answers on its own. Only a missing or old copy sends the request through the load balancer and Express to Postgres.",
+    predict: { q: "A second visitor asks for the same page 30 seconds later. The copy may live 60 seconds. Does the request reach your Express app?", options: ["Yes, every request does", "No, CloudFront answers from its copy", "Only the load balancer answers"], answer: "No, CloudFront answers from its copy" } },
+  { name: "2. An upload", sim: simulateUpload,
+    why: "A presigned link is signed for one key, one method and a short time. The file goes straight to S3 and stays there when tasks are replaced.",
+    predict: { q: "The browser has a link signed for photos/cat.jpg. It tries to upload photos/dog.jpg with that link. What does S3 do?", options: ["It accepts the file", "It refuses, because the link is only for one key", "It accepts the file and renames it"], answer: "It refuses, because the link is only for one key" } },
+  { name: "3. Lambda and Postgres", sim: simulateConnections,
+    why: "Every call that runs at the same moment opens its own connection. Postgres has a limit, so a spike can use it all. A proxy shares a small pool.",
+    predict: { q: "500 Lambda calls run at the same moment, with no proxy. Postgres allows 100 connections. What happens?", options: ["All 500 connect", "About 400 are refused", "Postgres makes more room by itself"], answer: "About 400 are refused" } },
+  { name: "4. Where to run it", sim: simulatePick,
+    why: "Long runs and steady traffic suit containers on Fargate. Short, rare work suits Lambda. A need for your own machine means EC2.",
+    predict: { q: "A video job runs 40 minutes, once a night. Which place fits best?", options: ["Lambda", "A container on Fargate", "Nowhere in AWS"], answer: "A container on Fargate" } },
+  { name: "5. A review", sim: simulateReview,
+    why: "Four mistakes show up again and again: a public database, uploads on a disk, Lambda with no proxy and secrets in code.",
+    predict: { q: "The setup has a public database, uploads on the server disk, Lambda with no proxy, and a password in the code. How many problems does the review find?", options: ["2", "3", "4"], answer: "4" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag && b.tag[0] ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulatePageRequest, simulateUpload, simulateConnections, simulatePick, simulateReview, STORIES, cdnGet, checkPresigned, dbConnections, pickCompute, reviewSetup };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

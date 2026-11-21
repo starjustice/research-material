@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Container and supply chain security: where an attack can enter</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/22-container-and-supply-chain-security" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Container and supply chain security: where an attack can enter</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model. It runs the same <code>lintDockerfile</code>, <code>verifyDeploy</code>, <code>cooldownOk</code>, <code>scan</code> and <code>gate</code> code as the practice answer in the lesson. Nothing here talks to npm, Docker, Trivy or cosign. The package name tiny-logger and the advisory ids are made up.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+  <p class="legend"><b>The rule to remember:</b> you cannot stop an attacker from publishing a bad version. You can make every later step refuse to trust it: exact versions, install scripts off, a short wait, a pinned small image, a scan, a signature checked at the door, and an app that is not root.</p>
+</div>
+<script>
+// The five functions below are the same code as the practice answer in the lesson. This is a model.
+const SECRET_NAME = /(PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY)/i;
+const SECRET_FILE = /^(\.env(\..+)?|.+\.pem|.+\.key|id_rsa|id_ed25519|\.npmrc)$/;
+const SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+// Joins lines that end with a backslash. Each instruction keeps the number of its first line.
+function readInstructions(text) {
+  const out = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const first = lines[i].trim();
+    if (first === "" || first.startsWith("#")) continue;
+    let whole = first;
+    const start = i + 1;
+    while (whole.endsWith("\\") && i + 1 < lines.length) {
+      i++;
+      whole = whole.slice(0, -1).trim() + " " + lines[i].trim();
+    }
+    const space = whole.search(/\s/);
+    const word = (space === -1 ? whole : whole.slice(0, space)).toUpperCase();
+    const rest = space === -1 ? "" : whole.slice(space).trim();
+    out.push({ line: start, word, rest });
+  }
+  return out;
+}
+
+function parseFrom(rest) {
+  const words = rest.split(/\s+/).filter((w) => !w.startsWith("--"));
+  const asAt = words.findIndex((w) => w.toUpperCase() === "AS");
+  return { ref: words[0] || "", alias: asAt === -1 ? null : words[asAt + 1] };
+}
+
+function tagOf(ref) {
+  const slash = ref.lastIndexOf("/");
+  const colon = ref.lastIndexOf(":");
+  return colon > slash ? ref.slice(colon + 1) : null;
+}
+
+function segmentsOf(command) {
+  return command.split(/&&|;|\|/).map((s) => s.trim().split(/\s+/)).filter((t) => t[0]);
+}
+
+function packageArgs(tokens, after) {
+  return tokens.slice(after).filter((t) => !t.startsWith("-"));
+}
+
+function lintDockerfile(text) {
+  const found = new Map();
+  const add = (line, rule) => found.set(line + ":" + rule, { line, rule });
+  const stages = [];
+  const aliases = new Set();
+  for (const ins of readInstructions(text)) {
+    if (ins.word === "FROM") {
+      const { ref, alias } = parseFrom(ins.rest);
+      stages.push({ line: ins.line, ref, users: [] });
+      const skip = aliases.has(ref) || ref === "scratch" || ref.includes("$") || ref.includes("@sha256:");
+      if (!skip) {
+        const tag = tagOf(ref);
+        if (tag === null || tag === "latest") add(ins.line, "latest-tag");
+      }
+      if (alias) aliases.add(alias);
+      continue;
+    }
+    if (ins.word === "USER" && stages.length) {
+      stages[stages.length - 1].users.push({ line: ins.line, name: ins.rest.split(/\s+/)[0] });
+    } else if (ins.word === "ENV" || ins.word === "ARG") {
+      const pairs = ins.rest.includes("=")
+        ? ins.rest.split(/\s+(?=[A-Za-z_][A-Za-z0-9_]*=)/).map((p) => p.split(/=(.*)/s))
+        : [[ins.rest.split(/\s+/)[0], ins.rest.split(/\s+/).slice(1).join(" ")]];
+      const bad = pairs.some(([name, value]) => SECRET_NAME.test(name) && (ins.word === "ARG" || (value || "").trim() !== ""));
+      if (bad) add(ins.line, "secret-in-env");
+    } else if (ins.word === "COPY" || ins.word === "ADD") {
+      const words = ins.rest.split(/\s+/);
+      if (words.some((w) => w.startsWith("--from"))) continue;
+      const sources = words.filter((w) => !w.startsWith("--")).slice(0, -1);
+      if (sources.some((s) => SECRET_FILE.test(s.split("/").pop()))) add(ins.line, "secret-file");
+    } else if (ins.word === "RUN") {
+      if (/\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(sh|bash)\b/.test(ins.rest)) add(ins.line, "curl-pipe-shell");
+      for (const t of segmentsOf(ins.rest)) {
+        if (t[0] === "npm" && (t[1] === "install" || t[1] === "i")) {
+          const pkgs = packageArgs(t, 2).filter((p) => !/^[./]|:\/\//.test(p));
+          if (packageArgs(t, 2).length === 0) add(ins.line, "npm-not-ci");
+          if (pkgs.some((p) => !p.slice(1).includes("@"))) add(ins.line, "unpinned-package");
+        } else if ((t[0] === "apt-get" || t[0] === "apt") && t[1] === "install") {
+          if (packageArgs(t, 2).some((p) => !p.includes("="))) add(ins.line, "unpinned-package");
+        } else if (t[0] === "apk" && t[1] === "add") {
+          if (packageArgs(t, 2).some((p) => !p.includes("="))) add(ins.line, "unpinned-package");
+        }
+      }
+    }
+  }
+  const last = stages[stages.length - 1];
+  if (last) {
+    const tag = tagOf(last.ref) || "";
+    const user = last.users[last.users.length - 1];
+    if (user) {
+      const name = user.name.split(":")[0].toLowerCase();
+      if (name === "root" || name === "0") add(user.line, "root-user");
+    } else if (!tag.includes("nonroot")) {
+      add(last.line, "root-user");
+    }
+  }
+  return [...found.values()].sort((a, b) => a.line - b.line || a.rule.localeCompare(b.rule));
+}
+
+function verifyDeploy(ref, signatures, policy) {
+  const match = /@(sha256:[a-f0-9]+)$/.exec(ref);
+  if (!match) return { ok: false, reason: "not-pinned" };
+  const digest = match[1];
+  const forThis = signatures.filter((s) => s.digest === digest);
+  if (forThis.length === 0) return { ok: false, reason: "unsigned" };
+  const fits = forThis.some((s) => s.identity === policy.identity && s.issuer === policy.issuer);
+  return fits ? { ok: true } : { ok: false, reason: "wrong-signer" };
+}
+
+function cooldownOk(publishedAt, now, minDays) {
+  if (!minDays) return true;
+  const days = (Date.parse(now) - Date.parse(publishedAt)) / 86400000;
+  return days > minDays;
+}
+
+function scan(sbom, advisories) {
+  const seen = new Set();
+  const findings = [];
+  for (const { name, version } of sbom) {
+    const key = name + "@" + version;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    for (const adv of advisories) {
+      if (adv.name === name && adv.affected.includes(version)) {
+        findings.push({ id: adv.id, name, version, severity: adv.severity, fixed: adv.fixed });
+      }
+    }
+  }
+  return findings.sort(
+    (a, b) => SEVERITIES.indexOf(b.severity) - SEVERITIES.indexOf(a.severity) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+  );
+}
+
+function gate(findings, failOn) {
+  const limit = SEVERITIES.indexOf(failOn);
+  if (limit === -1) throw new Error("unknown severity: " + failOn);
+  return findings.some((f) => SEVERITIES.indexOf(f.severity) >= limit) ? 1 : 0;
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that draw the boxes. They only show things, they change nothing.
+// "tiny-logger" is a made up package name. The digests are real sha256 values of two made up texts.
+// ---------------------------------------------------------------------------------------------
+const D1 = "9c66e7019db8ee238c3dc396717f24b8dfde8d819eb0e9be987830753bdb86eb"; // sha256 of "tiny-logger-app image v1"
+const D2 = "82573370ed6d52c722d2886f0f2ecf85aec2bb4feadb5c218b6bb09025f3d891"; // sha256 of "tiny-logger-app image v1 plus one extra byte"
+const short = (d) => "sha256:" + d.slice(0, 12);
+const REPO = "ghcr.io/me/app";
+const POLICY = { identity: "github.com/me/app release.yml on main", issuer: "GitHub Actions" };
+
+const L = (name, size, state, lit) => ({ name, size, state: state || "", lit: !!lit });
+const mk = (title, cls, tag, layers, extra) => Object.assign({ title, cls, tag, layers }, extra || {});
+
+// The seven places where an attack can enter. status is "bad" (taken), "ok" (blocked) or "" (not reached yet).
+const ENTRY = [
+  "1. The publisher account: a stolen token or a phished login",
+  "2. The version range: your install takes the newest version that fits",
+  "3. Install scripts: they run during your build",
+  "4. The base image tag: it can move to new bytes",
+  "5. Your Dockerfile: root user, secrets in layers",
+  "6. Your pipeline tools: an action or a scanner named by a tag that can move",
+  "7. The image in the registry: replaced after you built it",
+];
+function entryBox(status, now) {
+  return { wide: true, title: "Where an attack can enter", cls: "alarm", tag: [now, ""], small: "", lines: ENTRY.map((t, i) => ({ t, cls: status[i + 1] || "" })) };
+}
+
+const BAD_DOCKERFILE = ["FROM node:latest", "COPY package.json ./", "RUN npm install", "COPY . .", 'CMD ["node", "server.js"]'].join("\n");
+const GOOD_DOCKERFILE = [
+  "FROM node:24-alpine@sha256:116b800c3754 AS build", "COPY package*.json ./", "RUN npm ci", "COPY . .", "RUN npm run build", "",
+  "FROM node:24-alpine@sha256:116b800c3754", "COPY package*.json ./", "RUN npm ci --omit=dev", "COPY --from=build /app/dist ./dist", "USER node", 'CMD ["node", "dist/server.js"]',
+].join("\n");
+const dockerLayers = (text) => text.split("\n").map((l, i) => ({ l, i })).filter((x) => x.l.trim() !== "").map((x) => L(x.l, "line " + (x.i + 1), "base"));
+
+const reg = (versions) => mk("npm registry", "lb", ["outside your control", ""], versions);
+const GOOD_REG = [L("tiny-logger 2.1.0", "good, published long ago", "cached")];
+const BAD_REG = [L("tiny-logger 2.1.0", "good", "cached"), L("tiny-logger 2.1.1", "BAD, published 5 minutes ago", "rebuilt", true)];
+const OLD_APP = mk("Your running app", "srv", ["old version still runs", ""], [L("tiny-logger 2.1.0", "still fine", "cached")]);
+
+// ---- Story 1: a bad version gets in, and nothing stops it ----
+function simulateNoDefense() {
+  const steps = [];
+  const df = mk("Your build (CI)", "user", ["your Dockerfile", ""], dockerLayers(BAD_DOCKERFILE));
+  steps.push({ layout: "three", hop: "Setup: a project with the usual shortcuts", phase: "setup",
+    note: "<b>A small app that uses one library.</b> <code>package.json</code> says <code>tiny-logger ^2.1.0</code>. The Dockerfile uses <code>node:latest</code>, <code>npm install</code> and no <code>USER</code>. The repository has no <code>package-lock.json</code> (it is in <code>.gitignore</code>). <b>tiny-logger is a made up name.</b> Guess first: which version will the build install later?",
+    boxes: [reg(GOOD_REG), df, mk("Your running app", "srv", ["not built yet", ""], [L("empty", "nothing yet", "wait")]), entryBox({}, "nothing reached yet")] });
+  steps.push({ layout: "three", hop: "Entry 1: the publisher account", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>An attacker steals the maintainer's npm login or token.</b> The reports on the 2025 and 2026 attacks describe this. The attacker publishes <code>tiny-logger 2.1.1</code> with an install script inside. You cannot stop this step: it happens on the maintainer's side. All your defenses start after it.",
+    boxes: [reg(BAD_REG), df, OLD_APP, entryBox({ 1: "bad" }, "entry 1 taken")] });
+  steps.push({ layout: "three", hop: "Entry 2: the build asks for the newest version", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>Your CI runs <code>npm install</code>.</b> There is no lockfile in the build, so npm takes the newest version that fits <code>^2.1.0</code>. That is <code>2.1.1</code>, the bad one. Nobody changed your code. You only ran the build again.",
+    boxes: [reg(BAD_REG), mk("Your build (CI)", "user", ["installing", ""], [L("RUN npm install", "asks for ^2.1.0", "now", true), L("installed tiny-logger", "2.1.1", "rebuilt", true)]), OLD_APP, entryBox({ 1: "bad", 2: "bad" }, "entries 1 and 2 taken")] });
+  steps.push({ layout: "three", hop: "Entry 3: the install script runs", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>npm runs the library's install script during the build.</b> The build machine holds secrets: a registry token and cloud keys. The script reads them and sends them away. With a stolen npm token the attacker can publish bad versions of <i>your</i> packages too. That is how the 2025 worm spread.",
+    boxes: [reg(BAD_REG), mk("Your build (CI)", "alarm", ["secrets leave here", "bad"], [L("postinstall of 2.1.1", "runs as part of npm install", "rebuilt", true), L("NPM_TOKEN", "sent away", "rebuilt"), L("AWS_ACCESS_KEY_ID", "sent away", "rebuilt")]), OLD_APP, entryBox({ 1: "bad", 2: "bad", 3: "bad" }, "entries 1 to 3 taken")] });
+  const lint = lintDockerfile(BAD_DOCKERFILE);
+  steps.push({ layout: "three", hop: "Entry 4 and 5: the Dockerfile itself", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>The image is built from the Dockerfile above.</b> A linter reads it and finds " + lint.length + " problems at once: <code>node:latest</code> can move, there is no <code>USER</code> so the app runs as root, and <code>npm install</code> does not insist on the lockfile. Nobody ran a linter, so nobody saw them.",
+    boxes: [reg(BAD_REG), mk("Your build (CI)", "user", ["image built", ""], [L("image", "has tiny-logger 2.1.1", "rebuilt", true), L("base", "node:latest, new bytes today", "rebuilt")]), mk("What a linter finds", "alarm", [lint.length + " problems", "bad"], lint.map((f) => L("line " + f.line, f.rule, "rebuilt"))), entryBox({ 1: "bad", 2: "bad", 3: "bad", 4: "bad", 5: "bad" }, "entries 1 to 5 taken")] });
+  steps.push({ layout: "three", hop: "Entry 7: nobody checks the image", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>The image is pushed as <code>app:latest</code> and deployed.</b> No scan. No signature. No check at the door. The app runs as root, so the bad code runs as root too. It can read every environment variable and write anywhere in the container.",
+    boxes: [reg(BAD_REG), mk("Registry and cluster", "user", ["deploy", ""], [L("app:latest", "no scan, no signature, no check", "rebuilt", true)]), mk("Your running app", "alarm", ["compromised", "bad"], [L("tiny-logger 2.1.1", "bad code is running", "rebuilt"), L("user", "root", "rebuilt"), L("filesystem", "writable", "rebuilt"), L("env secrets", "readable", "rebuilt")]), entryBox({ 1: "bad", 2: "bad", 3: "bad", 4: "bad", 5: "bad", 7: "bad" }, "entries 1 to 5 and 7 taken")] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Every step trusted what arrived.</b> The version, the script, the base image, the image tag. One bad version was enough. The next tab runs the same story with a defense at each step.",
+    boxes: [{ title: "What went wrong", cls: "alarm", tag: ["the chain", "bad"], small: "", lines: ["no lockfile: newest version wins", "install scripts ran", "a tag that can move", "root user, writable filesystem", "no check before deploy"] }, { title: "Next", cls: "srv", tag: ["tab 2", "ok"], small: "", lines: ["the same attack", "a defense at each step", "watch each one stop a step"] }] });
+  return steps;
+}
+
+// ---- Story 2: the same path with defenses ----
+function simulateDefenses() {
+  const steps = [];
+  const NOW = "2026-11-19T12:05:00Z";
+  const PUBLISHED = "2026-11-19T12:00:00Z";
+  const sbomClean = [{ name: "tiny-logger", version: "2.1.0" }, { name: "libcurl", version: "8.5.0" }, { name: "zlib", version: "1.3.1" }];
+  const advisories = [{ id: "EXAMPLE-0001", name: "libcurl", affected: ["8.5.0"], fixed: "8.6.0", severity: "HIGH" }];
+  const sbomFixed = [{ name: "tiny-logger", version: "2.1.0" }, { name: "libcurl", version: "8.6.0" }, { name: "zlib", version: "1.3.1" }];
+  const lockBox = (lit) => mk("package-lock.json", "fol", ["in Git", ""], [L("tiny-logger", "2.1.0, with a hash", "base", lit)]);
+  const df = mk("Your build (CI)", "user", ["your Dockerfile", ""], dockerLayers(GOOD_DOCKERFILE));
+  const E = (o, t) => entryBox(o, t);
+
+  steps.push({ layout: "three", hop: "Setup: the same project, with defenses", phase: "setup",
+    note: "<b>The same app.</b> The repository now keeps <code>package-lock.json</code>. The Dockerfile pins the base by digest, uses <code>npm ci</code>, builds in two stages and sets <code>USER node</code>. npm has the install-script rule on (the default in npm 12). The attacker is the same one. Guess first: which version does the build install this time?",
+    boxes: [lockBox(true), df, reg(GOOD_REG), E({}, "nothing reached yet")] });
+  steps.push({ layout: "three", hop: "Entry 1 again: the attacker publishes 2.1.1", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>The same stolen login, the same bad version.</b> You still cannot stop this step. That is why the defenses all come <i>after</i> it. Watch what each one does.",
+    boxes: [lockBox(false), df, reg(BAD_REG), E({ 1: "bad" }, "entry 1 taken")] });
+  steps.push({ layout: "three", hop: "Defense for entry 2: lockfile, npm ci, wait", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b><code>npm ci</code> installs exactly what the lockfile says:</b> <code>2.1.0</code>, and the file's hash must match. The new <code>2.1.1</code> is never asked for. On top of that, a wait rule such as <code>min-release-age=7</code> skips versions younger than 7 days. In the model, <code>cooldownOk</code> for 2.1.1 = <b>" + cooldownOk(PUBLISHED, NOW, 7) + "</b>.",
+    boxes: [lockBox(true), mk("Your build (CI)", "srv", ["npm ci", "ok"], [L("RUN npm ci", "reads the lockfile", "now", true), L("installed tiny-logger", "2.1.0", "cached", true), L("2.1.1 is 5 minutes old", "cooldownOk = " + cooldownOk(PUBLISHED, NOW, 7), "cached")]), reg(BAD_REG), E({ 1: "bad", 2: "ok" }, "entry 2 blocked")] });
+  steps.push({ layout: "three", hop: "Defense for entry 3: scripts are off", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>Install scripts do not run.</b> npm 12 turns dependency install scripts off. A script only runs if you list its package in <code>allowScripts</code>. With npm 11 or older you set <code>ignore-scripts=true</code> yourself. I tried a harmless test script on npm 11.17.0: it ran, with a warning. With <code>--ignore-scripts</code> it did not run.",
+    boxes: [lockBox(false), mk("Your build (CI)", "srv", ["scripts off", "ok"], [L("a dependency's postinstall", "not allowed, not run", "cached", true), L("allowScripts list", "empty", "cached"), L("CI secrets", "stay where they are", "cached")]), reg(BAD_REG), E({ 1: "bad", 2: "ok", 3: "ok" }, "entries 2 and 3 blocked")] });
+  const lintGood = lintDockerfile(GOOD_DOCKERFILE);
+  const lintBad = lintDockerfile(BAD_DOCKERFILE);
+  steps.push({ layout: "three", hop: "Defense for entry 4 and 5: lint, pin, small, not root", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>A linter reads the Dockerfile.</b> The first project had " + lintBad.length + " problems. This one has <b>" + lintGood.length + "</b>. The base is pinned by digest, so it cannot move. The last stage has <code>USER node</code>, so the app is not root. No secret is in an <code>ENV</code> line or a copied file. A small base has less in it to attack.",
+    boxes: [mk("Dockerfile linter", "srv", [lintGood.length + " problems", "ok"], [L("latest-tag", "none", "cached"), L("root-user", "none", "cached"), L("secret-in-env, secret-file", "none", "cached"), L("npm-not-ci, unpinned-package", "none", "cached")]), mk("Your build (CI)", "user", ["image built", ""], [L("base", "pinned by digest 116b800c3754", "cached"), L("tiny-logger", "2.1.0 from the lockfile", "cached"), L("USER", "node", "cached", true)]), reg(GOOD_REG), E({ 1: "bad", 2: "ok", 3: "ok", 4: "ok", 5: "ok" }, "entries 2 to 5 blocked")] });
+  const found1 = scan(sbomClean, advisories);
+  steps.push({ layout: "three", hop: "Scan: look for known holes", phase: "chk", badge: ["Check", "chk"],
+    note: "<b>A scanner reads the list of what is in the image (the SBOM)</b> and compares it with a database of known holes. It finds <b>" + found1.length + "</b>: <code>" + found1[0].name + " " + found1[0].version + "</code>, " + found1[0].severity + ", fixed in " + found1[0].fixed + ". The rule: fail the build on HIGH and CRITICAL. <code>gate</code> = <b>" + gate(found1, "HIGH") + "</b>, so the pipeline stops. <b>EXAMPLE-0001 is a made up id.</b>",
+    boxes: [mk("SBOM: what is inside", "user", ["list of parts", ""], sbomClean.map((p) => L(p.name, p.version, p.name === "libcurl" ? "rebuilt" : "base", p.name === "libcurl"))), mk("Scanner result", "alarm", [found1.length + " finding", "bad"], found1.map((f) => L(f.name + " " + f.version, f.severity + ", fix " + f.fixed, "rebuilt", true))), mk("The gate", "alarm", ["pipeline stops", "bad"], [L("fail on HIGH", "exit code " + gate(found1, "HIGH"), "rebuilt", true)]), E({ 1: "bad", 2: "ok", 3: "ok", 4: "ok", 5: "ok" }, "scan found a known hole")] });
+  const found2 = scan(sbomFixed, advisories);
+  steps.push({ layout: "three", hop: "Fix and scan again", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>A tool such as Dependabot opens a pull request with a newer base.</b> The new base has libcurl 8.6.0. The scan finds <b>" + found2.length + "</b> and <code>gate</code> = <b>" + gate(found2, "HIGH") + "</b>, so the pipeline goes on. Remember: a scanner only knows holes that someone already reported (tab 4).",
+    boxes: [mk("SBOM: what is inside", "user", ["list of parts", ""], sbomFixed.map((p) => L(p.name, p.version, "cached", p.name === "libcurl"))), mk("Scanner result", "srv", [found2.length + " findings", "ok"], [L("nothing known", "for these versions", "cached", true)]), mk("The gate", "srv", ["pipeline goes on", "ok"], [L("fail on HIGH", "exit code " + gate(found2, "HIGH"), "cached", true)]), E({ 1: "bad", 2: "ok", 3: "ok", 4: "ok", 5: "ok" }, "scan is clean")] });
+  const sigs = [{ digest: "sha256:" + D1, identity: POLICY.identity, issuer: POLICY.issuer }];
+  steps.push({ layout: "three", hop: "Sign: put your name on exactly these bytes", phase: "run", badge: ["Doing a step", "run"],
+    note: "<b>The pipeline signs the image digest.</b> The digest is a fingerprint of the exact bytes: <code>" + short(D1) + "</code>. With cosign and Sigstore the pipeline gets a short-lived certificate that names who it is (this workflow, this repository, this branch). The signature is stored next to the image in the registry. There is no long-lived key to steal. (This model only keeps the record. It does not do the math.)",
+    boxes: [mk("The image", "user", ["built by CI", ""], [L(REPO, short(D1), "base", true)]), mk("The signature", "fol", ["stored in the registry", ""], [L("signed digest", short(D1), "cached", true), L("who signed", POLICY.identity, "cached"), L("issuer", POLICY.issuer, "cached")]), mk("Registry", "lb", ["ghcr.io", ""], [L("image + signature", short(D1), "cached")]), E({ 1: "bad", 2: "ok", 3: "ok", 4: "ok", 5: "ok" }, "image signed")] });
+  const v1 = verifyDeploy(REPO + "@sha256:" + D1, sigs, POLICY);
+  steps.push({ layout: "three", hop: "Verify and run: the door checks the name", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>The cluster checks before it starts the image.</b> The deploy names the image by digest. The check finds a signature for that digest from the signer the policy names. <code>verifyDeploy</code> = <b>" + JSON.stringify(v1) + "</b>. The pod runs as a normal user, with a read-only filesystem and no extra Linux powers. If the app is broken into, there is little it can change.",
+    boxes: [mk("Deploy check", "srv", ["passes", "ok"], [L("image named by digest", short(D1), "cached"), L("signature for this digest", "found", "cached"), L("signer matches policy", "yes", "cached", true)]), mk("The pod", "srv", ["running", "ok"], [L("user", "node, not root", "cached", true), L("filesystem", "read-only", "cached", true), L("Linux powers", "all dropped", "cached")]), reg(GOOD_REG), E({ 1: "bad", 2: "ok", 3: "ok", 4: "ok", 5: "ok" }, "ready to run")] });
+  const v2 = verifyDeploy(REPO + "@sha256:" + D2, sigs, POLICY);
+  steps.push({ layout: "three", hop: "Defense for entry 7: new bytes are refused", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>Later, someone pushes different bytes to the registry.</b> A tag could be moved to them without you noticing. But your deploy names the digest, and different bytes have a different digest: <code>" + short(D2) + "</code>. No signature exists for it. <code>verifyDeploy</code> = <b>" + JSON.stringify(v2) + "</b>. The cluster refuses to start it.",
+    boxes: [mk("Deploy check", "alarm", ["refused", "bad"], [L("digest asked for", short(D2), "rebuilt"), L("signature for it", "none", "rebuilt", true), L("result", JSON.stringify(v2), "rebuilt")]), mk("The signature we have", "fol", ["from the signing step", ""], [L("signed digest", short(D1), "cached"), L("not the same bytes", short(D2), "rebuilt")]), mk("The pod", "srv", ["old pod keeps running", "ok"], [L("running image", short(D1), "cached")]), E({ 1: "bad", 2: "ok", 3: "ok", 4: "ok", 5: "ok", 7: "ok" }, "entry 7 blocked")] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>You cannot stop the attacker from publishing.</b> You can make each later step refuse to trust what arrives. Entry 6, your own pipeline tools, has its own defense: name actions by their full commit id, not by a tag (tab 5).",
+    boxes: [{ title: "Each defense, one step", cls: "srv", tag: ["tab 2", "ok"], small: "", lines: ["lockfile + npm ci: same version", "wait 7 days: skip young versions", "scripts off: nothing runs at install", "linter, digest, USER node", "scan: known holes fail the build", "sign + verify: only your bytes run"] }, { title: "What is still open", cls: "alarm", tag: ["careful", "bad"], small: "", lines: ["a new attack the scanner does not know yet", "a stolen token in your own pipeline", "a signature proves who, not that the code is safe"] }] });
+  return steps;
+}
+
+// ---- Story 3: the deploy gate ----
+function simulateGate() {
+  const steps = [];
+  const good = { digest: "sha256:" + D1, identity: POLICY.identity, issuer: POLICY.issuer };
+  const fork = { digest: "sha256:" + D2, identity: "github.com/evil/app release.yml on main", issuer: POLICY.issuer };
+  const policyBox = mk("The policy", "fol", ["what the cluster accepts", ""], [L("signer", POLICY.identity, "base"), L("issuer", POLICY.issuer, "base")]);
+  const sigBox = (list, lit) => mk("Signatures in the registry", "lb", [list.length + " stored", ""], list.map((s, i) => L(short(s.digest.slice(7)), s.identity, "cached", lit === i)));
+  const ask = (ref, res, note) => mk("Deploy asks for", res.ok ? "srv" : "alarm", [res.ok ? "allowed" : "refused: " + res.reason, res.ok ? "ok" : "bad"], [L(ref, note, res.ok ? "cached" : "rebuilt", true)]);
+  steps.push({ layout: "three", hop: "Setup: one signature, one policy", phase: "setup",
+    note: "<b>Your pipeline signed one image:</b> the bytes with the fingerprint <code>" + short(D1) + "</code>. The cluster has a policy: only run images signed by your release workflow, issued by GitHub Actions. Now four things try to deploy. Guess first: what happens when someone pushes new bytes and the deploy still says <code>app:1.4</code>?",
+    boxes: [policyBox, sigBox([good], 0), mk("Deploy asks for", "user", ["nothing yet", ""], [L("waiting", "", "wait")])] });
+  const r1 = verifyDeploy(REPO + ":1.4", [good], POLICY);
+  steps.push({ layout: "three", hop: "Try 1: a tag", phase: "bad", badge: ["Refused", "bad"],
+    note: "<b>A tag is a name that can move.</b> <code>app:1.4</code> may point to other bytes tomorrow, so nobody can say what a signature covers. The gate wants a digest. <code>verifyDeploy</code> says <b>" + r1.reason + "</b>.",
+    boxes: [policyBox, sigBox([good]), ask(REPO + ":1.4", r1, "a tag, not a digest")] });
+  const r2 = verifyDeploy(REPO + "@sha256:" + D1, [good], POLICY);
+  steps.push({ layout: "three", hop: "Try 2: the digest that was signed", phase: "srv", badge: ["Allowed", "srv"],
+    note: "<b>The digest has a signature from the right signer.</b> <code>verifyDeploy</code> says <b>" + JSON.stringify(r2) + "</b>. Only this kind of image may start.",
+    boxes: [policyBox, sigBox([good], 0), ask(REPO + "@" + short(D1), r2, "signed by the right signer")] });
+  const r3 = verifyDeploy(REPO + "@sha256:" + D2, [good], POLICY);
+  steps.push({ layout: "three", hop: "Try 3: the bytes changed", phase: "bad", badge: ["Refused", "bad"],
+    note: "<b>Someone added one byte to the image.</b> The fingerprint is now <code>" + short(D2) + "</code>. The only signature is for <code>" + short(D1) + "</code>. <code>verifyDeploy</code> says <b>" + r3.reason + "</b>. A signature belongs to exact bytes. It does not follow the name.",
+    boxes: [policyBox, sigBox([good]), ask(REPO + "@" + short(D2), r3, "no signature for this digest")] });
+  const r4 = verifyDeploy(REPO + "@sha256:" + D2, [good, fork], POLICY);
+  steps.push({ layout: "three", hop: "Try 4: signed, but by someone else", phase: "bad", badge: ["Refused", "bad"],
+    note: "<b>Now the changed bytes do have a signature, from a copy of your project owned by someone else.</b> Anyone can sign their own image, so the gate must also check <i>who</i> signed. That identity is not the one in the policy, so <code>verifyDeploy</code> says <b>" + r4.reason + "</b>. This is why you give cosign the exact identity and issuer, and not a broad pattern.",
+    boxes: [policyBox, sigBox([good, fork], 1), ask(REPO + "@" + short(D2), r4, "signed by github.com/evil/app")] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Deploy by digest. Check the digest has a signature. Check who signed.</b> Three checks, in that order. A signature tells you who built these exact bytes. It does not tell you the code is safe.",
+    boxes: [{ title: "The three checks", cls: "srv", tag: ["in order", "ok"], small: "", lines: ["1. a digest, not a tag", "2. a signature for that digest", "3. the signer is the one you named"] }, { title: "What it cannot tell you", cls: "alarm", tag: ["limit", "bad"], small: "", lines: ["that the code is free of bugs", "that your pipeline was not hijacked", "(tab 5: TanStack had valid provenance)"] }] });
+  return steps;
+}
+
+// ---- Story 4: what a scanner can see, and when ----
+function simulateScanner() {
+  const steps = [];
+  const sbom = [{ name: "tiny-logger", version: "2.1.1" }, { name: "zlib", version: "1.3.1" }];
+  const adv = [{ id: "EXAMPLE-0002", name: "tiny-logger", affected: ["2.1.1"], fixed: "2.1.2", severity: "CRITICAL" }];
+  const day = "2026-05-11T";
+  const published = day + "19:20:00Z";
+  const timeline = (at) => [["19:20", "bad version published"], ["19:46", "a researcher opens a report"], ["21:03", "the bad versions are marked deprecated"], ["21:30", "a security advisory is published"], ["22:13", "the registry starts removing the files"]].map((x, i) => L(x[0] + " UTC", x[1], i < at ? "cached" : i === at ? "now" : "wait", i === at));
+  const image = (title) => mk(title, "user", ["same image", ""], sbom.map((p) => L(p.name, p.version, p.name === "tiny-logger" ? "rebuilt" : "base", p.name === "tiny-logger")));
+  const scanBox = (advList, title) => {
+    const f = scan(sbom, advList);
+    return mk(title, f.length ? "alarm" : "user", [f.length + " findings, gate " + gate(f, "HIGH"), f.length ? "bad" : ""], f.length ? f.map((x) => L(x.name + " " + x.version, x.severity + ", fix " + x.fixed, "rebuilt", true)) : [L("nothing known", "for these versions", "cached")]);
+  };
+  steps.push({ layout: "three", hop: "19:20 UTC: a bad version appears", phase: "bad", badge: ["Attack enters", "bad"],
+    note: "<b>This model follows the time line of the TanStack case on 2026-05-11</b> (their postmortem). A bad version is published at 19:20. A build at 19:25 installs it, so the image holds <code>tiny-logger 2.1.1</code>. The scan database has no advisory yet. <code>scan</code> finds <b>" + scan(sbom, []).length + "</b>, so <code>gate</code> = <b>" + gate(scan(sbom, []), "HIGH") + "</b> and the pipeline goes on. Guess first: is the image safe?",
+    boxes: [mk("Time line", "lb", ["real order of events", ""], timeline(0)), image("The image built at 19:25"), scanBox([], "Scan at 19:25")] });
+  steps.push({ layout: "three", hop: "19:46 UTC: someone notices", phase: "chk", badge: ["Check", "chk"],
+    note: "<b>A researcher outside the project sees the problem</b> and opens a report, 26 minutes after the first publish. But your scanner reads its own database, and it still has no advisory. The scan of the same image gives the same answer: <b>" + scan(sbom, []).length + " findings</b>.",
+    boxes: [mk("Time line", "lb", ["real order of events", ""], timeline(1)), image("The image"), scanBox([], "Scan at 19:50")] });
+  steps.push({ layout: "three", hop: "21:30 UTC: the advisory is published", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>Now the world knows.</b> Once your scanner's database has the advisory, the same image shows <b>" + scan(sbom, adv).length + "</b> finding, CRITICAL, and <code>gate</code> = <b>" + gate(scan(sbom, adv), "HIGH") + "</b>. The image did not change. The database did. <b>EXAMPLE-0002 is a made up id.</b>",
+    boxes: [mk("Time line", "lb", ["real order of events", ""], timeline(3)), image("The image"), scanBox(adv, "Scan at 21:35")] });
+  steps.push({ layout: "three", hop: "22:13 UTC: the registry removes the files", phase: "chk", badge: ["Check", "chk"],
+    note: "<b>New installs of the bad version now fail.</b> But an image you built at 19:25 still holds a copy. Removing the package does not remove it from your image. So <b>scan the images you already run, on a schedule</b>, and not only at build time.",
+    boxes: [mk("Time line", "lb", ["real order of events", ""], timeline(4)), mk("The old image", "alarm", ["still deployed", "bad"], [L("tiny-logger 2.1.1", "a copy is inside", "rebuilt", true)]), mk("What to do", "srv", ["a schedule", "ok"], [L("scan running images daily", "learn at 21:35, not never", "cached", true), L("rebuild, rotate secrets", "if it ran", "cached")])] });
+  const NOW = day + "19:30:00Z";
+  steps.push({ layout: "three", hop: "The other defense: wait", phase: "srv", badge: ["Blocked", "srv"],
+    note: "<b>A 7 day wait skips young versions.</b> A build at 19:30 with <code>min-release-age=7</code> asks: is 2.1.1 more than 7 days old? <code>cooldownOk</code> = <b>" + cooldownOk(published, NOW, 7) + "</b>, so npm does not take it. The files were removed hours after they appeared, long before 7 days. Nobody needed to know about the attack to be safe.",
+    boxes: [mk("Time line", "lb", ["real order of events", ""], timeline(2)), mk("Build at 19:30 with a wait", "srv", ["min-release-age=7", "ok"], [L("tiny-logger 2.1.1", "age 10 minutes", "now", true), L("cooldownOk", String(cooldownOk(published, NOW, 7)), "cached", true), L("installed", "2.1.0 from the lockfile", "cached")]), mk("What it costs", "fol", ["tradeoff", ""], [L("fixes arrive later", "security fixes too", "wait"), L("Dependabot", "its wait skips security updates", "wait")])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A scanner finds known holes.</b> For the first hours of a new attack there is no advisory, so a clean scan means \"nothing known\", not \"safe\". A wait covers the unknown hours. A scan covers the time after. Use both, and scan old images too.",
+    boxes: [{ title: "Scanner", cls: "lb", tag: ["after the world knows", ""], small: "", lines: ["knows holes that are reported", "blind in the first hours", "also scan images that already run"] }, { title: "Wait (cooldown)", cls: "srv", tag: ["before the world knows", "ok"], small: "", lines: ["skips versions younger than N days", "needs no advisory", "costs: fixes also arrive later"] }] });
+  return steps;
+}
+
+// ---- Story 5: four real attacks, and which defense would have helped ----
+function simulateReal() {
+  const steps = [];
+  const trio = (entered, helps, misses) => [
+    mk("How it got in", "alarm", ["entry", "bad"], entered.map((x) => L(x[0], x[1], "rebuilt"))),
+    mk("What would have helped", "srv", ["defense", "ok"], helps.map((x) => L(x[0], x[1], "cached"))),
+    mk("What would not", "fol", ["limit", ""], misses.map((x) => L(x[0], x[1], "wait"))),
+  ];
+  steps.push({ layout: "three", hop: "September 2025: Shai-Hulud, the first worm", phase: "bad", badge: ["Attack", "bad"],
+    note: "<b>A worm in npm.</b> CISA wrote on 2025-09-23 that it had compromised more than 500 packages. The malware looked for GitHub and cloud keys, sent them out, and used the stolen npm access to publish bad versions of the victim's other packages. Later waves (November 2025) ran the script earlier, at the preinstall step. Guess first: which defense stops a worm that spreads by republishing?",
+    boxes: trio([["stolen maintainer logins and tokens", "entry 1"], ["a script that runs at install", "entry 3"], ["copies of itself in the victim's packages", "spreads"]],
+      [["lockfile and npm ci", "no new version by surprise"], ["scripts off", "the script does not start"], ["a 7 day wait", "the waves were found within days"], ["phishing-resistant 2FA", "fewer stolen logins"]],
+      [["a scanner on day one", "no advisory yet"], ["a long-lived token", "this is what the worm stole"]]) });
+  steps.push({ layout: "three", hop: "March 2026: axios, a dependency added", phase: "bad", badge: ["Attack", "bad"],
+    note: "<b>Two axios versions got a new dependency.</b> CISA (2026-04-20) says axios 1.14.1 and 0.30.4, published on 2026-03-31, pulled in <code>plain-crypto-js</code>, which downloads a remote access program. Security vendors say a maintainer account was taken over. CISA does not say how. CISA's advice includes <code>ignore-scripts=true</code> and <code>min-release-age=7</code>.",
+    boxes: trio([["a maintainer account (per vendors)", "entry 1"], ["a new dependency in a normal looking version", "entry 2"], ["an install script in that dependency", "entry 3"]],
+      [["npm ci from a lockfile", "the old version stays"], ["scripts off", "nothing is downloaded"], ["a 7 day wait", "per CISA"]],
+      [["reading the axios source", "it was not changed"], ["trusting a popular name", "many downloads did not help"]]) });
+  steps.push({ layout: "three", hop: "March 2026: the scanner itself, Trivy", phase: "bad", badge: ["Attack", "bad"],
+    note: "<b>The tool that checks you was attacked.</b> Aqua Security reports that on 2026-03-19 attackers moved 76 of 77 version tags of <code>trivy-action</code> to bad commits and published a bad Trivy 0.69.4. A pipeline that named the action by tag ran the bad code with no visible change. The advice: name actions by the full commit id. This is entry 6.",
+    boxes: trio([["version tags moved to bad commits", "entry 6"], ["credentials left from an earlier incident", "incomplete rotation"], ["a pipeline full of secrets", "the target"]],
+      [["name actions by full commit id", "a tag can move, a commit id cannot"], ["rotate everything after an incident", "all of it"]],
+      [["a version tag like v0.35", "a tag can move"], ["trusting a security tool by default", "it is code too"]]) });
+  steps.push({ layout: "three", hop: "May 2026: TanStack, with valid provenance", phase: "bad", badge: ["Attack", "bad"],
+    note: "<b>42 packages, 84 bad versions, 6 minutes.</b> The TanStack postmortem (2026-05-11): a pull request ran in a <code>pull_request_target</code> workflow and poisoned a build cache. Later the release workflow's own token was read from memory and used to publish. <b>No npm token was stolen.</b> The bad versions had valid provenance (a signed record of where they were built), because the real pipeline built them.",
+    boxes: trio([["a pull request from a fork", "entry 6"], ["a poisoned build cache", "trusted later"], ["a publish token read from the runner's memory", "entry 1, no stolen password"]],
+      [["a 7 day wait", "files were removed within hours"], ["scripts and git dependencies off", "npm 12 default"], ["review pull_request_target workflows", "the fix at the source"]],
+      [["checking provenance", "it was valid"], ["token-free publishing alone", "any step of the workflow can ask for the token"]]) });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Each attack went through a different door.</b> The login, the new dependency, the scanner's own tags, the build pipeline. No single defense covers them all. The ones that come back again and again: exact versions, scripts off, a short wait, full commit ids for actions, and few short-lived secrets.",
+    boxes: [{ title: "Appears in all four", cls: "srv", tag: ["layers", "ok"], small: "", lines: ["lockfile and npm ci", "install scripts off", "wait before taking new versions", "few secrets on the build machine"] }, { title: "Dates and sources", cls: "fol", tag: ["checked 2026-11-19", ""], small: "", lines: ["CISA alerts: 2025-09-23, 2026-04-20", "Aqua Security advisory, March 2026", "TanStack postmortem, May 2026", "links are in the lesson"] }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A bad version gets in", sim: simulateNoDefense,
+    why: "Without a lockfile, npm install takes the newest version that fits the range. A stolen login lets an attacker publish that version, and its install script runs on your build machine, where your secrets are.",
+    predict: { q: "package.json says ^2.1.0 and there is no lockfile in the build. The attacker publishes 2.1.1. Which version does npm install take?", options: ["2.1.0, the one you used before", "2.1.1, the newest that fits", "It asks you which one"], answer: "2.1.1, the newest that fits" } },
+  { name: "2. The same path, with defenses", sim: simulateDefenses,
+    why: "npm ci installs exactly what the lockfile says, so the new version is never asked for. Scripts are off, the wait rule skips young versions, the image is small and pinned, a scan and a signature are checked before deploy, and the app runs as a normal user.",
+    predict: { q: "The repository now has a lockfile and the build uses npm ci. The attacker publishes 2.1.1. Which version does the build install?", options: ["2.1.0, from the lockfile", "2.1.1, the newest that fits", "Nothing, the build fails"], answer: "2.1.0, from the lockfile" } },
+  { name: "3. The deploy gate", sim: simulateGate,
+    why: "A signature belongs to exact bytes, named by their digest. A tag can move to new bytes, so the gate refuses tags. It also checks who signed, because anyone can sign their own copy.",
+    predict: { q: "Someone pushes new bytes to the registry. The deploy still says app:1.4. The cluster only allows images signed by your pipeline. Does the new image start?", options: ["Yes, the tag is the same", "No, a tag is refused, and new bytes have no signature", "Yes, but with a warning"], answer: "No, a tag is refused, and new bytes have no signature" } },
+  { name: "4. What a scanner can see", sim: simulateScanner,
+    why: "A scanner compares what is in your image with a database of known holes. In the first hours of a new attack the database is empty, so the scan is clean. A wait before installing covers those hours. Scan old images too.",
+    predict: { q: "A bad version was published 5 minutes ago and no advisory exists yet. You scan your image. What does the scan say?", options: ["It finds the bad package", "Nothing found, but that does not mean safe", "The scan fails because the package is new"], answer: "Nothing found, but that does not mean safe" } },
+  { name: "5. Four real attacks", sim: simulateReal,
+    why: "Each attack went through a different door, so no single defense covers all of them. Provenance was valid in the TanStack case, because the real pipeline built the bad version.",
+    predict: { q: "The bad TanStack versions had a valid provenance record. What does a valid provenance record tell you?", options: ["The code is safe", "Which pipeline built it, and not that the code is safe", "Nobody stole a password"], answer: "Which pipeline built it, and not that the code is safe" } },
+];
+
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => { const o = typeof l === "object" ? l : { t: l, cls: "" }; return "<li class=\"" + o.cls + "\">" + String(o.t).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>"; }).join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateNoDefense, simulateDefenses, simulateGate, simulateScanner, simulateReal, STORIES, lintDockerfile, verifyDeploy, cooldownOk, scan, gate };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

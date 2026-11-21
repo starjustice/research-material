@@ -1,0 +1,154 @@
+[
+  {
+    "q": "You run the same Node API in three AWS places: on EC2, on ECS with Fargate, and on Lambda. In which of the three do YOU patch the machine?",
+    "options": [
+      "EC2 only, because it is a machine you rent",
+      "Fargate only, because containers need patches",
+      "Lambda only, because functions run on old machines",
+      "All three, because AWS only sells hardware"
+    ],
+    "answer": 0,
+    "why": "An EC2 instance is a virtual server that you look after. With Fargate, AWS runs the machines and you give a container. With Lambda, AWS runs the machines and you give a function."
+  },
+  {
+    "q": "A report job takes 25 minutes. You can run it as a normal Lambda function, because Lambda scales without servers.",
+    "type": "tf",
+    "answer": false,
+    "why": "One Lambda call can run for up to 15 minutes (900 seconds). A 25 minute job needs another place, for example a container task on Fargate, or you must split it into smaller steps."
+  },
+  {
+    "q": "An older guide says: \"For a simple container web app on AWS, use App Runner.\" What does the AWS documentation say today?",
+    "options": [
+      "App Runner is the only way to run containers on AWS",
+      "App Runner was renamed Lambda",
+      "App Runner is closed to new customers, and AWS recommends Amazon ECS Express Mode",
+      "App Runner is now free for everyone"
+    ],
+    "answer": 2,
+    "why": "AWS App Runner stopped taking new customers on April 30, 2026. Existing customers can keep using it. AWS points to ECS Express Mode, which builds a Fargate service, a load balancer and scaling from one container image."
+  },
+  {
+    "q": "You give ECS Express Mode a container image and two IAM roles. Which of these does it set up for you?",
+    "type": "multi",
+    "options": [
+      "An ECS service that runs on Fargate",
+      "An Application Load Balancer",
+      "Auto scaling for the service",
+      "A PostgreSQL database with your tables"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "Express Mode creates a Fargate based ECS service, a load balancer with HTTPS, auto scaling, monitoring and networking. It does not create your database. You add RDS yourself, and you pay for the resources it creates."
+  },
+  {
+    "q": "Users upload profile photos. You save them on the disk of your Fargate container. You deploy a new version, and ECS replaces the task. What happens to the photos?",
+    "options": [
+      "They move to the new task by themselves",
+      "They are copied to S3 by ECS",
+      "They stay, because Fargate disks are permanent",
+      "They are gone, because that disk belongs to the old task"
+    ],
+    "answer": 3,
+    "why": "A Fargate task gets ephemeral storage, which means short-lived disk that belongs to the task. Keep files in an S3 bucket instead. A bucket stays when tasks come and go, and every copy of your app can reach it."
+  },
+  {
+    "q": "You create a new S3 bucket and put one object in it. Who can read the object by default?",
+    "options": [
+      "Everyone on the internet",
+      "Only you, because buckets and objects are private until you grant access",
+      "Everyone with an AWS account",
+      "Only people in the same Region"
+    ],
+    "answer": 1,
+    "why": "New buckets and their objects are private. S3 Block Public Access is on by default for new buckets. You grant access on purpose, for example with a short presigned link."
+  },
+  {
+    "q": "Put the steps of a direct upload to S3 with a presigned link in order.",
+    "type": "order",
+    "items": [
+      "The browser asks your API for an upload link",
+      "The API signs a link for one key and one method, with an end time",
+      "The browser sends the file straight to the S3 bucket with that link",
+      "S3 checks the link and stores the object"
+    ],
+    "why": "The file never passes through your API, so your servers do less work. The link only allows one key, one method (PUT) and a short time. If the link is expired, or the key is wrong, S3 refuses it."
+  },
+  {
+    "q": "A presigned link was signed to PUT the key photos/cat.jpg. The browser tries to PUT photos/dog.jpg with the same link. What does S3 do?",
+    "options": [
+      "It accepts the file, because the link is valid",
+      "It accepts the file and renames it to cat.jpg",
+      "It refuses, because the link allows one key only",
+      "It accepts any key in the same folder"
+    ],
+    "answer": 2,
+    "why": "A presigned link names the bucket, the key, the method and an end time. Anything else is refused. That is why a link is safe to hand to a browser."
+  },
+  {
+    "q": "You run Postgres on RDS instead of in a container on an EC2 instance that you manage. Who does the backups and the Postgres patching?",
+    "options": [
+      "You do, the same as on EC2",
+      "AWS does, because RDS is a managed database",
+      "Nobody, because RDS has no backups",
+      "The load balancer does"
+    ],
+    "answer": 1,
+    "why": "The RDS docs list backups, software patching, failure detection and recovery as work that RDS manages. On EC2 you manage them. You still own the queries, the schema and the tuning."
+  },
+  {
+    "q": "A paused Aurora Serverless database answers the very first connection right away, in a few milliseconds.",
+    "type": "tf",
+    "answer": false,
+    "why": "Aurora Serverless can scale down to 0 ACUs and pause when nobody is connected. The AWS docs say it takes about 15 seconds to resume, or 30 seconds or more after more than a day, so the first user waits. It suits dev and test work more than a busy shop."
+  },
+  {
+    "q": "500 Lambda calls run at the same moment, and each one opens its own connection to Postgres. What is the usual fix recommended in the AWS docs?",
+    "options": [
+      "Make the Lambda timeout longer",
+      "Move the database to S3",
+      "Turn off the database limit",
+      "Put RDS Proxy in front of the database, so the calls share a small pool"
+    ],
+    "answer": 3,
+    "why": "Each call that runs at the same time gets its own copy of the code and its own connection. A proxy keeps a pool of connections and shares it, so the function can reach high concurrency without using up the database connections. The proxy has an hourly price."
+  },
+  {
+    "q": "Which of these are true about CloudFront?",
+    "type": "multi",
+    "options": [
+      "It keeps copies of your files at edge locations near the users",
+      "The origin can be an S3 bucket or your own web server",
+      "It stores your Postgres tables",
+      "It turns domain names into IP addresses"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "CloudFront is a CDN: it serves a fresh copy from an edge location, and asks the origin only when the copy is missing or too old. Turning names into addresses is the job of Route 53, a DNS service."
+  },
+  {
+    "q": "A CDN keeps each copy for 60 seconds. Time is in seconds. What does each line say, in order? The code runs on an empty cache.",
+    "code": "get(\"/p\", 0)\nget(\"/p\", 30)\nget(\"/p\", 70)",
+    "type": "fill",
+    "answer": [
+      "origin edge origin",
+      "origin, edge, origin"
+    ],
+    "why": "At 0 the cache is empty, so the request goes to the origin and a copy is stored. At 30 the copy is 30 seconds old, which is less than 60, so the edge answers. At 70 the copy is 70 seconds old, so it is too old and the origin is asked again."
+  },
+  {
+    "q": "Put the path of a page request in order, from the visitor to the data.",
+    "type": "order",
+    "items": [
+      "Route 53 turns the name into an address",
+      "CloudFront looks for a fresh copy",
+      "The load balancer picks a healthy copy of the API",
+      "Express on Fargate asks Postgres on RDS"
+    ],
+    "why": "Route 53 finds you. CloudFront answers from its copy when it can. On a miss the request reaches the load balancer, then your code, then the database. A fresh copy stops the trip at CloudFront."
+  }
+]

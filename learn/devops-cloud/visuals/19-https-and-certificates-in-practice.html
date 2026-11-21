@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTTPS and certificates: get one, check one, end it at the proxy, renew it</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/19-https-and-certificates-in-practice" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>HTTPS and certificates: get one, check one, end it at the proxy, renew it</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model. It runs the same <code>challengeFor</code>, <code>verifyChain</code>, <code>renewalStatus</code>, <code>hstsHeader</code>, <code>maxLifetimeDays</code> and <code>legs</code> code as the practice answer in the lesson. Nothing here talks to a real certificate authority. The names, addresses and dates are made up for the story. The 90, 45 and 6 day lengths and the date rules are real (see the lesson).</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+  <p class="legend"><b>The rule to remember:</b> a certificate proves who controls a name. The browser trusts it through a <b>chain</b> up to a root it already knows. The proxy <b>ends</b> the HTTPS, so the last leg is plain unless you encrypt it again. Certificates are getting <b>shorter</b>, so renewal must be automatic and watched. <b>HSTS</b> removes the click through, so a missed renewal is a full outage.</p>
+</div>
+<script>
+// The model code below is the same code as the practice answer in the lesson. No certificate authority is used.
+const DAY = 24 * 60 * 60 * 1000;
+
+function daysLeft(cert, now) {
+  return Math.floor((Date.parse(cert.notAfter) - Date.parse(now)) / DAY);
+}
+
+function renewalStatus(cert, now) {
+  const start = Date.parse(cert.notBefore);
+  const end = Date.parse(cert.notAfter);
+  const t = Date.parse(now);
+  if (t < start) return "not yet valid";
+  if (t >= end) return "expired";
+  const lifetime = end - start;
+  const threshold = lifetime <= 10 * DAY ? lifetime / 2 : lifetime / 3;
+  return end - t < threshold ? "renew" : "ok";
+}
+
+function challengeFor(names, options) {
+  if (!Array.isArray(names) || names.length === 0) throw new Error("names must be a non-empty list");
+  const { port80, dnsApi } = options;
+  let wildcard = false;
+  for (const name of names) {
+    if (name.includes("*")) {
+      if (!name.startsWith("*.") || name.indexOf("*", 1) !== -1) return { ok: false, reason: "bad wildcard name" };
+      wildcard = true;
+    }
+  }
+  if (wildcard) {
+    if (!dnsApi) return { ok: false, reason: "a wildcard needs dns-01 and a DNS API" };
+    return { ok: true, challenge: "dns-01" };
+  }
+  if (port80) return { ok: true, challenge: "http-01" };
+  if (dnsApi) return { ok: true, challenge: "dns-01" };
+  return { ok: false, reason: "needs open port 80 or a DNS API" };
+}
+
+function matchesName(pattern, host) {
+  const p = pattern.toLowerCase();
+  const h = host.toLowerCase();
+  if (!p.startsWith("*.")) return p === h;
+  const rest = p.slice(1);
+  if (!h.endsWith(rest)) return false;
+  const label = h.slice(0, h.length - rest.length);
+  return label.length > 0 && !label.includes(".");
+}
+
+function verifyChain(chain, trustedRoots, host, now) {
+  if (!Array.isArray(chain) || chain.length === 0) return { ok: false, reason: "no certificate" };
+  const leaf = chain[0];
+  if (!(leaf.names || []).some((n) => matchesName(n, host))) return { ok: false, reason: "hostname mismatch" };
+  const t = Date.parse(now);
+  for (const cert of chain) {
+    if (t < Date.parse(cert.notBefore)) return { ok: false, reason: "not yet valid" };
+    if (t >= Date.parse(cert.notAfter)) return { ok: false, reason: "expired" };
+  }
+  for (let i = 0; i < chain.length - 1; i++) {
+    if (chain[i].issuer !== chain[i + 1].subject) return { ok: false, reason: "broken chain" };
+  }
+  const top = chain[chain.length - 1];
+  if (trustedRoots.includes(top.subject) || trustedRoots.includes(top.issuer)) return { ok: true };
+  return { ok: false, reason: "unknown issuer" };
+}
+
+function hstsHeader(options) {
+  const { days, includeSubDomains = false, preload = false } = options;
+  if (!Number.isInteger(days) || days < 0) throw new Error("days must be a whole number of 0 or more");
+  if (preload && (days < 365 || !includeSubDomains)) throw new Error("preload needs at least 365 days and includeSubDomains");
+  let value = "max-age=" + days * 86400;
+  if (includeSubDomains) value += "; includeSubDomains";
+  if (preload) value += "; preload";
+  return value;
+}
+
+function maxLifetimeDays(issueDate) {
+  const t = Date.parse(issueDate);
+  if (t < Date.UTC(2026, 2, 15)) return 398;
+  if (t < Date.UTC(2027, 2, 15)) return 200;
+  if (t < Date.UTC(2029, 2, 15)) return 100;
+  return 47;
+}
+
+function legs(mode) {
+  if (mode === "terminate") return { browserLeg: "encrypted", appLeg: "plain", proxyCanRead: true, certificateOn: "proxy" };
+  if (mode === "reencrypt") return { browserLeg: "encrypted", appLeg: "encrypted", proxyCanRead: true, certificateOn: "proxy and app" };
+  if (mode === "passthrough") return { browserLeg: "encrypted", appLeg: "encrypted", proxyCanRead: false, certificateOn: "app" };
+  throw new Error("mode must be terminate, reencrypt or passthrough");
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that build the boxes and the dates. They only show things, they change nothing.
+// ---------------------------------------------------------------------------------------------
+const stamp = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
+const addDays = (iso, n) => stamp(Date.parse(iso) + n * DAY);
+const addHours = (iso, n) => stamp(Date.parse(iso) + n * 3600 * 1000);
+const dayOf = (iso) => iso.slice(0, 10);
+
+const ISSUED = "2026-11-19T10:00:00Z";   // a made up issue day for the stories
+const ROOT = "Example Root CA";
+const MIDDLE = "Example Intermediate CA";
+
+function makeChain(host, issued, days, withMiddle) {
+  const leaf = { subject: host, issuer: MIDDLE, notBefore: issued, notAfter: addDays(issued, days), names: [host] };
+  const mid = { subject: MIDDLE, issuer: ROOT, notBefore: "2026-01-01T00:00:00Z", notAfter: "2031-01-01T00:00:00Z" };
+  return withMiddle === false ? [leaf] : [leaf, mid];
+}
+
+const B = (title, cls, tagText, tagCls, small, lines) => ({ title, cls, tag: tagText ? [tagText, tagCls || ""] : null, small: small || "", lines });
+const LAY = (title, cls, tagText, tagCls, small, layers) => ({ title, cls, tag: tagText ? [tagText, tagCls || ""] : null, small: small || "", layers });
+const lay = (name, size, state) => ({ name, size, state: state || "cached" });
+
+const serverBox = (lines, tag, cls) => B("Your server", cls || "user", tag || "203.0.113.10", "", "certbot and nginx run here", lines);
+const caBox = (lines, tag, cls) => B("Let's Encrypt", cls || "lb", tag || "the CA", "", "the certificate authority", lines);
+const dnsBox = (lines) => B("Public DNS", "fol", "address book", "", "", lines);
+
+// ---- Story 1: get a certificate with the HTTP-01 challenge ----
+function simulateHttp01() {
+  const steps = [];
+  const names = ["shop.example.com"];
+  const pick = challengeFor(names, { port80: true, dnsApi: false });
+  const cert = { notBefore: ISSUED, notAfter: addDays(ISSUED, 90) };
+  const token = "T0k3n-9f2";
+  const url = "http://shop.example.com/.well-known/acme-challenge/" + token;
+
+  steps.push({ layout: "three", hop: "Setup: a name, a server, no certificate", phase: "setup",
+    note: "<b>You own <code>shop.example.com</code>.</b> DNS points it at your server, and port 80 is open to the internet. You have no certificate yet, so a browser would show a warning. Press Next: first the tool must prove to Let's Encrypt that you control this name.",
+    boxes: [serverBox(["nginx listens on port 80", "no certificate yet", "no keys yet"]), caBox(["waiting"]), dnsBox(["shop.example.com points to 203.0.113.10"])] });
+
+  steps.push({ layout: "three", hop: "The tool makes keys and picks a challenge", phase: "run",
+    note: "<b>certbot makes two key pairs.</b> One identifies you to Let's Encrypt (the account key). One is for the certificate. <b>The private half stays on your server and is never sent.</b> Then it chooses how to prove control: <code>challengeFor</code> says <code>" + JSON.stringify(pick) + "</code>, because port 80 is open and there is no wildcard.",
+    boxes: [serverBox(["account key made", "privkey.pem made (secret, stays here)", "challenge: " + pick.challenge]), caBox(["waiting"]), dnsBox(["shop.example.com points to 203.0.113.10"])] });
+
+  steps.push({ layout: "three", hop: "The order: I want shop.example.com", phase: "run",
+    note: "<b>The tool asks for a certificate for one name.</b> Let's Encrypt does not take your word for it. It answers with a test: <i>serve this token at this address.</i> The token is a random word that only Let's Encrypt and you know.",
+    boxes: [serverBox(["sent the order for shop.example.com", "got token " + token]), caBox(["order: shop.example.com", "challenge: http-01", "put token " + token, "at /.well-known/acme-challenge/" + token]), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "The tool puts the token file on your web server", phase: "run",
+    note: "<b>A small text file now sits on your site.</b> Only someone who controls the web server of that name can do this. That is the whole proof. The file holds the token and a fingerprint of your account key.",
+    boxes: [serverBox(["wrote the file " + token, "path: /.well-known/acme-challenge/", "nginx serves it on port 80", "told Let's Encrypt: ready"]), caBox(["waiting for the file"]), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "Let's Encrypt fetches the file", phase: "chk",
+    note: "<b>Let's Encrypt looks up the name, then fetches " + url + ".</b> It asks from several places on the internet. The answer matches, so <b>control is proven</b>. This fetch is plain HTTP on port 80, so port 80 must be open even if your site is HTTPS only.",
+    boxes: [serverBox(["a request for the token file arrives", "answered with the file"]), caBox(["GET " + url, "from several places", "the content matches", "control of the name is proven"], "proven", "srv"), dnsBox(["asked: where is shop.example.com?", "answer: 203.0.113.10"])] });
+
+  steps.push({ layout: "three", hop: "The tool sends a certificate request", phase: "run",
+    note: "<b>Now the tool sends a request (a CSR).</b> It says: here is my public key, please sign a certificate for <code>shop.example.com</code>. The request is signed with the private key, which shows that you hold it.",
+    boxes: [serverBox(["CSR: name shop.example.com", "plus the public key", "signed with the private key"]), caBox(["checks the signatures", "the name was proven in the step before"]), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "Let's Encrypt signs the certificate", phase: "srv",
+    note: "<b>The certificate is signed and sent back.</b> It holds the name, the public key, the dates and the signature of a Let's Encrypt middle certificate. It is also written in public logs, so anyone can see which certificates exist for a name. The life is 90 days, the Let's Encrypt default today.",
+    boxes: [serverBox(["received the certificate"]), caBox(["name: shop.example.com", "from " + dayOf(cert.notBefore) + " until " + dayOf(cert.notAfter), "90 days", "signed by the middle certificate"], "issued", "srv"), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "Saved on disk and nginx reloaded", phase: "srv",
+    note: "<b>certbot saves the files and reloads nginx.</b> nginx reads the files only when it starts or reloads, so the reload matters. <code>daysLeft</code> says <code>" + daysLeft(cert, ISSUED) + "</code> and <code>renewalStatus</code> says <code>" + renewalStatus(cert, ISSUED) + "</code>. The renewal tabs show what happens next.",
+    boxes: [LAY("Your server: /etc/letsencrypt/live/shop.example.com/", "user", "reloaded", "ok", "", [lay("fullchain.pem", "your cert + the middle cert", "cached"), lay("privkey.pem", "secret, never leaves", "rebuilt"), lay("nginx", "reloaded, serves the new cert", "now")]), caBox(["done with this order"]), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Let's Encrypt checks control of a name, not who you are.</b> HTTP-01 proves it with a file on port 80. The private key never leaves your server.",
+    boxes: [B("Proven", "srv", "yes", "ok", "", ["you control the website of this name, right now", "you hold the private key"]), B("Not proven", "alarm", "no", "bad", "", ["who you are", "that your site is honest or safe", "that you will keep control tomorrow"])] });
+  return steps;
+}
+
+// ---- Story 2: a wildcard needs the DNS-01 challenge ----
+function simulateDns01() {
+  const steps = [];
+  const names = ["*.example.com", "example.com"];
+  const bad = challengeFor(names, { port80: true, dnsApi: false });
+  const good = challengeFor(names, { port80: true, dnsApi: true });
+  const txt = "_acme-challenge.example.com";
+
+  steps.push({ layout: "three", hop: "Setup: one certificate for every shop", phase: "setup",
+    note: "<b>You run shop, api and admin under <code>example.com</code>.</b> A wildcard name <code>*.example.com</code> covers all of them in one certificate, and you add <code>example.com</code> itself. Port 80 is open. Press Next and see if the file challenge can do it.",
+    boxes: [serverBox(["nginx on ports 80 and 443", "port 80 is open"]), caBox(["waiting"]), dnsBox(["example.com", "shop.example.com", "api.example.com"])] });
+
+  steps.push({ layout: "three", hop: "Try the file challenge for a wildcard", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>It cannot be done.</b> <code>challengeFor</code> says <code>" + JSON.stringify(bad) + "</code>. A file on one web server cannot prove that you control every name under the domain. Control of the DNS can. So Let's Encrypt allows wildcards with <b>DNS-01 only</b>.",
+    boxes: [serverBox(["asked for *.example.com", "with http-01 only"], "203.0.113.10", "alarm"), caBox(["refuses"], "no", "alarm"), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "Give the tool a DNS API token", phase: "run",
+    note: "<b>You save a token for your DNS provider on the server.</b> Now <code>challengeFor</code> says <code>" + JSON.stringify(good) + "</code>. The tool can add and remove records in your zone. Keep that token narrow (see the last steps).",
+    boxes: [serverBox(["DNS provider token saved", "challenge: " + good.challenge]), caBox(["waiting"]), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "The order and the challenge", phase: "run",
+    note: "<b>Let's Encrypt asks for a record, not a file.</b> The test is: create a TXT record at <code>" + txt + "</code> with a value that only you can compute (a fingerprint of the token and your account key).",
+    boxes: [serverBox(["order: *.example.com and example.com"]), caBox(["challenge: dns-01", "create a TXT record at", txt]), dnsBox(["unchanged"])] });
+
+  steps.push({ layout: "three", hop: "The tool creates the TXT record", phase: "run",
+    note: "<b>The tool calls the DNS provider's API and adds the record.</b> Your site is not involved. That is why DNS-01 also works for a server with no public port 80, such as one inside a private network.",
+    boxes: [serverBox(["called the DNS API", "added the TXT record"]), caBox(["waiting"]), LAY("Public DNS", "fol", "address book", "", "", [lay("example.com", "A 203.0.113.10", "base"), lay(txt, "TXT (fingerprint)", "now")])] });
+
+  steps.push({ layout: "three", hop: "Let's Encrypt looks up the record", phase: "chk",
+    note: "<b>First DNS needs a little time to spread.</b> Some tools wait before they ask. Then Let's Encrypt looks up the TXT record from several places and finds the right value. <b>Control of the domain is proven.</b>",
+    boxes: [serverBox(["waited for the record to spread"]), caBox(["looks up TXT " + txt, "the value matches", "control of the domain is proven"], "proven", "srv"), dnsBox(["answered the TXT lookup"])] });
+
+  const hosts = ["shop.example.com", "api.example.com", "example.com", "a.shop.example.com"];
+  const rows = hosts.map((h) => { const c = names.some((n) => matchesName(n, h)); return lay(h, c ? "covered" : "NOT covered", c ? "cached" : "rebuilt"); });
+  steps.push({ layout: "three", hop: "The certificate has two names", phase: "srv",
+    note: "<b>The wildcard covers exactly one label.</b> <code>matchesName</code> says shop and api are covered. <code>example.com</code> itself is covered only because we listed it. <code>a.shop.example.com</code> has two labels in front, so it is <b>not</b> covered.",
+    boxes: [serverBox(["CSR for two names", "got the certificate"]), caBox(["names: *.example.com", "and example.com", "90 days"], "issued", "srv"), LAY("Which hosts are covered?", "fol", "matchesName", "", "", rows)] });
+
+  steps.push({ layout: "three", hop: "Clean up, and the risk", phase: "chk",
+    note: "<b>The tool removes the TXT record.</b> But the DNS token stays on the server. If someone steals it, they can change your DNS. So give it the smallest rights you can: only the TXT records under <code>_acme-challenge</code> if your provider allows it, or one zone only.",
+    boxes: [serverBox(["removed the TXT record", "the DNS token stays here", "keep it narrow and secret"]), caBox(["done"]), dnsBox(["TXT record removed"])] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Pick the challenge by what you need.</b> A single name with port 80 open: HTTP-01 is the easy way. A wildcard, or a server with no public port 80: DNS-01.",
+    boxes: [B("HTTP-01", "user", "a file", "", "", ["proves: control of the website", "needs: public port 80", "wildcard: no", "stored secret: none"]), B("DNS-01", "fol", "a TXT record", "", "", ["proves: control of the DNS", "needs: a DNS provider with an API", "wildcard: yes", "stored secret: the DNS token"])] });
+  return steps;
+}
+
+// ---- Story 3: a browser request ends at the proxy ----
+function simulateTermination() {
+  const steps = [];
+  const host = "shop.example.com";
+  const now = "2026-12-01T09:00:00Z";
+  const chain = makeChain(host, ISSUED, 90, true);
+  const verdict = verifyChain(chain, [ROOT], host, now);
+  const t = legs("terminate"), r = legs("reencrypt"), p = legs("passthrough");
+  const browser = (lines, cls, tag) => B("Browser", cls || "user", tag || "visitor", "", "https://shop.example.com/cart", lines);
+  const proxy = (lines, cls, tag) => B("nginx (the proxy)", cls || "lb", tag || "port 443", "", "holds the certificate", lines);
+  const app = (lines, cls, tag) => B("Your Node app", cls || "srv", tag || "127.0.0.1:3000", "", "speaks plain HTTP", lines);
+
+  steps.push({ layout: "three", hop: "Setup: three machines in a row", phase: "setup",
+    note: "<b>nginx holds <code>fullchain.pem</code> and <code>privkey.pem</code>.</b> Your Node app listens on a private address and knows nothing about certificates. A visitor types <code>https://shop.example.com/cart</code>.",
+    boxes: [browser(["typed https://shop.example.com/cart"]), proxy(["fullchain.pem and privkey.pem", "listens on 443"]), app(["no certificate", "plain HTTP only"])] });
+
+  steps.push({ layout: "three", hop: "The browser says hello and names the site", phase: "run",
+    note: "<b>The browser opens a connection and says which name it wants.</b> This lets one nginx hold many certificates and pick the right one. Nothing is secret yet.",
+    boxes: [browser(["hello", "I want shop.example.com"]), proxy(["reads the name", "picks the certificate for shop.example.com"]), app(["not involved yet"])] });
+
+  steps.push({ layout: "three", hop: "nginx sends its certificate chain", phase: "run",
+    note: "<b>nginx sends its own certificate and the middle certificate.</b> That is what <code>fullchain.pem</code> holds. It also proves that it has the private key, by signing something with it. The private key is never sent.",
+    boxes: [browser(["received 2 certificates"]), proxy(["sends: " + chain[0].subject, "sends: " + chain[1].subject, "signs a proof with privkey.pem"]), app(["not involved yet"])] });
+
+  steps.push({ layout: "three", hop: "The browser checks the chain", phase: "chk",
+    note: "<b>The browser asks four questions</b> and <code>verifyChain</code> answers <code>" + JSON.stringify(verdict) + "</code>. Does the name match? Are the dates fine today? Does each certificate sign the next one? Is the top one in my list of trusted roots? The next tab shows each question failing.",
+    boxes: [LAY("Browser checks", "user", "verifyChain", "", "", [lay("name matches shop.example.com", "yes"), lay("dates fine on " + dayOf(now), "yes"), lay("each one signs the next", "yes"), lay("top one is a trusted root", "yes")]), proxy(["waiting"]), app(["not involved yet"])] });
+
+  steps.push({ layout: "three", hop: "Both sides make a secret key for this visit", phase: "run",
+    note: "<b>They agree on a secret key that nobody else can work out</b>, even someone who recorded the whole talk. From now on everything is encrypted. The browser shows the padlock.",
+    boxes: [browser(["has the session key", "padlock on"], "srv", "encrypted"), proxy(["has the session key"], "lb", "encrypted"), app(["not involved yet"])] });
+
+  steps.push({ layout: "three", hop: "The request travels encrypted", phase: "run",
+    note: "<b>The browser sends <code>GET /cart</code>, encrypted.</b> Anyone on the Wi-Fi or on the way sees only scrambled bytes, plus the name of the site (the hello was not secret).",
+    boxes: [browser(["sends GET /cart", "unreadable on the wire"], "srv", "encrypted"), proxy(["receives scrambled bytes"], "lb", "encrypted"), app(["not involved yet"])] });
+
+  steps.push({ layout: "three", hop: "nginx ends the HTTPS (TLS termination)", phase: "srv",
+    note: "<b>nginx decrypts the request.</b> Now it can read it, choose the app by the path, and add a header. <code>legs(\"terminate\")</code> says the browser leg is <code>" + t.browserLeg + "</code> and the app leg is <code>" + t.appLeg + "</code>. The certificate lives on the <b>" + t.certificateOn + "</b> only.",
+    boxes: [browser(["waiting for the answer"], "user", "encrypted"), proxy(["decrypted: GET /cart", "adds X-Forwarded-Proto: https", "HTTPS ends here"], "srv", "reads it"), app(["not yet"])] });
+
+  steps.push({ layout: "three", hop: "A new plain HTTP request to the app", phase: "bad", badge: ["Plain from here", "bad"],
+    note: "<b>nginx makes a new request to the app, with no encryption.</b> It is on the same machine or a private network, so this is usually fine. The app cannot see that the visitor used HTTPS, so it reads the <code>X-Forwarded-Proto</code> header. If this leg crossed a network you do not control, it would need its own encryption.",
+    boxes: [browser(["waiting"]), proxy(["GET /cart", "Host: shop.example.com", "X-Forwarded-Proto: https"], "lb", "plain HTTP"), app(["receives plain text", "sees proto=https from the header"], "alarm", "plain HTTP")] });
+
+  steps.push({ layout: "three", hop: "The answer goes back, encrypted again", phase: "srv",
+    note: "<b>The app answers in plain HTTP. nginx encrypts the answer</b> with the session key and sends it to the browser. The visitor never sees the plain leg.",
+    boxes: [browser(["shows the cart page", "padlock on"], "srv", "encrypted"), proxy(["encrypts the answer"], "lb", "encrypted"), app(["answered plain"], "srv", "plain HTTP")] });
+
+  steps.push({ layout: "three", hop: "Three ways to place the end of the HTTPS", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Terminate</b> is the common case: one place for certificates, plain behind it. <b>Re-encrypt</b> adds a new TLS to the app, so the last leg is protected too, but the app needs a certificate (it may be a private one). <b>Passthrough</b> forwards the scrambled bytes untouched, so the proxy cannot read the path or add headers.",
+    boxes: [B("Terminate", "lb", t.certificateOn, "", "", ["browser leg: " + t.browserLeg, "app leg: " + t.appLeg, "proxy can read: " + t.proxyCanRead]), B("Re-encrypt", "fol", r.certificateOn, "", "", ["browser leg: " + r.browserLeg, "app leg: " + r.appLeg, "proxy can read: " + r.proxyCanRead]), B("Passthrough", "user", p.certificateOn, "", "", ["browser leg: " + p.browserLeg, "app leg: " + p.appLeg, "proxy can read: " + p.proxyCanRead])] });
+  return steps;
+}
+
+// ---- Story 4: four ways a chain check fails ----
+function simulateChain() {
+  const steps = [];
+  const host = "shop.example.test";
+  const issued = "2026-11-19T00:00:00Z";
+  const trusted = [ROOT];
+  const chain = makeChain(host, issued, 90, true);
+  const now = "2026-12-01T00:00:00Z";
+  const row = (c) => lay(c.subject, "signed by " + c.issuer, "cached");
+  const sentBox = (certs, tag, cls) => LAY("What the server sent", cls || "srv", tag || "", "", "your cert first", certs.map(row));
+  const listBox = () => B("The browser's trust list", "fol", "roots only", "", "short, built in", [ROOT]);
+  const verdictBox = (res, label) => B("verifyChain says", res.ok ? "srv" : "alarm", res.ok ? "ok" : "stop", res.ok ? "ok" : "bad", label, res.ok ? ["ok: true"] : ["ok: false", "reason: " + res.reason]);
+
+  steps.push({ layout: "three", hop: "Setup: a chain of three", phase: "setup",
+    note: "<b>A certificate is trusted through a chain.</b> Your certificate is signed by a middle one, and the middle one is signed by a root. The browser has the short list of roots built in. These are the same three certificates I made with <code>openssl</code> for the lesson, with the same results.",
+    boxes: [sentBox(chain), listBox(), B("Today", "user", dayOf(now), "", "", ["checking " + host])] });
+
+  const ok = verifyChain(chain, trusted, host, now);
+  steps.push({ layout: "three", hop: "Case 1: the server sends the full chain", phase: "srv",
+    note: "<b>It works.</b> The name matches, the dates are fine, your certificate is signed by the middle one, and the middle one is signed by a root in the list. The root itself does not need to be sent, because the browser has it. <code>openssl verify</code> printed <code>OK</code>.",
+    boxes: [sentBox(chain), listBox(), verdictBox(ok, "full chain")] });
+
+  const leafOnly = makeChain(host, issued, 90, false);
+  const missing = verifyChain(leafOnly, trusted, host, now);
+  steps.push({ layout: "three", hop: "Case 2: the server forgets the middle certificate", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The browser cannot connect your certificate to a root.</b> Your certificate says it was signed by <i>" + MIDDLE + "</i>, which is not in the list and was not sent. Result: <code>" + missing.reason + "</code>. <code>openssl verify</code> printed <code>unable to get local issuer certificate</code>. Some browsers can find the missing piece by themselves, so the site seems fine on a laptop and fails in curl and in apps. <b>Fix:</b> point nginx at <code>fullchain.pem</code>, not <code>cert.pem</code>.",
+    boxes: [sentBox(leafOnly, "only the leaf", "alarm"), listBox(), verdictBox(missing, "missing middle")] });
+
+  const later = "2027-06-01T00:00:00Z";
+  const expired = verifyChain(chain, trusted, host, later);
+  steps.push({ layout: "three", hop: "Case 3: months later, nobody renewed", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Same chain, checked on " + dayOf(later) + ".</b> The certificate ended on " + dayOf(chain[0].notAfter) + ". Result: <code>" + expired.reason + "</code>. <code>openssl verify</code> printed <code>certificate has expired</code>. The padlock is not the problem. The calendar is.",
+    boxes: [sentBox(chain), B("Today", "alarm", dayOf(later), "bad", "", ["certificate ended " + dayOf(chain[0].notAfter)]), verdictBox(expired, "expired")] });
+
+  const other = verifyChain(chain, trusted, "other.example.test", now);
+  steps.push({ layout: "three", hop: "Case 4: the visitor uses another name", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The certificate is only for <code>shop.example.test</code>.</b> A visitor who reaches the server as <code>other.example.test</code> gets <code>" + other.reason + "</code>. <code>openssl verify</code> printed <code>hostname mismatch</code>. This often happens when a new subdomain points to the server but the certificate does not list it.",
+    boxes: [sentBox(chain), B("The name the visitor typed", "alarm", "other.example.test", "bad", "", ["on the certificate: " + chain[0].names.join(", ")]), verdictBox(other, "wrong name")] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The browser asks four questions in a row:</b> the name, the dates, the links, the root. Most real failures are one of three: a missing middle certificate, an expired certificate, or a name that is not on the certificate.",
+    boxes: [B("Checks", "lb", "in order", "", "", ["1. the name is on the certificate", "2. every date is valid today", "3. each one signs the next", "4. the top one is a trusted root"]), B("Typical fixes", "srv", "by reason", "ok", "", ["unknown issuer: serve fullchain.pem", "expired: renew, then reload nginx", "hostname mismatch: add the name to the certificate"])] });
+  return steps;
+}
+
+// ---- Story 5: renewal, and why certificates get shorter ----
+function simulateRenewal() {
+  const steps = [];
+  const cert = { notBefore: ISSUED, notAfter: addDays(ISSUED, 90) };
+  const certBox = (c, now, tag, cls) => LAY("The certificate", cls || "user", tag || "", "", "dates and what the job sees", [lay("valid from", dayOf(c.notBefore), "base"), lay("valid until", dayOf(c.notAfter), "base"), lay("today", dayOf(now), "now"), lay("daysLeft", String(daysLeft(c, now)), "cached"), lay("renewalStatus", renewalStatus(c, now), renewalStatus(c, now) === "ok" ? "cached" : "rebuilt")]);
+  const jobBox = (lines, cls, tag) => B("The renewal job", cls || "lb", tag || "runs twice a day", "", "certbot renew, on a timer", lines);
+  const siteBox = (lines, cls, tag) => B("The site", cls || "srv", tag || "", "", "what visitors get", lines);
+
+  steps.push({ layout: "three", hop: "Day 0: the certificate is new", phase: "setup",
+    note: "<b>A 90 day certificate, issued today.</b> A timer runs the renewal job twice a day. Each run asks one question: is it time? <code>renewalStatus</code> says <code>" + renewalStatus(cert, ISSUED) + "</code>, so the job does nothing.",
+    boxes: [certBox(cert, ISSUED), jobBox(["asks renewalStatus", "answer: ok", "does nothing"]), siteBox(["serves the new certificate"])] });
+
+  const d30 = addDays(ISSUED, 30);
+  steps.push({ layout: "three", hop: "Day 30: still not time", phase: "run",
+    note: "<b>The job keeps checking and keeps doing nothing.</b> <code>daysLeft</code> is " + daysLeft(cert, d30) + ". The rule in current Certbot: renew when <b>less than a third</b> of the life is left. For 90 days a third is 30 days.",
+    boxes: [certBox(cert, d30), jobBox(["asks renewalStatus", "answer: ok", "does nothing"]), siteBox(["serves the same certificate"])] });
+
+  const d60 = addDays(ISSUED, 60);
+  steps.push({ layout: "three", hop: "Day 60: exactly a third left", phase: "chk",
+    note: "<b>Exactly 30 days left is still <code>" + renewalStatus(cert, d60) + "</code>.</b> The rule says <i>less than</i> a third. One more day and it changes.",
+    boxes: [certBox(cert, d60), jobBox(["asks renewalStatus", "answer: " + renewalStatus(cert, d60), "does nothing"]), siteBox(["serves the same certificate"])] });
+
+  const d61 = addDays(ISSUED, 61);
+  const cert2 = { notBefore: d61, notAfter: addDays(d61, 90) };
+  steps.push({ layout: "three", hop: "Day 61: time to renew", phase: "srv",
+    note: "<b>29 days are left, so <code>renewalStatus</code> says <code>" + renewalStatus(cert, d61) + "</code>.</b> The job repeats the steps of the first tab: challenge, request, new certificate. It then runs the <b>deploy hook</b> (a command that runs only after a successful renewal) to reload nginx. The new certificate runs until " + dayOf(cert2.notAfter) + ". Nobody did anything.",
+    boxes: [certBox(cert2, d61, "the new one", "srv"), jobBox(["renewalStatus: renew", "challenge passed", "got a new certificate", "deploy hook: reload nginx"], "srv", "success"), siteBox(["serves the new certificate", "visitors noticed nothing"])] });
+
+  const c45 = { notBefore: ISSUED, notAfter: addDays(ISSUED, 45) };
+  const hoursUntilRenew = (life) => { const c = { notBefore: ISSUED, notAfter: addHours(ISSUED, life) }; for (let h = 0; h <= life; h++) if (renewalStatus(c, addHours(ISSUED, h)) === "renew") return h; return null; };
+  const lives = [["90 days", 90 * 24], ["45 days", 45 * 24], ["6 days (160 hours)", 160]];
+  const rows = lives.map(([name, h]) => lay(name, "renews after day " + (Math.round(hoursUntilRenew(h) / 24 * 10) / 10)));
+  steps.push({ layout: "three", hop: "Shorter certificates renew sooner", phase: "run",
+    note: "<b>The same rule gives a different day for each length.</b> Let's Encrypt offers 90 days by default today, 45 days on request (profile <code>tlsserver</code>), and about 6 days on request (profile <code>shortlived</code>). For a life of 10 days or less Certbot uses <i>half</i> of the life, not a third.",
+    boxes: [certBox(c45, addDays(ISSUED, 31), "45 day cert, day 31"), jobBox(["a 45 day certificate", "renewalStatus on day 31:", renewalStatus(c45, addDays(ISSUED, 31))]), LAY("When the job acts", "fol", "renewalStatus", "", "", rows)] });
+
+  const dates = ["2026-03-14T23:00:00Z", "2026-03-15T00:00:00Z", "2027-03-15T00:00:00Z", "2029-03-15T00:00:00Z"];
+  steps.push({ layout: "three", hop: "The industry cuts the longest life in steps", phase: "chk",
+    note: "<b>All public certificate authorities must follow one rule.</b> It was agreed by the browser makers and the authorities (the CA/Browser Forum) in 2025. <code>maxLifetimeDays</code> gives the longest life by issue day. Let's Encrypt plans to move its default from 90 days to 64 days from 2027-02-10 and to 45 days from 2028-02-16 (from their post of 2025-12-02, so check it before you rely on it).",
+    boxes: [LAY("Longest life of a public certificate", "lb", "by issue day", "", "", dates.map((d) => lay("issued " + dayOf(d), maxLifetimeDays(d) + " days"))), jobBox(["Let's Encrypt today: 90 days", "opt in: 45 days or 6 days", "plan: 64 days (2027), 45 days (2028)"], "fol", "from the docs"), siteBox(["a private company CA is not bound by this rule"], "user", "note")] });
+
+  const d60b = addDays(ISSUED, 60);
+  steps.push({ layout: "three", hop: "A job that renews every 60 days breaks", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A fixed schedule written for 90 days fails on a 45 day certificate.</b> On day 60 the certificate has been dead for 15 days: <code>renewalStatus</code> says <code>" + renewalStatus(c45, d60b) + "</code>. Let's Encrypt says a hardcoded 60 day interval will no longer be enough. Use a tool that checks the real dates (Certbot 4 and later) or asks the authority when to renew (ACME Renewal Information, RFC 9773).",
+    boxes: [certBox(c45, d60b, "45 day cert", "alarm"), jobBox(["fixed rule: every 60 days", "first run: day 60", "too late"], "alarm", "bad rule"), siteBox(["expired since day 45"], "alarm", "outage")] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Shorter life means renewal must be automatic.</b> Done by hand, a 90 day certificate is 4 jobs a year. At 45 days it is 8. At 6 days it cannot be done by hand at all.",
+    boxes: [B("Why shorter", "srv", "reasons", "ok", "", ["a stolen key works for less time", "a wrong certificate is gone sooner", "forces automation"]), B("What you do", "lb", "checklist", "", "", ["let a tool renew by the real dates", "reload the server after renewal", "alert on days left"])] });
+  return steps;
+}
+
+// ---- Story 6: renewal fails and HSTS removes the click-through ----
+function simulateFailure() {
+  const steps = [];
+  const host = "shop.example.com";
+  const cert = { notBefore: ISSUED, notAfter: addDays(ISSUED, 90) };
+  const trusted = [ROOT];
+  const hsts = hstsHeader({ days: 365, includeSubDomains: true });
+  const certBox = (now, tag, cls) => LAY("The certificate", cls || "user", tag || "", "", "dates", [lay("valid until", dayOf(cert.notAfter), "base"), lay("today", dayOf(now), "now"), lay("daysLeft", String(daysLeft(cert, now)), "cached"), lay("renewalStatus", renewalStatus(cert, now), renewalStatus(cert, now) === "ok" ? "cached" : "rebuilt")]);
+  const jobBox = (lines, cls, tag) => B("The renewal job", cls || "lb", tag || "", "", "certbot renew, on a timer", lines);
+  const siteBox = (lines, cls, tag) => B("The site", cls || "srv", tag || "", "", "what visitors get", lines);
+
+  steps.push({ layout: "three", hop: "Setup: it was working, then a firewall change", phase: "setup",
+    note: "<b>A made up story.</b> Your site is HTTPS only and renewal uses the file challenge on port 80. On " + dayOf(addDays(ISSUED, 31)) + " someone closes port 80 in the firewall, to tighten security. The site still works, because visitors use port 443. Nobody connects the two facts.",
+    boxes: [certBox(addDays(ISSUED, 31)), jobBox(["runs twice a day", "not due yet"]), siteBox(["works", "port 443 open", "port 80 closed"])] });
+
+  const d61 = addDays(ISSUED, 61);
+  steps.push({ layout: "three", hop: "Day 61: the job tries and fails", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b><code>renewalStatus</code> says <code>" + renewalStatus(cert, d61) + "</code>, so the job asks Let's Encrypt.</b> Let's Encrypt cannot reach the token file on port 80. The challenge fails. The error goes into a log file that nobody reads. The site still works, with " + daysLeft(cert, d61) + " days left. Let's Encrypt no longer sends expiry emails (they ended in June 2025).",
+    boxes: [certBox(d61, "renew now", "lb"), jobBox(["challenge http-01", "Let's Encrypt cannot connect on port 80", "renewal failed", "written to a log"], "alarm", "failed"), siteBox(["still works", "old certificate"])] });
+
+  let alertDay = null;
+  for (let d = 0; d <= 90; d++) if (daysLeft(cert, addDays(ISSUED, d)) < 21) { alertDay = d; break; }
+  const d75 = addDays(ISSUED, 75);
+  steps.push({ layout: "three", hop: "Day 75: still failing, still quiet", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The job retries on every run and fails every time.</b> " + daysLeft(cert, d75) + " days left. Too many failed tries also hit a limit: 5 failed checks per name per hour at Let's Encrypt, so retrying fast makes it worse. <b>A monitor that alerts when <code>daysLeft</code> is under 21 would have fired on day " + alertDay + "</b>, while there was still time.",
+    boxes: [certBox(d75, "renew now", "lb"), jobBox(["fails on every run", "nobody looks at the log"], "alarm", "failing"), siteBox(["still works"])] });
+
+  const d89 = addDays(ISSUED, 89);
+  steps.push({ layout: "three", hop: "Day 89: one day left", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The site still works today.</b> <code>daysLeft</code> is " + daysLeft(cert, d89) + ". Tomorrow at 10:00 it will not.",
+    boxes: [certBox(d89, "last day", "alarm"), jobBox(["fails"], "alarm", "failing"), siteBox(["works, for a few more hours"], "lb", "warning")] });
+
+  const d90 = cert.notAfter;
+  const res = verifyChain(makeChain(host, ISSUED, 90, true), trusted, host, d90);
+  steps.push({ layout: "three", hop: "Day 90: the certificate expires", phase: "bad", badge: ["Outage", "bad"],
+    note: "<b>At " + d90.slice(11, 16) + " on " + dayOf(d90) + " <code>verifyChain</code> says <code>" + res.reason + "</code>.</b> Every browser shows a full page warning. API clients and mobile apps fail with a certificate error. Nothing is wrong with your code or your server.",
+    boxes: [certBox(d90, "expired", "alarm"), B("Browser", "alarm", "stop", "bad", "", ["verifyChain: " + res.reason, "full page warning"]), siteBox(["server is up", "certificate is dead"], "alarm", "outage")] });
+
+  steps.push({ layout: "three", hop: "HSTS removes the click through", phase: "bad", badge: ["Outage", "bad"],
+    note: "<b>Earlier, your site sent <code>Strict-Transport-Security: " + hsts + "</code>.</b> Visitors' browsers remembered it. For a site like that a browser shows the error and gives <b>no way to continue</b>. Without HSTS a visitor could click through (a bad habit). With it, they are locked out until you fix it. It also covers all subdomains.",
+    boxes: [B("Browser memory", "fol", "from earlier visits", "", "", ["shop.example.com: HTTPS only", "for 365 days, with subdomains"]), B("Browser", "alarm", "no button", "bad", "", ["error: certificate expired", "no Continue anyway"]), siteBox(["outage until you fix it"], "alarm", "outage")] });
+
+  steps.push({ layout: "three", hop: "The fix and the lasting repair", phase: "srv",
+    note: "<b>Fix now:</b> open port 80 again (or switch to DNS-01), run <code>certbot renew</code>, and let the deploy hook reload nginx. Check the real date with <code>openssl s_client</code>. <b>Fix for good:</b> an alert on <code>daysLeft</code>, a test of renewal after every firewall or DNS change (<code>certbot renew --dry-run</code>), and start HSTS with a short time.",
+    boxes: [certBox(d90, "before the fix", "alarm"), jobBox(["port 80 open again", "certbot renew works", "deploy hook: reload nginx"], "srv", "fixed"), siteBox(["works again", "alert set for daysLeft under 21"], "srv", "ok")] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Renewal has four weak spots.</b> The timer, the challenge, the reload and the watching. A missing piece in any one gives the same result: an expired certificate that nobody saw coming.",
+    boxes: [B("Four weak spots", "alarm", "check each", "bad", "", ["1. the timer does not run", "2. the challenge cannot pass (port 80, DNS, token)", "3. the server is not reloaded", "4. nobody watches daysLeft"]), B("Safe habits", "srv", "do these", "ok", "", ["alert on days left", "certbot renew --dry-run after changes", "short HSTS first, longer later", "never let the only renewal be a person"])] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Get a certificate", sim: simulateHttp01,
+    why: "Let's Encrypt checks control of the name, not your identity. With HTTP-01 it fetches a token file from port 80 of the name. The private key never leaves your server.",
+    predict: { q: "Let's Encrypt has never met you. What does it check before it signs a certificate for shop.example.com?", options: ["That you own the company", "That you control the website of that name (it fetches a token file)", "That the site has no bugs"], answer: "That you control the website of that name (it fetches a token file)" } },
+  { name: "2. A wildcard", sim: simulateDns01,
+    why: "A file on one web server cannot prove control of every name under a domain. A TXT record in the DNS can. So a wildcard needs DNS-01, and a DNS API so the tool can add the record.",
+    predict: { q: "You ask for *.example.com and port 80 is open. Can the file challenge (HTTP-01) do it?", options: ["Yes, port 80 is enough", "No, a wildcard needs a DNS record (DNS-01)", "Yes, but only with HTTPS on"], answer: "No, a wildcard needs a DNS record (DNS-01)" } },
+  { name: "3. A browser request", sim: simulateTermination,
+    why: "The proxy holds the certificate and ends the HTTPS. It makes a new request to the app. That last leg is plain unless you set up encryption again.",
+    predict: { q: "nginx ends the HTTPS for shop.example.com. How does nginx usually talk to your Node app?", options: ["With plain HTTP on the last leg", "With HTTPS again, always", "It cannot, the app needs its own certificate"], answer: "With plain HTTP on the last leg" } },
+  { name: "4. Check a chain", sim: simulateChain,
+    why: "The browser checks the name, the dates, the links between certificates and whether the top one is a root it trusts. A missing middle certificate gives unknown issuer.",
+    predict: { q: "Your nginx sends only your own certificate, not the middle one. What does curl say?", options: ["Nothing, it works", "It cannot find the issuer, so the check fails", "It says the certificate has expired"], answer: "It cannot find the issuer, so the check fails" } },
+  { name: "5. Renewal and shorter life", sim: simulateRenewal,
+    why: "A tool renews when less than a third of the life is left. Shorter certificates renew sooner, and a fixed 60 day schedule is too slow for a 45 day certificate.",
+    predict: { q: "A job renews every 60 days. The certificate now lasts 45 days. What happens?", options: ["Nothing, 60 is fine", "The certificate expires before the first renewal", "Let's Encrypt renews it for you"], answer: "The certificate expires before the first renewal" } },
+  { name: "6. When renewal fails", sim: simulateFailure,
+    why: "Renewal can fail quietly. With HSTS an expired certificate has no click through, so visitors are locked out. Watch daysLeft and test renewal after every firewall or DNS change.",
+    predict: { q: "Renewal fails quietly for weeks. The site sent HSTS for a year. What do visitors see on the day the certificate expires?", options: ["A warning they can click through", "An error with no way to continue", "The site works, the browser ignores the date"], answer: "An error with no way to continue" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateHttp01, simulateDns01, simulateTermination, simulateChain, simulateRenewal, simulateFailure, STORIES, daysLeft, renewalStatus, challengeFor, matchesName, verifyChain, hstsHeader, maxLifetimeDays, legs };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

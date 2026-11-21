@@ -1,0 +1,127 @@
+[
+  {
+    "q": "Your package.json lists 1 library. After npm install there are 68 packages in node_modules. Why does this matter for security?",
+    "options": [
+      "Every one of the 68 packages can run code on your build machine and in your app",
+      "Only the 1 library you named can run code",
+      "Packages you did not name are checked by npm, so they are safe",
+      "It does not matter, because 68 is a small number"
+    ],
+    "answer": 0,
+    "why": "Your supply chain is everything that arrives with your code: libraries of libraries, the base image and your pipeline tools. An attacker only needs to get into one of them."
+  },
+  {
+    "type": "tf",
+    "q": "A scan that finds 0 problems means the image is safe.",
+    "answer": false,
+    "why": "No. A scanner only finds holes that are already in its database. In the first hours of a new attack there is no entry, so a clean scan means \"nothing known\", not \"safe\"."
+  },
+  {
+    "q": "The repository has a package-lock.json. An attacker publishes a bad version 2.1.1. package.json says ^2.1.0 and the lockfile says 2.1.0. Which version does npm ci install?",
+    "options": [
+      "2.1.0, exactly what the lockfile says",
+      "2.1.1, the newest that fits the range",
+      "Both versions",
+      "It asks you to choose"
+    ],
+    "answer": 0,
+    "why": "npm ci installs exactly what the lockfile says and checks its hash. If the lockfile and package.json disagree, it stops with an error and does not change the lockfile."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these make an image have less inside it for an attacker to use?",
+    "options": [
+      "A small base such as distroless, alpine or slim",
+      "A multi-stage build that ships only what runs",
+      "Installing curl and a shell \"in case we need them\"",
+      "Leaving typescript and eslint in the final image"
+    ],
+    "answer": [0, 1],
+    "why": "Less in the image means fewer holes and fewer tools for an attacker. Distroless images have no shell or package manager. A multi-stage build leaves the build tools behind."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of a safer path in order, from the install to the running app.",
+    "items": [
+      "npm ci installs the exact versions from the lockfile",
+      "The image is built and scanned",
+      "The pipeline signs the image digest",
+      "The cluster verifies the signature before it starts the image"
+    ],
+    "why": "Install exact versions, build and scan, sign the exact bytes, then check the signature at the door before running."
+  },
+  {
+    "q": "You COPY a .env file in one line and delete it in a later line. Is the secret gone from the image?",
+    "options": [
+      "No. It stays in the layer made by the COPY line, and anyone who pulls the image can read it",
+      "Yes, a deleted file is removed from every layer",
+      "Yes, but only if you also set USER node",
+      "No, but only the Docker host can read it"
+    ],
+    "answer": 0,
+    "why": "A layer only adds. The later line hides the file but the bytes stay below. Keep .env out with .dockerignore and pass secrets when the container starts, or use a build secret mount."
+  },
+  {
+    "type": "fill",
+    "q": "Which Dockerfile line makes the app run as a normal user, not root? Type the whole line for the user named node.",
+    "answer": ["USER node"],
+    "why": "A container runs as root by default. USER node changes that. If someone breaks into your app, a normal user can do much less."
+  },
+  {
+    "type": "multi",
+    "q": "Which settings reduce what a broken-into app can do at run time?",
+    "options": [
+      "A read-only root filesystem",
+      "Running as a non-root user",
+      "Dropping Linux capabilities the app does not need",
+      "Tagging the image latest"
+    ],
+    "answer": [0, 1, 2],
+    "why": "A read-only filesystem stops the attacker writing tools into the container, a non-root user has less power, and dropped capabilities remove extra Linux powers. The tag latest only makes the base harder to repeat."
+  },
+  {
+    "q": "Why does a deploy check ask for an image digest and refuse a tag such as app:1.4?",
+    "options": [
+      "A tag can move to new bytes, and a signature belongs to exact bytes",
+      "A digest is shorter and faster to read",
+      "Tags are not allowed in Kubernetes",
+      "A digest is encrypted and a tag is not"
+    ],
+    "answer": 0,
+    "why": "The digest is a fingerprint of the exact bytes. Different bytes have a different digest, so a signature for one digest cannot cover moved or changed bytes."
+  },
+  {
+    "type": "tf",
+    "q": "If an image has a valid signature, you know the code inside it is free of attacks.",
+    "answer": false,
+    "why": "A signature says who built these exact bytes. In the TanStack attack of May 2026 the bad versions had valid provenance, because the real pipeline built them. You still need the other checks."
+  },
+  {
+    "type": "fill",
+    "q": "The npm setting min-release-age is counted in what unit? Type one word.",
+    "answer": ["days", "day"],
+    "why": "min-release-age=7 means npm only installs versions that are more than 7 days old. It covers the hours in which a new attack is not yet known."
+  },
+  {
+    "q": "In March 2026 attackers moved the version tags of the Trivy GitHub Action to bad commits. How do you protect a pipeline from this?",
+    "options": [
+      "Name the action by its full commit id, not by a version tag",
+      "Use a newer tag number",
+      "Trust security tools, because they are checked more",
+      "Only run the action on weekdays"
+    ],
+    "answer": 0,
+    "why": "A tag can be moved. A full commit id cannot. The scanner is code that runs with your pipeline's secrets, so it needs the same care as any other dependency."
+  },
+  {
+    "q": "In npm 12 (July 2026), what changed about install scripts of your dependencies?",
+    "options": [
+      "They are off by default, and you list the ones you trust in allowScripts",
+      "They are on by default, but run in a sandbox",
+      "They were removed from npm for good",
+      "They only run for packages with a signature"
+    ],
+    "answer": 0,
+    "why": "npm 12 turns dependency install scripts off unless a project allows them. It also blocks git and remote URL dependencies by default. Install scripts were the way the 2025 and 2026 attacks ran code on build machines."
+  }
+]

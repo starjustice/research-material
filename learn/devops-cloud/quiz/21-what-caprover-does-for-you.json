@@ -1,0 +1,133 @@
+[
+  {
+    "q": "You run `docker service ls` on a CapRover server that has one app called shop. Which names do you expect to see?",
+    "options": [
+      "captain-captain, captain-nginx, captain-certbot and shop",
+      "Only shop, because the helpers are not Docker services",
+      "nginx and certbot only, because CapRover itself is not a service",
+      "A separate virtual machine for every app"
+    ],
+    "answer": 0,
+    "why": "CapRover runs three helper services on Docker Swarm: captain-captain (dashboard and builder), captain-nginx (ports 80 and 443) and captain-certbot (certificates). Your apps run next to them as more services."
+  },
+  {
+    "type": "tf",
+    "q": "A wildcard DNS record for your apps domain also gives every app a wildcard HTTPS certificate.",
+    "answer": false,
+    "why": "Wildcard DNS only sends every name to your server. Each name needs its own certificate, asked for once when you press Enable HTTPS. The CapRover docs say wildcard DNS does not create a wildcard certificate."
+  },
+  {
+    "q": "How many of the four choices (dockerfilePath, imageName, dockerfileLines, templateId) does a captain-definition hold?",
+    "options": [
+      "Exactly one",
+      "At least one, and CapRover picks the first",
+      "All four, so CapRover can fall back",
+      "None, because CapRover finds the Dockerfile by itself"
+    ],
+    "answer": 0,
+    "why": "The docs say to provide exactly one selector. A file with none or with several is rejected, so there is no guessing."
+  },
+  {
+    "type": "order",
+    "q": "Put one CapRover deploy in order.",
+    "items": [
+      "caprover deploy uploads the committed files",
+      "captain builds the image on the server",
+      "captain updates the Swarm service and Swarm swaps the copies",
+      "captain rewrites the nginx config and reloads nginx"
+    ],
+    "why": "Upload, build, update the service, then reload nginx. A failed build stops before the service update. A certificate request is not part of a deploy."
+  },
+  {
+    "type": "tf",
+    "q": "The build fails halfway. CapRover stops the old version, so visitors get errors.",
+    "answer": false,
+    "why": "The service update only runs after a good build. A failed build changes nothing in Swarm or nginx, so version 1 keeps serving."
+  },
+  {
+    "type": "multi",
+    "q": "Which apps get stop-first updates from CapRover, so visitors can see a short gap?",
+    "options": [
+      "An app with a persistent directory",
+      "A one-click database with its data folder mounted",
+      "An app with no folder and a HEALTHCHECK in the image",
+      "A stateless app with an instance count of 3 and no folder"
+    ],
+    "answer": [0, 1],
+    "why": "In the CapRover source, any mounted folder gives stop-first, so two copies never write to the same data. An app with no mount gets start-first."
+  },
+  {
+    "type": "fill",
+    "q": "Which update order does CapRover use for an app with no persistent directory? Type the order with its hyphen.",
+    "answer": ["start-first"],
+    "why": "start-first starts the new copy, waits until it is ready, then stops the old one. With a HEALTHCHECK that gives no gap."
+  },
+  {
+    "q": "Your app writes a cache file to /app/tmp. Only /app/uploads is a persistent directory. What happens to the cache file at the next deploy?",
+    "options": [
+      "It is gone, because only mounted paths survive a new container",
+      "It is kept, because CapRover copies the whole container",
+      "It is kept, but only if the instance count is 1",
+      "It is moved into /app/uploads"
+    ],
+    "answer": 0,
+    "why": "The old container is replaced. The CapRover docs say only configured mount paths survive container replacement."
+  },
+  {
+    "q": "When does CapRover ask Let's Encrypt for a certificate for an app name?",
+    "options": [
+      "Once, when you press Enable HTTPS for that name",
+      "On every deploy",
+      "On every visitor request",
+      "Never, because nginx makes its own certificates"
+    ],
+    "answer": 0,
+    "why": "The request is made when you enable HTTPS for the name. A timer later renews certificates. A deploy never touches them."
+  },
+  {
+    "type": "fill",
+    "q": "`certbot renew` only renews a certificate that has less than how many days left? Type the number.",
+    "answer": ["30", "30 days"],
+    "why": "The timer runs about every 20 hours, but certbot renew skips certificates that are not near the end. Most runs do nothing."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these jobs stay with you when you run CapRover on one server?",
+    "options": [
+      "Backups of your database and uploaded files",
+      "Patching the server and upgrading CapRover",
+      "Moving to a new server when this one dies",
+      "Renewing the Let's Encrypt certificates by hand"
+    ],
+    "answer": [0, 1, 2],
+    "why": "CapRover renews certificates on a timer. Backups, upgrades (for example a release that only fixes nginx security problems) and recovery from a dead server are yours."
+  },
+  {
+    "q": "You restore a CapRover configuration backup on a new server. What does it NOT contain?",
+    "options": [
+      "The contents of your database volumes",
+      "App definitions",
+      "Domain settings",
+      "Certificates"
+    ],
+    "answer": 0,
+    "why": "The backup holds CapRover settings, not the contents of volumes. Back up each database and persistent folder yourself, off the server."
+  },
+  {
+    "type": "tf",
+    "q": "Like CapRover, Render stops giving zero downtime deploys to a service that has a persistent disk attached.",
+    "answer": true,
+    "why": "The Render docs say all service types redeploy with zero downtime unless they attach a persistent disk. The reason is the same: two copies must not use one disk."
+  },
+  {
+    "q": "An AWS team wants containers, no servers to patch, and a count that changes by rule when load changes. Which column of the table fits best?",
+    "options": [
+      "ECS on Fargate",
+      "CapRover on one rented server",
+      "Docker Compose on one server",
+      "A CapRover cluster with a fixed instance count"
+    ],
+    "answer": 0,
+    "why": "Fargate means AWS looks after the machines, and ECS service auto scaling changes the task count by target or schedule. CapRover has an instance count that you set by hand."
+  }
+]

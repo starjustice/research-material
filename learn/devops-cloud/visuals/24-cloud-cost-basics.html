@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud cost basics: one month of a bill, line by line</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .big.pos { color: var(--srv); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+
+  /* bill lines drawn as bars */
+  .bars { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+  .brow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 64px; align-items: center; gap: 8px; font-size: .78rem; }
+  .brow .name { font-weight: 650; overflow-wrap: anywhere; }
+  .brow .track { height: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .brow .fill { display: block; height: 100%; width: 0; background: var(--user); transition: width .25s; }
+  .brow .amt { text-align: right; font-family: ui-monospace, Menlo, monospace; font-size: .75rem; }
+  .brow.now .fill { background: var(--store); }
+  .brow.now .track { box-shadow: 0 0 0 3px var(--accent); }
+  .brow.big .fill { background: var(--bad); }
+  .brow.big .name, .brow.big .amt { color: var(--bad); font-weight: 800; }
+  .brow.down .fill { background: var(--srv); }
+  .brow.off { opacity: .45; }
+  @media (max-width: 420px) { .brow { grid-template-columns: 78px minmax(0, 1fr) 58px; } }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/24-cloud-cost-basics" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Cloud cost basics: one month of a bill, line by line</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. A small shop app runs on AWS for one month. The page adds up its bill with the same <code>estimateBill</code>, <code>cheaperOption</code>, <code>forecastMonth</code>, <code>firstAlertDay</code> and <code>costByTag</code> code as the practice answer in the lesson. The prices are examples: AWS, US East (N. Virginia), read from the AWS price list on 2026-11-19. The amounts of traffic and storage are made up. Prices change, so check the current ones before you decide anything.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a bill is many small meters. Some count <b>hours</b> (a thing that exists), some count <b>GB moved</b>, some count <b>GB stored</b>. First delete what you do not use, then use less, then pay less per hour, and promise a year only at the end. Set a <b>budget alert</b> and <b>tag</b> everything, so you see a jump in days and not at the end of the month.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (estimateBill, biggestLine,
+// breakEvenShare, cheaperOption, forecastMonth, firstAlertDay, costByTag). It is a model: no cloud
+// is used. The prices are examples from the AWS price list (US East, N. Virginia, 2026-11-19).
+// The amounts of traffic and storage are made up.
+// ---------------------------------------------------------------------------------------------
+const round2 = (n) => Math.round(n * 100 + 1e-9) / 100;
+const num = (n) => (typeof n === "number" && !Number.isNaN(n) ? n : 0);
+
+function estimateBill(usage, prices) {
+  const hours = usage.hours === undefined ? 730 : usage.hours;
+  const priceOf = (table, kind, key) => {
+    if (!Object.prototype.hasOwnProperty.call(table, key)) throw new Error("unknown " + kind + " type: " + key);
+    return table[key];
+  };
+  const servers = num(usage.servers);
+  const compute = servers > 0 ? servers * priceOf(prices.server, "server", usage.serverType) * hours : 0;
+  const database = usage.dbType
+    ? priceOf(prices.db, "database", usage.dbType) * hours + num(usage.dbStorageGb) * prices.dbStoragePerGb
+    : 0;
+  const balancer = num(usage.loadBalancers) * (prices.lbPerHour * hours + num(usage.lcu) * prices.lcuPerHour * hours);
+  const nat = num(usage.natGateways) * prices.natPerHour * hours + num(usage.natGb) * prices.natPerGb;
+  const dataOut = Math.max(0, num(usage.egressGb) - prices.egressFreeGb) * prices.egressPerGb;
+  const disk = (num(usage.diskGb) + num(usage.unattachedDiskGb)) * prices.diskPerGb;
+  const logs = num(usage.logIngestGb) * prices.logIngestPerGb + num(usage.logStoredGb) * prices.logStoragePerGb;
+  const lines = [
+    { name: "compute", cost: round2(compute) },
+    { name: "database", cost: round2(database) },
+    { name: "load balancer", cost: round2(balancer) },
+    { name: "nat gateway", cost: round2(nat) },
+    { name: "data out", cost: round2(dataOut) },
+    { name: "disk", cost: round2(disk) },
+    { name: "logs", cost: round2(logs) },
+  ];
+  return { lines, total: round2(lines.reduce((sum, line) => sum + line.cost, 0)) };
+}
+
+function biggestLine(bill) {
+  if (!bill.lines || bill.lines.length === 0) return null;
+  let best = bill.lines[0];
+  for (const line of bill.lines) if (line.cost > best.cost) best = line;
+  return best.name;
+}
+
+function breakEvenShare(onDemandPerHour, committedPerHour) {
+  if (!(onDemandPerHour > 0)) throw new Error("onDemandPerHour must be more than 0");
+  if (!(committedPerHour >= 0)) throw new Error("committedPerHour must be 0 or more");
+  return Math.round((committedPerHour / onDemandPerHour) * 10000) / 10000;
+}
+
+function cheaperOption(hoursUsed, hoursInPeriod, onDemandPerHour, committedPerHour) {
+  if (hoursUsed < 0 || hoursUsed > hoursInPeriod) throw new Error("hoursUsed must be between 0 and hoursInPeriod");
+  const onDemand = hoursUsed * onDemandPerHour;
+  const commit = hoursInPeriod * committedPerHour;
+  return {
+    option: commit < onDemand ? "commit" : "on demand",
+    onDemandCost: round2(onDemand),
+    commitCost: round2(commit),
+  };
+}
+
+function forecastMonth(dailySpend, daysInMonth) {
+  if (dailySpend.length === 0) return 0;
+  const sum = dailySpend.reduce((a, b) => a + b, 0);
+  return round2((sum / dailySpend.length) * daysInMonth);
+}
+
+function firstAlertDay(dailySpend, budget, percent) {
+  const limit = (budget * percent) / 100;
+  let total = 0;
+  for (let i = 0; i < dailySpend.length; i++) {
+    total += dailySpend[i];
+    if (total >= limit) return i + 1;
+  }
+  return null;
+}
+
+function costByTag(items, tagKey) {
+  const sums = {};
+  for (const item of items) {
+    const value = item.tags && item.tags[tagKey] !== undefined ? item.tags[tagKey] : "(untagged)";
+    sums[value] = (sums[value] || 0) + item.cost;
+  }
+  for (const key of Object.keys(sums)) sums[key] = round2(sums[key]);
+  return sums;
+}
+
+// Example prices: AWS price list, US East (N. Virginia), read on 2026-11-19. They change.
+const PRICES = {
+  server: { "t3.small": 0.0208, "t3.micro": 0.0104, "t3.small 1yr plan": 0.013, "t3.micro 1yr plan": 0.0065 },
+  db: { "db.t4g.small": 0.032 },
+  dbStoragePerGb: 0.115,
+  lbPerHour: 0.0225, lcuPerHour: 0.008,
+  natPerHour: 0.045, natPerGb: 0.045,
+  egressPerGb: 0.09, egressFreeGb: 100,
+  diskPerGb: 0.08,
+  logIngestPerGb: 0.5, logStoragePerGb: 0.03,
+};
+// Made up amounts for one small shop app, for one month of 730 hours.
+const USAGE = {
+  hours: 730, servers: 2, serverType: "t3.small", dbType: "db.t4g.small", dbStorageGb: 50,
+  loadBalancers: 1, lcu: 1.2, natGateways: 1, natGb: 200, egressGb: 300, diskGb: 40, unattachedDiskGb: 100,
+  logIngestGb: 40, logStoredGb: 100,
+};
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that draw the bars and the boxes. They only show things, they change nothing.
+// ---------------------------------------------------------------------------------------------
+const money = (n) => "$" + n.toFixed(2);
+const SCALE = 45; // the longest bar is about this many dollars
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const pick = (obj, keys) => { const o = {}; keys.forEach((k) => { if (obj[k] !== undefined) o[k] = obj[k]; }); return o; };
+const NAMES = ["compute", "database", "load balancer", "nat gateway", "data out", "disk", "logs"];
+
+function barsBox(title, cls, tagText, bill, marks, opts) {
+  marks = marks || {}; opts = opts || {};
+  return {
+    title, cls, tag: tagText,
+    small: opts.small || "",
+    big: { text: money(bill.total), neg: false },
+    bigLabel: opts.label || "total so far",
+    bars: bill.lines.map((l) => ({ name: l.name, cost: l.cost, mark: marks[l.name] || "" })),
+  };
+}
+const textBox = (title, cls, tag, lines, wide) => ({ wide: !!wide, title, cls, tag, small: "", lines });
+
+// ---- Story 1: one month, line by line ----
+function simulateMonth() {
+  const steps = [];
+  const U = USAGE;
+  const stages = [
+    { key: "compute", keys: ["hours", "servers", "serverType"],
+      hop: "Compute: the servers", cls: "run",
+      how: ["2 servers x $0.0208 an hour x 730 hours", "They exist every hour of the month, busy or not", "$30.37"],
+      note: "<b>The first meter counts hours.</b> Two small servers cost $0.0208 an hour each. A month has about 730 hours. So <code>2 x 0.0208 x 730</code> is <b>$30.37</b>. The meter runs when nobody visits the shop too." },
+    { key: "database", keys: ["dbType", "dbStorageGb"],
+      hop: "Database: hours, plus storage", cls: "run",
+      how: ["$0.032 an hour x 730 hours = $23.36", "50 GB x $0.115 a GB-month = $5.75", "$29.11"],
+      note: "<b>The database has two meters.</b> One counts hours, like a server. The other counts the GB you keep. A GB-month is one GB kept for one month. $23.36 plus $5.75 is <b>$29.11</b>." },
+    { key: "load balancer", keys: ["loadBalancers", "lcu"],
+      hop: "Load balancer: it costs just by existing", cls: "run",
+      how: ["$0.0225 an hour x 730 hours = $16.43", "about 1.2 capacity units x $0.008 x 730 = $7.01", "$23.43"],
+      note: "<b>The load balancer is the door in front of the servers.</b> It costs $16.43 for the hours it exists, even with no visitors. Then it charges for how much traffic it handles. Total <b>$23.43</b>." },
+    { key: "nat gateway", keys: ["natGateways"], dropNat: true,
+      hop: "NAT gateway: the hours", cls: "chk",
+      how: ["1 gateway x $0.045 an hour x 730 hours", "$32.85", "traffic is not counted yet"],
+      note: "<b>A NAT gateway is a shared exit door.</b> Servers that have no public address use it to reach the internet, for example to call a payment service. AWS charges <code>0.045 x 730</code> = <b>$32.85</b> just for the door to be there. No traffic yet, and the bill is already big." },
+    { key: "nat gateway", keys: ["natGateways", "natGb"],
+      hop: "NAT gateway: every GB through it", cls: "bad",
+      how: ["200 GB x $0.045 a GB = $9.00", "plus the $32.85 for the hours", "$41.85"],
+      note: "<b>The same door also charges for every GB that goes through.</b> 200 GB x $0.045 is $9.00. The gateway line is now <b>$41.85</b>. It is the biggest line, and it is not even the app. It is the pipe." },
+    { key: "data out", keys: ["egressGb"],
+      hop: "Data out: GB leaving AWS", cls: "run",
+      how: ["300 GB leave to the internet", "the first 100 GB a month are free", "200 GB x $0.09 = $18.00"],
+      note: "<b>Data leaving AWS for the internet is called egress.</b> Data coming in is not charged here. The first 100 GB a month are free. The other 200 GB cost $0.09 each: <b>$18.00</b>." },
+    { key: "disk", keys: ["diskGb", "unattachedDiskGb"],
+      hop: "Disk: GB kept, attached or not", cls: "chk",
+      how: ["40 GB on the servers x $0.08 = $3.20", "1 forgotten 100 GB disk x $0.08 = $8.00", "$11.20"],
+      note: "<b>A disk is billed for the GB it holds, not for being used.</b> Someone deleted a server months ago and left its 100 GB disk behind. It costs <b>$8.00</b> a month and does nothing." },
+    { key: "logs", keys: ["logIngestGb", "logStoredGb"],
+      hop: "Logs: GB sent in, and GB kept", cls: "chk",
+      how: ["40 GB sent in x $0.50 = $20.00", "100 GB kept x $0.03 = $3.00", "$23.00"],
+      note: "<b>Logs have two meters too.</b> Sending 40 GB in costs $20.00. Keeping 100 GB costs $3.00. By default, logs are kept forever, so the second meter only grows. Total <b>$23.00</b>." },
+  ];
+
+  const aboutApp = textBox("The app", "user", ["made up amounts", ""], [
+    "2 small servers, always on",
+    "1 Postgres database with 50 GB",
+    "1 load balancer",
+    "1 NAT gateway for private servers",
+    "300 GB a month out to users",
+    "200 GB a month through the NAT gateway",
+    "40 GB of disks, plus 1 forgotten 100 GB disk",
+    "40 GB of logs a month, 100 GB kept",
+  ]);
+  const empty = estimateBill({ hours: 730 }, PRICES);
+  steps.push({ layout: "two", hop: "Setup: one small shop, one month", phase: "setup",
+    note: "<b>One bill is many small meters.</b> Here is a small shop app on AWS. It is the usual setup: two servers, a database, a load balancer and a private network with a NAT gateway. Press Next and watch the bill grow one line at a time. Each amount is worked out by the same <code>estimateBill</code> function as the practice.",
+    boxes: [aboutApp, barsBox("The bill so far", "fol", ["US East, 730 hours", ""], empty, {}, { label: "nothing counted yet" })] });
+
+  let usage = { hours: 730 };
+  stages.forEach((st) => {
+    st.keys.forEach((k) => { usage[k] = U[k]; });
+    if (st.dropNat) usage.natGb = 0;
+    if (!st.dropNat && st.key === "nat gateway") usage.natGb = U.natGb;
+    const bill = estimateBill(usage, PRICES);
+    const marks = {}; marks[st.key] = st.cls === "bad" ? "big" : "now";
+    steps.push({ layout: "two", hop: st.hop, phase: st.cls,
+      note: st.note,
+      boxes: [textBox("How it is counted", "user", ["the meter", ""], st.how), barsBox("The bill so far", "fol", ["after this line", ""], bill, marks)] });
+  });
+
+  const full = estimateBill(U, PRICES);
+  const biggest = biggestLine(full);
+  steps.push({ layout: "two", hop: "The whole month", phase: "bad", badge: ["Surprise", "bad"],
+    note: "<b>The total is " + money(full.total) + ", and the biggest line is the " + biggest + ".</b> Most people guess the servers or the database. But " + money(full.lines[3].cost) + " goes to a door that only moves data, and " + money(full.lines[5].cost) + " goes to a forgotten disk. The next tabs cut this bill step by step.",
+    boxes: [barsBox("The bill", "alarm", ["biggest line in red", "bad"], full, (() => { const m = {}; m[biggest] = "big"; return m; })(), { label: "the month" }), textBox("Not what you guessed", "fol", ["look again", "warn"], [
+      "biggest line: " + biggest + " (" + money(full.lines[3].cost) + ")",
+      "the two servers are only " + money(full.lines[0].cost),
+      "the forgotten disk: " + money(8),
+      "none of these lines need a code change to fix",
+    ])] });
+
+  const hoursOnly = estimateBill({ hours: 730, servers: 2, serverType: "t3.small", dbType: "db.t4g.small", loadBalancers: 1, lcu: 1.2, natGateways: 1 }, PRICES).total;
+  const moved = estimateBill({ natGb: U.natGb, egressGb: U.egressGb, logIngestGb: U.logIngestGb }, PRICES).total;
+  const stored = round2(estimateBill({ diskGb: U.diskGb, unattachedDiskGb: U.unattachedDiskGb, logStoredGb: U.logStoredGb }, PRICES).total + U.dbStorageGb * PRICES.dbStoragePerGb);
+  steps.push({ layout: "three", hop: "What to remember: three kinds of meter", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Every line is one of three kinds.</b> Hours cost money while a thing exists. GB moved cost money each time data travels. GB stored cost money while you keep them. When a bill is too high, ask which kind each line is, and which one you can switch off.",
+    boxes: [
+      { title: "Hours", cls: "user", tag: [money(hoursOnly), ""], small: "a thing that exists", lines: ["servers", "database", "load balancer", "NAT gateway door"] },
+      { title: "GB moved", cls: "lb", tag: [money(moved), ""], small: "data that travels", lines: ["through the NAT gateway", "out to the internet", "logs sent in"] },
+      { title: "GB stored", cls: "fol", tag: [money(stored), ""], small: "data you keep", lines: ["database storage", "disks, even a forgotten one", "logs kept forever"] },
+    ] });
+  return steps;
+}
+
+// ---- Story 2: cut it, one change at a time ----
+function simulateCuts() {
+  const steps = [];
+  const start = estimateBill(USAGE, PRICES);
+  steps.push({ layout: "two", hop: "Setup: the bill from tab 1", phase: "setup",
+    note: "<b>The same bill, " + money(start.total) + " a month.</b> We cut it in a good order. First delete what nobody uses. Then use less. Then pay a lower price per hour. Promising a year comes last. Each step shows what it saves.",
+    boxes: [barsBox("The bill", "fol", ["start", ""], start, {}, { label: "per month" }), textBox("The order", "lb", ["from safe to risky", ""], [
+      "1 delete what nobody uses",
+      "2 send less data",
+      "3 move traffic off the NAT gateway",
+      "4 use smaller servers",
+      "5 pay less per hour with a plan",
+    ])] });
+
+  const changes = [
+    { hop: "1. Delete the forgotten disk", change: { unattachedDiskGb: 0 }, mark: "disk",
+      why: ["the disk is not attached to anything", "nobody reads it", "take a snapshot first if unsure"],
+      note: "<b>Delete what nobody uses.</b> The old 100 GB disk goes. <b>Nothing breaks</b>, because nothing used it. This is the safest saving." },
+    { hop: "2. Keep fewer logs", change: { logIngestGb: 20, logStoredGb: 10 }, mark: "logs",
+      why: ["stop debug lines in production: 40 GB to 20 GB sent in", "keep logs 14 days, not forever: 100 GB to 10 GB kept", "(made up amounts)"],
+      note: "<b>Send less, and keep less.</b> Half of the log lines are debug noise, so sending 20 GB saves $10.00. Keeping 14 days instead of forever lowers the stored part from 100 GB to 10 GB. The logs line falls to <b>$10.30</b>." },
+    { hop: "3. A free door to S3", change: { natGb: 80 }, mark: "nat gateway",
+      why: ["120 of the 200 GB are files going to S3", "an S3 gateway endpoint has no extra charge", "so those GB skip the NAT gateway"],
+      note: "<b>Move traffic off the expensive door.</b> Say 120 of the 200 GB are uploads to S3. A gateway endpoint for S3 is a free private route, so those GB no longer cross the NAT gateway. 120 GB x $0.045 is <b>$5.40</b> saved. The $32.85 for the hours stays." },
+    { hop: "4. Use smaller servers", change: { serverType: "t3.micro" }, mark: "compute",
+      why: ["both servers never go above 15 percent CPU", "t3.micro costs $0.0104 an hour, half of t3.small", "check memory too before you shrink"],
+      note: "<b>Use less, when the servers are mostly empty.</b> Each size in this family costs twice the one below it. Both servers sit at 15 percent CPU at their busiest, so one size down is enough. Compute falls from $30.37 to <b>$15.18</b>." },
+    { hop: "5. A one year plan, last", change: { serverType: "t3.micro 1yr plan" }, mark: "compute",
+      why: ["the servers now have a steady size", "1 year, no money upfront: $0.0065 an hour", "that is 37.5 percent below on demand"],
+      note: "<b>Now promise a year.</b> The sizes are right and the servers run all month, so a one year plan is safe. $0.0065 instead of $0.0104 an hour saves another <b>$5.69</b>." },
+  ];
+  let usage = clone(USAGE);
+  let prev = start;
+  changes.forEach((c) => {
+    usage = Object.assign({}, usage, c.change);
+    const now = estimateBill(usage, PRICES);
+    const saved = round2(prev.total - now.total);
+    const marks = {}; marks[c.mark] = "down";
+    steps.push({ layout: "two", hop: c.hop, phase: "srv",
+      note: c.note + " This step saves <b>" + money(saved) + "</b>.",
+      boxes: [Object.assign(textBox("The change", "srv", ["saves " + money(saved), "ok"], c.why), {}), barsBox("The bill now", "fol", ["after the change", ""], now, marks, { label: "was " + money(prev.total) })] });
+    prev = now;
+  });
+
+  const finalBill = estimateBill(usage, PRICES);
+  const saved = round2(start.total - finalBill.total);
+  const pct = Math.round((saved / start.total) * 1000) / 10;
+  steps.push({ layout: "two", hop: "The result", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The bill went from " + money(start.total) + " to " + money(finalBill.total) + ", " + pct + " percent less.</b> The NAT gateway is still the biggest line, because its $32.85 for the hours stays. Removing the NAT gateway for good is a design change: the servers would need public addresses or another route, so it has a security cost. It is a decision to make with eyes open, not a quick saving.",
+    boxes: [barsBox("The bill now", "srv", ["after 5 changes", "ok"], finalBill, (() => { const m = {}; m[biggestLine(finalBill)] = "big"; return m; })(), { label: "saved " + money(saved) + " (" + pct + " percent)" }), textBox("What the changes did", "lb", ["by kind", ""], [
+      "delete: disk, saved $8.00",
+      "send less: logs, saved $12.70",
+      "reroute: S3 endpoint, saved $5.40",
+      "use less: smaller servers, saved $15.19",
+      "pay less per hour: a plan, saved $5.69",
+    ])] });
+
+  const planFirst = estimateBill({ servers: 2, serverType: "t3.small 1yr plan" }, PRICES).total;
+  const microOnDemand = estimateBill({ servers: 2, serverType: "t3.micro" }, PRICES).total;
+  const microPlan = estimateBill({ servers: 2, serverType: "t3.micro 1yr plan" }, PRICES).total;
+  steps.push({ layout: "two", hop: "The mistake: the plan came first", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A plan is a promise to pay every hour for a year.</b> Suppose the team bought the plan for the two <code>t3.small</code> servers on day one. Later they shrank the servers. The promise stays at <b>" + money(planFirst) + "</b> a month. That is more than the shrunken servers cost on demand (" + money(microOnDemand) + "). In the right order, the same servers cost <b>" + money(microPlan) + "</b>. In real AWS the plan is a promise in dollars an hour, and this model simplifies it.",
+    boxes: [textBox("Plan first", "alarm", ["wrong order", "bad"], ["promise: 2 servers x $0.013 x 730", money(planFirst) + " a month for a year", "then shrink the servers", "the promise is still " + money(planFirst)]), textBox("Shrink first, plan last", "srv", ["right order", "ok"], ["shrink to t3.micro: " + money(microOnDemand) + " on demand", "then the plan: " + money(microPlan), "same work, half the money", "the promise matches what you use"])] });
+  return steps;
+}
+
+// ---- Story 3: on demand or a plan? ----
+function simulatePlan() {
+  const steps = [];
+  const od = PRICES.server["t3.small"];
+  const plan1 = PRICES.server["t3.small 1yr plan"];
+  const period = 730;
+  const share = breakEvenShare(od, plan1);
+  const row = (hours) => {
+    const r = cheaperOption(hours, period, od, plan1);
+    return r;
+  };
+  const priceBox = (hours, r) => ({ title: "Cost this month", cls: r ? (r.option === "commit" ? "srv" : "user") : "fol", tag: r ? [r.option === "commit" ? "plan wins" : "on demand wins", r.option === "commit" ? "ok" : "warn"] : ["", ""], small: "",
+    layers: r ? [
+      { name: "on demand", size: money(r.onDemandCost) + " (" + hours + " hours used)", state: r.option === "on demand" ? "cached" : "base" },
+      { name: "1 year plan", size: money(r.commitCost) + " (all " + period + " hours billed)", state: r.option === "commit" ? "cached" : "base" },
+    ] : [{ name: "nothing yet", size: "", state: "wait" }] });
+  const pricesBox = textBox("Two prices for t3.small", "lb", ["example, 2026-11-19", ""], [
+    "on demand: $0.0208 an hour, only the hours it runs",
+    "1 year plan, no money upfront: $0.0130 an hour, every hour",
+    "the plan is 37.5 percent cheaper per hour",
+  ]);
+  steps.push({ layout: "two", hop: "Setup: two prices for one server", phase: "setup",
+    note: "<b>The same server can be paid for in two ways.</b> On demand: you pay only for the hours it runs, at the full price. A plan: you promise one year, the price per hour is lower, and you pay for <b>every</b> hour, used or not. When is the promise worth it?",
+    boxes: [pricesBox, priceBox(0, null)] });
+
+  steps.push({ layout: "two", hop: "The break-even point", phase: "chk",
+    note: "<b>The plan pays off only above " + (share * 100) + " percent use.</b> <code>breakEvenShare(0.0208, 0.013)</code> gives <code>" + share + "</code>. The plan costs 62.5 percent of the full price for every hour. So the server must run at least 62.5 percent of the hours, about 456 of 730, to win.",
+    boxes: [pricesBox, textBox("The break-even rule", "fol", ["plan price / full price", ""], ["0.0130 / 0.0208 = " + share, "above " + (share * 100) + " percent use: plan wins", "below it: on demand wins", "a bigger discount lowers the line"])] });
+
+  [[730, "Always on", "run"], [600, "On 82 percent of the month", "run"], [365, "On half the month", "bad"]].forEach(([h, label, ph]) => {
+    const r = row(h);
+    steps.push({ layout: "two", hop: label + ": " + h + " hours", phase: ph,
+      note: label === "Always on"
+        ? "<b>An API that never stops uses all " + h + " hours.</b> On demand is " + money(r.onDemandCost) + ". The plan is " + money(r.commitCost) + ". <b>The plan wins.</b>"
+        : label === "On 82 percent of the month"
+          ? "<b>600 hours is above the break-even point of 456.</b> On demand is " + money(r.onDemandCost) + ". The plan is still " + money(r.commitCost) + ". <b>The plan still wins</b>, by less."
+          : "<b>365 hours is below 456.</b> On demand costs only " + money(r.onDemandCost) + ". The plan costs " + money(r.commitCost) + " because it bills every hour, even the 365 the server was off. <b>On demand wins.</b> This is the mistake of buying a plan for a server that is often off.",
+      boxes: [pricesBox, priceBox(h, r)] });
+  });
+
+  const dev = row(219);
+  steps.push({ layout: "two", hop: "A test server, on 219 hours", phase: "srv",
+    note: "<b>A test server needed only in work hours runs about 219 of 730 hours.</b> On demand is " + money(dev.onDemandCost) + ". The plan is " + money(dev.commitCost) + ". For something like this the best saving is not a plan at all: <b>switch it off</b> when nobody uses it. Turning it off at night and on weekends, then paying on demand, is cheaper than any plan.",
+    boxes: [pricesBox, priceBox(219, dev)] });
+
+  steps.push({ layout: "three", hop: "What to remember: three ways to pay", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Pick the way to pay from how the server behaves.</b> Always on and steady: a plan. Sometimes on, or not sure it will stay: on demand. Work that can stop and start again at any time: Spot, which sells spare servers at a big discount and can take them back with a two minute warning.",
+    boxes: [
+      { title: "On demand", cls: "user", tag: ["no promise", ""], small: "full price, per hour used", lines: ["new or uncertain", "often off", "short projects"] },
+      { title: "A plan", cls: "srv", tag: ["1 or 3 years", "ok"], small: "lower price, every hour", lines: ["always on", "steady size", "worth it above the break-even point"] },
+      { title: "Spot", cls: "fol", tag: ["up to 90 percent off", "warn"], small: "spare capacity, can be taken back", lines: ["jobs that can restart", "two minute warning", "not the only copy of your API"] },
+    ] });
+  return steps;
+}
+
+// ---- Story 4: a budget alert ----
+function simulateBudget() {
+  const steps = [];
+  const budget = 200, percent = 80, normal = 5.9, debug = 13.9, days = 30;
+  const month = (fixedDay) => {
+    const arr = [];
+    for (let d = 1; d <= days; d++) arr.push(d < 10 ? normal : (fixedDay && d >= fixedDay ? normal : debug));
+    return arr;
+  };
+  const sum = (a) => round2(a.reduce((x, y) => x + y, 0));
+  const status = (title, cls, tag, upTo, extra) => {
+    const so = month().slice(0, upTo);
+    const lines = ["day " + upTo + " of " + days, "spent so far: " + money(sum(so)), "forecast for the month: " + money(forecastMonth(so, days)), "budget: " + money(budget) + ", alert at " + percent + " percent (" + money(budget * percent / 100) + ")"].concat(extra || []);
+    return textBox(title, cls, tag, lines);
+  };
+  steps.push({ layout: "two", hop: "Setup: a budget of $200", phase: "setup",
+    note: "<b>You set a monthly budget of $200 with an alert at 80 percent.</b> A normal day costs $5.90, so the month should end near $177. Nothing is wrong yet. On day 10 somebody will switch on debug logging in production and forget it.",
+    boxes: [textBox("The budget", "lb", ["AWS Budgets", ""], ["monthly budget: $200", "alert when the spend reaches 80 percent: $160", "a second alert when the forecast goes over $200", "email, or an Amazon SNS topic"]), status("Day 0", "fol", ["", ""], 0)] });
+
+  steps.push({ layout: "two", hop: "Day 9: all is normal", phase: "srv",
+    note: "<b>Nine normal days.</b> Spent " + money(sum(month().slice(0, 9))) + ", forecast " + money(forecastMonth(month().slice(0, 9), days)) + ". The forecast is under the budget, so there is no alert.",
+    boxes: [textBox("Nothing to see", "srv", ["healthy", "ok"], ["the forecast is under $200", "no alert is sent"]), status("Day 9", "fol", ["", ""], 9)] });
+
+  const d10 = month().slice(0, 10);
+  steps.push({ layout: "two", hop: "Day 10: debug logging goes on", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A setting adds about 16 GB of logs a day.</b> At $0.50 a GB, that is $8 more every day, so a day now costs $" + debug.toFixed(2) + ". Spent so far is " + money(sum(d10)) + ". The simple forecast (the average day times 30) is already <b>" + money(forecastMonth(d10, days)) + "</b>, over the budget. AWS's own forecast uses its own method, and needs enough history, so it may react later. My model is only an average.",
+    boxes: [textBox("What changed", "alarm", ["a log setting", "bad"], ["+16 GB of logs a day", "+$8.00 a day", "nobody noticed"]), status("Day 10", "alarm", ["forecast over", "bad"], 10, ["forecast alert: " + (forecastMonth(d10, days) > budget ? "yes" : "no")])] });
+
+  const alertDay = firstAlertDay(month(), budget, percent);
+  steps.push({ layout: "two", hop: "Day " + alertDay + ": the 80 percent alert", phase: "chk",
+    note: "<b><code>firstAlertDay</code> says day " + alertDay + ".</b> By then the total has reached " + money(sum(month().slice(0, alertDay))) + ", which is more than 80 percent of $200. The alert goes to email. Budget data is updated up to three times a day, so a real alert can arrive hours late.",
+    boxes: [textBox("The alert", "fol", ["actual spend", "warn"], ["day " + alertDay + ": total over $160", "sent to email or SNS", "7 days after the mistake", "real alerts can be 8 to 12 hours behind"]), status("Day " + alertDay, "fol", ["", ""], alertDay)] });
+
+  const noFix = sum(month());
+  steps.push({ layout: "two", hop: "No fix: the month ends high", phase: "bad",
+    note: "<b>If nobody acts, the month ends at " + money(noFix) + ".</b> That is " + money(round2(noFix - budget)) + " over the budget. A budget alert does not stop anything. It only tells you. It is you who must fix the setting.",
+    boxes: [textBox("End of month", "alarm", ["nobody acted", "bad"], ["total: " + money(noFix), "budget: " + money(budget), "over by " + money(round2(noFix - budget))]), textBox("A budget action", "lb", ["optional", ""], ["a budget can run an action when it passes a line", "for example, apply a policy that denies new resources", "use it with care, so you do not stop the shop"])] });
+
+  const fixed = sum(month(12));
+  steps.push({ layout: "two", hop: "Fix it on day 12", phase: "srv",
+    note: "<b>Say you act on the forecast alert of day 10 and fix the setting on day 12.</b> Only two bad days are paid. The month ends at <b>" + money(fixed) + "</b>, under the budget. The forecast alert gave you a week more than the 80 percent alert.",
+    boxes: [textBox("Fixed early", "srv", ["on day 12", "ok"], ["total: " + money(fixed), "budget: " + money(budget), "under by " + money(round2(budget - fixed))]), textBox("Compare", "fol", ["three endings", ""], ["no alert and no fix: " + money(noFix), "80 percent alert on day " + alertDay + ": you act about a week late", "fixed on day 12: " + money(fixed)])] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A budget turns a surprise at month end into a message in a few days.</b> Set an alert on actual spend and one on the forecast. Look at the bill by line every week, so a jump like +$8 a day is found fast.",
+    boxes: [textBox("Do", "srv", ["habits", "ok"], ["a monthly budget with two alerts", "send them to a place people read", "look at the daily cost after a release"]), textBox("Know", "fol", ["limits", "warn"], ["an alert is late by hours", "it tells you, it does not stop it", "someone must own the fix"])] });
+  return steps;
+}
+
+// ---- Story 5: tags ----
+function simulateTags() {
+  const steps = [];
+  const items = [
+    { name: "web servers", cost: 30.37, tags: { app: "shop", team: "web" } },
+    { name: "database", cost: 29.11, tags: { app: "shop" } },
+    { name: "load balancer", cost: 23.43, tags: { app: "shop", team: "web" } },
+    { name: "old test disk", cost: 8, tags: {} },
+    { name: "blog server", cost: 12.5, tags: { app: "blog", team: "web" } },
+    { name: "mystery bucket", cost: 4.2 },
+  ];
+  const untagged = items.map((i) => ({ name: i.name, cost: i.cost }));
+  const listBox = (title, cls, tag, arr, showTags) => ({ title, cls, tag, small: "", layers: arr.map((i) => ({ name: i.name, size: money(i.cost) + (showTags ? "  " + (i.tags && i.tags.app ? "app=" + i.tags.app : "no app tag") : ""), state: showTags && !(i.tags && i.tags.app) ? "rebuilt" : "base" })) });
+  const total = round2(items.reduce((a, i) => a + i.cost, 0));
+  steps.push({ layout: "two", hop: "Setup: a bill with no names", phase: "setup",
+    note: "<b>The bill lists services and amounts: " + money(total) + " in all.</b> The question from your manager is: how much does the shop cost, and how much does the blog cost? Without labels on the resources, the bill cannot answer.",
+    boxes: [listBox("Resources", "fol", ["no tags yet", ""], untagged, false), textBox("The question", "lb", ["who spent it?", ""], ["shop or blog?", "which team?", "what can we switch off?", "the bill cannot say"])] });
+
+  steps.push({ layout: "two", hop: "Add a tag to each resource", phase: "run",
+    note: "<b>A tag is a label: a key and a value.</b> You add <code>app=shop</code> to the resources of the shop, and <code>app=blog</code> to the blog. Two resources got no tag: the old test disk and a bucket nobody remembers.",
+    boxes: [listBox("Resources", "fol", ["tags added", ""], items, true), textBox("A tag", "user", ["key and value", ""], ["app = shop", "team = web", "keys are case sensitive", "do not put secrets in tags"])] });
+
+  steps.push({ layout: "two", hop: "Turn the tag on for billing", phase: "chk",
+    note: "<b>Tags do nothing for billing until you activate them.</b> In the AWS billing console you activate the tag key as a <b>cost allocation tag</b>. The AWS docs say tags can take up to 24 hours to appear. So tag early, and do not expect the report the same hour.",
+    boxes: [textBox("Billing console", "lb", ["one time step", ""], ["activate the key: app", "wait up to 24 hours", "then Cost Explorer can group by app"]), textBox("Only new cost", "fol", ["be careful", "warn"], ["it groups cost from the activation on", "there is a backfill option in the docs for older months", "read the docs page for the dates"])] });
+
+  const byApp = costByTag(items, "app");
+  steps.push({ layout: "two", hop: "Group the cost by app", phase: "srv",
+    note: "<b><code>costByTag(items, \"app\")</code> adds up each value.</b> The shop costs <b>" + money(byApp.shop) + "</b> and the blog <b>" + money(byApp.blog) + "</b>. The rest, " + money(byApp["(untagged)"]) + ", has no app tag.",
+    boxes: [{ title: "Cost by app tag", cls: "srv", tag: ["Cost Explorer", "ok"], small: "", layers: Object.keys(byApp).sort().map((k) => ({ name: k, size: money(byApp[k]), state: k === "(untagged)" ? "rebuilt" : "cached" })) }, textBox("Now you can answer", "lb", ["the question", ""], ["the shop: " + money(byApp.shop), "the blog: " + money(byApp.blog), "and money nobody owns: " + money(byApp["(untagged)"])])] });
+
+  steps.push({ layout: "two", hop: "The untagged part is a to-do list", phase: "bad", badge: ["Look here", "bad"],
+    note: "<b>The untagged line is where waste hides.</b> Things nobody owns are the ones nobody deletes. The old test disk and the mystery bucket cost " + money(byApp["(untagged)"]) + " a month. Ask who owns them. If nobody does, snapshot and delete them.",
+    boxes: [listBox("Untagged things", "alarm", ["no owner", "bad"], items.filter((i) => !(i.tags && i.tags.app)), true), textBox("Rule", "srv", ["a habit", "ok"], ["no tag, no resource", "set the tags in code (lesson 14)", "check for untagged things once a month"])] });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>You cannot cut what you cannot see.</b> Tags give each cost an owner. Activate them, wait up to a day, and read the untagged line as your to-do list.",
+    boxes: [textBox("Tags give you", "srv", ["see it", "ok"], ["cost by app, team and environment", "an owner for each resource", "a list of orphans"]), textBox("Tags do not", "fol", ["limits", "warn"], ["fix the waste for you", "work backwards without a backfill", "work if people forget to tag"])] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. One month, line by line", sim: simulateMonth,
+    why: "A bill is many meters. Some count hours (a thing that exists), some count GB moved, some count GB stored. The line that is biggest is often a pipe or a forgotten thing, not the app.",
+    predict: { q: "A small app has 2 servers, a database, a load balancer and a NAT gateway. Which line is the biggest?", options: ["The 2 servers", "The database", "The NAT gateway"], answer: "The NAT gateway" } },
+  { name: "2. Cut it, step by step", sim: simulateCuts,
+    why: "Delete what nobody uses, use less, then pay a lower price per hour. Promising a year comes last, so you do not promise the waste.",
+    predict: { q: "Which one change saves the most here: delete the forgotten disk, keep fewer logs, or use smaller servers?", options: ["Delete the forgotten disk", "Keep fewer logs", "Use smaller servers"], answer: "Use smaller servers" } },
+  { name: "3. On demand or a plan", sim: simulatePlan,
+    why: "A plan bills every hour, used or not. So it wins only when the server runs more than the break-even share of the hours.",
+    predict: { q: "A one year plan costs 62.5 percent of on demand per hour. A server runs half of the month. Which is cheaper?", options: ["The plan", "On demand", "They cost the same"], answer: "On demand" } },
+  { name: "4. A budget alert", sim: simulateBudget,
+    why: "A budget turns a month end surprise into a message in a few days. An alert on actual spend comes late. An alert on the forecast comes sooner. Someone must still fix the cause.",
+    predict: { q: "A setting adds $8 a day from day 10. The budget is $200 with an alert at 80 percent of actual spend. On which day does the alert come?", options: ["Day 10", "Day 17", "Day 30"], answer: "Day 17" } },
+  { name: "5. Tags", sim: simulateTags,
+    why: "A tag gives a cost an owner. You must activate the tag for billing, and it can take up to 24 hours. The untagged part is where waste hides.",
+    predict: { q: "You tag every resource app=shop today. Can you group the bill by that tag in the next hour?", options: ["Yes, at once", "Only after you activate the tag, and it can take up to 24 hours", "No, tags never show on the bill"], answer: "Only after you activate the tag, and it can take up to 24 hours" } },
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Adding a line", "run"], chk: ["Look at this", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag && b.tag[0] ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.bars) h += '<div class="bars">' + b.bars.map(l => '<div class="brow ' + (l.mark || "") + (l.cost === 0 ? " off" : "") + '"><span class="name">' + l.name + '</span><span class="track"><i class="fill" style="width:' + Math.min(100, Math.round(100 * l.cost / SCALE)) + '%"></i></span><span class="amt">' + money(l.cost) + "</span></div>").join("") + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateMonth, simulateCuts, simulatePlan, simulateBudget, simulateTags, STORIES, PRICES, USAGE, estimateBill, biggestLine, breakEvenShare, cheaperOption, forecastMonth, firstAlertDay, costByTag };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What CapRover does: a deploy, a folder, a health check, a certificate</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/21-what-caprover-does-for-you" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>What CapRover does: a deploy, a folder, a health check, a certificate</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of what CapRover decides. It runs the same <code>parseCaptainDefinition</code>, <code>updateOrder</code>, <code>rollout</code>, <code>routeTable</code>, <code>certsToRenew</code>, <code>survivesRedeploy</code> and <code>restoreReport</code> code as the practice answer in the lesson. Nothing here talks to a real server. The rules come from the CapRover docs and source code, read on 2026-11-19.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a deploy builds the image, updates the Swarm service and reloads nginx. A folder means stop-first and a short gap. A health check keeps a broken copy from taking over. A certificate is asked for once and renewed by a timer. Backups of your data are yours.</p>
+
+</div>
+
+
+
+<script>
+// The model below is the same code as the practice answer in the lesson. It is a model, not CapRover.
+const SELECTORS = ["dockerfilePath", "imageName", "dockerfileLines", "templateId"];
+const TEMPLATE_NAMES = ["node", "php", "python-django", "ruby-rack"];
+
+function parseCaptainDefinition(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    throw new Error("captain-definition must be a JSON object");
+  }
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("captain-definition must be a JSON object");
+  }
+  if (data.schemaVersion !== 2) throw new Error("schemaVersion must be 2");
+  const given = SELECTORS.filter((key) => Object.prototype.hasOwnProperty.call(data, key));
+  if (given.length !== 1) {
+    throw new Error("use exactly one of dockerfilePath, imageName, dockerfileLines, templateId");
+  }
+  const source = given[0];
+  const value = data[source];
+  if (source === "dockerfileLines") {
+    const good = Array.isArray(value) && value.length > 0 && value.every((line) => typeof line === "string");
+    if (!good) throw new Error("dockerfileLines must be a list of lines");
+    return { source, value };
+  }
+  if (typeof value !== "string" || value.trim() === "") throw new Error(source + " must be text");
+  if (source === "dockerfilePath" && value.split("/").includes("..")) {
+    throw new Error("dockerfilePath must stay inside the project");
+  }
+  if (source === "templateId") {
+    const parts = value.split("/");
+    if (parts.length !== 2 || !TEMPLATE_NAMES.includes(parts[0]) || parts[1] === "") {
+      throw new Error("templateId must look like node/24");
+    }
+  }
+  return { source, value };
+}
+
+function updateOrder(volumes) {
+  return volumes && volumes.length > 0 ? "stop-first" : "start-first";
+}
+
+function rollout({ order, healthCheck, bootSeconds, newWorks, buildOk = true }) {
+  if (!buildOk) return { downtimeSeconds: 0, serving: "old" };
+  if (order === "start-first" && healthCheck) {
+    return newWorks ? { downtimeSeconds: 0, serving: "new" } : { downtimeSeconds: 0, serving: "old" };
+  }
+  return newWorks ? { downtimeSeconds: bootSeconds, serving: "new" } : { downtimeSeconds: Infinity, serving: "nothing" };
+}
+
+function routeTable(apps, rootDomain) {
+  const rows = [];
+  for (const app of apps) {
+    if (app.web === false) continue;
+    const upstream = "http://" + app.name + ":" + (app.port || 80);
+    const hosts = [{ host: app.name + "." + rootDomain, https: Boolean(app.https) }];
+    for (const extra of app.domains || []) hosts.push({ host: extra.host, https: Boolean(extra.https) });
+    for (const { host, https } of hosts) {
+      rows.push({ host, upstream, https, redirectToHttps: Boolean(app.forceHttps) && https });
+    }
+  }
+  return rows.sort((a, b) => (a.host < b.host ? -1 : a.host > b.host ? 1 : 0));
+}
+
+function certsToRenew(certs) {
+  return certs.filter((cert) => cert.daysLeft < 30).map((cert) => cert.host);
+}
+
+function survivesRedeploy(mounts, path) {
+  return mounts.some((mount) => {
+    const base = mount.endsWith("/") && mount.length > 1 ? mount.slice(0, -1) : mount;
+    return path === base || path.startsWith(base === "/" ? "/" : base + "/");
+  });
+}
+
+function restoreReport({ configBackup, dataBackup, registry }) {
+  return {
+    settingsBack: Boolean(configBackup),
+    certificatesBack: Boolean(configBackup),
+    imagesBack: Boolean(configBackup) && Boolean(registry),
+    dataBack: Boolean(dataBackup),
+  };
+}
+
+
+// ---- helpers that draw the boxes. They only show things. ----
+const ROOT = "apps.example.com";
+const DEF = '{"schemaVersion":2,"dockerfilePath":"./Dockerfile"}';
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const cap = (lines, tag, cls) => ({ title: "captain-captain", cls: cls || "lb", tag: tag || ["boss and builder", ""], small: "", lines });
+const swarm = (tasks, tag, cls) => ({ title: "Swarm service: api", cls: cls || "srv", tag: tag || ["the copies", ""], small: "", layers: tasks });
+const task = (name, size, state) => ({ name, size, state });
+const nginx = (routes, extra, tag, cls) => ({
+  title: "captain-nginx", cls: cls || "fol", tag: tag || ["front door", ""], small: "",
+  layers: routes.map((r) => ({ name: r.host, size: "to " + r.upstream + (r.https ? " (https)" : ""), state: "cached" })).concat((extra || []).map((e) => ({ name: e[0], size: e[1], state: e[2] || "wait" })))
+});
+const visitor = (lines, tag, cls) => ({ wide: true, title: "A visitor asks https://api." + ROOT, cls: cls || "user", tag: tag || ["200", "ok"], small: "", lines });
+const trio = (a, b, c, v) => [a, b, c, v];
+const apiRoutes = (https) => routeTable([{ name: "api", port: 3000, https, forceHttps: https }], ROOT);
+
+// ---- Story 1: a normal deploy ----
+function simulateDeploy() {
+  const steps = [];
+  const routes = apiRoutes(true);
+  const def = parseCaptainDefinition(DEF);
+  const order = updateOrder([]);
+  const ro = rollout({ order, healthCheck: true, bootSeconds: 8, newWorks: true });
+  const v1 = task("copy of version 1", "running", "cached");
+  steps.push({ layout: "three", hop: "Setup: version 1 is live", phase: "setup",
+    note: "<b>Version 1 of <code>api</code> is live.</b> The Swarm service has one copy. <code>captain-nginx</code> has one route: the name <code>api." + ROOT + "</code> goes to the service called <code>api</code> on port 3000. You changed the code and now you deploy. Press Next.",
+    boxes: trio(cap(["idle", "app api: version 1 deployed"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "You run caprover deploy", phase: "run",
+    note: "<b>The command line uploads your committed files.</b> Files that are not committed, or that Git ignores, are not sent (CapRover docs). Nothing changed on the server yet. A push to a Git webhook does the same job in another way: CapRover fetches the branch and builds it.",
+    boxes: trio(cap(["got the project files", "waiting to read the recipe"], ["upload received", "chk"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "captain reads captain-definition", phase: "chk",
+    note: "<b>The file at the root says how to get an image.</b> The model's <code>parseCaptainDefinition</code> returns <code>source: " + def.source + "</code>. The file must hold exactly one of four choices, so there is no guessing.",
+    boxes: trio(cap(["recipe: " + DEF, "choice: " + def.source + " = " + def.value]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "Build the image on the server", phase: "run",
+    note: "<b>CapRover builds on your server</b> unless you send a ready image (docs). A big build uses its RAM and disk. The Swarm service is <b>not touched</b> yet, so visitors still get version 1.",
+    boxes: trio(cap(["running the Dockerfile", "image for version 2 is ready"], ["building", "run"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "Update the Swarm service", phase: "run",
+    note: "<b>The build worked, so captain updates the service.</b> It picks the order by itself: <code>updateOrder([])</code> gives <code>" + order + "</code>, because this app has no persistent directory. Swarm starts a copy of version 2. The old copy keeps running.",
+    boxes: trio(cap(["update order: " + order, "service update sent to Docker"]), swarm([v1, task("copy of version 2", "starting", "now")]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "The new copy passes its health check", phase: "chk",
+    note: "<b>The image has a HEALTHCHECK, so Swarm waits.</b> After about 8 seconds version 2 can answer, and Swarm marks it healthy. Without a HEALTHCHECK Swarm would call it ready as soon as the process starts (card 6).",
+    boxes: trio(cap(["waiting 2 seconds", "so Docker DNS knows the name"]), swarm([v1, task("copy of version 2", "healthy", "cached")]), nginx(routes), visitor(["200 from version 1 or version 2"])) });
+  steps.push({ layout: "three", hop: "Swarm stops the old copy", phase: "srv",
+    note: "<b>Only now does the old copy stop.</b> The model says: downtime " + ro.downtimeSeconds + " seconds, serving " + ro.serving + ". The visitor never saw a gap.",
+    boxes: trio(cap(["rewrite nginx config", "reload nginx"], ["reloading", "chk"]), swarm([task("copy of version 1", "stopped", "wait"), task("copy of version 2", "running", "cached")]), nginx(routes, [], ["reloading", "warn"]), visitor(["200 from version 2"])) });
+  steps.push({ layout: "three", hop: "captain reloads nginx", phase: "srv",
+    note: "<b>captain rewrites the nginx config for every web app and reloads nginx.</b> For an app that already exists the text is the same, because the name and the port did not change. The route points at the name <code>api</code>, and nginx asks Docker's DNS for it again every 10 seconds (the template has <code>resolver 127.0.0.11 valid=10s</code>).",
+    boxes: trio(cap(["config written", "nginx reloaded"]), swarm([task("copy of version 2", "running", "cached")]), nginx(routes), visitor(["200 from version 2"])) });
+  steps.push({ layout: "three", hop: "The certificate is not asked for", phase: "srv",
+    note: "<b>A deploy never asks Let's Encrypt for anything.</b> The certificate for <code>api." + ROOT + "</code> was asked for once, when you pressed Enable HTTPS, and a timer renews it (tab 5). Deploy and certificate are two separate jobs.",
+    boxes: trio(cap(["no certificate step"]), swarm([task("copy of version 2", "running", "cached")]), nginx(routes, [["certificate", "kept as it was", "cached"]]), visitor(["200 from version 2"])) });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A deploy is: upload, build, update the service, swap the copies, reload nginx.</b> The certificate is a separate job. A failed build stops before the service update.",
+    boxes: [{ title: "In every deploy", cls: "srv", tag: ["5 moves", "ok"], small: "", lines: ["upload the committed files", "build the image on the server", "update the Swarm service", "Swarm swaps the copies", "captain reloads nginx"] }, { title: "Not in a deploy", cls: "fol", tag: ["separate jobs", ""], small: "", lines: ["DNS (the wildcard is set once)", "the certificate (Enable HTTPS, then a timer)", "your data backups"] }] });
+  return steps;
+}
+
+// ---- Story 2: a folder is mounted ----
+function simulateFolder() {
+  const steps = [];
+  const routes = apiRoutes(true);
+  const mounts = ["/app/uploads"];
+  const order = updateOrder(mounts.map((p) => ({ path: p })));
+  const ro = rollout({ order, healthCheck: true, bootSeconds: 8, newWorks: true });
+  const v1 = task("copy of version 1", "running", "cached");
+  steps.push({ layout: "three", hop: "Setup: api saves uploads in a folder", phase: "setup",
+    note: "<b>This <code>api</code> has one persistent directory:</b> <code>/app/uploads</code> on the server is shown inside the container. It also writes cache files to <code>/app/tmp</code>, which is not mounted.",
+    boxes: trio(cap(["persistent directory: /app/uploads"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "Deploy: captain picks the order", phase: "chk",
+    note: "<b><code>updateOrder</code> now says <code>" + order + "</code>.</b> Two copies must not write to the same folder at the same time, so CapRover stops the old copy first (docs: stateful apps use stop-first by default).",
+    boxes: trio(cap(["update order: " + order, "reason: a folder is mounted"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "The old copy stops", phase: "bad", badge: ["A gap", "bad"],
+    note: "<b>Nothing answers now.</b> nginx is fine, but no copy is behind it, so the visitor gets a 502. The gap lasts until the new copy can answer.",
+    boxes: trio(cap(["waiting"]), swarm([task("copy of version 1", "stopped", "wait")], ["no copy", "bad"], "alarm"), nginx(routes), visitor(["502 Bad Gateway"], ["502", "bad"], "alarm")) });
+  steps.push({ layout: "three", hop: "The new copy boots", phase: "bad", badge: ["A gap", "bad"],
+    note: "<b>The new copy starts and needs about 8 seconds.</b> The visitor still gets 502.",
+    boxes: trio(cap(["waiting"]), swarm([task("copy of version 2", "starting", "now")], ["booting", "warn"]), nginx(routes), visitor(["502 Bad Gateway"], ["502", "bad"], "alarm")) });
+  steps.push({ layout: "three", hop: "The new copy answers", phase: "srv",
+    note: "<b>The gap was " + ro.downtimeSeconds + " seconds</b> in this model (<code>rollout</code> with stop-first). The folder is shown to the new copy, so the files are still there.",
+    boxes: trio(cap(["nginx reloaded"]), swarm([task("copy of version 2", "running", "cached")]), nginx(routes), visitor(["200 from version 2"])) });
+  const files = ["/app/uploads/photo.png", "/app/uploads/2026/a.pdf", "/app/tmp/cache.json", "/app/uploads2/x.png"];
+  steps.push({ layout: "two", hop: "Which files are still there?", phase: "chk",
+    note: "<b>Only files inside a mounted folder survive.</b> <code>survivesRedeploy</code> checks each path. Note <code>/app/uploads2</code>: it only starts with the same letters, it is a different folder.",
+    boxes: [{ title: "Kept", cls: "srv", tag: ["in the mount", "ok"], small: "", lines: files.filter((f) => survivesRedeploy(mounts, f)) }, { title: "Gone", cls: "alarm", tag: ["new container", "bad"], small: "", lines: files.filter((f) => !survivesRedeploy(mounts, f)) }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A mounted folder means stop-first, so a short gap.</b> The cost buys safety for your data. A hosted platform has the same trade: Render says zero downtime deploys stop when a persistent disk is attached (Render docs).",
+    boxes: [{ title: "No folder", cls: "srv", tag: ["start-first", "ok"], small: "", lines: ["new copy first", "no gap with a health check"] }, { title: "A folder", cls: "fol", tag: ["stop-first", "warn"], small: "", lines: ["old copy stops first", "a gap of the boot time", "files in the folder survive"] }] });
+  return steps;
+}
+
+// ---- Story 3: the build fails ----
+function simulateBuildFail() {
+  const steps = [];
+  const routes = apiRoutes(true);
+  const v1 = task("copy of version 1", "running", "cached");
+  const ro = rollout({ order: "start-first", healthCheck: true, bootSeconds: 8, newWorks: true, buildOk: false });
+  steps.push({ layout: "three", hop: "Setup: version 1 is live", phase: "setup",
+    note: "<b>Version 1 is live.</b> You deploy a version with a typo in the Dockerfile.",
+    boxes: trio(cap(["idle"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "The build runs", phase: "run",
+    note: "<b>captain builds the image.</b> The service is not touched while it builds.",
+    boxes: trio(cap(["running the Dockerfile"], ["building", "run"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "The build fails", phase: "bad", badge: ["Build failed", "bad"],
+    note: "<b>A step of the Dockerfile fails.</b> In the CapRover code, a failed build goes to the error path and never reaches the service update. Read the deployment output for the first failing command (docs).",
+    boxes: trio(cap(["build failed", "error is in the build log"], ["failed", "bad"], "alarm"), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "two", hop: "What the visitor sees", phase: "srv", badge: ["Safe", "srv"],
+    note: "<b>The model says: downtime " + ro.downtimeSeconds + " seconds, serving " + ro.serving + ".</b> Nothing changed in Swarm or nginx. A broken build costs you time, not visitors.",
+    boxes: [{ title: "Changed", cls: "alarm", tag: ["nothing", "bad"], small: "", lines: ["the Swarm service", "the nginx config", "the certificate"] }, { title: "Visitor", cls: "user", tag: ["200", "ok"], small: "", lines: ["still version 1"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The service update only runs after a good build.</b> But a good build is not a good app: the next tab shows what a bad app does.",
+    boxes: [{ title: "Build fails", cls: "srv", tag: ["old stays", "ok"], small: "", lines: ["no service update", "version 1 keeps serving"] }, { title: "Build works, app is broken", cls: "alarm", tag: ["next tab", "bad"], small: "", lines: ["the service does update", "the health check decides what happens"] }] });
+  return steps;
+}
+
+// ---- Story 4: health check ----
+function simulateHealth() {
+  const steps = [];
+  const routes = apiRoutes(true);
+  const v1 = task("copy of version 1", "running", "cached");
+  const noHC = rollout({ order: "start-first", healthCheck: false, bootSeconds: 15, newWorks: true });
+  const hc = rollout({ order: "start-first", healthCheck: true, bootSeconds: 15, newWorks: true });
+  const bad = rollout({ order: "start-first", healthCheck: true, bootSeconds: 15, newWorks: false });
+  const badNo = rollout({ order: "start-first", healthCheck: false, bootSeconds: 15, newWorks: false });
+  steps.push({ layout: "three", hop: "Setup: the new version takes 15 seconds to boot", phase: "setup",
+    note: "<b>Both deploys here are start-first.</b> The new version needs 15 seconds to connect to its database and answer. First case: the image has <b>no</b> HEALTHCHECK.",
+    boxes: trio(cap(["update order: start-first"]), swarm([v1]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "No health check: the new copy counts as ready at once", phase: "bad", badge: ["Too early", "bad"],
+    note: "<b>Swarm sees a started process and calls it ready.</b> So it stops the old copy. The new copy is still booting.",
+    boxes: trio(cap(["waiting"]), swarm([task("copy of version 1", "stopped", "wait"), task("copy of version 2", "booting, counted as running", "now")], ["too early", "warn"]), nginx(routes), visitor(["502 Bad Gateway"], ["502", "bad"], "alarm")) });
+  steps.push({ layout: "three", hop: "No health check: the result", phase: "bad", badge: ["A gap", "bad"],
+    note: "<b>The model says: downtime " + noHC.downtimeSeconds + " seconds.</b> That is the whole boot time. This is the 502 after every deploy that the CapRover and nginx lessons warn about.",
+    boxes: trio(cap(["done"]), swarm([task("copy of version 2", "running", "cached")]), nginx(routes), visitor(["15 seconds of 502, then 200"], ["gap", "bad"], "alarm")) });
+  steps.push({ layout: "three", hop: "With a HEALTHCHECK: Swarm keeps the new copy silent", phase: "chk",
+    note: "<b>Now the image has a HEALTHCHECK.</b> The new copy starts, but Swarm does not use it until the check passes. The old copy keeps serving. This is what the CapRover zero-downtime example shows.",
+    boxes: trio(cap(["update order: start-first"]), swarm([v1, task("copy of version 2", "starting, not healthy yet", "now")]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "three", hop: "With a HEALTHCHECK: the swap", phase: "srv",
+    note: "<b>After 15 seconds the check passes and the old copy stops.</b> The model says: downtime " + hc.downtimeSeconds + " seconds, serving " + hc.serving + ".",
+    boxes: trio(cap(["done"]), swarm([task("copy of version 1", "stopped", "wait"), task("copy of version 2", "running", "cached")]), nginx(routes), visitor(["200 all the time"])) });
+  steps.push({ layout: "three", hop: "A new version that never gets healthy", phase: "chk",
+    note: "<b>This time the new version cannot reach its database.</b> The check never passes. The model says: downtime " + bad.downtimeSeconds + " seconds, serving " + bad.serving + ". The old copy keeps working while you fix it. (Without a check the model gives a gap with no end, and serving " + badNo.serving + ".)",
+    boxes: trio(cap(["update is stuck", "read the app logs"], ["stuck", "warn"]), swarm([v1, task("copy of version 2", "never healthy", "rebuilt")]), nginx(routes), visitor(["200 from version 1"])) });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A health check tells Swarm when a copy is really ready.</b> It is the Swarm version of a readiness probe in Kubernetes (lesson 11). It must test something real, with a command that exists in your image.",
+    boxes: [{ title: "No check", cls: "alarm", tag: ["risky", "bad"], small: "", lines: ["ready means the process started", "a gap while it boots", "a broken copy can replace a good one"] }, { title: "With a check", cls: "srv", tag: ["safe", "ok"], small: "", lines: ["ready means it answers", "old copy serves until then", "a broken copy never takes over"] }] });
+  return steps;
+}
+
+// ---- Story 5: certificates ----
+function simulateCert() {
+  const steps = [];
+  const host = "shop." + ROOT;
+  const http = routeTable([{ name: "shop", port: 3000 }], ROOT);
+  const https = routeTable([{ name: "shop", port: 3000, https: true, forceHttps: true }], ROOT);
+  steps.push({ layout: "two", hop: "Setup: DNS is done once", phase: "setup",
+    note: "<b>A wildcard DNS record already sends every name under <code>" + ROOT + "</code> to the server.</b> You made a new app called <code>shop</code>. It works on plain http. Wildcard DNS gives names, not certificates.",
+    boxes: [nginx(http, [], ["http only", "warn"]), { title: "captain-certbot", cls: "lb", tag: ["idle", ""], small: "", lines: ["no certificate for " + host] }] });
+  steps.push({ layout: "two", hop: "You press Enable HTTPS, once", phase: "run",
+    note: "<b>captain asks certbot for a certificate for this one name.</b> The command in the code has the shape <code>certbot certonly --webroot -d " + host + "</code>.",
+    boxes: [nginx(http), { title: "captain-certbot", cls: "lb", tag: ["asking", "run"], small: "", lines: ["asks Let's Encrypt for " + host] }] });
+  steps.push({ layout: "two", hop: "Let's Encrypt checks you own the name", phase: "chk",
+    note: "<b>Let's Encrypt asks for a file at a known address on port 80:</b> <code>http://" + host + "/.well-known/acme-challenge/...</code>. nginx has a rule for that path. If port 80 is closed or DNS is wrong, this step fails. HTTP-01 works only on port 80 and cannot give wildcard certificates (Let's Encrypt docs).",
+    boxes: [nginx(http, [["/.well-known/acme-challenge/", "served from a folder", "now"]]), { title: "Let's Encrypt", cls: "user", tag: ["checks", "chk"], small: "", lines: ["fetches the challenge file", "from the public internet", "on port 80"] }] });
+  steps.push({ layout: "two", hop: "The certificate is saved, nginx gets a 443 block", phase: "srv",
+    note: "<b>The certificate is stored on the server, and captain rewrites the nginx rule.</b> It adds <code>listen 443 ssl</code> and the certificate paths. With Force HTTPS, http is redirected to https.",
+    boxes: [nginx(https, [], ["https on", "ok"]), { title: "captain-certbot", cls: "lb", tag: ["done", "ok"], small: "", lines: ["certificate saved for " + host] }] });
+  const certs = [{ host, daysLeft: 60 }, { host: "api." + ROOT, daysLeft: 20 }, { host: "old." + ROOT, daysLeft: 29 }, { host: "blog." + ROOT, daysLeft: 30 }];
+  const due = certsToRenew(certs);
+  steps.push({ layout: "two", hop: "A timer renews, about every 20 hours", phase: "run",
+    note: "<b>captain runs <code>certbot renew</code> on a timer</b> (about every 20.3 hours in the source) and reloads nginx. certbot only renews a certificate with less than 30 days left, so most runs do nothing. <code>certsToRenew</code> picks: " + due.join(", ") + ".",
+    boxes: [{ title: "Certificates", cls: "fol", tag: ["days left", ""], small: "", layers: certs.map((c) => ({ name: c.host, size: c.daysLeft + " days", state: due.includes(c.host) ? "now" : "cached" })) }, { title: "This run renews", cls: "lb", tag: [due.length + " of " + certs.length, "warn"], small: "", lines: due }] });
+  steps.push({ layout: "two", hop: "A deploy does not touch any of this", phase: "srv",
+    note: "<b>Deploys and certificates are separate jobs.</b> A new version of <code>shop</code> changes the Swarm service and reloads nginx. It does not ask Let's Encrypt.",
+    boxes: [nginx(https), { title: "captain-certbot", cls: "lb", tag: ["not asked", ""], small: "", lines: ["no request during a deploy"] }] });
+  steps.push({ layout: "two", hop: "What breaks renewal", phase: "bad", badge: ["Watch out", "bad"],
+    note: "<b>Renewal needs the same things as the first request:</b> correct DNS and an open port 80. If you later close port 80 or put a proxy in front, renewal fails and nobody tells you until the certificate ends. If it fails, read <code>docker service logs captain-captain --since 24h</code> (CapRover docs).",
+    boxes: [{ title: "Needs", cls: "srv", tag: ["always", "ok"], small: "", lines: ["DNS points at the server", "port 80 open to the internet", "port 443 open"] }, { title: "Breaks it", cls: "alarm", tag: ["risk", "bad"], small: "", lines: ["a firewall change", "a proxy in front without a rule", "moving the server and not the DNS"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>One certificate per name, asked for once, renewed by a timer.</b> Keep DNS and port 80 working.",
+    boxes: [{ title: "Once", cls: "lb", tag: ["you", ""], small: "", lines: ["wildcard DNS", "Enable HTTPS for each name"] }, { title: "By CapRover", cls: "srv", tag: ["timer", "ok"], small: "", lines: ["renew when under 30 days", "reload nginx"] }] });
+  return steps;
+}
+
+// ---- Story 6: the server dies ----
+function simulateDeath() {
+  const steps = [];
+  const parts = (state) => ["captain-captain", "captain-nginx", "captain-certbot", "api", "postgres (one-click)"].map((n) => ({ name: n, size: state === "gone" ? "gone" : "running", state: state === "gone" ? "rebuilt" : "cached" }));
+  steps.push({ layout: "two", hop: "Setup: everything on one server", phase: "setup",
+    note: "<b>On a single server, captain, nginx, certbot and your apps all live on one machine.</b> In the code, nginx and certbot are placed on the same node as captain.",
+    boxes: [{ title: "One server", cls: "srv", tag: ["all in one", ""], small: "", layers: parts("ok") }, { title: "Your backups", cls: "user", tag: ["off the server", ""], small: "", lines: ["CapRover configuration backup", "database dump and uploads backup"] }] });
+  steps.push({ layout: "two", hop: "The server dies", phase: "bad", badge: ["Down", "bad"],
+    note: "<b>The site, the dashboard and the front door are all gone together.</b> Adding copies of <code>api</code> on the same server does not help.",
+    boxes: [{ title: "One server", cls: "alarm", tag: ["dead", "bad"], small: "", layers: parts("gone") }, { title: "Your backups", cls: "user", tag: ["safe", "ok"], small: "", lines: ["still there"] }] });
+  const cases = [
+    ["Both backups", { configBackup: true, dataBackup: true, registry: false }],
+    ["Only the CapRover backup", { configBackup: true, dataBackup: false, registry: false }],
+    ["No backup", { configBackup: false, dataBackup: false, registry: false }]
+  ];
+  cases.forEach(([name, input]) => {
+    const r = restoreReport(input);
+    const yn = (b) => (b ? "comes back" : "lost");
+    steps.push({ layout: "two", hop: "New server: " + name, phase: input.dataBackup ? "srv" : "bad",
+      note: "<b>" + name + ".</b> Install CapRover on a new server and point DNS at it. CapRover restores its backup file on first install. Images built on the old server are not in the backup unless the registry was on, so you redeploy each app.",
+      boxes: [{ title: "After the restore", cls: input.dataBackup ? "srv" : "alarm", tag: [name, ""], small: "", layers: [
+        { name: "app settings and domains", size: yn(r.settingsBack), state: r.settingsBack ? "cached" : "rebuilt" },
+        { name: "certificates", size: yn(r.certificatesBack), state: r.certificatesBack ? "cached" : "rebuilt" },
+        { name: "built images", size: yn(r.imagesBack) + " (redeploy)", state: r.imagesBack ? "cached" : "rebuilt" },
+        { name: "database and uploads", size: yn(r.dataBack), state: r.dataBack ? "cached" : "rebuilt" }] },
+        { title: "Your job", cls: "lb", tag: ["steps", ""], small: "", lines: ["install CapRover", "restore the backup if you have one", "redeploy the apps", "restore your data from your own backups", "change DNS to the new IP"] }] });
+  });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>CapRover gives you the platform, not the safety.</b> The configuration backup holds settings, not your data. Test a restore on a spare server before you need it.",
+    boxes: [{ title: "In the CapRover backup", cls: "srv", tag: ["docs", "ok"], small: "", lines: ["app definitions", "domain settings", "certificates"] }, { title: "Not in it", cls: "alarm", tag: ["yours", "bad"], small: "", lines: ["database volumes", "uploaded files", "locally built images"] }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A deploy", sim: simulateDeploy,
+    why: "A deploy is: upload, build, update the service, swap the copies, reload nginx. The new copy starts first and the old one stops after it is ready, so there is no gap.",
+    predict: { q: "You deploy an app with no persistent directory and a health check. Do visitors see a gap?", options: ["Yes, always a few seconds", "No, the new copy starts first", "Only if the build is slow"], answer: "No, the new copy starts first" } },
+  { name: "2. A folder", sim: simulateFolder,
+    why: "With a persistent directory CapRover stops the old copy first, so two copies never write to the same folder. The price is a short gap.",
+    predict: { q: "The app has a persistent directory. Which order does CapRover pick?", options: ["start-first", "stop-first", "It asks you each time"], answer: "stop-first" } },
+  { name: "3. Build fails", sim: simulateBuildFail,
+    why: "The service update only runs after a good build, so version 1 keeps serving.",
+    predict: { q: "The build fails. What do visitors get?", options: ["Version 1, nothing changed", "A 502 error", "An empty page"], answer: "Version 1, nothing changed" } },
+  { name: "4. Health check", sim: simulateHealth,
+    why: "Without a health check, ready means the process started. With one, Swarm keeps the new copy silent until it answers, and the old copy keeps serving.",
+    predict: { q: "The new version takes 15 seconds to boot and the image has no HEALTHCHECK. What do visitors see?", options: ["Nothing wrong", "About 15 seconds of 502", "The old version for 15 seconds"], answer: "About 15 seconds of 502" } },
+  { name: "5. Certificate", sim: simulateCert,
+    why: "A certificate is asked for once per name, when you press Enable HTTPS. A timer renews those with less than 30 days left. A deploy does not touch them.",
+    predict: { q: "When does CapRover ask Let's Encrypt for a certificate?", options: ["On every deploy", "Once, when you enable HTTPS for a name", "Every time a visitor arrives"], answer: "Once, when you enable HTTPS for a name" } },
+  { name: "6. Server dies", sim: simulateDeath,
+    why: "The CapRover backup holds settings, domains and certificates. Your database and uploads come back only from your own backups.",
+    predict: { q: "You restore the CapRover configuration backup on a new server. Is your database back?", options: ["Yes, it is in the backup", "No, volumes need your own backup", "Only the tables"], answer: "No, volumes need your own backup" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { STORIES, parseCaptainDefinition, updateOrder, rollout, routeTable, certsToRenew, survivesRedeploy, restoreReport };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

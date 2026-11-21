@@ -1,0 +1,122 @@
+[
+  {
+    "q": "A small app has 2 servers, a database, a load balancer and a NAT gateway. In the lesson's example bill (AWS prices read on 2026-11-19), which line is the biggest?",
+    "options": [
+      "The NAT gateway, because it costs hours and every GB through it",
+      "The 2 servers",
+      "The database",
+      "The load balancer"
+    ],
+    "answer": 0,
+    "why": "The gateway costs $0.045 an hour (about $32.85 a month) just for being there, plus $0.045 for every GB. In the example it is $41.85, more than the two servers ($30.37). The prices are examples and change."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these cost money even when nobody uses the app?",
+    "options": [
+      "A load balancer that gets no requests",
+      "A NAT gateway with no traffic",
+      "A disk that is not attached to any server",
+      "A server that was stopped and deleted, with nothing left behind"
+    ],
+    "answer": [0, 1, 2],
+    "why": "Hours-based and stored things keep billing: the load balancer and the NAT gateway bill every hour they exist, and a disk bills for its GB attached or not. A deleted server with nothing left behind bills nothing."
+  },
+  {
+    "type": "tf",
+    "q": "A NAT gateway is billed only for the GB that go through it. With no traffic it is free.",
+    "answer": false,
+    "why": "It has two meters: an hourly charge for being there, and a charge for each GB processed. With zero traffic you still pay the hours."
+  },
+  {
+    "type": "fill",
+    "q": "A server costs $0.0208 an hour on demand. A month has 730 hours. Type the monthly cost with a dollar sign, rounded to cents.",
+    "answer": ["$15.18", "15.18"],
+    "why": "0.0208 x 730 = 15.184, which is $15.18. Two of these servers are $30.37 in the lesson's bill."
+  },
+  {
+    "type": "tf",
+    "q": "Data coming in to AWS from the internet and data going out to the internet are charged the same way.",
+    "answer": false,
+    "why": "The charge is for data going out (egress). In the lesson's example the first 100 GB a month are free and the rest cost $0.09 a GB. Check the current price page for details."
+  },
+  {
+    "q": "A one year plan costs 62.5 percent of the on demand price per hour, and bills every hour. A server runs half of the month. Which is cheaper?",
+    "options": [
+      "On demand, because the plan bills the hours the server is off",
+      "The plan, because the price per hour is lower",
+      "They cost the same",
+      "It depends on the region only"
+    ],
+    "answer": 0,
+    "why": "On demand costs 0.5 x 100 percent = 50 percent of a full month. The plan costs 62.5 percent. The plan wins only above the break-even share, which here is 62.5 percent of the hours."
+  },
+  {
+    "type": "fill",
+    "q": "A plan costs $0.013 an hour. On demand costs $0.0208 an hour. Type the break-even share (the share of hours the server must run for the plan to win) as a decimal.",
+    "answer": ["0.625", ".625"],
+    "why": "The break-even share is plan price divided by on demand price: 0.013 / 0.0208 = 0.625. Above 62.5 percent use, the plan is cheaper."
+  },
+  {
+    "type": "order",
+    "q": "Put the ways to cut a bill in the order the lesson recommends.",
+    "items": [
+      "Delete what nobody uses",
+      "Send and keep less data",
+      "Use smaller servers",
+      "Buy a one year plan for the steady rest"
+    ],
+    "why": "Delete the waste first, then use less, then pay a lower price per hour. The plan comes last, so you do not promise a year of waste."
+  },
+  {
+    "q": "A team buys a 3 year plan for 4 big servers. Two months later they find the servers are mostly empty and shrink them to 2 small ones. What happens to the plan?",
+    "options": [
+      "They still pay the promise, so some of it buys nothing",
+      "AWS cancels the plan and refunds the rest",
+      "The price per hour drops to match the new servers",
+      "The plan moves to another account for free"
+    ],
+    "answer": 0,
+    "why": "A plan is a promise to pay for a set amount of compute every hour for the whole term. The AWS docs say the terms cannot be changed after purchase. Right size first, then commit."
+  },
+  {
+    "type": "multi",
+    "q": "Which jobs fit Spot instances (spare servers at a discount, taken back with a two minute warning)?",
+    "options": [
+      "A batch job that can start again from a saved step",
+      "A video converter that processes a queue of small tasks",
+      "The only copy of your production database",
+      "The only server that answers your customers"
+    ],
+    "answer": [0, 1],
+    "why": "Spot can be interrupted, so use it for work that can stop and restart. Never use it for the only copy of something that must stay up."
+  },
+  {
+    "q": "In the lesson's bill, 120 of the 200 GB through the NAT gateway are uploads to S3. What is the cheapest fix that keeps the app working?",
+    "options": [
+      "Add an S3 gateway endpoint, which has no extra charge, so those GB skip the NAT gateway",
+      "Buy a bigger NAT gateway",
+      "Turn off logging",
+      "Move the servers to another region"
+    ],
+    "answer": 0,
+    "why": "A gateway endpoint for S3 is a private route with no additional charge (AWS docs). The traffic no longer passes the NAT gateway, so the per GB charge for it goes away. The hourly charge stays."
+  },
+  {
+    "type": "tf",
+    "q": "If you tag all your resources with app=shop today, you can group the bill by that tag in the next hour.",
+    "answer": false,
+    "why": "You must activate the tag as a cost allocation tag in the billing console, and the AWS docs say tags can take up to 24 hours to appear."
+  },
+  {
+    "q": "A budget alert at 80 percent of actual spend fires on day 17 of the month. What is the best extra alert to add so you hear about a jump sooner?",
+    "options": [
+      "An alert on the forecasted spend",
+      "An alert at 200 percent of the budget",
+      "No alert, check the bill at month end",
+      "An alert on the number of servers only"
+    ],
+    "answer": 0,
+    "why": "AWS Budgets can alert on forecasted spend as well as actual spend. A forecast alert can come days before the actual total reaches the line. Alerts still tell you only. Someone must fix the cause."
+  }
+]

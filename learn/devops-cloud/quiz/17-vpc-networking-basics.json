@@ -1,0 +1,153 @@
+[
+  {
+    "q": "What makes a subnet public?",
+    "options": [
+      "Its route table has a route to an internet gateway",
+      "Its name starts with \"public\"",
+      "Its security group allows port 443 from anywhere",
+      "It is the first subnet in the first zone"
+    ],
+    "answer": 0,
+    "why": "AWS defines a public subnet as one with a route to an internet gateway. Names, security groups and order do not change that. A subnet whose route table has no such route is a private subnet."
+  },
+  {
+    "type": "tf",
+    "q": "A server in a private subnet becomes reachable from the internet if you give it a public IP address.",
+    "answer": false,
+    "why": "No. Without a route to the internet gateway, a private subnet has no road to the internet, even for a server with a public address. The road (route table) decides, not the address alone."
+  },
+  {
+    "type": "fill",
+    "q": "How many IP addresses does the block 10.0.1.0/24 hold? Type the number.",
+    "answer": [
+      "256",
+      "256 addresses"
+    ],
+    "why": "A /24 keeps 24 bits fixed and leaves 8 bits free, so 2 to the power of 8 is 256. A bigger number after the slash means a smaller block: /16 has 65,536 addresses and /28 has 16."
+  },
+  {
+    "q": "In AWS, how many addresses can you actually use in a subnet with the block 10.0.1.0/24?",
+    "options": [
+      "256",
+      "254",
+      "251",
+      "250"
+    ],
+    "answer": 2,
+    "why": "AWS keeps 5 addresses in every subnet: the first four and the last one. They are the network address, the VPC router, the DNS server, one kept for the future, and the broadcast address. 256 minus 5 is 251."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true about security groups?",
+    "options": [
+      "They are stateful: the answer to an allowed request is allowed",
+      "They only have allow rules",
+      "They can have deny rules with a rule number",
+      "A rule can name another security group as the source",
+      "They check rules from the lowest number up"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "A security group is stateful, has allow rules only, and can name another group as a source (for example the database accepts port 5432 from the app's group). Deny rules and rule numbers belong to network ACLs."
+  },
+  {
+    "q": "A network ACL allows TCP port 443 in and has no outbound rules. A client connects from its own port 50000. What happens to the answer?",
+    "options": [
+      "It is dropped, because the network ACL remembers nothing and no outbound rule matches",
+      "It is allowed, because the request was allowed",
+      "It is allowed, because the default is to allow all outbound traffic",
+      "It is dropped only if the client uses UDP"
+    ],
+    "answer": 0,
+    "why": "A network ACL is stateless. The answer is a new packet going out to the client's port, so it needs its own outbound rule, for example TCP ports 1024 to 65535. A security group would have let the answer out."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of an outbound call from a private app to a partner API in order.",
+    "items": [
+      "The app sends a packet, and its route table points the default route at the NAT gateway",
+      "The NAT gateway swaps the app's address for its own private address",
+      "The internet gateway swaps that address for the NAT gateway's public address",
+      "The partner API answers to the NAT gateway's public address",
+      "The NAT gateway swaps the address back and gives the answer to the app"
+    ],
+    "why": "The route table sends the packet to the NAT gateway. The NAT gateway and then the internet gateway swap the source address, so the partner only sees the public address. The NAT gateway kept a note of the call, so it can send the answer back to the app."
+  },
+  {
+    "type": "fill",
+    "q": "A NAT gateway that serves private subnets must be created in a ____ subnet. Type one word.",
+    "answer": [
+      "public",
+      "Public"
+    ],
+    "why": "The NAT gateway needs its own road to the internet gateway, and only a public subnet has one. A NAT gateway in a private subnet gives the app no internet at all."
+  },
+  {
+    "q": "Why should the database sit in a private subnet?",
+    "options": [
+      "It has no road from the internet and no public address, and its security group lets in only the app, so one wrong rule is not enough to expose it",
+      "A private subnet makes the database faster",
+      "A private subnet encrypts the data on disk",
+      "A private subnet does not need a security group"
+    ],
+    "answer": 0,
+    "why": "A database in a private subnet has two locks: no road in (route table) and a security group that trusts only the app. If someone opens the port by mistake, the missing road still protects it. Speed and encryption are separate matters."
+  },
+  {
+    "q": "What do you pay for with a NAT gateway?",
+    "options": [
+      "Only the gigabytes that go through it",
+      "Only the hours it exists",
+      "Each hour it is available and each gigabyte it processes",
+      "Nothing, it is included with the VPC"
+    ],
+    "answer": 2,
+    "why": "AWS charges for each hour the NAT gateway is available and for each GB it processes. So it costs money even when idle. In the AWS pricing example it is $0.045 per hour and $0.045 per GB. A free S3 gateway endpoint avoids the processing charge for S3 traffic."
+  },
+  {
+    "type": "order",
+    "q": "Put the path of a user's request to your site in order, with the check at each step.",
+    "items": [
+      "The internet gateway lets the packet into the public subnet",
+      "The load balancer's security group allows port 443 from anywhere",
+      "The app's security group allows port 3000 from the load balancer's group",
+      "The database's security group allows port 5432 from the app's group"
+    ],
+    "why": "Each step trusts only the one before it. The internet reaches only the load balancer. The load balancer reaches the app, and the app reaches the database. Nothing from the internet reaches the app or the database directly."
+  },
+  {
+    "type": "multi",
+    "q": "Your app is in a private subnet and every call to an outside API times out. Which of these could be the cause?",
+    "options": [
+      "The NAT gateway was created in a private subnet",
+      "The app's route table has no 0.0.0.0/0 route to the NAT gateway",
+      "The app's security group has no inbound rule for port 443",
+      "The app has no public IP address"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "The NAT gateway needs a public subnet, and the app's route table must point its default route at it. A call out does not need an inbound rule, because security groups are stateful. A private server does not need a public address when it uses a NAT gateway."
+  },
+  {
+    "type": "tf",
+    "q": "A route table has 10.0.0.0/16 to local and 0.0.0.0/0 to an internet gateway. A packet for 10.0.5.9 goes to the internet gateway.",
+    "answer": false,
+    "why": "The most specific route wins (the longest prefix). 10.0.5.9 is inside 10.0.0.0/16, so it takes the local route and stays in the VPC. Only addresses outside the VPC use the default route."
+  },
+  {
+    "q": "Which one works at the subnet level and can deny one bad address range, using rule numbers?",
+    "options": [
+      "A security group",
+      "A network ACL",
+      "A NAT gateway",
+      "A route table"
+    ],
+    "answer": 1,
+    "why": "A network ACL sits at the subnet, has allow and deny rules, and checks them from the lowest number up. A security group sits at the server and has allow rules only. AWS says to use security groups as the main tool and network ACLs as an extra layer."
+  }
+]

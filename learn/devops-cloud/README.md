@@ -54,9 +54,9 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 |---|---|---|---|
 | 06 | [Cloud models](06-cloud-models.md) | IaaS, PaaS, SaaS, FaaS | ready |
 | 07 | [Serverless](07-serverless.md) | cold starts, limits, when it fits | ready |
-| 15 | The AWS map for a web developer `15-the-aws-map-for-a-web-developer.md` | EC2, S3, RDS, Lambda, ECS and what you pick | planned |
+| 15 | [The AWS map for a web developer](15-the-aws-map-for-a-web-developer.md) | EC2, S3, RDS, Lambda, ECS and what you pick | ready |
 | 16 | IAM and least privilege `16-iam-and-least-privilege.md` | users, roles, policies, why no star permissions | planned |
-| 17 | VPC networking basics `17-vpc-networking-basics.md` | subnets, security groups, NAT, what is public | planned |
+| 17 | [VPC networking basics](17-vpc-networking-basics.md) | subnets, security groups, NAT, what is public | ready |
 | 26 | [Ways to run your app compared](26-ways-to-run-your-app.md) | Compose, CapRover, a hosted platform, ECS on Fargate, Kubernetes and Lambda in one table, Lambda limits, and how to pick | ready |
 
 ### Running it in production
@@ -67,17 +67,17 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 09 | [Config and secrets](09-config-and-secrets.md) | environment variables, secret stores | ready |
 | 10 | [Logs and monitoring](10-logs-and-monitoring.md) | what to watch in production | ready |
 | 18 | Linux survival skills `18-linux-survival-skills.md` | processes, ports, permissions, systemd, ssh | planned |
-| 19 | HTTPS and certificates in practice `19-https-and-certificates-in-practice.md` | TLS termination, Let's Encrypt, renewal | planned |
-| 20 | Metrics, dashboards and alerts `20-metrics-dashboards-and-alerts.md` | Prometheus, Grafana, alerts that do not wake you for nothing | planned |
-| 21 | What CapRover does for you `21-what-caprover-does-for-you.md` | Swarm, nginx, certificates and what you give up | planned |
+| 19 | [HTTPS and certificates in practice](19-https-and-certificates-in-practice.md) | TLS termination, Let's Encrypt, renewal | ready |
+| 20 | [Metrics, dashboards and alerts](20-metrics-dashboards-and-alerts.md) | Prometheus, Grafana, alerts that do not wake you for nothing | ready |
+| 21 | [What CapRover does for you](21-what-caprover-does-for-you.md) | Swarm, nginx, certificates and what you give up | ready |
 
 ### Security, cost and incidents
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 22 | Container and supply chain security `22-container-and-supply-chain-security.md` | scanning, non root, pinned versions, signed images | planned |
+| 22 | [Container and supply chain security](22-container-and-supply-chain-security.md) | scanning, non root, pinned versions, signed images | ready |
 | 23 | GitOps `23-gitops.md` | Git as the source of truth, Argo CD style pull deploys | planned |
-| 24 | Cloud cost basics `24-cloud-cost-basics.md` | where the bill comes from and how to lower it | planned |
+| 24 | [Cloud cost basics](24-cloud-cost-basics.md) | where the bill comes from and how to lower it | ready |
 | 25 | Incidents, on call and postmortems `25-incidents-on-call-and-postmortems.md` | what to do in the first 15 minutes, blameless reviews | planned |
 
 **To make the next lesson:** in a chat with this folder open, say `/learn devops-cloud 05` to learn it live with Claude, or ask "make lesson devops-cloud 05" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.

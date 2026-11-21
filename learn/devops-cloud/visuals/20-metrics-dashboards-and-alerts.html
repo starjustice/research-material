@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metrics, dashboards and alerts: a metric's trip, a reset, p95, the for clause, symptoms</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+
+  /* a small line chart (the Grafana panel) and a strip of cells (alert states over time) */
+  .chart svg { width: 100%; height: auto; display: block; margin-top: 4px; }
+  .rowlabel { font-size: .72rem; font-weight: 700; margin-top: 8px; overflow-wrap: anywhere; }
+  .cells { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 4px; }
+  .cell { width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--border); background: var(--card); font-size: .6rem; display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 700; }
+  .cell.pending { background: var(--store-bg); border-color: var(--store); color: var(--store); }
+  .cell.firing { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .cell.future { opacity: .35; border-style: dashed; }
+  .cell.now { box-shadow: 0 0 0 3px var(--accent); }
+  .key { font-size: .7rem; color: var(--muted); margin-top: 6px; }
+  pre.code { margin: 6px 0 0; padding: 8px 10px; background: var(--code-bg); border-radius: 8px; font-size: .74rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/20-metrics-dashboards-and-alerts" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Metrics, dashboards and alerts: a metric's trip, a reset, p95, the for clause, symptoms</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of how Prometheus and Grafana treat a number. It runs the same <code>rate</code>, <code>increase</code>, <code>cumulativeBuckets</code>, <code>histogramQuantile</code> and <code>evaluateAlert</code> code as the practice answer in the lesson. Nothing here talks to a real Prometheus or Grafana. The scrape is every 60 seconds only to keep the picture small.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> your app only keeps numbers. <b>Prometheus pulls</b> them on a timer and stores them. <b>Grafana draws</b> what you ask Prometheus for. An <b>alert rule</b> is a question Prometheus asks again and again, and <b>for</b> makes it wait. Graph a counter with <b>rate()</b>, never raw. Ask for <b>p95</b>, not the average. Page on what users feel.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (cumulativeBuckets,
+// increase, rate, histogramQuantile, evaluateAlert, burnRate, shouldPage). It is a model: no
+// Prometheus or Grafana is used.
+// ---------------------------------------------------------------------------------------------
+function cumulativeBuckets(values, bounds) {
+  const buckets = bounds.map((le) => ({ le, count: values.filter((v) => v <= le).length }));
+  buckets.push({ le: Infinity, count: values.length });          // the last bucket holds everything
+  return buckets;
+}
+
+function increase(samples) {
+  if (samples.length < 2) return null;                           // one dot has no direction
+  let total = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const before = samples[i - 1].v;
+    const now = samples[i].v;
+    total += now >= before ? now - before : now;                 // a drop is a restart: it began again at 0
+  }
+  return total;
+}
+
+function rate(samples) {
+  const total = increase(samples);
+  if (total === null) return null;
+  const seconds = samples[samples.length - 1].t - samples[0].t;
+  return seconds > 0 ? total / seconds : null;
+}
+
+function histogramQuantile(q, buckets) {
+  if (!(q > 0 && q <= 1)) throw new RangeError("q must be above 0 and at most 1");
+  const last = buckets[buckets.length - 1];
+  if (!last || last.le !== Infinity || last.count === 0) return null;
+  const rank = q * last.count;
+  for (let i = 0; i < buckets.length; i++) {
+    if (buckets[i].count < rank) continue;
+    if (buckets[i].le === Infinity) return buckets[i - 1] ? buckets[i - 1].le : null;   // above the top bound: no better answer
+    const lowLe = i === 0 ? 0 : buckets[i - 1].le;
+    const lowCount = i === 0 ? 0 : buckets[i - 1].count;
+    const inBucket = buckets[i].count - lowCount;
+    return lowLe + (buckets[i].le - lowLe) * ((rank - lowCount) / inBucket);   // assume an even spread inside the bucket
+  }
+  return null;
+}
+
+function evaluateAlert(points, rule) {
+  const states = [];
+  let activeAt = null;
+  let firedAt = null;
+  for (const { t, v } of points) {
+    const bad = v !== null && v !== undefined && v > rule.threshold;
+    if (!bad) {
+      activeAt = null;                                           // the timer starts again next time
+      states.push("inactive");
+      continue;
+    }
+    if (activeAt === null) activeAt = t;
+    const firing = t - activeAt >= rule.forSeconds;
+    if (firing && firedAt === null) firedAt = t;
+    states.push(firing ? "firing" : "pending");
+  }
+  return { states, firedAt };
+}
+
+function burnRate(errorRatio, slo) {
+  return errorRatio / (1 - slo);
+}
+
+function shouldPage(longRatio, shortRatio, slo, factor = 14.4) {
+  const line = factor * (1 - slo);
+  return longRatio > line && shortRatio > line;                  // both windows must agree
+}
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that draw the panels. They only show things, they change nothing.
+// ---------------------------------------------------------------------------------------------
+const f2 = (n) => (Math.round(n * 100) / 100).toFixed(2);
+const f3 = (n) => (Math.round(n * 1000) / 1000).toFixed(3);
+const f4 = (n) => (Math.round(n * 10000) / 10000).toString();
+const STATE_TAG = { inactive: ["inactive", "ok"], pending: ["pending", "warn"], firing: ["firing", "bad"] };
+
+function lineChart(opts) {
+  // opts: points [{x, y}], xMax, yMax, threshold, thresholdLabel, yLabel, xTicks
+  const W = 320, H = 150, L = 34, R = 10, T = 12, B = 24;
+  const x = (v) => L + (W - L - R) * v / opts.xMax;
+  const y = (v) => H - B - (H - T - B) * Math.min(v, opts.yMax) / opts.yMax;
+  let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="line chart">';
+  s += '<line x1="' + L + '" y1="' + (H - B) + '" x2="' + (W - R) + '" y2="' + (H - B) + '" style="stroke:var(--border);stroke-width:1.5"/>';
+  s += '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H - B) + '" style="stroke:var(--border);stroke-width:1.5"/>';
+  s += '<text x="' + (L - 4) + '" y="' + (H - B + 3) + '" text-anchor="end" font-size="9" style="fill:var(--muted)">0</text>';
+  s += '<text x="' + (L - 4) + '" y="' + (T + 3) + '" text-anchor="end" font-size="9" style="fill:var(--muted)">' + opts.yMax + "</text>";
+  (opts.xTicks || []).forEach((tk) => { s += '<text x="' + x(tk) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" style="fill:var(--muted)">' + tk + "</text>"; });
+  if (opts.threshold !== undefined) {
+    s += '<line x1="' + L + '" y1="' + y(opts.threshold) + '" x2="' + (W - R) + '" y2="' + y(opts.threshold) + '" style="stroke:var(--bad);stroke-width:1.5;stroke-dasharray:5 4"/>';
+    s += '<text x="' + (W - R) + '" y="' + (y(opts.threshold) - 3) + '" text-anchor="end" font-size="9" style="fill:var(--bad)">' + opts.thresholdLabel + "</text>";
+  }
+  if (opts.points.length) {
+    s += '<polyline fill="none" style="stroke:var(--user);stroke-width:2" points="' + opts.points.map((p) => x(p.x) + "," + y(p.y)).join(" ") + '"/>';
+    opts.points.forEach((p, i) => {
+      const last = i === opts.points.length - 1;
+      const over = opts.threshold !== undefined && p.y > opts.threshold;
+      s += '<circle cx="' + x(p.x) + '" cy="' + y(p.y) + '" r="' + (last ? 4.5 : 2.5) + '" style="fill:' + (over ? "var(--bad)" : "var(--user)") + '"/>';
+    });
+  }
+  return s + "</svg>";
+}
+
+function cellsRow(states, upTo, total) {
+  let out = "";
+  for (let i = 0; i < total; i++) {
+    const future = i > upTo;
+    out += '<div class="cell ' + (future ? "future" : states[i]) + (i === upTo ? " now" : "") + '" title="minute ' + i + '">' + i + "</div>";
+  }
+  return out;
+}
+
+// ---- Story 1: one metric travels from the app to a page ----
+const E1 = [null, 2, 3, 2, 70, 66, 62, 64, 3, 2, 2];             // failed requests in each minute
+function simulateTrip() {
+  const steps = [];
+  const rule = { threshold: 0.5, forSeconds: 120 };
+  const samples = [{ t: 0, v: 1000 }];
+  for (let i = 1; i < E1.length; i++) samples.push({ t: i * 60, v: samples[i - 1].v + E1[i] });
+  const points = [];                                              // the value of rate(errors_total[2m]) after each scrape
+  for (let m = 1; m < samples.length; m++) points.push({ t: m * 60, v: rate(samples.slice(Math.max(0, m - 2), m + 1)) });
+  const stateAt = (m) => (m === 0 ? "inactive" : evaluateAlert(points.slice(0, m), rule).states[m - 1]);
+  const rateAt = (m) => (m === 0 ? null : points[m - 1].v);
+
+  function boxes(m, lit) {
+    const shown = samples.slice(0, m + 1).slice(-5);
+    const pts = points.slice(0, m).map((p) => ({ x: p.t / 60, y: p.v }));
+    const st = stateAt(m);
+    const alertCls = st === "firing" ? "alarm" : st === "pending" ? "fol" : "srv";
+    const alertLines = ["expr: rate(errors_total[2m]) > 0.5", "for: 2m"];
+    if (m > 0) alertLines.push("value now: " + f3(rateAt(m)) + " errors a second");
+    return [
+      { title: "Your app", cls: "user", tag: ["keeps a number", ""], small: "a counter in memory, plus a /metrics page", lit: lit === "app",
+        big: { text: "errors_total = " + samples[m].v }, bigLabel: "the counter now (minute " + m + ")",
+        pre: ["# TYPE errors_total counter", "errors_total " + samples[m].v] },
+      { title: "Prometheus", cls: "fol", tag: ["pulls every 60 s", ""], small: "stores each answer with its time", lit: lit === "prom",
+        layers: m === 0 && lit !== "prom" ? [{ name: "empty", size: "nothing stored yet", state: "wait" }] : shown.map((s, i) => ({ name: "minute " + s.t / 60, size: String(s.v), state: i === shown.length - 1 ? "now" : "cached" })) },
+      { title: "Grafana panel", cls: "lb", tag: ["asks Prometheus", ""], small: "rate(errors_total[2m]), errors a second", lit: lit === "graf",
+        chart: lineChart({ points: pts, xMax: 10, yMax: 1.2, threshold: 0.5, thresholdLabel: "0.5", xTicks: [0, 2, 4, 6, 8, 10] }) },
+      { title: "Alert rule", cls: alertCls, tag: STATE_TAG[st], small: "Prometheus asks this question after each scrape", lit: lit === "alert", lines: alertLines }
+    ];
+  }
+
+  steps.push({ layout: "two", hop: "Setup: the app counts failed requests", phase: "setup",
+    note: "<b>Your app does one small job for monitoring: it keeps a number.</b> Every failed request runs <code>errors.inc()</code>, so the counter only goes up. The app also answers a request to <code>/metrics</code> with the counter as plain text. It never sends anything anywhere. Press Next.",
+    boxes: boxes(0, "app") });
+  steps.push({ layout: "two", hop: "Prometheus asks: GET /metrics", phase: "run",
+    note: "<b>Prometheus comes to the app.</b> On a timer it requests <code>/metrics</code>, reads <code>errors_total 1000</code>, and stores the value with the time. This is the <b>pull model</b>. The word for one visit is a <b>scrape</b>. Here it is every 60 seconds. Many setups use 15.",
+    boxes: boxes(0, "prom") });
+  steps.push({ layout: "two", hop: "Minutes 1 to 3: quiet", phase: "srv",
+    note: "<b>A few more scrapes.</b> The counter creeps up by 2 or 3 a minute. Grafana does not draw the raw counter. It asks Prometheus for <code>rate(errors_total[2m])</code>: the growth per second over the last 2 minutes. Here that is about " + f3(rateAt(3)) + " errors a second, far below the red line. The alert is <code>inactive</code>.",
+    boxes: boxes(3, "graf") });
+  steps.push({ layout: "two", hop: "Minute 4: a bad deploy", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>70 requests failed in this minute.</b> The counter jumps to " + samples[4].v + ". The rate is (" + samples[4].v + " - " + samples[2].v + ") / 120 = <code>" + f3(rateAt(4)) + "</code>, above 0.5. The rule is true for the first time, so the alert becomes <code>pending</code>. It does not page yet, because the rule says <code>for: 2m</code>.",
+    boxes: boxes(4, "alert") });
+  steps.push({ layout: "two", hop: "Minute 5: still pending", phase: "chk",
+    note: "<b>The rule is true again, so Prometheus keeps waiting.</b> It has been true for 60 seconds, and the rule asks for 120. If the rate dropped now, the alert would go back to <code>inactive</code> and the timer would be forgotten.",
+    boxes: boxes(5, "alert") });
+  steps.push({ layout: "two", hop: "Minute 6: firing", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>True for 120 seconds in a row: the alert is <code>firing</code>.</b> Prometheus sends it to a helper called Alertmanager. Alertmanager groups alerts, removes duplicates and sends one message to a person. The page went out at minute 6, two minutes after the trouble began.",
+    boxes: boxes(6, "alert") });
+  steps.push({ layout: "two", hop: "Minute 8: fixed, but the graph still looks bad", phase: "chk",
+    note: "<b>The team rolled back after minute 7.</b> Only 3 errors came in during minute 8. But the 2 minute window still contains minute 7, so the rate is <code>" + f3(rateAt(8)) + "</code>, still above the line. A longer window makes a smoother graph and a slower return to normal.",
+    boxes: boxes(8, "graf") });
+  steps.push({ layout: "two", hop: "Minute 9: resolved", phase: "srv",
+    note: "<b>Now both samples in the window are quiet</b>: the rate is <code>" + f3(rateAt(9)) + "</code>. The rule is false, the alert goes back to <code>inactive</code>, and Alertmanager can send a message saying it is resolved.",
+    boxes: boxes(9, "alert") });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The trip:</b> the app keeps a counter, Prometheus pulls it, Grafana draws a rate of it, and an alert rule asks a question about the same rate. Four jobs, four places. Your app only does the first one.",
+    boxes: [{ title: "Your app", cls: "user", tag: ["job 1", ""], small: "", lines: ["counts things in memory", "answers GET /metrics", "never sends or stores history"] },
+            { title: "Prometheus", cls: "fol", tag: ["job 2 and 4", ""], small: "", lines: ["pulls on a timer and stores samples", "runs the alert rules, with for", "hands firing alerts to Alertmanager"] },
+            { title: "Grafana", cls: "lb", tag: ["job 3", ""], small: "", lines: ["draws what a query returns", "keeps the dashboards", "stores no history of its own"] },
+            { title: "Alertmanager", cls: "alarm", tag: ["the last step", ""], small: "", lines: ["groups and removes duplicates", "routes to chat, email or a pager", "can silence for a while"] }] });
+  return steps;
+}
+
+// ---- Story 2: a restart resets the counter ----
+function simulateReset() {
+  const steps = [];
+  const S = [{ t: 0, v: 100 }, { t: 60, v: 160 }, { t: 120, v: 220 }, { t: 180, v: 15 }, { t: 240, v: 75 }];
+  const naive = (k) => (S[k - 1].v - S[0].v) / (S[k - 1].t - S[0].t);
+  const sampleBox = (k, marks) => ({ title: "Samples Prometheus stored", cls: "fol", tag: ["requests_total", ""], small: "time in seconds, then the value",
+    layers: S.slice(0, k).map((s, i) => ({ name: "t = " + s.t + " s", size: String(s.v), state: (marks && marks[i]) || "cached" })) });
+  const read = (k, mode) => {
+    const subset = S.slice(0, k);
+    const lines = [];
+    if (mode !== "none") {
+      lines.push("by hand: last minus first = " + (subset[k - 1].v - subset[0].v));
+      lines.push("by hand, per second: " + f3(naive(k)));
+    }
+    if (mode === "both") {
+      lines.push("increase(): " + increase(subset));
+      lines.push("rate(): " + f3(rate(subset)) + " a second");
+    }
+    return { title: "Two ways to read it", cls: mode === "both" ? "srv" : (naive(k) < 0 ? "alarm" : "lb"), tag: [mode === "both" ? "rate() handles it" : "by hand", mode === "both" ? "ok" : (naive(k) < 0 ? "bad" : "")], small: "", lines };
+  };
+  const app = (value, label, cls) => ({ title: "Your app", cls: cls || "user", tag: ["counter in memory", ""], small: "", big: { text: "requests_total = " + value }, bigLabel: label });
+
+  steps.push({ layout: "three", hop: "Setup: a request counter", phase: "setup",
+    note: "<b>The app counts every request in a counter.</b> It started at 0 when the app started, and it is at <code>100</code> now. The counter lives in the app's memory. Remember that. Press Next.",
+    boxes: [app(100, "at the first scrape"), sampleBox(1), { title: "Two ways to read it", cls: "lb", tag: ["by hand", ""], small: "", lines: ["one sample has no direction", "you need at least two"] }] });
+  steps.push({ layout: "three", hop: "Two more scrapes: a steady line", phase: "run",
+    note: "<b>Each minute adds 60.</b> By hand, last minus first is " + (S[2].v - S[0].v) + " over 120 seconds, so " + f3(naive(3)) + " a second. <code>rate()</code> says the same. While nothing restarts, the two agree.",
+    boxes: [app(220, "at t = 120 s"), sampleBox(3), read(3, "both")] });
+  steps.push({ layout: "three", hop: "The app restarts", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A deploy restarts the app.</b> The old process ends and a new one starts. Its counter is in memory, so it starts again at <code>0</code>. The 220 requests it counted are not in the new process. Nothing wrong happened. This is what every deploy does to every counter.",
+    boxes: [app(0, "right after the restart", "alarm"), sampleBox(3), { title: "Prometheus", cls: "fol", tag: ["waiting", ""], small: "", lines: ["next scrape is at t = 180 s"] }] });
+  steps.push({ layout: "three", hop: "The next scrape shows 15", phase: "bad",
+    note: "<b>The new counter reached 15 by the next scrape.</b> By hand: last minus first is " + (S[3].v - S[0].v) + ", so " + f3(naive(4)) + " a second. A negative number of requests is nonsense. If you graph the raw counter or subtract by hand, every deploy puts a hole in your graph.",
+    boxes: [app(15, "at t = 180 s"), sampleBox(4, { 3: "rebuilt" }), read(4, "hand")] });
+  const pairs = [];
+  for (let i = 1; i < 4; i++) pairs.push("t " + S[i - 1].t + " to " + S[i].t + ": " + S[i - 1].v + " to " + S[i].v + (S[i].v >= S[i - 1].v ? " adds " + (S[i].v - S[i - 1].v) : " is a drop, a reset, adds " + S[i].v));
+  steps.push({ layout: "three", hop: "How rate() reads a drop", phase: "chk",
+    note: "<b><code>increase()</code> walks the samples two at a time.</b> If the value went up, it adds the difference. If the value went <b>down</b>, the counter must have restarted from 0, so it adds the new value, 15. Total growth: <code>" + increase(S.slice(0, 4)) + "</code> over 180 seconds, which is <code>" + f3(rate(S.slice(0, 4))) + "</code> a second. A counter can only go up or restart, so any drop means a restart.",
+    boxes: [{ title: "Pair by pair", cls: "srv", tag: ["increase()", "ok"], small: "", lines: pairs }, sampleBox(4, { 3: "rebuilt" }), read(4, "both")] });
+  steps.push({ layout: "three", hop: "Back to normal", phase: "srv",
+    note: "<b>One more scrape, 75.</b> Growth 15 to 75 adds 60. Over 240 seconds the model says <code>" + f3(rate(S)) + "</code> a second. Real traffic was about 1 a second, and a little was lost between the last scrape and the restart. That small loss is the price of the pull model: Prometheus only sees what the counter showed at each visit.",
+    boxes: [app(75, "at t = 240 s"), sampleBox(5, { 3: "rebuilt" }), read(5, "both")] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Counters restart on every deploy, so never read a raw counter.</b> Use <code>rate()</code>. It treats a drop as a restart. The real Prometheus also stretches the result to the edges of the window, so its numbers are slightly different from this model. The idea is the same.",
+    boxes: [{ title: "Counter", cls: "srv", tag: ["only up, or a restart", "ok"], small: "", lines: ["requests, errors, bytes sent", "read it with rate()", "a drop means a restart"] }, { title: "Gauge", cls: "fol", tag: ["up and down", "warn"], small: "", lines: ["queue length, memory, open connections", "read it as it is", "never take rate() of a gauge"] }] });
+  return steps;
+}
+
+// ---- Story 3: p95 from buckets ----
+function simulateQuantile() {
+  const steps = [];
+  const bounds = [0.1, 0.3, 1];
+  const values = [].concat(Array(60).fill(0.05), Array(30).fill(0.2), Array(8).fill(0.6), Array(2).fill(2.5));
+  const buckets = cumulativeBuckets(values, bounds);
+  const total = values.length;
+  const sum = values.reduce((a, c) => a + c, 0);
+  const avg = sum / total;
+  const name = (b) => "le " + (b.le === Infinity ? "+Inf" : b.le);
+  const bucketBox = (marks, title, tagText, list) => ({ title: title || "Buckets Prometheus stored", cls: "fol", tag: [tagText || "request_seconds_bucket", ""], small: "each count = requests at or under that time",
+    layers: (list || buckets).map((b, i) => ({ name: name(b), size: String(b.count), state: (marks && marks[i]) || "cached" })) });
+  const rank = 0.95 * total;
+  const p95 = histogramQuantile(0.95, buckets);
+  const p99 = histogramQuantile(0.99, buckets);
+  const one = cumulativeBuckets([0.2], bounds);
+
+  steps.push({ layout: "two", hop: "Setup: 100 request times", phase: "setup",
+    note: "<b>The app timed 100 requests.</b> 60 took about 0.05 s, 30 took 0.2 s, 8 took 0.6 s and 2 took 2.5 s. The <b>average</b> is <code>" + f3(avg) + " s</code>. That sounds fine. But 10 users waited 0.6 s or more. The question: how do you describe the slow ones? Press Next.",
+    boxes: [{ title: "Your app", cls: "user", tag: ["histogram.observe(seconds)", ""], small: "", lines: ["60 requests: 0.05 s", "30 requests: 0.2 s", "8 requests: 0.6 s", "2 requests: 2.5 s", "average: " + f3(avg) + " s"] },
+            { title: "The average", cls: "lb", tag: ["hides the slow ones", "warn"], small: "", big: { text: f3(avg) + " s" }, bigLabel: "sum / count = " + f2(sum) + " / " + total }] });
+  steps.push({ layout: "two", hop: "One request arrives: 0.2 seconds", phase: "run",
+    note: "<b>A histogram keeps counts in buckets, not the times.</b> The buckets here are 0.1, 0.3 and 1 second, plus one for everything. A request of 0.2 s fits under 0.3, under 1 and under +Inf, so it adds 1 to <b>each</b> of those three. The word for this is <b>cumulative</b>: every bucket counts all requests at or under its bound.",
+    boxes: [{ title: "Your app", cls: "user", tag: ["observe(0.2)", ""], small: "", lines: ["a 0.2 s request just finished"] }, bucketBox(one.map((b) => (b.count > 0 ? "now" : "wait")), "Counts after this one request", "adds 1 where it fits", one)] });
+  steps.push({ layout: "two", hop: "After 100 requests", phase: "run",
+    note: "<b>This is what the app shows on <code>/metrics</code>.</b> Counts only grow from left to right: 60, 90, 98, 100. The last one, <code>+Inf</code>, is the total. The app also keeps <code>_sum</code> (" + f2(sum) + ") and <code>_count</code> (" + total + "), so the average is still there if you want it.",
+    boxes: [{ title: "Your app: /metrics", cls: "user", tag: ["text", ""], small: "", pre: buckets.map((b) => "request_seconds_bucket{le=\"" + (b.le === Infinity ? "+Inf" : b.le) + "\"} " + b.count).concat(["request_seconds_sum " + f2(sum), "request_seconds_count " + total]) }, bucketBox()] });
+  steps.push({ layout: "two", hop: "p95: find the bucket", phase: "chk",
+    note: "<b>p95 means: 95 out of 100 requests were this fast or faster.</b> So look for the 95th request. The buckets say: 60 are under 0.1 s (not enough), 90 are under 0.3 s (not enough), 98 are under 1 s (enough). The 95th request is somewhere between <code>0.3 s</code> and <code>1 s</code>.",
+    boxes: [{ title: "The question", cls: "lb", tag: ["rank " + rank, ""], small: "", lines: ["95 % of " + total + " = request number " + rank, "60 < 95: not in the first bucket", "90 < 95: not in the second", "98 >= 95: it is in the third"] }, bucketBox({ 0: "wait", 1: "wait", 2: "now" })] });
+  steps.push({ layout: "two", hop: "p95: the estimate inside the bucket", phase: "srv",
+    note: "<b>Prometheus does not know the exact times inside a bucket, so it guesses an even spread.</b> The third bucket holds 98 - 90 = 8 requests, and we need the 5th of them (95 - 90). So: 0.3 + (1 - 0.3) x 5/8 = <code>" + f4(p95) + " s</code>. This is what <code>histogram_quantile(0.95, ...)</code> computes. It is an estimate, and its error is at most the width of the bucket.",
+    boxes: [{ title: "The sum", cls: "srv", tag: ["p95", "ok"], small: "", big: { text: f4(p95) + " s" }, bigLabel: "0.3 + 0.7 x (5 / 8)" }, bucketBox({ 0: "wait", 1: "wait", 2: "now" })] });
+  steps.push({ layout: "two", hop: "p99: it lands above the top bucket", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Ask for p99 and the answer falls past the last real bucket.</b> Rank 99 is bigger than 98, so it sits in the <code>+Inf</code> bucket. The histogram can only say \"more than 1 s\", and the function returns <code>" + p99 + "</code>. Fix: add buckets where you care. For a 1 second goal, add buckets such as 1, 2.5 and 5.",
+    boxes: [{ title: "The question", cls: "alarm", tag: ["rank " + 0.99 * total, "bad"], small: "", lines: ["98 < 99: not in the third bucket", "it is in +Inf", "answer: above 1 s, and no better"] }, bucketBox({ 0: "wait", 1: "wait", 2: "wait", 3: "rebuilt" })] });
+  steps.push({ layout: "two", hop: "Average against p95", phase: "chk",
+    note: "<b>The same 100 requests, two numbers.</b> The average says " + f3(avg) + " s. The p95 says about " + f3(p95) + " s. Users feel the slow tail, not the average. One more rule: you cannot average the p95 of two servers. Add up their bucket counts first, then ask for p95 once.",
+    boxes: [{ title: "Average", cls: "lb", tag: ["looks fine", "warn"], small: "", big: { text: f3(avg) + " s" } }, { title: "p95", cls: "srv", tag: ["what slow users feel", "ok"], small: "", big: { text: f3(p95) + " s" } }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A histogram is counts in buckets, and p95 is an estimate made from them.</b> Choose buckets near the speed you care about. In a real query you take the <code>rate()</code> of the bucket counters first, so you get the p95 of the last few minutes and not of all time.",
+    boxes: [{ title: "Do", cls: "srv", tag: ["good habits", "ok"], small: "", lines: ["alert and graph p95 or p99", "put buckets near your goal", "add buckets, then compute the quantile"] }, { title: "Do not", cls: "alarm", tag: ["bad habits", "bad"], small: "", lines: ["alert on the average", "average the p95 of many servers", "trust a p99 that is in +Inf"] }] });
+  return steps;
+}
+
+// ---- Story 4: the for clause ----
+const R4 = [0.2, 0.3, 3.1, 3.4, 0.4, 0.3, 0.2, 5, 6, 7, 8, 9, 9, 2];   // percent of requests that failed, each minute
+function simulateFor() {
+  const steps = [];
+  const ruleA = { threshold: 2, forSeconds: 0 };
+  const ruleB = { threshold: 2, forSeconds: 300 };
+  const pts = R4.map((v, i) => ({ t: i * 60, v }));
+  const A = evaluateAlert(pts, ruleA).states;
+  const B = evaluateAlert(pts, ruleB).states;
+  const N = R4.length;
+  const view = (k) => {
+    const shown = pts.slice(0, k + 1).map((p) => ({ x: p.t / 60, y: p.v }));
+    const stA = A[k], stB = B[k];
+    return [
+      { title: "Rule A: no waiting", cls: stA === "firing" ? "alarm" : "srv", tag: STATE_TAG[stA], small: "expr: error_percent > 2     for: 0m", cells: cellsRow(A, k, N), key: "minute by minute: grey inactive, orange pending, red firing" },
+      { title: "Rule B: for 5 minutes", cls: stB === "firing" ? "alarm" : stB === "pending" ? "fol" : "srv", tag: STATE_TAG[stB], small: "expr: error_percent > 2     for: 5m", cells: cellsRow(B, k, N), key: "same question, same numbers, but it waits" },
+      { title: "The numbers: percent of requests that failed", cls: "lb", tag: ["both rules read this", ""], small: "", wide: true, chart: lineChart({ points: shown, xMax: 14, yMax: 10, threshold: 2, thresholdLabel: "2 %", xTicks: [0, 2, 4, 6, 8, 10, 12, 14] }) }
+    ];
+  };
+  steps.push({ layout: "two", hop: "Setup: two rules, one difference", phase: "setup",
+    note: "<b>Both rules ask the same question each minute:</b> are more than 2 percent of requests failing? Rule A pages at once. Rule B has <code>for: 5m</code>: the answer must be yes for 5 minutes in a row. Every cell below is one minute. Press Next.",
+    boxes: view(1) });
+  steps.push({ layout: "two", hop: "Minute 2: a short spike starts", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>3.1 percent fail.</b> Rule A is <code>firing</code> and a phone rings. Rule B is only <code>pending</code>. It started a timer at minute 2 and waits.",
+    boxes: view(2) });
+  steps.push({ layout: "two", hop: "Minute 3: still bad", phase: "chk",
+    note: "<b>3.4 percent.</b> A keeps firing. B is pending, 60 seconds into a 300 second wait.",
+    boxes: view(3) });
+  steps.push({ layout: "two", hop: "Minute 4: it was only a blip", phase: "srv",
+    note: "<b>0.4 percent: the spike is over.</b> Rule A already woke someone for a 2 minute blip, and now sends a resolved message. Rule B goes back to <code>inactive</code>. Its timer is forgotten and nobody was told. That is what <code>for</code> is for.",
+    boxes: view(4) });
+  steps.push({ layout: "two", hop: "Minute 7: a real problem starts", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>5 percent fail, and it does not stop.</b> A fires again. B starts a new timer at minute 7. The old timer from minute 2 does not count.",
+    boxes: view(7) });
+  steps.push({ layout: "two", hop: "Minutes 8 to 11: B is waiting", phase: "chk",
+    note: "<b>The numbers keep climbing: 6, 7, 8, 9 percent.</b> B is still pending. It needs 300 seconds, and after minute 11 it has 240. Users are already hurt. This is the cost of <code>for</code>.",
+    boxes: view(11) });
+  steps.push({ layout: "two", hop: "Minute 12: B fires", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>300 seconds in a row: B is <code>firing</code>.</b> The page is 5 minutes later than A's, and only one page, for a real problem. A had already fired at minute 7 (and at minute 2 for the blip).",
+    boxes: view(12) });
+  steps.push({ layout: "two", hop: "Minute 13: the fix", phase: "srv",
+    note: "<b>2 percent is not more than 2 percent, so the rule is false.</b> Both go back to <code>inactive</code>. If you want a page to stay until things are really calm, Prometheus has an extra setting called <code>keep_firing_for</code>.",
+    boxes: view(13) });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b><code>for</code> is patience.</b> A short <code>for</code> pages fast and pages often. A long <code>for</code> pages rarely and late. People who are paged for blips start to ignore pages. That is alert fatigue. Choose the wait by how much a late page costs.",
+    boxes: [{ title: "Short for", cls: "fol", tag: ["fast, noisy", "warn"], small: "", lines: ["pages on blips", "people learn to ignore pages", "good for a total outage"] }, { title: "Long for", cls: "srv", tag: ["quiet, late", "ok"], small: "", lines: ["blips never page", "every page is worth a look", "users hurt a little longer"] }] });
+  return steps;
+}
+
+// ---- Story 5: symptoms against causes ----
+const NIGHTS = [
+  { name: "Night 1: a backup job", cpu: [95, 96, 95, 97, 95, 96, 95, 96, 95, 96, 40, 30], mem: [40, 40, 41, 40, 40, 41, 40, 40, 41, 40, 40, 40], err: [0.2, 0.2, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1, 0.2, 0.2, 0.1], truth: "The backup uses the CPU. Users are fine." },
+  { name: "Night 2: memory fills, then the cleaner runs", cpu: [30, 30, 31, 30, 30, 31, 30, 30, 31, 30, 30, 30], mem: [60, 70, 82, 85, 86, 85, 86, 85, 84, 83, 60, 50], err: [0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1, 0.1, 0.2, 0.1], truth: "Memory is high, then it drops by itself. Users are fine." },
+  { name: "Night 3: the database has no free connections", cpu: [20, 20, 22, 20, 21, 20, 20, 22, 20, 21, 20, 20], mem: [50, 50, 51, 50, 50, 51, 50, 50, 51, 50, 50, 50], err: [0.2, 0.2, 8, 9, 9, 8, 9, 9, 8, 9, 9, 8], truth: "About 9 in 100 checkouts fail. CPU and memory look calm." }
+];
+function simulateSymptoms() {
+  const steps = [];
+  const cpuRule = { threshold: 80, forSeconds: 300 };
+  const memRule = { threshold: 80, forSeconds: 300 };
+  const errRule = { threshold: 2, forSeconds: 300 };
+  const toPts = (arr) => arr.map((v, i) => ({ t: i * 60, v }));
+  const run = (n) => ({ cpu: evaluateAlert(toPts(n.cpu), cpuRule), mem: evaluateAlert(toPts(n.mem), memRule), err: evaluateAlert(toPts(n.err), errRule) });
+  const results = NIGHTS.map(run);
+  const N = 12;
+  const nightBoxes = (i) => {
+    const n = NIGHTS[i], r = results[i];
+    const causePages = (r.cpu.firedAt !== null ? 1 : 0) + (r.mem.firedAt !== null ? 1 : 0);
+    const symptomPage = r.err.firedAt !== null;
+    return [
+      { title: "Cause rule: CPU above 80 % for 5 min", cls: r.cpu.firedAt !== null ? "alarm" : "srv", tag: r.cpu.firedAt !== null ? ["PAGE", "bad"] : ["quiet", "ok"], small: "numbers: " + n.cpu.slice(0, 6).join(", ") + " ...", cells: cellsRow(r.cpu.states, N, N), key: "one cell per minute" },
+      { title: "Cause rule: memory above 80 % for 5 min", cls: r.mem.firedAt !== null ? "alarm" : "srv", tag: r.mem.firedAt !== null ? ["PAGE", "bad"] : ["quiet", "ok"], small: "numbers: " + n.mem.slice(0, 6).join(", ") + " ...", cells: cellsRow(r.mem.states, N, N), key: "one cell per minute" },
+      { title: "Symptom rule: failed requests above 2 % for 5 min", cls: symptomPage ? "alarm" : "srv", tag: symptomPage ? ["PAGE", "bad"] : ["quiet", "ok"], small: "numbers: " + n.err.slice(0, 6).join(", ") + " ...", cells: cellsRow(r.err.states, N, N), key: "what the users feel", wide: true },
+      { title: "What was really going on", cls: "lb", tag: [causePages + " cause page" + (causePages === 1 ? "" : "s") + ", " + (symptomPage ? 1 : 0) + " symptom page", ""], small: "", wide: true, lines: [n.truth] }
+    ];
+  };
+  steps.push({ layout: "two", hop: "Setup: two ways to write alerts", phase: "setup",
+    note: "<b>You can alert on a cause or on a symptom.</b> A <b>cause</b> rule watches a part of the machine: CPU, memory, a full disk. A <b>symptom</b> rule watches what users feel: failed requests, slow requests. All three rules here wait 5 minutes (<code>for: 5m</code>). Three nights, same rules. Press Next.",
+    boxes: [{ title: "Cause rules", cls: "fol", tag: ["the machine", "warn"], small: "", lines: ["CPU above 80 % for 5 min", "memory above 80 % for 5 min"] }, { title: "Symptom rule", cls: "srv", tag: ["the users", "ok"], small: "", lines: ["failed requests above 2 % for 5 min"] }] });
+  steps.push({ layout: "two", hop: NIGHTS[0].name, phase: "bad", badge: ["Woken for nothing", "bad"],
+    note: "<b>The nightly backup keeps the CPU at 95 percent for 10 minutes.</b> The CPU rule fires and a person wakes up. Look at the symptom row: failed requests stayed at 0.2 percent. Nobody was hurt.",
+    boxes: nightBoxes(0) });
+  steps.push({ layout: "two", hop: NIGHTS[1].name, phase: "bad", badge: ["Woken for nothing", "bad"],
+    note: "<b>Memory climbs above 80 percent, then drops again on its own.</b> The memory rule pages. Failed requests: still about 0.1 percent. The machine was busy, the users were happy.",
+    boxes: nightBoxes(1) });
+  steps.push({ layout: "two", hop: NIGHTS[2].name, phase: "bad", badge: ["The page that was missed", "bad"],
+    note: "<b>The database runs out of free connections, and about 9 percent of requests fail.</b> CPU is 20 percent and memory is 50 percent, so both cause rules stay quiet. Only the symptom rule fires, after 5 minutes. A cause rule can wake you for nothing and sleep through a real problem.",
+    boxes: nightBoxes(2) });
+  const causeFired = results.reduce((n, r) => n + (r.cpu.firedAt !== null ? 1 : 0) + (r.mem.firedAt !== null ? 1 : 0), 0);
+  const symptomFired = results.reduce((n, r) => n + (r.err.firedAt !== null ? 1 : 0), 0);
+  steps.push({ layout: "two", hop: "The score after three nights", phase: "chk",
+    note: "<b>Cause rules paged " + causeFired + " times and none of the pages was a real problem. They also missed night 3.</b> The symptom rule paged " + symptomFired + " time, and it was real. Fewer pages, and every page worth reading.",
+    boxes: [{ title: "Cause rules", cls: "alarm", tag: [causeFired + " pages, 0 useful", "bad"], small: "", lines: ["night 1: woke for a backup", "night 2: woke for memory", "night 3: slept through the outage"] }, { title: "Symptom rule", cls: "srv", tag: [symptomFired + " page, 1 useful", "ok"], small: "", lines: ["night 1: quiet", "night 2: quiet", "night 3: paged after 5 minutes"] }] });
+  steps.push({ layout: "two", hop: "Where the cause numbers go", phase: "srv",
+    note: "<b>Keep CPU and memory, but put them on a dashboard.</b> When the symptom alert fires, you open the dashboard and look at the cause panels: here, a panel of database connections that sits at its limit. The alert says <i>what is broken</i>. The dashboard helps with <i>why</i>. Put a link to the dashboard in the alert message.",
+    boxes: [{ title: "Alert (wakes a person)", cls: "alarm", tag: ["symptom", "bad"], small: "", lines: ["failed requests above 2 % for 5 min", "message links to the dashboard"] }, { title: "Dashboard (you look at it)", cls: "lb", tag: ["causes", ""], small: "", lines: ["CPU, memory, disk", "database connections: 20 of 20", "slow queries"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Page on symptoms. Look at causes on a dashboard.</b> Ask of every page: what should the person do right now? If the answer is nothing, it is not a page. A page nobody can act on teaches people to ignore the next one.",
+    boxes: [{ title: "Page", cls: "alarm", tag: ["wakes a person", "bad"], small: "", lines: ["failed requests", "slow requests (p95 or p99)", "a service that is down"] }, { title: "Dashboard or ticket", cls: "lb", tag: ["can wait until morning", ""], small: "", lines: ["CPU and memory", "disk filling slowly", "a single pod restart"] }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A metric's trip", sim: simulateTrip,
+    why: "The app only keeps numbers and answers /metrics. Prometheus visits on a timer (a scrape) and stores what it sees. Grafana and the alert rules both ask Prometheus questions, such as a rate.",
+    predict: { q: "Who starts the trip of a number from your app to Prometheus?", options: ["The app pushes it every second", "Prometheus pulls it from /metrics on a timer", "Grafana sends it"], answer: "Prometheus pulls it from /metrics on a timer" } },
+  { name: "2. A restart resets a counter", sim: simulateReset,
+    why: "A counter lives in memory, so a restart sends it back to 0. rate() and increase() treat a drop as a restart and count the new value as growth from 0. Reading the raw counter, or subtracting by hand, gives a negative number.",
+    predict: { q: "The app restarts and the counter goes from 220 back to 15. What does rate() do with that drop?", options: ["Reports a negative rate", "Treats it as a restart and counts 15 as new growth", "Ignores the whole window"], answer: "Treats it as a restart and counts 15 as new growth" } },
+  { name: "3. p95 from buckets", sim: simulateQuantile,
+    why: "A histogram counts requests in buckets. To find p95, find the bucket that holds the 95th request, then guess inside it by an even spread. The average hides the slow tail.",
+    predict: { q: "Of 100 requests, 60 took 0.1 s or less, 90 took 0.3 s or less, 98 took 1 s or less. Where is p95?", options: ["Under 0.1 s", "Between 0.3 s and 1 s", "Over 1 s"], answer: "Between 0.3 s and 1 s" } },
+  { name: "4. The for clause", sim: simulateFor,
+    why: "With for, the rule must be true for the whole wait, without a break. A short spike starts a timer and then loses it, so nobody is paged. The price is a later page for a real problem.",
+    predict: { q: "A spike lasts 2 minutes. The rule has for: 5m. Does the alert fire?", options: ["Yes, at once", "Yes, after 5 minutes", "No, it stays pending and then resets"], answer: "No, it stays pending and then resets" } },
+  { name: "5. Symptom or cause", sim: simulateSymptoms,
+    why: "A cause rule such as high CPU can fire when users are fine and stay quiet when users are hurt. A symptom rule follows what users feel. Keep the causes on a dashboard to find out why.",
+    predict: { q: "At 3 am the CPU is at 95 percent and users see no errors. Should that wake you?", options: ["Yes, always", "No, put it on a dashboard", "Only on weekends"], answer: "No, put it on a dashboard" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + esc(b.big.text) + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.pre) h += '<pre class="code">' + b.pre.map(esc).join("\n") + "</pre>";
+  if (b.chart) h += '<div class="chart">' + b.chart + "</div>";
+  if (b.cells) h += '<div class="cells">' + b.cells + "</div>" + (b.key ? '<div class="key">' + b.key + "</div>" : "");
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + esc(l) + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateTrip, simulateReset, simulateQuantile, simulateFor, simulateSymptoms, STORIES, cumulativeBuckets, increase, rate, histogramQuantile, evaluateAlert, burnRate, shouldPage };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

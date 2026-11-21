@@ -1,0 +1,138 @@
+[
+  {
+    "q": "Your Node app exposes a /metrics page. Who starts the trip of a number from the app to Prometheus?",
+    "options": [
+      "Prometheus pulls the page on a timer (a scrape)",
+      "The app pushes every number to Prometheus each second",
+      "Grafana copies the numbers into Prometheus",
+      "Alertmanager asks the app when an alert fires"
+    ],
+    "answer": 0,
+    "why": "Prometheus uses a pull model over HTTP. The app only keeps numbers and answers /metrics. Prometheus visits on a timer, reads the text and stores each value with its time."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these should be a gauge, because the value can go down as well as up?",
+    "options": [
+      "Jobs waiting in a queue",
+      "Total orders ever placed",
+      "Open database connections",
+      "Total failed requests since the app started"
+    ],
+    "answer": [0, 2],
+    "why": "If the value can go down it is a gauge. Totals that only grow (orders, failed requests) are counters. A counter only goes up, or starts again at 0 when the app restarts."
+  },
+  {
+    "type": "tf",
+    "q": "Taking rate() of a gauge, such as queue length, is a good way to see how fast the queue changes.",
+    "answer": false,
+    "why": "No. The Prometheus docs say you should never take a rate() of a gauge. rate() reads a drop as a counter restart, so it gives wrong numbers. Read a gauge as it is."
+  },
+  {
+    "type": "fill",
+    "q": "Counter samples are 100, 160, 220, then 15 after a restart, one sample every 60 seconds. Using the lesson's model (a drop means a restart, and the new value counts as growth), how much did the counter grow in total? Type the number.",
+    "answer": ["135"],
+    "why": "100 to 160 adds 60. 160 to 220 adds 60. 220 to 15 is a drop, so the counter restarted at 0 and grew to 15: add 15. Total 135. A plain last minus first would give -85."
+  },
+  {
+    "q": "A histogram has these cumulative counts for 100 requests: le 0.1 is 60, le 0.3 is 90, le 1 is 98, le +Inf is 100. Where does p95 fall?",
+    "options": [
+      "Under 0.1 seconds",
+      "Between 0.1 and 0.3 seconds",
+      "Between 0.3 and 1 second",
+      "Above 1 second"
+    ],
+    "answer": 2,
+    "why": "The 95th request is needed. 60 and 90 are less than 95, 98 is enough, so p95 is in the bucket from 0.3 to 1. With an even spread guess it is 0.3 + 0.7 x 5/8 = 0.7375 seconds."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of finding p95 from buckets in order.",
+    "items": [
+      "Work out the rank: 95 percent of the total count",
+      "Find the first bucket whose count is at least the rank",
+      "Take the bucket before it as the start of the range",
+      "Guess a point inside the range, assuming an even spread"
+    ],
+    "why": "Rank first, then the bucket that holds it, then the start of that bucket, then the estimate inside. The result is an estimate, and its error is at most the width of the bucket."
+  },
+  {
+    "q": "Why is it wrong to average the p95 values of three servers to get the p95 of the whole service?",
+    "options": [
+      "The result has no meaning, because a percentile of percentiles is not the percentile of all requests",
+      "Averages cannot be stored in Prometheus",
+      "Each server reports in a different unit",
+      "It is fine, as long as the servers get the same traffic"
+    ],
+    "answer": 0,
+    "why": "The Prometheus docs say averaging quantiles gives statistically nonsensical values. Add the bucket counts of all servers first, then ask for the quantile once."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are among Google's four golden signals?",
+    "options": [
+      "Latency",
+      "Traffic",
+      "Saturation",
+      "Disk brand"
+    ],
+    "answer": [0, 1, 2],
+    "why": "The four signals are latency, traffic, errors and saturation. The RED method keeps three of them for a service: rate, errors and duration."
+  },
+  {
+    "q": "At 3 am the CPU is at 95 percent for 10 minutes because of a backup job. Failed requests stay at 0.2 percent. What is the best setup?",
+    "options": [
+      "A page on failed requests, and CPU on a dashboard",
+      "A page on CPU above 80 percent",
+      "No monitoring of CPU at all",
+      "A page on every CPU spike, with for: 0m"
+    ],
+    "answer": 0,
+    "why": "Page on symptoms users feel. A cause such as CPU can be high while users are fine, and can be calm while users are hurt. Keep causes on a dashboard to find out why."
+  },
+  {
+    "type": "tf",
+    "q": "An alert rule has for: 5m. The condition is true for 2 minutes and then false. The alert fires after 5 minutes anyway.",
+    "answer": false,
+    "why": "The condition must be true for the whole wait, without a break. The alert is pending for 2 minutes, then goes back to inactive, and the timer is forgotten."
+  },
+  {
+    "type": "order",
+    "q": "Put the states of one alert in the order they happen when a real problem starts and later stops.",
+    "items": [
+      "inactive",
+      "pending",
+      "firing",
+      "inactive again (resolved)"
+    ],
+    "why": "The rule is first false (inactive). When it turns true the alert is pending. After it has stayed true for the for time, it is firing. When the rule turns false it goes back to inactive."
+  },
+  {
+    "q": "A rule uses for: 0m and a threshold. A 2 minute blip happens. What is the main cost?",
+    "options": [
+      "A person is woken for a blip, and many such pages lead to alert fatigue",
+      "The alert never fires",
+      "Prometheus stops scraping",
+      "The alert fires 5 minutes late"
+    ],
+    "answer": 0,
+    "why": "No wait means the fastest page, and also pages for every blip. People who get pages for nothing start to skip them. A longer for trades a later page for fewer false ones."
+  },
+  {
+    "q": "With a 99.9 percent SLO, the allowed error ratio is 0.001. The last hour and the last 5 minutes both show an error ratio of 0.02. What is the burn rate, and what does the Google SRE Workbook suggest?",
+    "options": [
+      "Burn rate 20, above 14.4 in both windows, so page",
+      "Burn rate 2, so open a ticket",
+      "Burn rate 0.02, so do nothing",
+      "Burn rate 20, but wait a day before any alert"
+    ],
+    "answer": 0,
+    "why": "Burn rate is the error ratio divided by the allowed ratio: 0.02 / 0.001 = 20. The workbook pages when both a long and a short window are above 14.4. Spending the budget 20 times too fast is a real problem."
+  },
+  {
+    "type": "fill",
+    "q": "In prom-client, every label value becomes its own time series. In an Express app, which request property should be used for a route label so that /users/1 and /users/2 share one series? Type the property name with the req prefix.",
+    "answer": ["req.route.path", "req.route"],
+    "why": "req.path holds the real URL, so every user id makes a new series (high cardinality). req.route.path holds the pattern, such as /users/:id, so it stays one series."
+  }
+]

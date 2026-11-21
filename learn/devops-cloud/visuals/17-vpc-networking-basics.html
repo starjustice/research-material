@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VPC networking: a request in, a call out through NAT, two firewalls, two locks</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stage.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 1100px) { .stage.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 860px) { .stage.three, .stage.two, .stage.four { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/devops-cloud/README" id="lessons">&larr; DevOps and Cloud lessons</a>
+    <a href="../../../viewer.html?note=learn/devops-cloud/17-vpc-networking-basics" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>VPC networking: a request in, a call out through NAT, two firewalls, two locks</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of an AWS VPC. It runs the same <code>pickRoute</code>, <code>isPublicSubnet</code>, <code>sgAllowsInbound</code>, <code>naclAllows</code>, <code>roundTrip</code>, <code>internetAccess</code> and <code>natCost</code> code as the practice answer in the lesson. Nothing here talks to a real cloud. The addresses are made up (they come from ranges that are kept for examples). The model shows one zone only. A real setup repeats the boxes in a second zone.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a subnet is <b>public</b> only because its route table has a road to the <b>internet gateway</b>. A <b>security group</b> is a guard that remembers connections. A <b>network ACL</b> is a guard with no memory. A <b>NAT gateway</b> lets private servers call out, and lets nobody call in. Keep the database in a private subnet: no road in, and no rule that lets strangers in.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (ipToInt, parseCidr, cidrSize,
+// usableInSubnet, cidrContains, pickRoute, isPublicSubnet, sgAllowsInbound, naclAllows, roundTrip,
+// internetAccess, natCost). It is a model: no cloud is used. The addresses are made up.
+// ---------------------------------------------------------------------------------------------
+// "10.0.1.20" -> 167772436. Throws an Error when the text is not an IPv4 address.
+function ipToInt(ip) {
+  const parts = String(ip).split(".");
+  if (parts.length !== 4 || parts.some((p) => !/^\d{1,3}$/.test(p) || Number(p) > 255)) {
+    throw new Error("bad IP address: " + ip);
+  }
+  return parts.reduce((total, p) => total * 256 + Number(p), 0);
+}
+
+// "10.0.1.0/24" -> { base, prefix, size, last }. base is the first address as a number.
+// A block like 10.0.1.18/24 is cleaned up to 10.0.1.0/24. Throws an Error for bad text.
+function parseCidr(cidr) {
+  const [ip, bits, extra] = String(cidr).split("/");
+  if (bits === undefined || extra !== undefined || !/^\d{1,2}$/.test(bits) || Number(bits) > 32) {
+    throw new Error("bad CIDR block: " + cidr);
+  }
+  const prefix = Number(bits);
+  const size = 2 ** (32 - prefix);
+  const base = Math.floor(ipToInt(ip) / size) * size;
+  return { base, prefix, size, last: base + size - 1 };
+}
+
+function cidrSize(cidr) {
+  return parseCidr(cidr).size;
+}
+
+function usableInSubnet(cidr) {
+  const { prefix, size } = parseCidr(cidr);
+  if (prefix < 16 || prefix > 28) throw new Error("a subnet must be between /16 and /28");
+  return size - 5;
+}
+
+function cidrContains(cidr, ip) {
+  const { base, last } = parseCidr(cidr);
+  const n = ipToInt(ip);
+  return n >= base && n <= last;
+}
+
+function pickRoute(routes, destIp) {
+  let best = null;
+  let bestPrefix = -1;
+  for (const route of routes) {
+    if (!cidrContains(route.dest, destIp)) continue;
+    const { prefix } = parseCidr(route.dest);
+    if (prefix > bestPrefix) {
+      best = route.target;
+      bestPrefix = prefix;
+    }
+  }
+  return best;
+}
+
+function isPublicSubnet(routes) {
+  return routes.some((route) => route.target.startsWith("igw-"));
+}
+
+function sgAllowsInbound(rules, packet) {
+  return rules.some((rule) => {
+    if (rule.protocol !== packet.protocol || rule.port !== packet.port) return false;
+    if (rule.source.startsWith("sg-")) return (packet.srcGroups || []).includes(rule.source);
+    return cidrContains(rule.source, packet.srcIp);
+  });
+}
+
+function naclAllows(rules, packet) {
+  const ordered = [...rules].sort((a, b) => a.number - b.number);
+  for (const rule of ordered) {
+    const protocolOk = rule.protocol === "all" || rule.protocol === packet.protocol;
+    const portOk = packet.port >= rule.portFrom && packet.port <= rule.portTo;
+    if (protocolOk && portOk && cidrContains(rule.cidr, packet.ip)) return rule.action === "allow";
+  }
+  return false;
+}
+
+function roundTrip(firewall, request) {
+  if (firewall.type === "sg") {
+    const requestOk = sgAllowsInbound(firewall.inbound, request);
+    return { requestOk, replyOk: requestOk };
+  }
+  const requestOk = naclAllows(firewall.inbound, { protocol: request.protocol, port: request.port, ip: request.srcIp });
+  const replyOk = requestOk && naclAllows(firewall.outbound, { protocol: request.protocol, port: request.srcPort, ip: request.srcIp });
+  return { requestOk, replyOk };
+}
+
+function internetAccess({ routes, hasPublicIp, natSubnetRoutes }) {
+  const target = pickRoute(routes, "8.8.8.8");
+  if (target === null) return "none";
+  if (target.startsWith("igw-")) return hasPublicIp ? "two-way" : "none";
+  if (target.startsWith("nat-")) return natSubnetRoutes && isPublicSubnet(natSubnetRoutes) ? "outbound-only" : "none";
+  return "none";
+}
+
+function natCost({ hours, gb, perHour, perGb }) {
+  return Math.round((hours * perHour + gb * perGb) * 100) / 100;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The small network used by every story. One zone only.
+// ---------------------------------------------------------------------------------------------
+const USER = "198.51.100.7";          // a person with a browser
+const PARTNER = "192.0.2.44";         // a partner API on the internet (for example email or payments)
+const ALB = { private: "10.0.1.20", public: "203.0.113.25" };
+const NAT = { id: "nat-1", private: "10.0.1.50", public: "203.0.113.50" };
+const APP = "10.0.11.15";
+const DB = "10.0.21.30";
+
+const PUBLIC_RT = [{ dest: "10.0.0.0/16", target: "local" }, { dest: "0.0.0.0/0", target: "igw-1" }];
+const APP_RT = [{ dest: "10.0.0.0/16", target: "local" }, { dest: "0.0.0.0/0", target: "nat-1" }];
+const DB_RT = [{ dest: "10.0.0.0/16", target: "local" }];
+
+const ALB_SG = [{ protocol: "tcp", port: 443, source: "0.0.0.0/0" }];
+const APP_SG = [{ protocol: "tcp", port: 3000, source: "sg-alb" }];
+const DB_SG = [{ protocol: "tcp", port: 5432, source: "sg-app" }];
+
+// ---------------------------------------------------------------------------------------------
+// Helpers that draw the boxes. They only show things, they change nothing.
+// ---------------------------------------------------------------------------------------------
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const routeLines = (rt) => rt.map((r) => "route: " + r.dest + " → " + r.target);
+const sgLines = (name, rules) => rules.map((r) => name + ": " + r.protocol + " " + r.port + " from " + r.source);
+const yes = (b) => (b ? "ALLOWED" : "REFUSED");
+const dev = (name, size, state) => ({ name, size, state: state || "base" });
+
+// The four places of the picture. "lit" is the list of places where the packet is right now.
+function places(o) {
+  o = o || {};
+  const lit = o.lit || [];
+  const internet = { title: "The internet", cls: "user", tag: ["outside", ""], small: "anyone can be here", lit: lit.includes("internet"),
+    layers: [dev("a user", USER), dev("a partner API", PARTNER)].concat(o.internetExtra || []) };
+  const pub = { title: "Public subnet", cls: "lb", tag: [o.publicTag || "public", o.publicTagClass || "ok"], small: "10.0.1.0/24", lit: lit.includes("public"),
+    layers: o.publicLayers || [dev("load balancer", ALB.private + " (public " + ALB.public + ")"), dev(NAT.id + " NAT gateway", NAT.private + " (public " + NAT.public + ")")],
+    lines: o.publicLines || routeLines(PUBLIC_RT) };
+  const app = { title: "Private subnet: app", cls: "srv", tag: [o.appTag || "private", ""], small: "10.0.11.0/24", lit: lit.includes("app"),
+    layers: [dev("app server", APP)], lines: o.appLines || routeLines(APP_RT) };
+  const db = { title: o.dbTitle || "Private subnet: database", cls: "fol", tag: [o.dbTag || "private", o.dbTagClass || ""], small: "10.0.21.0/24", lit: lit.includes("db"),
+    layers: o.dbLayers || [dev("database", DB)], lines: o.dbLines || routeLines(DB_RT) };
+  return [internet, pub, app, db];
+}
+const checkBox = (title, lines, tag, cls) => ({ wide: true, title, cls: cls || "lb", tag: tag || ["checks", ""], small: "", lines });
+const twoBoxes = (a, b) => [a, b];
+const textBox = (title, cls, tag, lines) => ({ title, cls, tag, small: "", lines });
+
+// ---- Story 1: a request comes in ----
+function simulateRequestIn() {
+  const steps = [];
+  const packet = { protocol: "tcp", port: 443, srcIp: USER, srcPort: 50000, srcGroups: [] };
+
+  steps.push({ layout: "four", hop: "Setup: your network", phase: "setup",
+    note: "<b>This is a VPC: your own private network in the cloud.</b> It has three subnets (slices of it). The <b>public subnet</b> holds the load balancer. The <b>app</b> and the <b>database</b> sit in private subnets. Each subnet has a <b>route table</b>: a list of roads. A user is about to open your site. Press Next and follow the packet.",
+    boxes: places({ lit: [] }) });
+
+  steps.push({ layout: "four", hop: "The browser sends a packet to " + ALB.public + " port 443", phase: "run",
+    note: "<b>The user's browser sends a packet to the address of your load balancer.</b> That is its <b>public</b> address, " + ALB.public + ". The packet goes out onto the internet and arrives at the front door of your VPC, the <b>internet gateway</b>.",
+    boxes: places({ lit: ["internet"] }) });
+
+  const open = internetAccess({ routes: PUBLIC_RT, hasPublicIp: true });
+  steps.push({ layout: "four", hop: "The internet gateway lets it in", phase: "chk",
+    note: "<b>The internet gateway looks at the public subnet.</b> Its route table has a road to <code>igw-1</code>, so <code>isPublicSubnet</code> says <code>" + isPublicSubnet(PUBLIC_RT) + "</code>. The load balancer also has a public address. So <code>internetAccess</code> says <code>" + open + "</code>. The gateway changes the destination from the public address " + ALB.public + " to the private address " + ALB.private + " and hands the packet to the subnet.",
+    boxes: places({ lit: ["public"] }).concat([checkBox("The front door", ["isPublicSubnet(public route table): " + isPublicSubnet(PUBLIC_RT), "load balancer has a public address: true", "internetAccess: " + open, "destination " + ALB.public + " becomes " + ALB.private])]) });
+
+  const okAlb = sgAllowsInbound(ALB_SG, packet);
+  steps.push({ layout: "four", hop: "The load balancer's security group checks it", phase: "chk",
+    note: "<b>Before the load balancer sees the packet, its security group checks the list.</b> The list says: port 443 from anywhere. The packet is TCP, port 443, from " + USER + ". Result: <code>" + yes(okAlb) + "</code>. If the packet came for port 22, the list has no line for it, so it would be refused.",
+    boxes: places({ lit: ["public"] }).concat([checkBox("Security group of the load balancer", sgLines("alb-sg", ALB_SG).concat(["packet: tcp " + packet.port + " from " + packet.srcIp, "sgAllowsInbound: " + yes(okAlb)]))]) });
+
+  const srcApp = { protocol: "tcp", port: 3000, srcIp: ALB.private, srcGroups: ["sg-alb"] };
+  const routeToApp = pickRoute(PUBLIC_RT, APP);
+  const okApp = sgAllowsInbound(APP_SG, srcApp);
+  steps.push({ layout: "four", hop: "The load balancer calls the app", phase: "run",
+    note: "<b>The load balancer opens a second connection, to the app.</b> The app has no public address, and it does not need one. The load balancer looks up " + APP + " in its route table. The best road is <code>" + routeToApp + "</code>: the address is inside the VPC, so the packet never leaves it. The app's security group only trusts the group <code>sg-alb</code>. The load balancer is in that group. Result: <code>" + yes(okApp) + "</code>.",
+    boxes: places({ lit: ["public", "app"] }).concat([checkBox("The road and the guard", ["pickRoute(public route table, " + APP + "): " + routeToApp, "app-sg: tcp 3000 from sg-alb", "packet comes from a member of sg-alb", "sgAllowsInbound: " + yes(okApp)])]) });
+
+  const srcDb = { protocol: "tcp", port: 5432, srcIp: APP, srcGroups: ["sg-app"] };
+  const routeToDb = pickRoute(APP_RT, DB);
+  const okDb = sgAllowsInbound(DB_SG, srcDb);
+  steps.push({ layout: "four", hop: "The app asks the database", phase: "run",
+    note: "<b>The app sends a SQL query to the database.</b> The road for " + DB + " is <code>" + routeToDb + "</code> again, so it stays inside the VPC. The database's security group trusts only <code>sg-app</code>. The app is in that group. Result: <code>" + yes(okDb) + "</code>. A chain: the internet talks to the load balancer, the load balancer to the app, the app to the database.",
+    boxes: places({ lit: ["app", "db"] }).concat([checkBox("The road and the guard", ["pickRoute(app route table, " + DB + "): " + routeToDb, "db-sg: tcp 5432 from sg-app", "sgAllowsInbound: " + yes(okDb)])]) });
+
+  const rt = roundTrip({ type: "sg", inbound: ALB_SG, outbound: [] }, packet);
+  steps.push({ layout: "four", hop: "The answer travels back", phase: "srv",
+    note: "<b>The answers go back along the same road, and nobody checks them again.</b> A security group is <b>stateful</b>: it remembers that the request was allowed, so the answer is allowed too. Here the load balancer's group has <b>no outbound rule</b> at all, and <code>roundTrip</code> still says <code>requestOk: " + rt.requestOk + ", replyOk: " + rt.replyOk + "</code>. The user sees the page.",
+    boxes: places({ lit: ["db", "app", "public", "internet"] }).concat([checkBox("Stateful", ["roundTrip(security group, no outbound rules):", "requestOk: " + rt.requestOk, "replyOk: " + rt.replyOk])]) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Only the load balancer faces the internet.</b> A packet passes two kinds of checks on its way: a road (the route table) and a guard (the security group). The app and the database have no public address and no road from the internet.",
+    boxes: twoBoxes(textBox("Public part", "lb", ["one door", "ok"], ["the load balancer", "a public address", "a road to the internet gateway", "a rule: port 443 from anywhere"]), textBox("Private part", "srv", ["no door", "ok"], ["the app and the database", "private addresses only", "no road from the internet", "each trusts only the group before it"])) });
+  return steps;
+}
+
+// ---- Story 2: an outbound call through the NAT gateway ----
+function simulateNat() {
+  const steps = [];
+  steps.push({ layout: "four", hop: "Setup: the app needs the internet", phase: "setup",
+    note: "<b>Your app must call a partner API on the internet</b> (for example to send an email or to take a payment). But the app lives in a private subnet, with no public address. How does the call get out, and how does the answer find its way back? Press Next.",
+    boxes: places({ lit: [] }) });
+
+  const toPartner = pickRoute(APP_RT, PARTNER);
+  steps.push({ layout: "four", hop: "The app looks up the road to " + PARTNER, phase: "run",
+    note: "<b>The app sends a packet from " + APP + " to " + PARTNER + " port 443.</b> The route table of its subnet has no line for " + PARTNER + " except the default road, <code>0.0.0.0/0</code>. <code>pickRoute</code> says the target is <code>" + toPartner + "</code>. That is the NAT gateway.",
+    boxes: places({ lit: ["app"] }).concat([checkBox("The road", ["pickRoute(app route table, " + PARTNER + "): " + toPartner, "the app subnet has no road to an internet gateway", "isPublicSubnet(app route table): " + isPublicSubnet(APP_RT)])]) });
+
+  const access = internetAccess({ routes: APP_RT, hasPublicIp: false, natSubnetRoutes: PUBLIC_RT });
+  steps.push({ layout: "four", hop: "The NAT gateway swaps the source address", phase: "chk",
+    note: "<b>The NAT gateway sits in the public subnet.</b> It takes the packet and changes the <b>source</b> from the app's address " + APP + " to its own private address " + NAT.private + ". It also writes a note: \"" + APP + " is waiting for an answer from " + PARTNER + "\". Because the NAT gateway's own subnet is public, <code>internetAccess</code> for the app says <code>" + access + "</code>.",
+    boxes: places({ lit: ["app", "public"] }).concat([checkBox("The NAT gateway", ["source " + APP + " becomes " + NAT.private, "note kept: " + APP + " waits for " + PARTNER, "isPublicSubnet(NAT's subnet): " + isPublicSubnet(PUBLIC_RT), "internetAccess for the app: " + access])]) });
+
+  steps.push({ layout: "four", hop: "The internet gateway swaps it again", phase: "run",
+    note: "<b>The packet follows the road of the public subnet to the internet gateway.</b> The gateway changes the source one more time, from " + NAT.private + " to the NAT gateway's <b>public</b> address, " + NAT.public + ". This public address belongs to the NAT gateway. So the partner sees <code>" + NAT.public + "</code>. It never sees your app's private address. It is also one fixed address that the partner can put on an allow list.",
+    boxes: places({ lit: ["public", "internet"] }).concat([checkBox("What the partner sees", ["a request from " + NAT.public, "not from " + APP, "the same public address every time"])]) });
+
+  steps.push({ layout: "four", hop: "The answer comes back the same way", phase: "srv",
+    note: "<b>The partner answers to " + NAT.public + ".</b> The packet goes through the internet gateway to the NAT gateway. The NAT gateway finds its note, changes the destination back to " + APP + ", and sends the answer to the app. It could do this because the call started inside the VPC.",
+    boxes: places({ lit: ["internet", "public", "app"] }).concat([checkBox("Back to the app", ["destination " + NAT.public + " becomes " + NAT.private, "the note says: this belongs to " + APP, "destination " + NAT.private + " becomes " + APP])]) });
+
+  steps.push({ layout: "four", hop: "A stranger tries to call in", phase: "bad", badge: ["Blocked", "bad"],
+    note: "<b>Now a stranger at " + USER + " sends a packet to " + NAT.public + " port 3000.</b> The NAT gateway has no note about this packet, because nobody inside asked for it. It does not pass it on. The AWS docs say: connections must always start from inside the VPC. So the app can call out, and nobody can call in.",
+    boxes: places({ lit: ["internet", "public"], internetExtra: [dev("a stranger", USER, "rebuilt")] }).concat([checkBox("Unsolicited packet", ["from " + USER + " to " + NAT.public + " port 3000", "no note for it in the NAT gateway", "dropped"], ["dropped", "bad"], "alarm")]) });
+
+  const hours = 730;
+  const priceHour = 0.045, priceGb = 0.045;
+  const quiet = natCost({ hours, gb: 0, perHour: priceHour, perGb: priceGb });
+  const busy = natCost({ hours, gb: 1000, perHour: priceHour, perGb: priceGb });
+  const two = natCost({ hours: 2 * hours, gb: 0, perHour: priceHour, perGb: priceGb });
+  steps.push({ layout: "two", hop: "The bill", phase: "chk",
+    note: "<b>A NAT gateway is the part of this picture that costs money while it sits still.</b> AWS charges for each hour it is available and for each GB it processes. With the prices in the example on the AWS pricing page ($0.045 per hour and $0.045 per GB, US East Ohio; other places differ), one gateway for about 730 hours costs <code>$" + quiet.toFixed(2) + "</code> with no traffic, and <code>$" + busy.toFixed(2) + "</code> with 1,000 GB. Two gateways, one per zone, cost <code>$" + two.toFixed(2) + "</code> before any traffic.",
+    boxes: twoBoxes(textBox("Costs (US East example)", "fol", ["money", "warn"], ["1 gateway, 730 hours, 0 GB: $" + quiet.toFixed(2), "1 gateway, 730 hours, 1,000 GB: $" + busy.toFixed(2), "2 gateways, 730 hours, 0 GB: $" + two.toFixed(2)]), textBox("Ways to pay less", "srv", ["from the docs", "ok"], ["send S3 traffic through a gateway endpoint: no charge for the endpoint", "keep servers in the same zone as their NAT gateway", "a test environment may not need one"])) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A NAT gateway lets a private server start a call to the internet. It never lets the internet start a call to the server.</b> It lives in a public subnet, and the private subnet's default road points at it.",
+    boxes: twoBoxes(textBox("What it does", "srv", ["outbound only", "ok"], ["swaps the private address for a public one", "remembers each call, so answers find the app", "the partner sees one fixed public address"]), textBox("What it costs", "fol", ["watch it", "warn"], ["a charge for each hour", "a charge for each GB", "one per zone for high availability"])) });
+  return steps;
+}
+
+// ---- Story 3: stateful or stateless ----
+function simulateFirewalls() {
+  const steps = [];
+  const packet = { protocol: "tcp", port: 443, srcIp: USER, srcPort: 50000, srcGroups: [] };
+  const rule = (number, action, from, to, cidr) => ({ number, action, protocol: "tcp", portFrom: from, portTo: to, cidr });
+  const ruleLines = (name, rules) => rules.length ? rules.map((r) => name + " " + r.number + ": " + r.action + " tcp " + (r.portFrom === r.portTo ? r.portFrom : r.portFrom + "-" + r.portTo) + " " + r.cidr) : [name + ": (no rules)"];
+  const guard = (title, cls, tag, lines) => ({ title, cls, tag, small: "", lines });
+  const sg = { type: "sg", inbound: ALB_SG, outbound: [] };
+
+  steps.push({ layout: "two", hop: "Setup: two kinds of guard", phase: "setup",
+    note: "<b>A packet from " + USER + " (its own port is " + packet.srcPort + ") goes to your server on port 443.</b> Two guards can look at it. A <b>security group</b> stands at the server. A <b>network ACL</b> stands at the door of the whole subnet. Both have a list. One of them remembers faces and one does not. Press Next to see which.",
+    boxes: twoBoxes(guard("Security group", "lb", ["at the server", ""], ["allow rules only", "remembers connections"]), guard("Network ACL", "fol", ["at the subnet", ""], ["allow and deny rules", "rule numbers, lowest first", "remembers nothing"])) });
+
+  const a = roundTrip(sg, packet);
+  steps.push({ layout: "two", hop: "Security group: the answer is free", phase: "srv",
+    note: "<b>The group allows 443 in and has no outbound rules.</b> <code>roundTrip</code> says <code>requestOk: " + a.requestOk + ", replyOk: " + a.replyOk + "</code>. The group remembers that the request was allowed, so it lets the answer out. This is what <b>stateful</b> means.",
+    boxes: twoBoxes(guard("Security group", "srv", ["stateful", "ok"], ["in: tcp 443 from 0.0.0.0/0", "out: (no rules)", "request: " + yes(a.requestOk), "answer: " + yes(a.replyOk)]), guard("Network ACL", "fol", ["not used yet", ""], ["wait"])) });
+
+  const naclA = { type: "nacl", inbound: [rule(100, "allow", 443, 443, "0.0.0.0/0")], outbound: [] };
+  const b = roundTrip(naclA, packet);
+  steps.push({ layout: "two", hop: "Network ACL: the answer is stuck", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The ACL allows 443 in and has no outbound rules.</b> <code>roundTrip</code> says <code>requestOk: " + b.requestOk + ", replyOk: " + b.replyOk + "</code>. The request gets in. But the answer is a new packet going out, and the ACL does not remember the request. No outbound rule matches, so it is dropped. The user's browser waits and times out. This is <b>stateless</b>.",
+    boxes: twoBoxes(guard("Security group", "srv", ["stateful", "ok"], ["answer: " + yes(a.replyOk)]), guard("Network ACL", "alarm", ["stateless", "bad"], ruleLines("in", naclA.inbound).concat(["out: (no rules)", "request: " + yes(b.requestOk), "answer: " + yes(b.replyOk)]))) });
+
+  const naclB = { type: "nacl", inbound: [rule(100, "allow", 443, 443, "0.0.0.0/0")], outbound: [rule(100, "allow", 443, 443, "0.0.0.0/0")] };
+  const c = roundTrip(naclB, packet);
+  steps.push({ layout: "two", hop: "A common wrong fix: allow 443 out", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Someone adds \"allow 443 out\", which feels right.</b> It does not help: <code>replyOk: " + c.replyOk + "</code>. The answer does not leave from port 443. It goes to the <b>user's</b> port, here " + packet.srcPort + ". A client picks a high number for its own port, and the number changes with each connection.",
+    boxes: twoBoxes(guard("Network ACL", "alarm", ["stateless", "bad"], ruleLines("in", naclB.inbound).concat(ruleLines("out", naclB.outbound), ["the answer goes to port " + packet.srcPort, "answer: " + yes(c.replyOk)])), guard("Why", "lb", ["the answer's port", ""], ["request: user port " + packet.srcPort + " to your port 443", "answer: your port 443 to user port " + packet.srcPort, "the outbound rule must cover the user's port"])) });
+
+  const naclC = { type: "nacl", inbound: [rule(100, "allow", 443, 443, "0.0.0.0/0")], outbound: [rule(100, "allow", 1024, 65535, "0.0.0.0/0")] };
+  const d = roundTrip(naclC, packet);
+  steps.push({ layout: "two", hop: "The fix: allow the high ports out", phase: "srv",
+    note: "<b>Allow outbound TCP for ports 1024 to 65535.</b> Now <code>roundTrip</code> says <code>requestOk: " + d.requestOk + ", replyOk: " + d.replyOk + "</code>. With a network ACL you must think about both directions: one rule for the way in, one for the way back. (1024 to 65535 is a common choice for the high ports. The exact range depends on the clients.)",
+    boxes: twoBoxes(guard("Network ACL", "srv", ["both directions", "ok"], ruleLines("in", naclC.inbound).concat(ruleLines("out", naclC.outbound), ["request: " + yes(d.requestOk), "answer: " + yes(d.replyOk)])), guard("Rule of thumb", "lb", ["", ""], ["security group: allow the way in only", "network ACL: allow both ways", "most teams leave the ACL open"])) });
+
+  const bad = [rule(100, "deny", 0, 65535, "198.51.100.0/24"), rule(200, "allow", 0, 65535, "0.0.0.0/0")];
+  const swapped = [rule(100, "allow", 0, 65535, "0.0.0.0/0"), rule(200, "deny", 0, 65535, "198.51.100.0/24")];
+  const p = { protocol: "tcp", port: 443, ip: USER };
+  const e1 = naclAllows(bad, p), e2 = naclAllows(swapped, p);
+  steps.push({ layout: "two", hop: "A network ACL has an order", phase: "chk",
+    note: "<b>A network ACL reads its rules from the lowest number up, and the first match decides.</b> A security group has no deny rules and no order. A network ACL has both. Left: \"deny 198.51.100.0/24\" has number 100, so " + USER + " is <code>" + yes(e1) + "</code>. Right: the same two rules with the numbers swapped. The allow rule is first, so the same address is <code>" + yes(e2) + "</code>.",
+    boxes: twoBoxes(guard("Deny has the lower number", "lb", [yes(e1), e1 ? "ok" : "bad"], ruleLines("rule", bad).concat(["packet from " + USER + ": " + yes(e1)])), guard("Allow has the lower number", "lb", [yes(e2), e2 ? "ok" : "bad"], ruleLines("rule", swapped).concat(["packet from " + USER + ": " + yes(e2)]))) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Security group: stateful, allow rules only, at the server.</b> <b>Network ACL: stateless, allow and deny rules in number order, at the subnet.</b> AWS says to use security groups as the main tool, and network ACLs as an extra layer when you need one.",
+    boxes: twoBoxes(guard("Security group", "srv", ["main tool", "ok"], ["stateful", "allow rules only", "can name another group as the source", "no rules in means nothing in"]), guard("Network ACL", "fol", ["extra layer", "warn"], ["stateless: allow both ways", "allow and deny", "lowest rule number first", "can block one bad address range"])) });
+  return steps;
+}
+
+// ---- Story 4: two locks on the database ----
+function simulateLocks() {
+  const steps = [];
+  const attacker = { protocol: "tcp", port: 5432, srcIp: USER, srcGroups: [] };
+  const lockBox = (title, lines, tag, cls) => ({ wide: true, title, cls: cls || "lb", tag: tag || ["", ""], small: "", lines });
+
+  steps.push({ layout: "four", hop: "Setup: a stranger finds your address range", phase: "setup",
+    note: "<b>A stranger at " + USER + " tries to reach the database on port 5432.</b> The database has two locks. <b>Lock 1</b> is the road: does the database's subnet have a road from the internet gateway, and does the database have a public address? <b>Lock 2</b> is the guard: does the database's security group let this packet in? Press Next.",
+    boxes: places({ lit: ["internet"], internetExtra: [dev("a stranger", USER, "rebuilt")] }) });
+
+  const l1 = internetAccess({ routes: DB_RT, hasPublicIp: false });
+  steps.push({ layout: "four", hop: "Lock 1: there is no road", phase: "srv",
+    note: "<b>The database's route table has one line: the local road.</b> It has no road to an internet gateway, and no public address. <code>isPublicSubnet</code> says <code>" + isPublicSubnet(DB_RT) + "</code>. <code>internetAccess</code> says <code>" + l1 + "</code>. A packet from the internet has no way to arrive.",
+    boxes: places({ lit: ["db"] }).concat([lockBox("Lock 1: the road", ["isPublicSubnet(db route table): " + isPublicSubnet(DB_RT), "internetAccess(db subnet, no public address): " + l1], [l1 === "none" ? "closed" : "open", l1 === "none" ? "ok" : "bad"])]) });
+
+  const l2 = sgAllowsInbound(DB_SG, attacker);
+  steps.push({ layout: "four", hop: "Lock 2: the guard says no", phase: "srv",
+    note: "<b>Suppose the packet did arrive.</b> The database's security group only lets in members of <code>sg-app</code>. The stranger is not one. <code>sgAllowsInbound</code> says <code>" + yes(l2) + "</code>.",
+    boxes: places({ lit: ["db"] }).concat([lockBox("Lock 2: the guard", sgLines("db-sg", DB_SG).concat(["packet: tcp 5432 from " + USER, "sgAllowsInbound: " + yes(l2)]), [l2 ? "open" : "closed", l2 ? "bad" : "ok"])]) });
+
+  const openSg = DB_SG.concat([{ protocol: "tcp", port: 5432, source: "0.0.0.0/0" }]);
+  const l2b = sgAllowsInbound(openSg, attacker);
+  steps.push({ layout: "four", hop: "A shortcut: \"open 5432 so we can connect from home\"", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A developer cannot reach the database from home, so someone adds a rule: port 5432 from <code>0.0.0.0/0</code>.</b> Lock 2 is now open: <code>sgAllowsInbound</code> says <code>" + yes(l2b) + "</code>. But lock 1 is still closed: <code>internetAccess</code> still says <code>" + l1 + "</code>. The database is still safe. Two locks mean one mistake is not enough. But you are now one more mistake away from a breach.",
+    boxes: places({ lit: ["db"], dbTag: "rule too wide", dbTagClass: "warn", dbLines: routeLines(DB_RT).concat(sgLines("db-sg", openSg)) }).concat([lockBox("Lock 1 and lock 2", ["lock 1, the road: " + l1 + " (closed)", "lock 2, the guard: " + yes(l2b) + " (open)", "result: the stranger still cannot arrive"], ["one lock open", "warn"], "fol")]) });
+
+  const l1b = internetAccess({ routes: PUBLIC_RT, hasPublicIp: true });
+  const l2c = sgAllowsInbound(openSg, attacker);
+  steps.push({ layout: "four", hop: "A second mistake: the database moves to a public subnet", phase: "bad", badge: ["Breach", "bad"],
+    note: "<b>Later, someone puts the database in a public subnet and gives it a public address (for example by turning on \"publicly accessible\").</b> Lock 1 is open: <code>internetAccess</code> says <code>" + l1b + "</code>. Lock 2 is still open from the shortcut. Now the stranger can reach the database. Bots scan the internet for open database ports all day.",
+    boxes: places({ lit: ["db", "internet"], dbTitle: "Subnet: database (now public)", dbTag: "PUBLIC", dbTagClass: "bad", dbLines: routeLines(PUBLIC_RT).concat(sgLines("db-sg", openSg), ["has a public address"]) }).concat([lockBox("Lock 1 and lock 2", ["lock 1, the road: " + l1b + " (open)", "lock 2, the guard: " + yes(l2c) + " (open)", "result: reachable from the whole internet"], ["both open", "bad"], "alarm")]) });
+
+  steps.push({ layout: "two", hop: "A better way for the developer", phase: "chk",
+    note: "<b>Do not open the door. Give the developer another way in.</b> Two common ways: a <b>bastion host</b> (one small server in a public subnet that you log in to first, and then reach the database from it), or a private connection from your own network (the AWS docs list AWS VPN and Direct Connect for that). Whichever you choose, the database keeps both locks.",
+    boxes: twoBoxes(textBox("Do", "srv", ["ideas", "ok"], ["keep the database in a private subnet", "allow the app's group only", "reach it through a bastion host or a VPN"]), textBox("Do not", "alarm", ["risky", "bad"], ["open 5432 to 0.0.0.0/0", "turn on public access for convenience", "put the database in a public subnet"])) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>The database is private for two reasons, and both should hold.</b> There is no road from the internet to it, and its security group lets in only the app. One lock can fail by mistake. It is much rarer that both fail.",
+    boxes: twoBoxes(textBox("Lock 1: the road", "lb", ["private subnet", "ok"], ["route table has no internet gateway route", "no public address"]), textBox("Lock 2: the guard", "srv", ["security group", "ok"], ["port 5432 from the app's group only", "no 0.0.0.0/0"])) });
+  return steps;
+}
+
+// ---- Story 5: a NAT gateway in the wrong place, and a public address that does nothing ----
+function simulateMistakes() {
+  const steps = [];
+  const row = (name, o) => name + ": " + internetAccess(o);
+  steps.push({ layout: "four", hop: "Setup: the app's calls time out", phase: "setup",
+    note: "<b>You made a NAT gateway. The app's route table sends <code>0.0.0.0/0</code> to it.</b> But every call from the app to the partner API hangs and then times out. Where is the mistake? Look at which subnet holds the NAT gateway. Press Next.",
+    boxes: places({ lit: ["app"], publicLayers: [dev("load balancer", ALB.private + " (public " + ALB.public + ")")], publicTag: "public", appLines: routeLines(APP_RT) }) });
+
+  const wrongRt = DB_RT.concat([]); // the subnet of the wrong place has only the local road
+  const wrong = internetAccess({ routes: APP_RT, hasPublicIp: false, natSubnetRoutes: wrongRt });
+  steps.push({ layout: "four", hop: "The NAT gateway sits in a private subnet", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The NAT gateway was created in a subnet whose route table has only the local road.</b> The packet reaches the NAT gateway. The NAT gateway swaps the source address, and then looks for a road to " + PARTNER + ". There is none, because its own subnet is not public: <code>isPublicSubnet</code> says <code>" + isPublicSubnet(wrongRt) + "</code>. <code>internetAccess</code> for the app says <code>" + wrong + "</code>. The call goes nowhere.",
+    boxes: places({ lit: ["app", "db"], publicLayers: [dev("load balancer", ALB.private + " (public " + ALB.public + ")")], dbTitle: "Private subnet (the NAT is here)", dbLayers: [dev(NAT.id + " NAT gateway", NAT.private, "rebuilt")], dbLines: routeLines(wrongRt), dbTag: "NAT is here", dbTagClass: "bad" }).concat([checkBox("The check", ["the app sends to nat-1: fine", "the NAT gateway's subnet route table: local only", "no road to an internet gateway", "internetAccess: " + wrong], ["no internet", "bad"], "alarm")]) });
+
+  const right = internetAccess({ routes: APP_RT, hasPublicIp: false, natSubnetRoutes: PUBLIC_RT });
+  steps.push({ layout: "four", hop: "The fix: put the NAT gateway in a public subnet", phase: "srv",
+    note: "<b>Create the NAT gateway in the public subnet.</b> That subnet has a road to <code>igw-1</code>, so <code>isPublicSubnet</code> says <code>" + isPublicSubnet(PUBLIC_RT) + "</code>. Now <code>internetAccess</code> for the app says <code>" + right + "</code>. The AWS docs say the same: you create a public NAT gateway in a public subnet.",
+    boxes: places({ lit: ["app", "public", "internet"] }).concat([checkBox("The check", ["the NAT gateway's subnet has a road to igw-1", "isPublicSubnet: " + isPublicSubnet(PUBLIC_RT), "internetAccess for the app: " + right], ["works", "ok"], "fol")]) });
+
+  const pub = internetAccess({ routes: DB_RT, hasPublicIp: true });
+  steps.push({ layout: "four", hop: "Another mistake: a public address on a private server", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Someone gives the database a public address, hoping that this makes it reachable.</b> It does nothing. The subnet has no road to the internet gateway, so <code>internetAccess</code> still says <code>" + pub + "</code>. The AWS docs say the same: with no route to the internet gateway, instances in a private subnet cannot reach the internet, even if they have public IP addresses.",
+    boxes: places({ lit: ["db"], dbTag: "public address, no road", dbTagClass: "warn" }).concat([checkBox("The check", ["the database has a public address: true", "its route table: local only", "internetAccess: " + pub], ["still private", "ok"], "fol")]) });
+
+  const rows = [
+    row("road to igw-1, public address", { routes: PUBLIC_RT, hasPublicIp: true }),
+    row("road to igw-1, no public address", { routes: PUBLIC_RT, hasPublicIp: false }),
+    row("road to a NAT gateway in a public subnet", { routes: APP_RT, hasPublicIp: false, natSubnetRoutes: PUBLIC_RT }),
+    row("road to a NAT gateway in a private subnet", { routes: APP_RT, hasPublicIp: false, natSubnetRoutes: DB_RT }),
+    row("local road only, public address", { routes: DB_RT, hasPublicIp: true })
+  ];
+  steps.push({ layout: "two", hop: "A checklist", phase: "chk",
+    note: "<b>Run <code>internetAccess</code> on five cases.</b> It says <code>two-way</code> when the internet can start a call to the server and the server can start a call out. <code>outbound-only</code> means only the server starts calls. <code>none</code> means no calls at all.",
+    boxes: twoBoxes(textBox("Five cases", "lb", ["internetAccess", ""], rows), textBox("How to read it", "fol", ["rule", ""], ["a road to the internet gateway AND a public address: two-way", "a road to a NAT gateway that sits in a public subnet: outbound only", "anything else: none"])) });
+
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Check three things when a server cannot reach the internet.</b> Which road does its route table choose for the address? If the road is a NAT gateway, is the NAT gateway in a public subnet? If the road is an internet gateway, does the server have a public address?",
+    boxes: twoBoxes(textBox("Private server, calls out", "srv", ["needs", "ok"], ["road to a NAT gateway", "the NAT gateway in a public subnet", "that subnet has a road to the internet gateway"]), textBox("Public server, calls both ways", "lb", ["needs", "ok"], ["road to the internet gateway", "a public address", "a security group rule that lets the call in"])) });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A request comes in", sim: simulateRequestIn,
+    why: "Only the load balancer has a public address and a road to the internet gateway. It talks to the app inside the VPC, and the app talks to the database inside the VPC, each time through a security group that trusts only the group before it.",
+    predict: { q: "A user opens your site. Which part of your network does the user's packet reach first?", options: ["The app server", "The load balancer in the public subnet", "The database"], answer: "The load balancer in the public subnet" } },
+  { name: "2. A call out through NAT", sim: simulateNat,
+    why: "The NAT gateway swaps the app's private address for its own public address. The partner sees the NAT gateway's address. The NAT gateway also remembers the call, so the answer finds its way back.",
+    predict: { q: "The app in a private subnet calls a partner API. Which address does the partner see?", options: ["The app's private address", "The NAT gateway's public address", "The database's address"], answer: "The NAT gateway's public address" } },
+  { name: "3. Stateful or stateless", sim: simulateFirewalls,
+    why: "A security group remembers the connection, so the answer is allowed without an outbound rule. A network ACL remembers nothing, so the answer needs its own outbound rule.",
+    predict: { q: "A security group and a network ACL both allow port 443 in and have no outbound rules. Which one lets the answer back out?", options: ["Both of them", "Only the security group", "Only the network ACL"], answer: "Only the security group" } },
+  { name: "4. Two locks on the database", sim: simulateLocks,
+    why: "Reaching the database from the internet needs a road, a public address and a rule that lets the packet in. A private database has no road and no public address, so one wrong rule is not enough to expose it.",
+    predict: { q: "Someone opens port 5432 to the whole internet in the database's security group. The database is in a private subnet with no public address. Can a stranger reach it?", options: ["Yes, the rule lets everyone in", "No, there is still no road from the internet to it", "Yes, but only through the NAT gateway"], answer: "No, there is still no road from the internet to it" } },
+  { name: "5. A NAT in the wrong place", sim: simulateMistakes,
+    why: "A NAT gateway needs a road to the internet gateway of its own. That means it must sit in a public subnet. A public address on a server in a private subnet does nothing, because the road is what decides.",
+    predict: { q: "The NAT gateway is created in a private subnet, and the app's route table sends 0.0.0.0/0 to it. Can the app reach the partner API?", options: ["Yes", "No, the NAT gateway's own subnet has no road to the internet gateway", "Yes, but slowly"], answer: "No, the NAT gateway's own subnet has no road to the internet gateway" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 3200);
+}
+
+window.__sim = { simulateRequestIn, simulateNat, simulateFirewalls, simulateLocks, simulateMistakes, STORIES, cidrSize, usableInSubnet, cidrContains, pickRoute, isPublicSubnet, sgAllowsInbound, naclAllows, roundTrip, internetAccess, natCost };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

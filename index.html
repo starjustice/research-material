@@ -1335,7 +1335,7 @@
   <span>Visual cheatsheet</span>
 </a>
 </details>
-<details class="subject"><summary><b>DevOps and Cloud</b><small>13 lessons, 3 guides, 12 visuals, 2 cheatsheets</small></summary>
+<details class="subject"><summary><b>DevOps and Cloud</b><small>20 lessons, 3 guides, 19 visuals, 2 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/devops-cloud/README">
   <span class="tag map">MAP</span>
   <b>DevOps and Cloud: map and lesson list</b>
@@ -1401,6 +1401,41 @@
   <b>14. Infrastructure as code</b>
   <span>say why servers should be described in files and not clicked together, tell a &quot;steps&quot; script from a &quot;wanted list&quot; file, explain what `plan` and `apply` each do, say what the state file is and why it needs a shared place and a lock, explain drift and the two ways to fix it, and compare Terraform, OpenTofu, Pulumi and AWS CDK in one table.</span>
 </a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/15-the-aws-map-for-a-web-developer">
+  <span class="tag lesson">LESSON 15</span>
+  <b>15. The AWS map for a web developer</b>
+  <span>name the few AWS pieces a web app uses and say what each one does in one sentence, tell EC2, Fargate and Lambda apart by &quot;who looks after the machine&quot;, say why uploads go to S3 and not to a server disk, say what RDS does for Postgres, follow one request from Route 53 to the database, and pick and defend a setup for a Next.js, Express and Postgres app.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/17-vpc-networking-basics">
+  <span class="tag lesson">LESSON 17</span>
+  <b>17. VPC networking basics</b>
+  <span>say what a VPC, a subnet and a route table are, explain why a route to an internet gateway (and nothing else) makes a subnet public, tell a security group (remembers connections) from a network ACL (remembers nothing), say what a NAT gateway does and what it costs, and explain why the database sits in a private subnet.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/19-https-and-certificates-in-practice">
+  <span class="tag lesson">LESSON 19</span>
+  <b>19. HTTPS and certificates in practice</b>
+  <span>say what a certificate proves and what it does not, follow the chain of trust from your server to a root in the browser, say where the HTTPS ends (proxy, load balancer, or the app), explain how Let&#x27;s Encrypt checks you control a name (HTTP-01 and DNS-01, and why wildcards need DNS-01), say how long certificates live now and how that is changing, list what breaks when renewal fails, and explain what HSTS adds.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/20-metrics-dashboards-and-alerts">
+  <span class="tag lesson">LESSON 20</span>
+  <b>20. Metrics, dashboards and alerts</b>
+  <span>say how a number travels from your Node app to Prometheus, a Grafana graph and a page, tell a counter from a gauge and a histogram, explain why you graph a counter with `rate()`, read p95 from histogram buckets, pick what to graph (golden signals, RED), explain what `for` does, say why you page on symptoms and not on causes, and explain burn rate in plain words.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/21-what-caprover-does-for-you">
+  <span class="tag lesson">LESSON 21</span>
+  <b>21. What CapRover does for you</b>
+  <span>name what CapRover puts on your server, follow one deploy step by step (build, service update, nginx reload), say when a certificate is asked for and renewed, say why an app with a persistent folder has a short gap on deploy, and list what you must do yourself, in a table against a hosted platform and ECS on Fargate.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/22-container-and-supply-chain-security">
+  <span class="tag lesson">LESSON 22</span>
+  <b>22. Container and supply chain security</b>
+  <span>say what a supply chain is and where an attack can enter it, name four real attacks of 2025 and 2026 and what each one teaches, make an image smaller and less powerful (small base, non-root user, read-only filesystem, no secrets in layers), keep the same bytes every build (lockfile, `npm ci`, digest, full commit ids), say what a scan can and cannot find, and explain signing and verifying an image.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/devops-cloud/24-cloud-cost-basics">
+  <span class="tag lesson">LESSON 24</span>
+  <b>24. Cloud cost basics</b>
+  <span>read a cloud bill as a list of meters, name the costs that hide (the NAT gateway, data out, idle load balancers, forgotten disks, logs, traffic between zones), tell on demand, a plan and Spot apart, work out when a plan is worth it, cut a bill in a safe order, set budgets, alerts and tags, and answer &quot;how would you cut the cloud bill&quot;.</span>
+</a>
 <a class="card" href="viewer.html?note=learn/devops-cloud/26-ways-to-run-your-app">
   <span class="tag lesson">LESSON 26</span>
   <b>26. Ways to run your app compared</b>
@@ -1464,6 +1499,41 @@
 <a class="card" href="learn/devops-cloud/visuals/14-infrastructure-as-code.html">
   <span class="tag app">VISUAL</span>
   <b>14-infrastructure-as-code.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/15-the-aws-map-for-a-web-developer.html">
+  <span class="tag app">VISUAL</span>
+  <b>15-the-aws-map-for-a-web-developer.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/17-vpc-networking-basics.html">
+  <span class="tag app">VISUAL</span>
+  <b>17-vpc-networking-basics.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/19-https-and-certificates-in-practice.html">
+  <span class="tag app">VISUAL</span>
+  <b>19-https-and-certificates-in-practice.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/20-metrics-dashboards-and-alerts.html">
+  <span class="tag app">VISUAL</span>
+  <b>20-metrics-dashboards-and-alerts.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/21-what-caprover-does-for-you.html">
+  <span class="tag app">VISUAL</span>
+  <b>21-what-caprover-does-for-you.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/22-container-and-supply-chain-security.html">
+  <span class="tag app">VISUAL</span>
+  <b>22-container-and-supply-chain-security.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/devops-cloud/visuals/24-cloud-cost-basics.html">
+  <span class="tag app">VISUAL</span>
+  <b>24-cloud-cost-basics.html</b>
   <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/devops-cloud/cloud-computing-models-serverless-guide">

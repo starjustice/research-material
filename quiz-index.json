@@ -328,6 +328,62 @@
   "count": 6
  },
  {
+  "slug": "learn/devops-cloud/15-the-aws-map-for-a-web-developer",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "15",
+  "title": "The AWS map for a web developer",
+  "count": 14
+ },
+ {
+  "slug": "learn/devops-cloud/17-vpc-networking-basics",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "17",
+  "title": "VPC networking basics",
+  "count": 14
+ },
+ {
+  "slug": "learn/devops-cloud/19-https-and-certificates-in-practice",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "19",
+  "title": "HTTPS and certificates in practice",
+  "count": 14
+ },
+ {
+  "slug": "learn/devops-cloud/20-metrics-dashboards-and-alerts",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "20",
+  "title": "Metrics, dashboards and alerts",
+  "count": 14
+ },
+ {
+  "slug": "learn/devops-cloud/21-what-caprover-does-for-you",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "21",
+  "title": "What CapRover does for you",
+  "count": 14
+ },
+ {
+  "slug": "learn/devops-cloud/22-container-and-supply-chain-security",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "22",
+  "title": "Container and supply chain security",
+  "count": 13
+ },
+ {
+  "slug": "learn/devops-cloud/24-cloud-cost-basics",
+  "subject": "devops-cloud",
+  "subjectTitle": "DevOps and Cloud",
+  "num": "24",
+  "title": "Cloud cost basics",
+  "count": 13
+ },
+ {
   "slug": "learn/devops-cloud/26-ways-to-run-your-app",
   "subject": "devops-cloud",
   "subjectTitle": "DevOps and Cloud",

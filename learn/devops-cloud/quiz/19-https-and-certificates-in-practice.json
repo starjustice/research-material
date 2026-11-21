@@ -1,0 +1,145 @@
+[
+  {
+    "q": "A certificate for shop.example.com is signed and the padlock shows. What does the certificate prove?",
+    "options": [
+      "That the site is honest and safe",
+      "That whoever runs the server controls the name shop.example.com, and holds its private key",
+      "That the company behind the site is real",
+      "That the app behind the proxy has no bugs"
+    ],
+    "answer": 1,
+    "why": "A certificate ties a name to a public key, signed by an issuer the browser trusts. It proves control of the name. A phishing site can have a valid certificate for its own name."
+  },
+  {
+    "type": "order",
+    "q": "Put the chain of trust in order, from the certificate your server holds to the one the browser already has.",
+    "items": [
+      "Your certificate (the leaf)",
+      "The middle certificate (intermediate)",
+      "The root certificate in the browser's trust list"
+    ],
+    "why": "Each certificate is signed by the next one up. The browser walks up until it reaches a root that is already in its built-in list."
+  },
+  {
+    "q": "Your nginx sends only your own certificate. curl says it cannot get the local issuer certificate. What is the fix?",
+    "options": [
+      "Renew the certificate",
+      "Point nginx at fullchain.pem, which also holds the middle certificate",
+      "Turn on HSTS",
+      "Open port 80"
+    ],
+    "answer": 1,
+    "why": "The browser or curl must be able to link your certificate to a root. fullchain.pem is your certificate plus the middle ones. cert.pem alone leaves a gap."
+  },
+  {
+    "type": "tf",
+    "q": "With TLS termination, the traffic between nginx and your Node app is always encrypted.",
+    "answer": false,
+    "why": "nginx decrypts the request and makes a new one to the app. That last leg is usually plain HTTP on a private network. To encrypt it too you must re-encrypt, with a certificate on the app."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true when the proxy ends the HTTPS (terminates TLS)?",
+    "options": [
+      "The certificate and private key live on the proxy",
+      "The proxy can read the path and add headers such as X-Forwarded-Proto",
+      "The app must hold a certificate too",
+      "The app can tell that the visitor used HTTPS only from a header, not from the connection"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "The proxy holds the key and reads the request. The app sees plain HTTP, so it relies on X-Forwarded-Proto. The app needs no certificate in this setup."
+  },
+  {
+    "q": "Cloudflare is in Flexible mode. A visitor sees the padlock. What about the leg from Cloudflare to your server?",
+    "options": [
+      "Encrypted",
+      "Not encrypted, it is plain HTTP",
+      "Encrypted only if the visitor uses Chrome",
+      "Blocked"
+    ],
+    "answer": 1,
+    "why": "In Flexible mode the visitor leg can be HTTPS but Cloudflare to the origin is not encrypted. Cloudflare recommends Full or Full (strict) when possible."
+  },
+  {
+    "q": "You want one certificate for *.example.com from Let's Encrypt. Port 80 is open. Which challenge must you use?",
+    "options": [
+      "HTTP-01, because port 80 is open",
+      "DNS-01, which needs a TXT record and a DNS provider with an API",
+      "Either one, it does not matter",
+      "Neither, wildcards are not allowed"
+    ],
+    "answer": 1,
+    "why": "HTTP-01 cannot be used for wildcards. A file on one web server cannot prove control of every name. A TXT record in the DNS can."
+  },
+  {
+    "type": "fill",
+    "q": "In the DNS-01 challenge, the tool creates a TXT record. Type the name of the record, which starts with an underscore, for the domain example.com.",
+    "answer": [
+      "_acme-challenge.example.com"
+    ],
+    "why": "Let's Encrypt asks for a TXT record at _acme-challenge.<your domain>. HTTP-01 uses a file under /.well-known/acme-challenge/ instead."
+  },
+  {
+    "q": "Which port must be reachable from the internet for the HTTP-01 challenge, even if your site is HTTPS only?",
+    "options": [
+      "22",
+      "80",
+      "443",
+      "3000"
+    ],
+    "answer": 1,
+    "why": "The check is plain HTTP on port 80. A firewall change that closes port 80 can break renewal while the site on port 443 still looks fine."
+  },
+  {
+    "type": "order",
+    "q": "Put the longest allowed life of a public certificate in order, from the oldest rule to the newest (the CA/Browser Forum schedule).",
+    "items": [
+      "398 days",
+      "200 days (from 2026-03-15)",
+      "100 days (from 2027-03-15)",
+      "47 days (from 2029-03-15)"
+    ],
+    "why": "The industry cuts the longest life in steps: 398, then 200, then 100, then 47 days. The point is to limit damage from a stolen key and to force automation."
+  },
+  {
+    "type": "fill",
+    "q": "Let's Encrypt gives 90 day certificates by default. Certbot renews when less than a third of the life is left. How many days before the end does a 90 day certificate become due? Type the number.",
+    "answer": [
+      "30",
+      "30 days"
+    ],
+    "why": "A third of 90 days is 30 days. With exactly 30 days left it is still ok. One day later it is due."
+  },
+  {
+    "q": "Your cron job renews every 60 days. Let's Encrypt moves you to 45 day certificates. What happens?",
+    "options": [
+      "Nothing, 60 days is fine",
+      "The certificate expires before the first renewal",
+      "Let's Encrypt renews it for you",
+      "The job renews twice as often"
+    ],
+    "answer": 1,
+    "why": "A fixed 60 day schedule is longer than a 45 day life. Use a tool that checks the real dates (Certbot 4 and later) or asks the CA when to renew with ACME Renewal Information."
+  },
+  {
+    "type": "tf",
+    "q": "Let's Encrypt still sends an email when your certificate is close to expiring.",
+    "answer": false,
+    "why": "Let's Encrypt ended its expiration emails on 2025-06-04. You must monitor days left yourself, or use a monitoring service."
+  },
+  {
+    "q": "Your site sent Strict-Transport-Security with a one year max-age. Today the certificate expired. What does a visitor's browser do?",
+    "options": [
+      "Shows a warning with a Continue anyway button",
+      "Shows an error with no way to continue",
+      "Ignores the date",
+      "Switches to plain HTTP"
+    ],
+    "answer": 1,
+    "why": "For an HSTS site a browser does not allow click through on a TLS error. A missed renewal becomes a full outage until you fix it. Start HSTS with a short time."
+  }
+]
