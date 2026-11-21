@@ -1308,11 +1308,51 @@
   <span>Six layers, six stages, the seven steps, mid vs senior, the 10 week plan, I can ticks</span>
 </a>
 </details>
-<details class="subject"><summary><b>Networking</b><small>2 guides, 2 cheatsheets</small></summary>
+<details class="subject"><summary><b>Networking</b><small>4 lessons, 2 guides, 4 visuals, 2 cheatsheets</small></summary>
 <a class="card" href="viewer.html?note=learn/networking/README">
   <span class="tag map">MAP</span>
   <b>Networking: map and lesson list</b>
   <span>Every concept in order, one per file, with status</span>
+</a>
+<a class="card" href="viewer.html?note=learn/networking/01-the-layers-osi-and-tcp-ip">
+  <span class="tag lesson">LESSON 01</span>
+  <b>01. The layers: OSI and TCP/IP</b>
+  <span>say why networking is split into layers, name the 4 layers of TCP/IP and the 7 of OSI and how they map, follow a request as each layer wraps it in a header, tell a MAC address from an IP address from a port, say which one changes at each router, say what a layer 4 and a layer 7 load balancer can read, and answer &quot;which layer is TLS?&quot; without getting caught.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/networking/02-dns">
+  <span class="tag lesson">LESSON 02</span>
+  <b>02. DNS: how a name becomes an IP address</b>
+  <span>say why DNS exists, follow one lookup from the browser through the resolver, the root, the `.com` server and the domain&#x27;s own server, read the main record types (A, AAAA, CNAME, MX, TXT, NS), say what a TTL does and why a DNS change &quot;takes time&quot;, explain why a CNAME cannot sit on the apex and what Route 53 alias and Cloudflare flattening do about it, say what the CapRover wildcard record does, and say what DNS load balancing can and cannot do.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/networking/03-tcp-vs-udp">
+  <span class="tag lesson">LESSON 03</span>
+  <b>03. TCP vs UDP</b>
+  <span>say why TCP and UDP exist on top of IP, explain what a port is and what names a connection, follow the three way handshake, explain how TCP keeps data whole and in order (numbers, receipts, resending), say what flow control and congestion control protect, follow the four messages that close a connection and say why TIME_WAIT is normal, say what UDP gives and does not give, and pick TCP or UDP for DNS, video, games and QUIC.</span>
+</a>
+<a class="card" href="viewer.html?note=learn/networking/06-cookies-cors-and-same-origin">
+  <span class="tag lesson">LESSON 06</span>
+  <b>06. Cookies, CORS and same origin</b>
+  <span>say what an origin is, explain why the browser blocks reading answers from other origins, say what CORS adds and who enforces it, tell a simple request from a preflight, explain why `*` fails with cookies, name what each cookie flag does, say how SameSite and CSRF fit in, and set up CORS in Express, Next.js and a React dev server.</span>
+</a>
+<a class="card" href="learn/networking/visuals/01-the-layers-osi-and-tcp-ip.html">
+  <span class="tag app">VISUAL</span>
+  <b>01-the-layers-osi-and-tcp-ip.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/networking/visuals/02-dns.html">
+  <span class="tag app">VISUAL</span>
+  <b>02-dns.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/networking/visuals/03-tcp-vs-udp.html">
+  <span class="tag app">VISUAL</span>
+  <b>03-tcp-vs-udp.html</b>
+  <span>Interactive page</span>
+</a>
+<a class="card" href="learn/networking/visuals/06-cookies-cors-and-same-origin.html">
+  <span class="tag app">VISUAL</span>
+  <b>06-cookies-cors-and-same-origin.html</b>
+  <span>Interactive page</span>
 </a>
 <a class="card" href="viewer.html?note=learn/networking/networking-for-system-design">
   <span class="tag note">GUIDE</span>

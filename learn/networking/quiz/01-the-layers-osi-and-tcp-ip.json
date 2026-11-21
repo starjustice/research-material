@@ -1,0 +1,135 @@
+[
+  {
+    "q": "Why does networking use layers?",
+    "options": [
+      "Each layer does one job, so you can change one layer without rewriting the others",
+      "Each layer encrypts the data again for safety",
+      "The layers make the data smaller",
+      "The standard says there must be seven"
+    ],
+    "answer": 0,
+    "why": "A layer only talks to the layer above and below it. A new Wi-Fi standard changes the link layer. TCP, HTTP and your Express app keep working."
+  },
+  {
+    "type": "tf",
+    "q": "The internet runs on the 7 layers of the OSI model.",
+    "answer": false,
+    "why": "The internet runs on the TCP/IP suite, which has 4 layers (application, transport, internet, link). OSI is a teaching model. Its layers 5, 6 and 7 all land in the TCP/IP application layer."
+  },
+  {
+    "type": "order",
+    "q": "Put these in the order they sit on the wire, from the outer wrapper to the message inside.",
+    "items": [
+      "Ethernet header",
+      "IP header",
+      "TCP header",
+      "HTTP message"
+    ],
+    "why": "Each layer wraps the one above it. The Ethernet header is outermost. The HTTP message is the content in the middle. Wrapping is encapsulation. The receiver peels the wrappers off in this same order."
+  },
+  {
+    "q": "Which layer decides which program on the server gets your bytes, your Express app on 3000 or sshd on 22?",
+    "options": [
+      "Link layer, with the MAC address",
+      "Internet layer, with the IP address",
+      "Transport layer, with the port number",
+      "Application layer, with the URL"
+    ],
+    "answer": 2,
+    "why": "The IP address finds the machine. The port finds the program on that machine. Ports live in the TCP or UDP header, which is the transport layer."
+  },
+  {
+    "type": "fill",
+    "q": "TCP and UDP are on which OSI layer number? Type the number.",
+    "answer": "4",
+    "why": "OSI layer 4 is the transport layer. That is why a 'layer 4 load balancer' reads IP addresses and ports and nothing from HTTP."
+  },
+  {
+    "type": "multi",
+    "q": "A packet crosses three routers on the way to a server. Which things change at every router hop?",
+    "options": [
+      "The source MAC address",
+      "The destination MAC address",
+      "The destination IP address",
+      "The ttl in the IP header",
+      "The destination port"
+    ],
+    "answer": [0, 1, 3],
+    "why": "A MAC address only works on one local link, so each router writes a new link header. The IP addresses and the ports stay the same from end to end. The ttl goes down by 1 at each router."
+  },
+  {
+    "q": "Your laptop sends a request to a server on the other side of the world. What is the destination MAC address in the frame that leaves your laptop?",
+    "options": [
+      "The MAC address of the server",
+      "The MAC address of your router",
+      "The MAC address of the DNS server",
+      "There is no MAC address on Wi-Fi"
+    ],
+    "answer": 1,
+    "why": "The MAC address only names the next stop on your local link. The server is far away, so the next stop is your router. The destination IP address is the one that names the server."
+  },
+  {
+    "type": "fill",
+    "q": "What port does HTTPS use by default? Type the number.",
+    "answer": "443",
+    "why": "HTTP is 80 and HTTPS is 443. SSH is 22 and DNS is 53. Your own Node app can listen on any free port, for example 3000."
+  },
+  {
+    "q": "In curl -v you see 'Connected to example.com port 443' and only after that the TLS lines. Which step just finished?",
+    "options": [
+      "The TLS handshake",
+      "The TCP connection (transport layer)",
+      "The HTTP request",
+      "The DNS lookup was skipped"
+    ],
+    "answer": 1,
+    "why": "The order is DNS (name to IP), TCP connect, TLS handshake, then HTTP. 'Connected' means the TCP handshake is done. TLS has not started yet."
+  },
+  {
+    "q": "A load balancer sends /api to one group of servers and /images to another. Which layer does it need to read?",
+    "options": [
+      "Layer 2, the link layer",
+      "Layer 3, the IP address",
+      "Layer 4, IP address and port",
+      "Layer 7, the HTTP request"
+    ],
+    "answer": 3,
+    "why": "The path is inside the HTTP message. Only a layer 7 balancer (for example an AWS Application Load Balancer or nginx) reads it. A layer 4 balancer sees only addresses and ports."
+  },
+  {
+    "type": "tf",
+    "q": "A layer 4 load balancer can send /api and /images to different servers.",
+    "answer": false,
+    "why": "A layer 4 balancer never opens the HTTP message. It chooses a server from addresses and ports, so every request on one connection goes to the same server."
+  },
+  {
+    "q": "A layer 7 load balancer gets HTTPS traffic but does not hold the certificate. It passes the encrypted bytes on (TLS passthrough). Can it route by path?",
+    "options": [
+      "Yes, the path is never encrypted",
+      "No, the path is inside the encrypted data and it cannot read it",
+      "Yes, but only for GET requests",
+      "Yes, the layer 7 label means it can always read HTTP"
+    ],
+    "answer": 1,
+    "why": "To read the path it must end the HTTPS (hold the certificate), the same idea as TLS termination in the DevOps HTTPS lesson. Without the certificate it can only route by address and port."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these belong to the TCP/IP application layer?",
+    "options": [
+      "HTTP",
+      "DNS",
+      "UDP",
+      "SSH",
+      "Ethernet"
+    ],
+    "answer": [0, 1, 3],
+    "why": "HTTP, DNS and SSH are protocols that programs speak. UDP is transport. Ethernet is link."
+  },
+  {
+    "type": "tf",
+    "q": "A router receives a packet with ttl 1. It lowers the ttl to 0 and sends it on.",
+    "answer": false,
+    "why": "The router drops the packet and sends back an ICMP 'time exceeded' message. traceroute uses exactly this: it sends packets with ttl 1, 2, 3 and so on, and each router on the path answers in turn."
+  }
+]

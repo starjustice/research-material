@@ -1,0 +1,141 @@
+[
+  {
+    "q": "A page at https://shop.example.com wants to call https://shop.example.com:8443/api. Is that the same origin?",
+    "options": [
+      "Yes, the host name is the same",
+      "Yes, the scheme is the same and the port does not matter",
+      "No, the port is different, so it is another origin",
+      "No, because the path is different"
+    ],
+    "answer": 2,
+    "why": "An origin is scheme + host + port. The port 8443 is not the default 443, so this is another origin. The path never counts."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are the same origin as http://localhost:3000/app ?",
+    "options": [
+      "http://localhost:3000/other/page?x=1",
+      "http://localhost:4000/app",
+      "https://localhost:3000/app",
+      "http://127.0.0.1:3000/app",
+      "http://LOCALHOST:3000/"
+    ],
+    "answer": [0, 4],
+    "why": "Only the path, the query and the letter case of the host can change. A different port, scheme or host name (even 127.0.0.1 for the same machine) is another origin."
+  },
+  {
+    "type": "tf",
+    "q": "The browser blocks a cross-origin fetch because it does not trust the request, so the request never reaches the server.",
+    "answer": false,
+    "why": "For a simple request the browser sends it, the server runs it and answers. The browser then refuses to give the answer to your JavaScript. Only a preflight can stop the real request from being sent."
+  },
+  {
+    "q": "curl gets the data from your API, but fetch in the browser shows a CORS error. What is the best explanation?",
+    "options": [
+      "The server has a bug that only shows up in browsers",
+      "The browser checks the Allow-Origin header and curl does not",
+      "curl is a faster client, so the server cannot block it in time",
+      "The browser sends a cookie by itself and curl does not send one"
+    ],
+    "answer": 1,
+    "why": "CORS is a browser rule. The server only sends headers. The browser reads them and decides if your page may see the answer. curl, Postman and server code do not enforce it."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of a preflighted request in order (a JSON POST to another origin).",
+    "items": [
+      "Browser sends OPTIONS with Origin, Access-Control-Request-Method and Access-Control-Request-Headers",
+      "Server answers with Access-Control-Allow-Origin, Allow-Methods and Allow-Headers",
+      "Browser checks the answer and decides it is allowed",
+      "Browser sends the real POST",
+      "Browser gives the response to your JavaScript"
+    ],
+    "why": "The browser asks first (OPTIONS), checks the permission, then sends the real request, and the response is checked again before your code can read it."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these make a cross-origin fetch need a preflight?",
+    "options": [
+      "Method DELETE",
+      "Content-Type: application/json",
+      "An Authorization header",
+      "Method GET with an Accept header",
+      "Content-Type: text/plain on a POST"
+    ],
+    "answer": [0, 1, 2],
+    "why": "Only GET, HEAD and POST with a few safe headers and three safe Content-Type values skip the preflight. DELETE, JSON and Authorization are all outside that list."
+  },
+  {
+    "q": "Your React app sends fetch(url, { credentials: 'include' }) and the API replies Access-Control-Allow-Origin: *. What does the browser do?",
+    "options": [
+      "Allows it, because * means every origin",
+      "Allows it, but drops the cookie",
+      "Blocks your JavaScript from reading the response",
+      "Asks the user to confirm"
+    ],
+    "answer": 2,
+    "why": "With credentials the server must name one exact origin and send Access-Control-Allow-Credentials: true. A * is refused. The request still reached the server."
+  },
+  {
+    "type": "fill",
+    "q": "Which response header lists the HTTP methods the server allows in a preflight answer? (type the full header name)",
+    "answer": ["Access-Control-Allow-Methods"],
+    "why": "Access-Control-Allow-Methods answers the browser's Access-Control-Request-Method. Access-Control-Allow-Headers answers the headers question."
+  },
+  {
+    "q": "Why should a server that echoes back the request origin also send Vary: Origin?",
+    "options": [
+      "So the browser decides to send cookies along",
+      "So a cache does not reuse one origin's answer for another",
+      "So the browser can skip the preflight next time",
+      "So the server can check the origin more quickly"
+    ],
+    "answer": 1,
+    "why": "The answer changes with the Origin header. Without Vary: Origin, a shared cache could keep the answer made for site A and hand it to site B, with the wrong Access-Control-Allow-Origin."
+  },
+  {
+    "q": "A cookie is set with HttpOnly. What does that stop?",
+    "options": [
+      "The cookie being sent over http",
+      "JavaScript on the page reading the cookie with document.cookie",
+      "Other sites getting the cookie in a cross-site request",
+      "The cookie being sent to subdomains"
+    ],
+    "answer": 1,
+    "why": "HttpOnly hides the cookie from document.cookie, so an XSS script cannot steal it. The browser still sends it with requests. Secure is about https, SameSite is about cross-site requests, Domain is about subdomains."
+  },
+  {
+    "type": "tf",
+    "q": "A page on http://localhost:3000 and an API on http://localhost:4000 are the same site, so a SameSite=Strict cookie from the API is still sent.",
+    "answer": true,
+    "why": "Same site means the same scheme and the same registrable name. The port does not count. They are different origins, so CORS is still needed, but SameSite does not block the cookie."
+  },
+  {
+    "q": "On evil.com there is a hidden form that POSTs to bank.com. The user is logged in at bank.com. Which setting best stops the bank cookie going along?",
+    "options": [
+      "Access-Control-Allow-Origin: https://bank.com",
+      "HttpOnly on the cookie",
+      "SameSite=Lax or Strict on the cookie",
+      "Content-Type: application/json"
+    ],
+    "answer": 2,
+    "why": "This is CSRF. A form post is a simple request, so CORS does not stop it, and HttpOnly only hides the cookie from scripts. SameSite stops the browser from attaching the cookie to a cross-site POST."
+  },
+  {
+    "type": "order",
+    "q": "Put these cookie checks in the order that makes sense: first host, last SameSite.",
+    "items": [
+      "Does the request host match the cookie's host or Domain?",
+      "Does the request path start with the cookie's Path?",
+      "Is the cookie Secure and the request https?",
+      "Is it a cross-site request, and does SameSite allow it?"
+    ],
+    "why": "The browser first finds the cookies that belong to the address (host, path, Secure), and the SameSite rule then decides if a cross-site request may carry them."
+  },
+  {
+    "type": "fill",
+    "q": "In Express, which npm package adds the CORS headers? (type the package name)",
+    "answer": ["cors"],
+    "why": "The cors package is middleware: app.use(cors({ origin: [...], credentials: true })). It sets the headers and answers the OPTIONS preflight."
+  }
+]

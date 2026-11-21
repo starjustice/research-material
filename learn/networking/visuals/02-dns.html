@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS: a lookup, the cache and TTL, a CNAME chain, a slow change, the apex, load balancing</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/networking/README" id="lessons">&larr; Networking lessons</a>
+    <a href="../../../viewer.html?note=learn/networking/02-dns" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>DNS: a lookup, the cache and TTL, a CNAME chain, a slow change, the apex, load balancing</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of how a resolver works. It runs the same <code>createResolver</code>, <code>followCname</code>, <code>wildcardLookup</code>, <code>validateZone</code>, <code>earliestSafeMove</code>, <code>pickWeighted</code> and <code>recordTypeFor</code> code as the practice answer in the lesson. Nothing here talks to the real internet. The names and addresses are made up (the example ranges 203.0.113.x and 198.51.100.x are reserved for documents). Real <code>dig</code> output is in the lesson.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the resolver asks <b>root, then .com, then the domain's own server</b>, and each one only points to the next. The answer is saved for its <b>TTL</b>. A change is not seen until every saved copy runs out. A CNAME is another name for a name, and it cannot share a name with other records, so the apex needs an alias or an A record.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson (lookupRecord, followCname,
+// wildcardLookup, validateZone, createResolver, earliestSafeMove, pickWeighted, recordTypeFor).
+// It is a model: no real DNS is used. Time is a number of seconds that the stories pass in.
+// ---------------------------------------------------------------------------------------------
+const MAX_HOPS = 8;
+
+const norm = (name) => String(name).trim().toLowerCase().replace(/\.$/, "");
+const copy = (r) => ({ name: norm(r.name), type: r.type, ttl: r.ttl, value: r.value });
+
+function lookupRecord(zone, name, type) {
+  const n = norm(name);
+  return zone.filter((r) => norm(r.name) === n && r.type === type).map(copy);
+}
+
+function followCname(zone, name, type) {
+  let cur = norm(name);
+  const answers = [];
+  const seen = new Set([cur]);
+  for (;;) {
+    const direct = lookupRecord(zone, cur, type);
+    if (direct.length > 0) return { ok: true, answers: answers.concat(direct) };
+    const cn = lookupRecord(zone, cur, "CNAME")[0];
+    if (!cn) {
+      if (answers.length === 0) return { ok: false, reason: "no record" };
+      return { ok: true, answers, next: cur };
+    }
+    answers.push(cn);
+    if (answers.length > MAX_HOPS) return { ok: false, reason: "too many hops" };
+    const target = norm(cn.value);
+    if (seen.has(target)) return { ok: false, reason: "loop" };
+    seen.add(target);
+    cur = target;
+  }
+}
+
+function nameExists(zone, name) {
+  return zone.some((r) => {
+    const n = norm(r.name);
+    return n === name || n.endsWith("." + name);
+  });
+}
+
+function wildcardLookup(zone, host, type) {
+  const h = norm(host);
+  if (nameExists(zone, h)) return lookupRecord(zone, h, type);
+  const labels = h.split(".");
+  for (let i = 1; i < labels.length; i++) {
+    const ancestor = labels.slice(i).join(".");
+    const wild = lookupRecord(zone, "*." + ancestor, type);
+    if (wild.length > 0) return wild.map((r) => ({ ...r, name: h }));
+    if (nameExists(zone, ancestor)) return [];
+  }
+  return [];
+}
+
+function validateZone(zone, origin) {
+  const apex = norm(origin);
+  const names = [...new Set(zone.map((r) => norm(r.name)))].sort();
+  const problems = [];
+  for (const name of names) {
+    const here = zone.filter((r) => norm(r.name) === name);
+    const cnames = here.filter((r) => r.type === "CNAME");
+    if (cnames.length === 0) continue;
+    if (cnames.length > 1) problems.push({ name, problem: "more than one cname" });
+    else if (name === apex) problems.push({ name, problem: "cname at apex" });
+    else if (here.length > 1) problems.push({ name, problem: "cname with other records" });
+  }
+  return problems;
+}
+
+function createResolver(world, options = {}) {
+  const negativeTtl = options.negativeTtl === undefined ? 300 : options.negativeTtl;
+  const cache = new Map();
+
+  function go(name, type, now, depth) {
+    const n = norm(name);
+    const key = n + "/" + type;
+    const hit = cache.get(key);
+    if (hit && hit.expires > now) {
+      const answers = hit.answers.map((r) => ({ name: r.name, type: r.type, value: r.value, ttl: r.expiresAt - now }));
+      return { rcode: hit.rcode, answers, fromCache: true, asked: [] };
+    }
+    if (depth > MAX_HOPS) return { rcode: "SERVFAIL", answers: [], fromCache: false, asked: [] };
+
+    const store = (rcode, answers, ttl) => {
+      const kept = answers.map((r) => ({ name: r.name, type: r.type, value: r.value, expiresAt: now + r.ttl }));
+      cache.set(key, { rcode, answers: kept, expires: now + ttl });
+    };
+    const nxdomain = (asked) => {
+      store("NXDOMAIN", [], negativeTtl);
+      return { rcode: "NXDOMAIN", answers: [], fromCache: false, asked };
+    };
+
+    const labels = n.split(".");
+    const asked = ["root"];
+    const tldServer = world.root[labels[labels.length - 1]];
+    if (!tldServer) return nxdomain(asked);
+    asked.push(tldServer);
+    const domain = labels.slice(-2).join(".");
+    const authServer = (world.tld[tldServer] || {})[domain];
+    if (!authServer) return nxdomain(asked);
+    asked.push(authServer);
+
+    const r = followCname(world.auth[authServer] || [], n, type);
+    if (!r.ok) {
+      if (r.reason === "no record") return nxdomain(asked);
+      return { rcode: "SERVFAIL", answers: [], fromCache: false, asked };
+    }
+    let answers = r.answers;
+    let rcode = "NOERROR";
+    if (r.next) {
+      const sub = go(r.next, type, now, depth + 1);
+      asked.push(...sub.asked);
+      answers = answers.concat(sub.answers);
+      rcode = sub.rcode;
+    }
+    if (rcode === "NOERROR") store(rcode, answers, Math.min(...answers.map((a) => a.ttl)));
+    return { rcode, answers, fromCache: false, asked };
+  }
+
+  return { resolve: (name, type, now) => go(name, type, now, 0) };
+}
+
+function earliestSafeMove(lowerTtlAt, oldTtl) {
+  if (!Number.isFinite(lowerTtlAt) || !Number.isFinite(oldTtl) || oldTtl < 0) throw new Error("need numbers, and a TTL of 0 or more");
+  return lowerTtlAt + oldTtl;
+}
+
+function pickWeighted(records, roll) {
+  if (!(roll >= 0 && roll < 1)) throw new Error("roll must be 0 or more and less than 1");
+  const live = [];
+  for (const r of records) {
+    const weight = r.weight === undefined ? 1 : r.weight;
+    if (typeof weight !== "number" || !(weight >= 0)) throw new Error("weight must be a number of 0 or more");
+    if (r.healthy !== false && weight > 0) live.push({ value: r.value, weight });
+  }
+  if (live.length === 0) return null;
+  const total = live.reduce((sum, r) => sum + r.weight, 0);
+  const target = roll * total;
+  let running = 0;
+  for (const r of live) {
+    running += r.weight;
+    if (target < running) return r.value;
+  }
+  return live[live.length - 1].value;
+}
+
+function recordTypeFor(target, options = {}) {
+  if (typeof target !== "string" || target.trim() === "") throw new Error("target must be text");
+  const t = target.trim();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(t)) {
+    if (t.split(".").some((part) => Number(part) > 255)) throw new Error("bad IPv4 address");
+    return "A";
+  }
+  if (t.includes(":") && /^[0-9a-f:.]+$/i.test(t)) return "AAAA";
+  return options.apex ? "ALIAS" : "CNAME";
+}
+
+
+// ---- Story data and helpers ----
+const rr = (name, type, ttl, value) => ({ name, type, ttl, value });
+const WORLD = {
+  root: { com: "a.gtld-servers.net", net: "a.gtld-servers.net" },
+  tld: { "a.gtld-servers.net": { "example.com": "ns1.dns-provider.net", "hostingco.net": "ns1.hostingco.net" } },
+  auth: {
+    "ns1.dns-provider.net": [
+      rr("example.com", "A", 300, "93.184.216.34"),
+      rr("www.example.com", "CNAME", 3600, "example.com"),
+      rr("blog.example.com", "CNAME", 600, "sites.hostingco.net"),
+    ],
+    "ns1.hostingco.net": [rr("sites.hostingco.net", "A", 120, "198.51.100.7")],
+  },
+};
+const cloneWorld = () => JSON.parse(JSON.stringify(WORLD));
+const LAYER_BOX = { "ns1.hostingco.net": "hostingco.net's own server" };
+
+const bx = (title, cls, lines, tag, lit, small) => ({ title, cls, tag: tag || null, small: small || "", lines: lines || [], lit: !!lit });
+const cacheBox = (resolver, title, entries, lit) => ({ title: title || "Resolver cache", cls: "lb", tag: [entries.length + " saved", ""], small: "", lit: !!lit, layers: entries.length ? entries : null, lines: entries.length ? null : ["empty"] });
+const asking = (who, lit) => ({ root: bx("Root server", "fol", ["knows who runs each ending: com, net, org..."], null, lit === "root"), tld: bx(".com server", "srv", ["knows who runs each domain under .com"], null, lit === "tld"), auth: bx("Domain's own server (authoritative)", "user", ["holds the real records for example.com"], null, lit === "auth") });
+
+// Run lookups against the model resolver and keep the cache we can show.
+function cacheView(entries, now) {
+  return entries.map((r) => ({ name: r.name + " " + r.type, size: r.value + " (" + Math.max(0, Math.round(r.left)) + "s left)", state: r.left > 0 ? "cached" : "wait" }));
+}
+const answerLines = (out) => out.answers.map((a) => a.name + " " + a.type + " " + a.value + " (ttl " + a.ttl + ")");
+
+// ---- Story 1: a first lookup ----
+function simulateLookup() {
+  const res = createResolver(cloneWorld());
+  const out = res.resolve("www.example.com", "A", 0);
+  const steps = [];
+  const a = asking();
+  const browser = (lines, lit, tag) => bx("Browser asks the resolver", "lb", lines, tag, lit);
+  const cacheNow = (full) => cacheBox(res, "Resolver cache", full ? out.answers.map((r) => ({ name: r.name + " " + r.type, size: r.value + " (" + r.ttl + "s left)", state: "cached" })) : []);
+  steps.push({ layout: "two", hop: "Setup: nobody knows the address yet", phase: "setup",
+    note: "<b>You type <code>www.example.com</code>.</b> The browser needs an IP address before it can connect. It asks a helper called the <b>resolver</b> (your ISP, or <code>1.1.1.1</code> or <code>8.8.8.8</code>). The resolver has an empty cache, so it must go and find out.",
+    boxes: [bx("Browser", "lb", ["question: www.example.com, type A", "(type A means: give me an IPv4 address)"], null, true), cacheNow(false), a.root, a.tld, a.auth].slice(0, 4).concat([]) });
+  steps.push({ layout: "two", hop: "Step 1: ask the root", phase: "run",
+    note: "<b>The resolver asks a root server first.</b> The root does not know the address. It only knows who runs <code>.com</code>, and it answers: <code>" + out.asked[1] + "</code>. This kind of answer is a <b>referral</b>: not the answer, but who to ask next.",
+    boxes: [bx("Resolver", "lb", ["asks: www.example.com A ?", "root says: ask " + out.asked[1]], ["busy", "run"]), cacheNow(false), asking(0, "root").root, a.tld] });
+  steps.push({ layout: "two", hop: "Step 2: ask the .com server", phase: "run",
+    note: "<b>The resolver asks the <code>.com</code> server.</b> It does not know the address either. It knows who runs <code>example.com</code>, and says: <code>" + out.asked[2] + "</code>. Another referral.",
+    boxes: [bx("Resolver", "lb", ["asks: www.example.com A ?", ".com server says: ask " + out.asked[2]], ["busy", "run"]), cacheNow(false), a.root, asking(0, "tld").tld] });
+  steps.push({ layout: "two", hop: "Step 3: ask the domain's own server", phase: "srv",
+    note: "<b>The authoritative server has the real records.</b> It is the last stop. It answers with <code>www.example.com CNAME example.com</code> and then the <code>A</code> record of <code>example.com</code>. Each record has a TTL: how long others may remember it.",
+    boxes: [bx("Resolver", "lb", ["got " + out.answers.length + " records", ...answerLines(out)], ["answer", "ok"]), cacheNow(false), a.tld, asking(0, "auth").auth] });
+  steps.push({ layout: "two", hop: "Step 4: save and answer", phase: "srv",
+    note: "<b>The resolver saves the answer and gives the IP to the browser.</b> Three servers were asked (" + out.asked.join(", ") + "). Next time someone asks the same question, no server is asked at all (next tab).",
+    boxes: [bx("Browser", "user", ["gets " + out.answers[out.answers.length - 1].value, "now it can connect"], ["done", "ok"], true), cacheNow(true), a.root, a.auth] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Root, then TLD, then authoritative.</b> Each one only points to the next, and the last one knows the answer. The resolver does this work for you and keeps the result.",
+    boxes: [bx("Each server knows", "srv", ["root: who runs .com, .net, ...", ".com server: who runs example.com", "own server: the real records"], ["referrals", "ok"]), bx("Your device does not", "fol", ["walk the tree itself", "it asks one resolver, one question"], ["simple", "warn"])] });
+  return steps;
+}
+
+// ---- Story 2: cache and TTL ----
+function simulateCache() {
+  const res = createResolver(cloneWorld());
+  const steps = [];
+  const view = (out, now, saved) => cacheBox(res, "Resolver cache at second " + now, saved);
+  const first = res.resolve("example.com", "A", 0);
+  const a = first.answers[0];
+  const saved = (now) => [{ name: "example.com A", size: a.value + " (" + (a.ttl - now) + "s left)", state: now >= a.ttl ? "wait" : "cached" }];
+  steps.push({ layout: "two", hop: "Second 0: a miss", phase: "run",
+    note: "<b>The first lookup finds nothing in the cache.</b> The resolver asks " + first.asked.length + " servers: " + first.asked.join(", ") + ". The record says <code>ttl 300</code>, so the resolver may keep it for 300 seconds.",
+    boxes: [bx("Lookup", "lb", ["example.com A at second 0", "fromCache: " + first.fromCache, "asked: " + first.asked.length + " servers"], ["miss", "bad"], true), view(first, 0, saved(0))] });
+  const t10 = res.resolve("example.com", "A", 10);
+  steps.push({ layout: "two", hop: "Second 10: a hit", phase: "srv",
+    note: "<b>The second lookup is answered from the cache.</b> Nobody is asked: <code>asked</code> is empty. The TTL in the answer is the time that is left: <code>" + t10.answers[0].ttl + "</code>. A hit is fast, and it puts no load on the authoritative server.",
+    boxes: [bx("Lookup", "lb", ["example.com A at second 10", "fromCache: " + t10.fromCache, "asked: " + t10.asked.length + " servers", "ttl in answer: " + t10.answers[0].ttl], ["hit", "ok"], true), view(t10, 10, saved(10))] });
+  const t299 = res.resolve("example.com", "A", 299);
+  steps.push({ layout: "two", hop: "Second 299: one second left", phase: "srv",
+    note: "<b>The TTL counts down.</b> At second 299 the answer is still good, with <code>" + t299.answers[0].ttl + "</code> second left. A change on the authoritative server is invisible to this resolver so far.",
+    boxes: [bx("Lookup", "lb", ["example.com A at second 299", "fromCache: " + t299.fromCache, "ttl in answer: " + t299.answers[0].ttl], ["hit", "ok"], true), view(t299, 299, saved(299))] });
+  const t300 = res.resolve("example.com", "A", 300);
+  steps.push({ layout: "two", hop: "Second 300: it ran out", phase: "chk",
+    note: "<b>At exactly 300 the answer is gone.</b> The resolver asks the servers again and gets a fresh copy with the full <code>ttl " + t300.answers[0].ttl + "</code>. The cycle starts over.",
+    boxes: [bx("Lookup", "lb", ["example.com A at second 300", "fromCache: " + t300.fromCache, "asked: " + t300.asked.join(", ")], ["miss", "bad"], true), view(t300, 300, [{ name: "example.com A", size: t300.answers[0].value + " (" + t300.answers[0].ttl + "s left)", state: "cached" }])] });
+  const nx = res.resolve("nope.example.com", "A", 400);
+  const nx2 = res.resolve("nope.example.com", "A", 600);
+  steps.push({ layout: "two", hop: "A missing name is cached too", phase: "bad", badge: ["Careful", "bad"],
+    note: "<b>\"This name does not exist\" (<code>" + nx.rcode + "</code>) is also remembered.</b> At second 400 the resolver learns there is no <code>nope.example.com</code> and keeps that for 300 seconds. At second 600 the answer still comes from the cache: <code>" + nx2.rcode + "</code>, fromCache <code>" + nx2.fromCache + "</code>. If you add the record at second 450, this resolver still says no until second 700.",
+    boxes: [bx("Second 400", "lb", ["nope.example.com A", "rcode: " + nx.rcode, "asked: " + nx.asked.length + " servers"], ["miss", "bad"]), bx("Second 600", "alarm", ["nope.example.com A", "rcode: " + nx2.rcode, "fromCache: " + nx2.fromCache, "asked: " + nx2.asked.length + " servers"], ["old no", "bad"])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A resolver keeps an answer for the record's TTL and does not look again until it ends.</b> That is the reason DNS is fast. It is also the reason a change is not seen at once.",
+    boxes: [bx("A hit", "srv", ["no server asked", "fast", "may be old"], ["cache", "ok"]), bx("A miss", "fol", ["root, TLD, authoritative", "slower", "always fresh"], ["asks", "warn"])] });
+  return steps;
+}
+
+// ---- Story 3: a CNAME chain ----
+function simulateCname() {
+  const res = createResolver(cloneWorld());
+  const out = res.resolve("blog.example.com", "A", 0);
+  const again = res.resolve("blog.example.com", "A", 30);
+  const steps = [];
+  const a = asking();
+  steps.push({ layout: "two", hop: "Setup: blog.example.com points to a host", phase: "setup",
+    note: "<b>You moved your blog to a hosting company.</b> In your DNS you wrote one record: <code>blog.example.com CNAME sites.hostingco.net</code>. A <b>CNAME</b> says: this name is another name for that one. The host can now change its IP address without you doing anything.",
+    boxes: [bx("Your DNS zone (example.com)", "user", ["blog.example.com CNAME sites.hostingco.net  (ttl 600)"], null, true), bx("The host's DNS zone (hostingco.net)", "srv", ["sites.hostingco.net A 198.51.100.7  (ttl 120)"])] });
+  steps.push({ layout: "two", hop: "Step 1: ask your own server", phase: "run",
+    note: "<b>The resolver walks root, .com and your server</b> (" + out.asked.slice(0, 3).join(", ") + "). Your server does not have an <code>A</code> record for the blog. It has a CNAME, and gives that back: <code>" + out.answers[0].value + "</code>.",
+    boxes: [bx("Resolver", "lb", ["asked 3 servers", "got: blog.example.com CNAME sites.hostingco.net", "still no IP address"], ["half done", "warn"], true), asking(0, "auth").auth] });
+  steps.push({ layout: "two", hop: "Step 2: start again for the new name", phase: "run",
+    note: "<b>The resolver now looks up <code>sites.hostingco.net</code> from the beginning.</b> Different name, different ending (<code>.net</code>), a different company's server. (One company runs the servers for both <code>.com</code> and <code>.net</code>, so the middle step names the same server.) It asks " + out.asked.slice(3).join(", ") + ". The answer: <code>" + out.answers[1].value + "</code>.",
+    boxes: [bx("Resolver", "lb", ["asked 3 more servers", "got: sites.hostingco.net A " + out.answers[1].value], ["answer", "ok"], true), bx(LAYER_BOX["ns1.hostingco.net"], "user", ["holds sites.hostingco.net A"], null, true)] });
+  steps.push({ layout: "two", hop: "Step 3: one answer for the browser", phase: "srv",
+    note: "<b>The browser gets both records and uses the IP.</b> It never needs to know there was a CNAME. Six questions were asked in total. The cache keeps each record with its own TTL: " + again.answers.map((x) => x.type + " " + x.ttl + "s").join(" and ") + " left at second 30.",
+    boxes: [bx("Browser", "user", ["connects to " + out.answers[1].value], ["done", "ok"], true), cacheBox(res, "Resolver cache at second 30", again.answers.map((r) => ({ name: r.name + " " + r.type, size: r.value + " (" + r.ttl + "s left)", state: "cached" })))] });
+  steps.push({ layout: "two", hop: "The next lookup", phase: "srv",
+    note: "<b>A second lookup at second 30 asks nobody.</b> <code>fromCache</code> is <code>" + again.fromCache + "</code> and <code>asked</code> has " + again.asked.length + " servers. My model keeps the whole chain for its shortest TTL (120 seconds here). Real resolvers keep each record on its own, but the idea is the same.",
+    boxes: [bx("Lookup at second 30", "lb", ["blog.example.com A", "fromCache: " + again.fromCache, "asked: " + again.asked.length], ["hit", "ok"], true), bx("Cost of a CNAME", "fol", ["one extra lookup when the cache is cold", "the target can move without you"], ["tradeoff", "warn"])] });
+  const loopWorld = cloneWorld();
+  loopWorld.auth["ns1.dns-provider.net"].push(rr("a.example.com", "CNAME", 60, "b.example.com"), rr("b.example.com", "CNAME", 60, "a.example.com"));
+  const lo = createResolver(loopWorld).resolve("a.example.com", "A", 0);
+  steps.push({ layout: "two", hop: "A loop", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>Two CNAMEs that point at each other never end.</b> The resolver sees that it already visited <code>a.example.com</code> and gives up with <code>" + lo.rcode + "</code>. Real resolvers also stop after a fixed number of jumps. Keep chains short: each jump costs time.",
+    boxes: [bx("Zone", "alarm", ["a.example.com CNAME b.example.com", "b.example.com CNAME a.example.com"], ["loop", "bad"]), bx("Resolver", "alarm", ["rcode: " + lo.rcode, "answers: none"], ["gives up", "bad"])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A CNAME means: ask again, for this other name.</b> The resolver follows it for you, from the root if the new name lives somewhere else.",
+    boxes: [bx("A or AAAA", "srv", ["points a name at an IP address", "IPv4 is A, IPv6 is AAAA"], ["address", "ok"]), bx("CNAME", "lb", ["points a name at another name", "follow it, then look again"], ["alias", ""])] });
+  return steps;
+}
+
+// ---- Story 4: why a change takes time ----
+function simulateChange() {
+  const w = cloneWorld();
+  w.auth["ns1.dns-provider.net"] = [rr("shop.example.com", "A", 3600, "203.0.113.10")];
+  const r1 = createResolver(w), r2 = createResolver(w);
+  const steps = [];
+  const view = (res, name, now, title) => {
+    const o = res.resolve("shop.example.com", "A", now);
+    return { out: o, box: bx(title, o.answers[0].value === "203.0.113.10" ? "fol" : "srv", ["answer: " + o.answers[0].value, "from cache: " + o.fromCache, "ttl left: " + o.answers[0].ttl], [o.answers[0].value === "203.0.113.10" ? "old IP" : "new IP", o.answers[0].value === "203.0.113.10" ? "warn" : "ok"]) };
+  };
+  r1.resolve("shop.example.com", "A", 0);
+  r2.resolve("shop.example.com", "A", 900);
+  steps.push({ layout: "three", hop: "Setup: two resolvers saved the old IP", phase: "setup",
+    note: "<b>The record <code>shop.example.com A 203.0.113.10</code> has a TTL of 3600 seconds (one hour).</b> Resolver 1 saved it at second 0. Resolver 2 saved it at second 900. Both think the answer is good until second 3600 and 4500.",
+    boxes: [bx("Authoritative server", "user", ["shop.example.com A 203.0.113.10", "ttl 3600"]), bx("Resolver 1", "lb", ["saved at second 0", "good until second 3600"]), bx("Resolver 2", "lb", ["saved at second 900", "good until second 4500"])] });
+  w.auth["ns1.dns-provider.net"][0].value = "203.0.113.99";
+  const v1 = view(r1, "x", 2000, "Resolver 1"), v2 = view(r2, "x", 2000, "Resolver 2");
+  steps.push({ layout: "three", hop: "Second 1000: you change the record", phase: "chk",
+    note: "<b>At second 1000 you change the IP to <code>203.0.113.99</code> at your DNS provider.</b> Your own server answers with the new IP at once. But at second 2000 both resolvers still say <code>" + v1.out.answers[0].value + "</code>, because they do not ask again until the TTL ends. Users behind them still reach the old server.",
+    boxes: [bx("Authoritative server", "srv", ["shop.example.com A 203.0.113.99", "changed at second 1000"], ["new", "ok"]), v1.box, v2.box] });
+  const w1 = view(r1, "x", 3600, "Resolver 1 at second 3600"), w2 = view(r2, "x", 3600, "Resolver 2 at second 3600");
+  steps.push({ layout: "three", hop: "Second 3600: Resolver 1 asks again", phase: "srv",
+    note: "<b>Resolver 1's copy ran out at 3600, so it asks again and gets the new IP.</b> Resolver 2 still has the old one, with " + w2.out.answers[0].ttl + " seconds left. Two users, two answers, for the same name, at the same time. This is why people say a change \"propagates\". Nothing is pushed. Each resolver just waits for its own copy to run out.",
+    boxes: [bx("Authoritative server", "srv", ["203.0.113.99"], ["new", "ok"]), w1.box, w2.box] });
+  const x2 = view(r2, "x", 4500, "Resolver 2 at second 4500");
+  steps.push({ layout: "three", hop: "Second 4500: everyone has it", phase: "srv",
+    note: "<b>Resolver 2 asks again at 4500 and gets the new IP.</b> The worst case is the time of the change plus the old TTL: " + (1000 + 3600) + " seconds. That is the longest anyone could have waited. Some resolvers also keep an answer longer than the TTL, or phones and browsers keep their own copy, so the real wait can be longer.",
+    boxes: [bx("Authoritative server", "srv", ["203.0.113.99"], ["new", "ok"]), bx("Resolver 1", "srv", ["answer: 203.0.113.99"], ["new IP", "ok"]), x2.box] });
+  const safe = earliestSafeMove(0, 3600);
+  steps.push({ layout: "two", hop: "The trick: lower the TTL first", phase: "srv",
+    note: "<b>Plan a move in two steps.</b> Step 1: lower the TTL from 3600 to 60 well before the move. Old copies can still live for up to 3600 seconds, so wait that long (<code>earliestSafeMove(0, 3600)</code> = <code>" + safe + "</code>). Step 2: change the IP. Now every cache is on 60 seconds, so the move is seen in about a minute. After it works, raise the TTL again.",
+    boxes: [bx("Before the move", "fol", ["second 0: TTL 3600 becomes 60", "caches still hold up to 3600s", "wait until second " + safe], ["step 1", "warn"]), bx("The move", "srv", ["second " + safe + ": change the IP", "caches expire within 60s", "second " + (safe + 60) + ": all new"], ["step 2", "ok"])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>DNS changes take time because of the cache, not because DNS is slow.</b> The wait is up to the old TTL. Lower the TTL a full old TTL before you move something, and use a longer TTL in calm times.",
+    boxes: [bx("Short TTL (30 to 300s)", "lb", ["changes show fast", "more lookups, more load", "use before a move, or for failover"], ["fast", ""]), bx("Long TTL (hours)", "lb", ["fewer lookups, steady", "changes wait up to that long", "use for things that never move"], ["steady", ""])] });
+  return steps;
+}
+
+// ---- Story 5: apex and wildcard ----
+function simulateApex() {
+  const zone = [
+    rr("apps.example.com", "A", 300, "203.0.113.5"),
+    rr("*.apps.example.com", "A", 300, "203.0.113.5"),
+    rr("captain.apps.example.com", "A", 60, "203.0.113.9"),
+  ];
+  const steps = [];
+  const zoneBox = (lit) => ({ title: "Zone for apps.example.com", cls: "user", tag: ["wildcard DNS", ""], small: "", lit: !!lit, layers: zone.map((r) => ({ name: r.name + " " + r.type, size: r.value, state: "base" })) });
+  steps.push({ layout: "two", hop: "Setup: one wildcard record", phase: "setup",
+    note: "<b>CapRover asks for one record: <code>*.apps.example.com A &lt;your server IP&gt;</code>.</b> The star is a <b>wildcard</b>. Every name below <code>apps.example.com</code> that has no record of its own gets this answer. So each new app you deploy works at once, with no DNS change. (Source: CapRover docs, checked 2026-11-21.)",
+    boxes: [zoneBox(true), bx("Idea", "srv", ["new app = new name", "no new record needed", "the server decides by the Host header"], ["good", "ok"])] });
+  const q = (host) => wildcardLookup(zone, host, "A");
+  const mine = q("my-app.apps.example.com");
+  steps.push({ layout: "two", hop: "A new app name", phase: "srv",
+    note: "<b>Question: <code>my-app.apps.example.com</code>.</b> No record has exactly this name. The wildcard answers, and the answer carries the name that was asked: <code>" + mine[0].name + " A " + mine[0].value + "</code>.",
+    boxes: [zoneBox(false), bx("Answer", "srv", mine.map((r) => r.name + " A " + r.value), ["wildcard", "ok"], true)] });
+  const cap = q("captain.apps.example.com");
+  steps.push({ layout: "two", hop: "A name with its own record", phase: "srv",
+    note: "<b>An own record beats the wildcard.</b> <code>captain.apps.example.com</code> has its own record, so the answer is <code>" + cap[0].value + "</code>, not the wildcard's IP.",
+    boxes: [zoneBox(false), bx("Answer", "srv", cap.map((r) => r.name + " A " + r.value), ["own record", "ok"], true)] });
+  const deep = q("a.b.apps.example.com");
+  steps.push({ layout: "two", hop: "Two labels deep", phase: "chk",
+    note: "<b>In DNS, a wildcard can match several labels.</b> <code>a.b.apps.example.com</code> gets the answer <code>" + deep[0].value + "</code>, because neither it nor <code>b.apps.example.com</code> exists. Careful: a wildcard TLS certificate is stricter and covers one label only (lesson devops 19). The DNS record and the certificate are two separate things.",
+    boxes: [zoneBox(false), bx("Answer", "srv", deep.map((r) => r.name + " A " + r.value), ["matches 2 labels", "warn"], true)] });
+  const badZone = [rr("example.com", "NS", 86400, "ns1.provider.net"), rr("example.com", "MX", 300, "10 mail.provider.net"), rr("example.com", "CNAME", 300, "my-app.herokuapp.com"), rr("www.example.com", "CNAME", 300, "my-app.herokuapp.com"), rr("www.example.com", "TXT", 300, "hello")];
+  const probs = validateZone(badZone, "example.com");
+  steps.push({ layout: "two", hop: "The rule: a CNAME stands alone", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A CNAME says \"this name is only another name for that one\".</b> So the name cannot hold any other record. RFC 1912 says a CNAME \"is not allowed to coexist with any other data\". The apex (<code>example.com</code> itself) always has NS records, so it can never be a CNAME. <code>validateZone</code> finds " + probs.length + " problems here: " + probs.map((p) => p.name + " (" + p.problem + ")").join(", ") + ".",
+    boxes: [bx("A zone that breaks the rule", "alarm", badZone.map((r) => r.name + " " + r.type), ["invalid", "bad"]), bx("What validateZone says", "alarm", probs.map((p) => p.name + ": " + p.problem), ["" + probs.length + " problems", "bad"])] });
+  const t1 = recordTypeFor("my-app.herokuapp.com"), t2 = recordTypeFor("my-app.herokuapp.com", { apex: true }), t3 = recordTypeFor("203.0.113.5", { apex: true });
+  steps.push({ layout: "two", hop: "The way out at the apex", phase: "srv",
+    note: "<b>Some DNS providers add a special record type for this.</b> In Route 53 it is an <b>alias</b> record. In Cloudflare it is <b>CNAME flattening</b>, which allows a CNAME at the apex (Cloudflare docs). The provider follows the target itself and answers with plain IP addresses. Plain DNS does not have this, so it is a provider feature, not a standard record. <code>recordTypeFor</code> says: a name at <code>www</code> is <code>" + t1 + "</code>, a name at the apex is <code>" + t2 + "</code>, an IP at the apex is <code>" + t3 + "</code>.",
+    boxes: [bx("www.example.com -> my-app.herokuapp.com", "srv", ["use " + t1], ["subdomain", "ok"]), bx("example.com -> my-app.herokuapp.com", "lb", ["use " + t2 + " (Route 53 alias, Cloudflare flattening)", "or an A record with an IP"], ["apex", ""])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Wildcard DNS is for many names, an alias is for the apex.</b> A wildcard saves you a DNS change per app, but it does not make a wildcard certificate. A CNAME never shares a name with another record, so the apex needs an A record or a provider alias.",
+    boxes: [bx("Wildcard record", "srv", ["*.apps.example.com", "own records win", "no certificate included"], ["many names", "ok"]), bx("Apex", "fol", ["no CNAME at the apex", "A record, or alias / flattening", "different at each provider"], ["careful", "warn"])] });
+  return steps;
+}
+
+// ---- Story 6: DNS load balancing ----
+function simulateBalance() {
+  const records = [{ value: "203.0.113.1", weight: 3 }, { value: "203.0.113.2", weight: 1 }, { value: "203.0.113.3", weight: 1 }];
+  const steps = [];
+  const recBox = (list, title) => ({ title: title || "Records for api.example.com", cls: "user", tag: ["3 A records", ""], small: "", layers: list.map((r) => ({ name: r.value, size: (r.healthy === false ? "unhealthy" : "weight " + r.weight), state: r.healthy === false ? "rebuilt" : "base" })) });
+  steps.push({ layout: "two", hop: "Setup: one name, three servers", phase: "setup",
+    note: "<b>You can share load with DNS alone.</b> Give one name several A records. The DNS server picks which one to put in each answer. Here the weights are 3, 1 and 1, so the first server should get 3 out of 5 answers. (The weights idea is from the Route 53 docs, checked 2026-11-21. My <code>pickWeighted</code> is a small model of it.)",
+    boxes: [recBox(records), bx("Not a real load balancer", "fol", ["DNS does not see how busy a server is", "it does not see a user's connection", "it only picks an address for the answer"], ["limit", "warn"])] });
+  const rolls = [0.1, 0.7, 0.9];
+  const picks = rolls.map((x) => pickWeighted(records, x));
+  steps.push({ layout: "two", hop: "Three questions, three answers", phase: "run",
+    note: "<b>Each question gets a pick by chance.</b> With rolls " + rolls.join(", ") + " the answers are <code>" + picks.join("</code>, <code>") + "</code>. Over many questions the split follows the weights: 60%, 20%, 20%.",
+    boxes: [recBox(records), bx("Answers", "srv", rolls.map((x, i) => "roll " + x + " -> " + picks[i]), ["weighted", "ok"], true)] });
+  steps.push({ layout: "two", hop: "The catch: caches", phase: "chk",
+    note: "<b>A resolver keeps its answer for the TTL.</b> Everyone behind one resolver gets the same IP until it runs out. So the split is by resolver, not by user. A big office behind one resolver can land on one server. A short TTL (30 to 60 seconds) spreads it better, but costs more lookups.",
+    boxes: [bx("Resolver A", "lb", ["asked once, got 203.0.113.1", "serves 5000 users with it for 60s"], ["cached", ""]), bx("Resolver B", "lb", ["asked once, got 203.0.113.2", "serves 20 users with it for 60s"], ["cached", ""])] });
+  const down = records.map((r, i) => (i === 0 ? { ...r, healthy: false } : r));
+  const picks2 = [0.1, 0.6].map((x) => pickWeighted(down, x));
+  steps.push({ layout: "two", hop: "A server dies", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>A health check marks 203.0.113.1 unhealthy.</b> Now DNS leaves it out: the same rolls give <code>" + picks2.join("</code> and <code>") + "</code>. This is DNS failover (Route 53 does it with health checks). But resolvers that saved the old answer keep sending users to the dead server until the TTL ends.",
+    boxes: [recBox(down), bx("New answers", "srv", ["roll 0.1 -> " + picks2[0], "roll 0.6 -> " + picks2[1]], ["fixed", "ok"], true)] });
+  steps.push({ layout: "two", hop: "How long users stay on the dead IP", phase: "bad",
+    note: "<b>The failover time is about the TTL.</b> With a TTL of 3600, some users reach the dead server for up to an hour. The Route 53 FAQ suggests 60 seconds or less for failover records. And clients that already have a connection are not moved at all. Also, browsers try the next address if the first fails, so several records help a little, but that is not a promise.",
+    boxes: [bx("TTL 3600", "alarm", ["worst case: 1 hour on the dead IP"], ["too slow", "bad"]), bx("TTL 60", "srv", ["worst case: about 1 minute", "more DNS lookups"], ["better", "ok"])] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>DNS can spread load and skip dead servers, but only as fast as the TTL.</b> Use it to pick a region or a data center. Put a real load balancer in front of the servers for fine control, and let DNS point at that.",
+    boxes: [bx("DNS is good at", "srv", ["picking a region", "failing over a whole site", "cheap, no extra box"], ["use it", "ok"]), bx("DNS is bad at", "fol", ["fast changes", "knowing how busy a server is", "moving users already connected"], ["limits", "warn"])] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. A first lookup", sim: simulateLookup,
+    why: "Each server only knows the next one to ask. The root points to .com, the .com server points to the domain's own server, and that one holds the records. The resolver does the walking and saves the result.",
+    predict: { q: "The resolver has an empty cache. Who gives it the final IP address?", options: ["The root server", "The .com server", "The domain's own (authoritative) server"], answer: "The domain's own (authoritative) server" } },
+  { name: "2. Cache and TTL", sim: simulateCache,
+    why: "A resolver keeps an answer for its TTL, so the second lookup asks no server. At the second the TTL ends, the answer is gone and the resolver asks again. A \"no such name\" answer is cached too.",
+    predict: { q: "A record has a TTL of 300. The resolver saved it at second 0. Is the answer still served from the cache at second 299?", options: ["Yes, with 1 second left", "No, it asks again after 100 seconds", "No, it asks again on every question"], answer: "Yes, with 1 second left" } },
+  { name: "3. A CNAME chain", sim: simulateCname,
+    why: "A CNAME is another name for a name. The resolver follows it with a new lookup from the root. Chains cost one extra lookup per jump, and a loop gives an error.",
+    predict: { q: "blog.example.com is a CNAME to sites.hostingco.net. How many servers does a cold resolver ask?", options: ["3, one for each layer", "6, three for each name", "1, the host's server"], answer: "6, three for each name" } },
+  { name: "4. Why a change is slow", sim: simulateChange,
+    why: "Every resolver keeps its own copy until its TTL runs out. Nothing is pushed to them. The worst wait is the old TTL, counted from the last time a resolver asked. Lower the TTL one full old TTL before a move.",
+    predict: { q: "You change an A record that has a TTL of 3600. What is the longest a resolver can still serve the old IP?", options: ["60 seconds", "Up to 3600 seconds", "Until someone flushes it by hand"], answer: "Up to 3600 seconds" } },
+  { name: "5. Apex and wildcard", sim: simulateApex,
+    why: "A CNAME must be the only record on its name, but the apex always has NS records, so it cannot be a CNAME. Providers add alias or flattening to work around it. A wildcard record answers for names that have no record of their own.",
+    predict: { q: "Can you put a CNAME on example.com itself (the apex), next to the NS records?", options: ["Yes, always", "No, a CNAME cannot share a name with other records", "Only with a long TTL"], answer: "No, a CNAME cannot share a name with other records" } },
+  { name: "6. DNS load balancing", sim: simulateBalance,
+    why: "DNS can pick one of several addresses by weight and skip unhealthy ones. But caches keep the old answer for the TTL, so failover takes about that long, and the split is per resolver, not per user.",
+    predict: { q: "A server dies and DNS stops answering with its IP. TTL is 3600. Who still reaches the dead server?", options: ["Nobody, DNS fixed it at once", "Users behind resolvers that saved the old answer, up to an hour", "Only new users"], answer: "Users behind resolvers that saved the old answer, up to an hour" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateLookup, simulateCache, simulateCname, simulateChange, simulateApex, simulateBalance, STORIES, createResolver, followCname, lookupRecord, wildcardLookup, validateZone, earliestSafeMove, pickWeighted, recordTypeFor };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

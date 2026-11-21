@@ -1,0 +1,137 @@
+[
+  {
+    "q": "Your computer sends 5 packets over IP, with nothing added on top. Which of these can happen?",
+    "options": [
+      "They always arrive once, in order",
+      "Some can be lost, repeated, or arrive in a different order",
+      "The network checks each one and sends lost ones again",
+      "Only the first packet can be lost"
+    ],
+    "answer": 1,
+    "why": "IP only tries its best. It makes no promise. TCP adds numbers, receipts and resending on top of IP to fix this. UDP adds almost nothing."
+  },
+  {
+    "type": "tf",
+    "q": "True or false: a TCP connection is named by the server's IP address and port only.",
+    "answer": false,
+    "why": "A TCP connection is named by 4 numbers: client IP, client port, server IP and server port. That is why one server port can talk to thousands of clients at once."
+  },
+  {
+    "type": "order",
+    "q": "Put the three way handshake in order.",
+    "items": [
+      "Client sends SYN (hello, please connect)",
+      "Server sends SYN+ACK (hello, I got yours)",
+      "Client sends ACK (I got yours too)"
+    ],
+    "why": "Each side must send its own start number and get a receipt for it. The middle step does two jobs at once: it receipts the client and sends the server's own SYN."
+  },
+  {
+    "q": "The client sends SYN with start number 100. What does the server's SYN+ACK say in its ack field?",
+    "options": [
+      "99",
+      "100",
+      "101",
+      "The server's own start number"
+    ],
+    "answer": 2,
+    "why": "An ACK number means: the next byte I want is this one. The SYN counts as one number, so the server asks for 101."
+  },
+  {
+    "type": "fill",
+    "q": "The receiver has bytes 0 to 9 complete, with no gap. What ack number does it send back?",
+    "answer": ["10"],
+    "why": "The ack is the number of the next byte the receiver wants. Bytes 0 to 9 are 10 bytes, so the next one is byte 10."
+  },
+  {
+    "q": "The sender sent a segment. No ACK comes back before its timer ends. What does TCP do?",
+    "options": [
+      "Gives up and tells the app the page is broken at once",
+      "Sends the same segment again",
+      "Sends the next segment and forgets this one",
+      "Closes the connection with FIN"
+    ],
+    "answer": 1,
+    "why": "No receipt means the segment may be lost, so TCP sends it again. It only gives up after many tries. This is why TCP data arrives whole, but it can arrive late."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these does TCP do that plain UDP does not? Pick all that fit.",
+    "options": [
+      "Sets up a connection first with a handshake",
+      "Sends lost data again",
+      "Puts the bytes back in order",
+      "Uses port numbers",
+      "Keeps every message separate"
+    ],
+    "answer": [0, 1, 2],
+    "why": "Both use ports. UDP keeps every datagram separate, and TCP does not: TCP is a stream of bytes with no message edges."
+  },
+  {
+    "q": "The receiver's window is 8000 bytes. The sender's congestion window is 3000 bytes. 1000 bytes are in flight. How many more bytes may the sender send now?",
+    "options": [
+      "7000",
+      "2000",
+      "3000",
+      "4000"
+    ],
+    "answer": 1,
+    "why": "The sender may use only the smaller window: min(8000, 3000) = 3000. Then it takes away what is already in flight: 3000 - 1000 = 2000."
+  },
+  {
+    "type": "order",
+    "q": "Put the four messages that close a TCP connection in order.",
+    "items": [
+      "Side A sends FIN (I am done sending)",
+      "Side B sends ACK (got it)",
+      "Side B sends FIN (I am done too)",
+      "Side A sends the last ACK, then waits in TIME_WAIT"
+    ],
+    "why": "Each direction is closed on its own, so it takes four messages. The side that sends the last ACK waits a while in TIME_WAIT, in case that ACK is lost."
+  },
+  {
+    "type": "tf",
+    "q": "True or false: a pile of connections in TIME_WAIT on a server always means there is a bug.",
+    "answer": false,
+    "why": "TIME_WAIT is normal. The side that closes first waits there for a short time so old packets cannot mix into a new connection. It only becomes a problem if it uses up all the free ports."
+  },
+  {
+    "type": "tf",
+    "q": "True or false: the UDP send callback in Node returned no error, so the other computer got the datagram.",
+    "answer": false,
+    "why": "The callback only says the local computer sent it. UDP gives no receipt. Nobody tells the sender if it was lost or if nothing was listening."
+  },
+  {
+    "q": "A TCP client writes \"ab\", then \"cd\", then \"ef\" quickly. What may the server see?",
+    "options": [
+      "Always three separate data events",
+      "One data event with \"abcdef\", because TCP has no message edges",
+      "An error, because the writes were too fast",
+      "Only \"ab\", the rest is dropped"
+    ],
+    "answer": 1,
+    "why": "TCP is a stream of bytes. It keeps the order, not the cut points. If you need messages, put a length or a separator in your own data. UDP is the one that keeps every datagram whole."
+  },
+  {
+    "q": "A game sends the player's position 60 times a second. Which fits best, and why?",
+    "options": [
+      "TCP, because every old position must arrive",
+      "UDP, because an old position is useless once a newer one exists",
+      "TCP, because it is always faster",
+      "UDP, because it never loses anything"
+    ],
+    "answer": 1,
+    "why": "When old data is useless, waiting for a resend only adds delay. UDP lets the newest data go first. Many games add their own light recovery for the few things that must arrive."
+  },
+  {
+    "q": "HTTP/3 does not run on TCP. What does it run on?",
+    "options": [
+      "UDP, through the QUIC protocol",
+      "A faster version of TCP",
+      "Raw IP with no ports",
+      "TLS alone"
+    ],
+    "answer": 0,
+    "why": "QUIC puts its own streams, resending and encryption inside UDP datagrams. This avoids waiting on one lost TCP segment for all the streams and makes new connections faster."
+  }
+]

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cookies, CORS and same origin: who may send, who may read</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/networking/README" id="lessons">&larr; Networking lessons</a>
+    <a href="../../../viewer.html?note=learn/networking/06-cookies-cors-and-same-origin" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>Cookies, CORS and same origin: who may send, who may read</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model. It runs the same <code>originOf</code>, <code>sameOrigin</code>, <code>sameSite</code>, <code>needsPreflight</code>, <code>corsHeaders</code>, <code>checkCors</code>, <code>browserFetch</code>, <code>setCookieHeader</code> and <code>cookieSent</code> as the practice answer. No real browser is used here.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+  <p class="legend"><b>The rule to remember:</b> an origin is scheme + host + port. The <b>browser</b> blocks your JavaScript from reading a cross-origin answer unless the server sends permission headers. The server still runs the request. SameSite decides if the cookie is sent. CORS is not a defense against CSRF.</p>
+</div>
+<script>
+// The model code below is the same code as the practice answer in the lesson. No real browser or server is used.
+// ---------- helpers, already written ----------
+const PORTS = { "http:": 80, "https:": 443 };
+const PUBLIC_SUFFIXES = ["co.uk", "com.au", "co.id", "github.io", "vercel.app"];
+const SAFE_METHODS = ["GET", "HEAD", "POST"];
+
+// The "site" of a host: the registrable name. "api.shop.example.com" and "www.example.com" are both "example.com".
+// Real browsers use the Public Suffix List. This model knows only the five suffixes above.
+function siteOf(host) {
+  const h = host.toLowerCase();
+  const labels = h.split(".");
+  if (labels.length < 2) return h;
+  for (const suffix of PUBLIC_SUFFIXES) {
+    if (h.endsWith("." + suffix)) {
+      const rest = h.slice(0, h.length - suffix.length - 1).split(".");
+      return rest[rest.length - 1] + "." + suffix;
+    }
+  }
+  return labels.slice(-2).join(".");
+}
+
+// A copy of an object with every key in lower case, and every value as text.
+function lower(headers) {
+  const out = {};
+  for (const [k, v] of Object.entries(headers || {})) out[k.toLowerCase()] = String(v);
+  return out;
+}
+
+// "GET, POST" becomes ["GET", "POST"].
+const list = (text) => (text || "").split(",").map((s) => s.trim()).filter(Boolean);
+
+// The request headers that are NOT on the browser's safe list, as lower case names, in the order given.
+// Safe: accept, accept-language, content-language, and content-type only with
+// application/x-www-form-urlencoded, multipart/form-data or text/plain (a "; charset=..." part is ignored).
+function unsafeHeaders(headers) {
+  const safeNames = ["accept", "accept-language", "content-language"];
+  const safeTypes = ["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"];
+  const out = [];
+  for (const [name, value] of Object.entries(headers || {})) {
+    const n = name.toLowerCase();
+    if (n === "content-type") {
+      if (!safeTypes.includes(String(value).split(";")[0].trim().toLowerCase())) out.push(n);
+    } else if (!safeNames.includes(n)) {
+      out.push(n);
+    }
+  }
+  return out;
+}
+
+
+
+
+function originOf(url) {
+  const u = new URL(url);
+  if (!(u.protocol in PORTS)) throw new Error("only http and https are supported");
+  return { scheme: u.protocol.slice(0, -1), host: u.hostname, port: u.port ? Number(u.port) : PORTS[u.protocol] };
+}
+
+function sameOrigin(a, b) {
+  const x = originOf(a);
+  const y = originOf(b);
+  return x.scheme === y.scheme && x.host === y.host && x.port === y.port;
+}
+
+function sameSite(a, b) {
+  const x = originOf(a);
+  const y = originOf(b);
+  return x.scheme === y.scheme && siteOf(x.host) === siteOf(y.host);
+}
+
+function needsPreflight(request) {
+  const method = String(request.method || "GET").toUpperCase();
+  return !SAFE_METHODS.includes(method) || unsafeHeaders(request.headers).length > 0;
+}
+
+function corsHeaders(config, request) {
+  const origin = request.origin;
+  if (!origin) return {};
+  const out = {};
+  if (config.allowedOrigins === "*") {
+    out["Access-Control-Allow-Origin"] = "*";
+  } else if (config.allowedOrigins.includes(origin)) {
+    out["Access-Control-Allow-Origin"] = origin;
+    out["Vary"] = "Origin";
+  } else {
+    return { Vary: "Origin" };
+  }
+  if (config.credentials) out["Access-Control-Allow-Credentials"] = "true";
+  if (String(request.method).toUpperCase() === "OPTIONS") {
+    const methods = config.methods || ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"];
+    out["Access-Control-Allow-Methods"] = methods.join(",");
+    const names = config.headers || request.requestHeaders || [];
+    if (names.length > 0) out["Access-Control-Allow-Headers"] = names.join(",");
+    if (config.maxAge !== undefined) out["Access-Control-Max-Age"] = String(config.maxAge);
+  }
+  return out;
+}
+
+function checkCors(request, responseHeaders, isPreflight) {
+  const h = lower(responseHeaders);
+  const allow = h["access-control-allow-origin"];
+  if (allow === undefined) return { ok: false, reason: "no Access-Control-Allow-Origin header" };
+  if (request.credentials && allow === "*") return { ok: false, reason: "* is not allowed with credentials" };
+  if (request.credentials && h["access-control-allow-credentials"] !== "true") {
+    return { ok: false, reason: "Access-Control-Allow-Credentials must be true" };
+  }
+  if (allow !== "*" && allow !== request.origin) return { ok: false, reason: "origin " + request.origin + " is not allowed" };
+  if (!isPreflight) return { ok: true };
+  const wild = !request.credentials;
+  const method = String(request.method || "GET").toUpperCase();
+  if (!SAFE_METHODS.includes(method)) {
+    const methods = list(h["access-control-allow-methods"]);
+    if (!methods.includes(method) && !(wild && methods.includes("*"))) return { ok: false, reason: "method " + method + " is not allowed" };
+  }
+  const names = list(h["access-control-allow-headers"]).map((x) => x.toLowerCase());
+  for (const name of unsafeHeaders(request.headers)) {
+    const covered = names.includes(name) || (wild && names.includes("*") && name !== "authorization");
+    if (!covered) return { ok: false, reason: "header " + name + " is not allowed" };
+  }
+  return { ok: true };
+}
+
+function browserFetch(request, config) {
+  const method = String(request.method || "GET").toUpperCase();
+  if (sameOrigin(request.pageUrl, request.url)) {
+    return { sent: [method], serverRan: true, jsCanRead: true, reason: "same origin, no CORS" };
+  }
+  const origin = new URL(request.pageUrl).origin;
+  const asked = { origin, method, headers: request.headers, credentials: request.credentials };
+  const sent = [];
+  if (needsPreflight(request)) {
+    sent.push("OPTIONS");
+    const answer = corsHeaders(config, { method: "OPTIONS", origin, requestHeaders: unsafeHeaders(request.headers) });
+    const verdict = checkCors(asked, answer, true);
+    if (!verdict.ok) return { sent, serverRan: false, jsCanRead: false, reason: "preflight failed: " + verdict.reason };
+  }
+  sent.push(method);
+  const verdict = checkCors(asked, corsHeaders(config, { method, origin }), false);
+  if (!verdict.ok) return { sent, serverRan: true, jsCanRead: false, reason: verdict.reason };
+  return { sent, serverRan: true, jsCanRead: true, reason: "allowed" };
+}
+
+function setCookieHeader(options) {
+  const { name, value, maxAge, domain, path, secure, httpOnly, sameSite: ss } = options;
+  if (ss !== undefined && !["Strict", "Lax", "None"].includes(ss)) throw new Error("sameSite must be Strict, Lax or None");
+  if (ss === "None" && !secure) throw new Error("SameSite=None needs Secure");
+  if (name.startsWith("__Secure-") && !secure) throw new Error("__Secure- needs Secure");
+  if (name.startsWith("__Host-")) {
+    if (!secure) throw new Error("__Host- needs Secure");
+    if (domain !== undefined) throw new Error("__Host- must not have Domain");
+    if (path !== "/") throw new Error("__Host- needs Path=/");
+  }
+  const parts = [name + "=" + value];
+  if (maxAge !== undefined) parts.push("Max-Age=" + maxAge);
+  if (domain !== undefined) parts.push("Domain=" + domain);
+  if (path !== undefined) parts.push("Path=" + path);
+  if (secure) parts.push("Secure");
+  if (httpOnly) parts.push("HttpOnly");
+  if (ss !== undefined) parts.push("SameSite=" + ss);
+  return parts.join("; ");
+}
+
+function cookieSent(cookie, request) {
+  const url = new URL(request.url);
+  const host = url.hostname.toLowerCase();
+  const domain = cookie.domain && cookie.domain.toLowerCase().replace(/^\./, "");
+  const hostOk = domain ? host === domain || host.endsWith("." + domain) : host === cookie.host.toLowerCase();
+  if (!hostOk) return { sent: false, reason: "host does not match" };
+  const cp = cookie.path || "/";
+  const pathOk = cp === "/" || url.pathname === cp || url.pathname.startsWith(cp + "/");
+  if (!pathOk) return { sent: false, reason: "path does not match" };
+  if (cookie.secure && url.protocol !== "https:") return { sent: false, reason: "Secure cookie needs https" };
+  if (sameSite(request.pageUrl, request.url)) return { sent: true, reason: "same site" };
+  const mode = cookie.sameSite || "Lax";
+  if (mode === "None") return { sent: true, reason: "SameSite=None" };
+  if (mode === "Lax" && request.navigation && String(request.method || "GET").toUpperCase() === "GET") {
+    return { sent: true, reason: "Lax allows a top level GET" };
+  }
+  return { sent: false, reason: "blocked by SameSite=" + mode };
+}
+
+
+const B = (title, cls, tagText, tagCls, small, lines, lit) => ({ title, cls, tag: tagText ? [tagText, tagCls || ""] : null, small: small || "", lines, lit: !!lit });
+const J = (o) => JSON.stringify(o);
+const hdrs = (h) => Object.keys(h).length ? Object.entries(h).map(([k, v]) => k + ": " + v) : ["(no CORS headers at all)"];
+const browserBox = (lines, tag, lit) => B("Browser", "user", tag || "enforces CORS", "", "the page runs here", lines, lit);
+const wireBox = (lines, tag, lit) => B("On the wire", "lb", tag || "", "", "what travels", lines, lit);
+const serverBox = (lines, tag, lit) => B("Your API", "srv", tag || "sends headers only", "", "Express with cors", lines, lit);
+const S3 = (hop, phase, note, boxes) => ({ layout: "three", hop, phase, note, boxes });
+
+const PAGE = "http://localhost:3000/app", OTHER = "http://127.0.0.1:3000/app", API = "http://localhost:4000";
+const API_CFG = { allowedOrigins: ["http://localhost:3000"], credentials: true, methods: ["GET", "POST", "DELETE"], headers: ["Content-Type", "Authorization"] };
+
+function simulateOrigin() {
+  const page = "https://shop.example.com/cart";
+  const tests = [
+    ["https://shop.example.com/api/items", "Only the path is different."],
+    ["http://shop.example.com/api/items", "The scheme is different (http, not https)."],
+    ["https://shop.example.com:8443/api", "The port is different (8443, not 443)."],
+    ["https://api.shop.example.com/items", "The host is different. A subdomain is another origin."],
+    ["https://SHOP.example.com:443/x", "Letter case and the default port written out do not matter."],
+  ];
+  const parts = (u) => { const o = originOf(u); return ["scheme: " + o.scheme, "host: " + o.host, "port: " + o.port]; };
+  const steps = [S3("Setup: the page", "setup", "<b>An origin is three things: scheme, host and port.</b> Your page lives at <code>" + page + "</code>. The path (<code>/cart</code>) is not part of the origin. Next we compare other addresses with this page.",
+    [browserBox(parts(page), "the page"), B("Other address", "fol", "none yet", "", "", ["pick Next"]), B("sameOrigin says", "alarm", "", "", "", ["waiting"])])];
+  tests.forEach(([u, why]) => {
+    const same = sameOrigin(page, u), site = sameSite(page, u);
+    steps.push(S3("Compare with " + u, same ? "srv" : "bad", "<b>" + (same ? "Same origin." : "Another origin.") + "</b> " + why + " <code>sameSite</code> says <b>" + site + "</b>, which matters for cookies later.",
+      [browserBox(parts(page), "the page"), B("Other address", "fol", "", "", u, parts(u), true), B("sameOrigin says", same ? "srv" : "alarm", String(same), same ? "ok" : "bad", "sameSite: " + site, same ? ["fetch is free to read"] : ["needs CORS to read"], true)]));
+  });
+  steps.push(S3("Summary", "done", "<b>Only the scheme, the host and the port count.</b> A different one makes another origin, and the browser then asks the server for permission before your JavaScript can read the answer. Note that <code>api.shop.example.com</code> is another origin but the same site.",
+    [browserBox(["one fetch to a different origin = a CORS check"], "rule"), B("Parts", "fol", "3", "", "", ["scheme", "host", "port", "(path is never counted)"]), B("Next", "srv", "", "", "", ["what is the permission?"])]));
+  return steps;
+}
+
+function simulateSimple() {
+  const steps = [];
+  const run = (page) => browserFetch({ pageUrl: page, url: API + "/data", method: "GET" }, API_CFG);
+  const origin = (p) => new URL(p).origin;
+  const logLines = [];
+  steps.push(S3("Setup", "setup", "<b>A simple request.</b> A page on <code>" + origin(PAGE) + "</code> runs <code>fetch(\"" + API + "/data\")</code>. That is another origin (port 4000). A GET with no special headers is a <b>simple request</b>: no question is asked first.",
+    [browserBox(["page: " + origin(PAGE), "fetch GET " + API + "/data"], "", true), wireBox(["nothing sent yet"]), serverBox(["allowed origins: " + J(API_CFG.allowedOrigins)])]));
+  logLines.push("GET /data  Origin: " + origin(PAGE));
+  steps.push(S3("Browser sends GET with Origin", "run", "The browser sends the request at once and adds an <code>Origin</code> header with the page's origin.",
+    [browserBox(["waiting for the answer"]), wireBox(["GET /data", "Origin: " + origin(PAGE)], "request", true), serverBox(["(not reached yet)"])]));
+  const h1 = corsHeaders(API_CFG, { method: "GET", origin: origin(PAGE) });
+  steps.push(S3("Server runs and answers", "run", "The server <b>runs the route</b> and answers. The cors package copies the origin back because it is in the list.",
+    [browserBox(["waiting"]), wireBox(["200 OK", ...hdrs(h1)], "response", true), serverBox(["log: " + logLines[0], "route ran"], "ran", true)]));
+  const r1 = run(PAGE);
+  steps.push(S3("Browser checks the headers", "chk", "The browser compares <code>Access-Control-Allow-Origin</code> with the page origin. Same, so <b>" + r1.reason + "</b>. Your JavaScript gets the data.",
+    [browserBox(["checkCors: ok", "jsCanRead: " + r1.jsCanRead], "allowed", true), wireBox(["(done)"]), serverBox(["log: " + logLines[0]])]));
+  const h2 = corsHeaders(API_CFG, { method: "GET", origin: origin(OTHER) });
+  const r2 = run(OTHER);
+  steps.push(S3("Same call from another page", "run", "Now the same request from a page on <code>" + origin(OTHER) + "</code>. That origin is NOT in the list. The browser sends it anyway. The server runs it anyway.",
+    [browserBox(["page: " + origin(OTHER), "fetch GET " + API + "/data"], "", true), wireBox(["GET /data", "Origin: " + origin(OTHER), "", "200 OK", ...hdrs(h2)], "both ways", true), serverBox(["log: GET /data  Origin: " + origin(OTHER), "route ran, data was made"], "ran")]));
+  steps.push(S3("Browser blocks the read", "bad", "No <code>Access-Control-Allow-Origin</code> came back, so the browser says <b>" + r2.reason + "</b>. The console shows a CORS error and your JavaScript gets nothing. But the server already ran the request: <b>serverRan = " + r2.serverRan + "</b>.",
+    [browserBox(["checkCors: blocked", "jsCanRead: " + r2.jsCanRead, "reason: " + r2.reason], "blocked", true), wireBox(["(done)"]), serverBox(["the route ran", "the data was sent", "only the browser hid it"], "ran")]));
+  steps.push(S3("curl does not care", "done", "curl sends no <code>Origin</code> header and does not check anything. The cors package sends no CORS headers when there is no Origin, and curl reads the data. <b>CORS is a browser rule, not a server wall.</b>",
+    [B("curl", "fol", "no checks", "", "", ["GET /data", "(no Origin header)"]), wireBox(["200 OK", ...hdrs(corsHeaders(API_CFG, { method: "GET" })), "body: the data"]), serverBox(["route ran", "curl got the data"])]));
+  return steps;
+}
+
+function simulatePreflight() {
+  const req = { pageUrl: PAGE, url: API + "/json", method: "POST", headers: { "Content-Type": "application/json" } };
+  const origin = new URL(PAGE).origin;
+  const steps = [];
+  steps.push(S3("Setup", "setup", "<b>A JSON POST.</b> The page runs <code>fetch(\"" + API + "/json\", { method: \"POST\", headers: { \"Content-Type\": \"application/json\" }, body })</code>. Is that a simple request? <code>needsPreflight</code> says <b>" + needsPreflight(req) + "</b>, because <code>application/json</code> is not on the safe list.",
+    [browserBox(["POST " + API + "/json", "Content-Type: application/json"], "", true), wireBox(["nothing sent yet"]), serverBox(["methods: GET,POST,DELETE", "headers: Content-Type,Authorization"])]));
+  steps.push(S3("Browser asks first: OPTIONS", "run", "The browser does <b>not</b> send the POST yet. It sends an <code>OPTIONS</code> request: the preflight. It says which method and which headers it wants to use.",
+    [browserBox(["waiting for permission"]), wireBox(["OPTIONS /json", "Origin: " + origin, "Access-Control-Request-Method: POST", "Access-Control-Request-Headers: content-type"], "preflight", true), serverBox(["(not reached yet)"])]));
+  const ans = corsHeaders(API_CFG, { method: "OPTIONS", origin, requestHeaders: ["content-type"] });
+  steps.push(S3("Server answers the question", "run", "The cors package answers the OPTIONS itself with <code>204</code> and the permission list. Your route code does not run.",
+    [browserBox(["waiting"]), wireBox(["204 No Content", ...hdrs(ans)], "answer", true), serverBox(["OPTIONS answered by cors", "your POST route has not run"], "", true)]));
+  const full = browserFetch(req, API_CFG);
+  steps.push(S3("Browser checks the permission", "chk", "<code>checkCors</code> reads the answer: the origin is allowed, <code>POST</code> is listed, <code>content-type</code> is listed. <b>Allowed.</b>",
+    [browserBox(["origin ok", "method POST ok", "header content-type ok"], "allowed", true), wireBox(["(checked)"]), serverBox(["waiting"])]));
+  steps.push(S3("Browser sends the real POST", "run", "Now the real request goes out. The browser has kept the permission in a small cache for <code>Access-Control-Max-Age</code> seconds, so the next POST may skip the question.",
+    [browserBox(["waiting"]), wireBox(["POST /json", "Origin: " + origin, "Content-Type: application/json", "body: {...}"], "request", true), serverBox(["POST route runs"], "ran", true)]));
+  steps.push(S3("Response is checked again", "srv", "The POST answer also needs <code>Access-Control-Allow-Origin</code>. It has it, so the page can read it. The order sent: <b>" + full.sent.join(" then ") + "</b>.",
+    [browserBox(["jsCanRead: " + full.jsCanRead, "reason: " + full.reason], "allowed", true), wireBox(["200 OK", ...hdrs(corsHeaders(API_CFG, { method: "POST", origin }))]), serverBox(["log: OPTIONS, POST"])]));
+  const strictCfg = { ...API_CFG, headers: ["Authorization"] };
+  const bad = browserFetch(req, strictCfg);
+  steps.push(S3("Now a server that forgot Content-Type", "run", "A different server lists only <code>Authorization</code> in its allowed headers. The browser sends the same OPTIONS question.",
+    [browserBox(["same JSON POST"], "", true), wireBox(["OPTIONS /json", "Access-Control-Request-Headers: content-type", "", "204", ...hdrs(corsHeaders(strictCfg, { method: "OPTIONS", origin }))], "preflight", true), serverBox(["headers: Authorization"])]));
+  steps.push(S3("The POST is never sent", "bad", "The browser says <b>" + bad.reason + "</b>. It sent only <code>" + bad.sent.join(", ") + "</code>. <b>serverRan = " + bad.serverRan + "</b>: this time the server never saw the POST. That is the one case where CORS keeps a request away from the server.",
+    [browserBox(["blocked", "jsCanRead: " + bad.jsCanRead], "blocked", true), wireBox(["no POST on the wire"]), serverBox(["log: OPTIONS only", "route did not run"], "safe")]));
+  return steps;
+}
+
+function simulateCredentials() {
+  const origin = new URL(PAGE).origin;
+  const req = { pageUrl: PAGE, url: API + "/me", method: "GET", credentials: true };
+  const star = { allowedOrigins: "*", credentials: true };
+  const steps = [];
+  steps.push(S3("Setup", "setup", "<b>Send the cookie too.</b> The page runs <code>fetch(\"" + API + "/me\", { credentials: \"include\" })</code>. By default a cross-origin fetch sends no cookies. <code>credentials: \"include\"</code> asks the browser to send them.",
+    [browserBox(["GET " + API + "/me", "credentials: include"], "", true), wireBox(["nothing sent yet"]), serverBox(["config: origin *, credentials true"])]));
+  const h = corsHeaders(star, { method: "GET", origin });
+  steps.push(S3("Request goes out with the cookie", "run", "The request goes out with the cookie and the server runs it.",
+    [browserBox(["waiting"]), wireBox(["GET /me", "Origin: " + origin, "Cookie: sid=abc"], "request", true), serverBox(["route ran", "user found by cookie"], "ran", true)]));
+  steps.push(S3("Server answers with *", "run", "The server answers with <code>Access-Control-Allow-Origin: *</code> and <code>Allow-Credentials: true</code>.",
+    [browserBox(["waiting"]), wireBox(["200 OK", ...hdrs(h)], "response", true), serverBox(["answer sent"])]));
+  const r = browserFetch(req, star);
+  steps.push(S3("Browser refuses", "bad", "The rule: with credentials, the server must name <b>one exact origin</b>. A <code>*</code> is refused: <b>" + r.reason + "</b>. If any website could use the cookie, any website could read your private data.",
+    [browserBox(["blocked", "jsCanRead: " + r.jsCanRead], "blocked", true), wireBox(["(done)"]), serverBox(["the route ran", "only the read was blocked"])]));
+  const good = { allowedOrigins: [origin], credentials: true };
+  const h2 = corsHeaders(good, { method: "GET", origin });
+  const r2 = browserFetch(req, good);
+  steps.push(S3("The fix: a list and credentials", "run", "The server now has a list of exact origins and <code>credentials: true</code>. It copies the origin back and adds <code>Vary: Origin</code>.",
+    [browserBox(["same fetch"], "", true), wireBox(["200 OK", ...hdrs(h2)], "response", true), serverBox(["origin: [" + origin + "]", "credentials: true"], "", true)]));
+  steps.push(S3("Allowed", "srv", "Origin matches, <code>Allow-Credentials</code> is <code>true</code>: <b>" + r2.reason + "</b>. Your JavaScript can read the user data.",
+    [browserBox(["jsCanRead: " + r2.jsCanRead], "allowed", true), wireBox(["(done)"]), serverBox(["done"])]));
+  const noCreds = browserFetch(req, { allowedOrigins: [origin] });
+  steps.push(S3("Forgot credentials: true", "bad", "If the server forgets <code>credentials: true</code>, the browser says <b>" + noCreds.reason + "</b>. The three pieces must match: <code>credentials: include</code> in the page, an exact origin and <code>Allow-Credentials: true</code> on the server.",
+    [browserBox(["blocked", "jsCanRead: " + noCreds.jsCanRead], "blocked", true), wireBox(["(done)"]), serverBox(["credentials not set"])]));
+  return steps;
+}
+
+function simulateCookies() {
+  const bank = "https://bank.com/", evil = "https://evil.com/";
+  const jar = [
+    { name: "sid", cookie: { host: "bank.com", sameSite: "Lax" }, label: "no SameSite word (Lax by default)" },
+    { name: "track", cookie: { host: "bank.com", sameSite: "None", secure: true }, label: "SameSite=None; Secure" },
+    { name: "strict", cookie: { host: "bank.com", sameSite: "Strict" }, label: "SameSite=Strict" },
+  ];
+  const jarLines = jar.map((c) => c.name + ": " + c.label);
+  const jarBox = (lit) => B("Cookies for bank.com", "fol", "3 cookies", "", "the browser's jar", jarLines, lit);
+  const verdict = (req) => jar.map((c) => { const r = cookieSent(c.cookie, req); return c.name + ": " + (r.sent ? "SENT" : "not sent") + " (" + r.reason + ")"; });
+  const steps = [];
+  steps.push(S3("Setup", "setup", "<b>The user is logged in at bank.com.</b> The jar holds three cookies. The question for each request: does the browser attach the cookie? The rule is <code>cookieSent</code>: host, path, Secure, then SameSite.",
+    [jarBox(), B("The set-cookie lines", "lb", "", "", "what the server sent", jar.map((c) => setCookieHeader({ name: c.name, value: "1", httpOnly: true, secure: c.cookie.secure, sameSite: c.cookie.sameSite }))), B("Words", "srv", "", "", "", ["HttpOnly: JS cannot read it", "Secure: https only", "SameSite: cross-site rule"])]));
+  const r1 = { url: bank + "api/me", pageUrl: bank, method: "GET" };
+  steps.push(S3("bank.com page calls its own API", "srv", "The page is on bank.com and calls bank.com. This is the <b>same site</b>, so all three cookies go along.",
+    [jarBox(), B("Request", "user", "same site", "", "page " + bank, ["GET " + r1.url]), B("Browser decides", "srv", "", "", "", verdict(r1), true)]));
+  const r2 = { url: bank + "transfer", pageUrl: evil, method: "POST", navigation: true };
+  steps.push(S3("evil.com sends a hidden form to bank.com", "bad", "<b>This is CSRF.</b> A page on evil.com holds a hidden form that posts to bank.com. A form post is a simple request, so CORS asks nothing. What stops the cookie is <b>SameSite</b>. Only <code>None</code> is sent: that cookie is the dangerous one.",
+    [jarBox(), B("Request", "alarm", "cross site", "bad", "page " + evil, ["POST " + r2.url, "(a form submit)"]), B("Browser decides", "alarm", "", "", "", verdict(r2), true)]));
+  const r3 = { url: bank + "account", pageUrl: evil, method: "GET", navigation: true };
+  steps.push(S3("The user clicks a link to bank.com", "run", "A link click is a top-level <code>GET</code>. <code>Lax</code> allows it, so the user stays logged in when they follow a link. <code>Strict</code> does not.",
+    [jarBox(), B("Request", "user", "cross site", "", "page " + evil, ["GET " + r3.url, "(a link click)"]), B("Browser decides", "lb", "", "", "", verdict(r3), true)]));
+  const r4 = { url: bank + "api/me", pageUrl: evil, method: "GET" };
+  steps.push(S3("evil.com uses fetch to bank.com", "bad", "A <code>fetch</code> from evil.com to bank.com is cross-site and not a navigation. Only <code>None</code> goes along. Even then, without CORS permission from the bank, evil.com cannot read the answer.",
+    [jarBox(), B("Request", "alarm", "cross site", "bad", "page " + evil, ["GET " + r4.url, "(fetch)"]), B("Browser decides", "alarm", "", "", "", verdict(r4), true)]));
+  const r5 = { url: "http://bank.com/", pageUrl: bank, method: "GET" };
+  steps.push(S3("A plain http request", "run", "The <code>Secure</code> cookie never goes over <code>http</code>. Also an http page and an https page are different sites for SameSite.",
+    [jarBox(), B("Request", "user", "http", "warn", "page " + bank, ["GET " + r5.url]), B("Browser decides", "lb", "", "", "", verdict(r5), true)]));
+  steps.push(S3("Summary", "done", "<b>CORS</b> decides who may <i>read</i> an answer. <b>SameSite</b> decides who may <i>send</i> your cookie. <b>HttpOnly</b> hides the cookie from scripts. Use all three: SameSite stops CSRF, HttpOnly limits what XSS can steal, and CORS keeps strangers from reading data.",
+    [jarBox(), B("CORS", "srv", "read", "ok", "", ["who may read the answer"]), B("SameSite", "alarm", "send", "bad", "", ["who may send the cookie"])]));
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Same origin?", sim: simulateOrigin,
+    why: "An origin is scheme, host and port. The path does not count. A subdomain is another origin but the same site.",
+    predict: { q: "Your page is https://shop.example.com. Is https://shop.example.com:8443/api the same origin?", options: ["Yes, same host", "No, the port is different", "Yes, same scheme"], answer: "No, the port is different" } },
+  { name: "2. A simple request", sim: simulateSimple,
+    why: "The browser sends a simple request, the server runs it, and the browser then decides if your JavaScript may read the answer. CORS is a browser rule. curl does not use it.",
+    predict: { q: "The API does not list your page's origin. A simple GET from your page does what?", options: ["Never reaches the server", "Reaches the server, but the browser hides the answer", "Reaches the server and your page reads it"], answer: "Reaches the server, but the browser hides the answer" } },
+  { name: "3. A preflight", sim: simulatePreflight,
+    why: "A JSON POST is not a simple request. The browser asks with OPTIONS first. If the server does not allow it, the real request is never sent.",
+    predict: { q: "A page sends a JSON POST to another origin. What goes out first?", options: ["The POST", "An OPTIONS request that asks permission", "Nothing, JSON is always blocked"], answer: "An OPTIONS request that asks permission" } },
+  { name: "4. Credentials and *", sim: simulateCredentials,
+    why: "With credentials the server must name one exact origin and send Allow-Credentials true. A * is refused, even though the server ran the request.",
+    predict: { q: "fetch with credentials include, and the API answers Access-Control-Allow-Origin: *. What happens?", options: ["It works, * means everyone", "The browser blocks the read", "The cookie is removed and it works"], answer: "The browser blocks the read" } },
+  { name: "5. Cookies and CSRF", sim: simulateCookies,
+    why: "SameSite decides if a cross-site request carries the cookie. CORS does not stop a form post. Lax allows a link click, Strict does not, None allows everything but needs Secure.",
+    predict: { q: "A hidden form on evil.com posts to bank.com. Which cookie is sent by the browser?", options: ["One with SameSite=Lax", "One with SameSite=Strict", "One with SameSite=None; Secure"], answer: "One with SameSite=None; Secure" } },
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser.
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateOrigin, simulateSimple, simulatePreflight, simulateCredentials, simulateCookies, STORIES };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

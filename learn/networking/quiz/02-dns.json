@@ -1,0 +1,128 @@
+[
+  {
+    "q": "A resolver has an empty cache and looks up www.example.com. Which server gives it the final IP address?",
+    "options": [
+      "A root server",
+      "The .com server",
+      "The domain's own (authoritative) server",
+      "The browser"
+    ],
+    "answer": 2,
+    "why": "The root points to the .com server, and the .com server points to the domain's own server. Only the authoritative server holds the real records."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of a first lookup in order.",
+    "items": [
+      "The resolver asks a root server and gets the .com server as a referral",
+      "The resolver asks the .com server and gets the domain's own server as a referral",
+      "The resolver asks the domain's own server and gets the record",
+      "The resolver saves the answer and gives the IP to the browser"
+    ],
+    "why": "Each server only points to the next one. The last one knows the answer. The resolver saves it for the TTL."
+  },
+  {
+    "q": "Which record type points one name at another name?",
+    "options": ["A", "AAAA", "CNAME", "MX"],
+    "answer": 2,
+    "why": "A gives an IPv4 address, AAAA gives an IPv6 address, MX names the mail servers. CNAME says this name is another name for that one."
+  },
+  {
+    "type": "tf",
+    "q": "A resolver asks the domain's own server again on every single lookup.",
+    "answer": false,
+    "why": "It keeps the answer for the record's TTL. Until that time runs out, the answer comes from the cache and no server is asked."
+  },
+  {
+    "type": "fill",
+    "q": "A resolver is asked for a name that does not exist. Which answer code does it get? Type it in capital letters.",
+    "answer": "NXDOMAIN",
+    "why": "NXDOMAIN means no such name. Resolvers cache this too, for a time taken from the zone's SOA record, so a record you add later may not show up at once."
+  },
+  {
+    "type": "multi",
+    "q": "A record has a TTL of 300 and a resolver saved it at second 0. Which are true?",
+    "options": [
+      "At second 299 the answer still comes from the cache",
+      "At second 300 the resolver asks the servers again",
+      "The TTL in a cached answer counts down",
+      "The authoritative server pushes a new value to the resolver when you change the record"
+    ],
+    "answer": [0, 1, 2],
+    "why": "The TTL is the time the resolver may keep the answer. Nothing is pushed. The resolver only asks again when its copy runs out."
+  },
+  {
+    "q": "Your A record has a TTL of 86400 (one day). You must move to a new server and want most users on it within minutes. What should you have done?",
+    "options": [
+      "Nothing, DNS changes are instant",
+      "Lowered the TTL to 60 at least one old TTL (a day) before the move, then changed the IP",
+      "Raised the TTL to a week",
+      "Asked every resolver to flush its cache"
+    ],
+    "answer": 1,
+    "why": "Old copies live up to the old TTL. Lower the TTL first, wait one old TTL, then change the IP. After that every cache re-asks within a minute."
+  },
+  {
+    "type": "tf",
+    "q": "When you change a DNS record, the DNS system pushes the new value to every resolver. This is what propagation means.",
+    "answer": false,
+    "why": "Nothing is pushed. Each resolver keeps its own copy until its TTL ends and then asks again. Propagation is just all those copies running out."
+  },
+  {
+    "q": "Why can you not put a CNAME on the apex (example.com itself)?",
+    "options": [
+      "CNAMEs are too slow at the top level",
+      "A CNAME must be the only record on its name, and the apex always has NS and SOA records",
+      "The root server forbids it",
+      "A CNAME needs a TTL of 0"
+    ],
+    "answer": 1,
+    "why": "RFC 1912 says a CNAME is not allowed to coexist with any other data. The apex always holds NS and SOA records, so it cannot be a CNAME."
+  },
+  {
+    "type": "multi",
+    "q": "You want example.com (the apex) to point at a hosting company's name. Which can work?",
+    "options": [
+      "A Route 53 alias record",
+      "Cloudflare CNAME flattening",
+      "An A record with the host's IP address",
+      "A normal CNAME record at the apex"
+    ],
+    "answer": [0, 1, 2],
+    "why": "Route 53 alias and Cloudflare flattening are provider features that answer with IP addresses. An A record works if the IP is stable. A normal CNAME at the apex breaks the zone."
+  },
+  {
+    "q": "You add the record *.apps.example.com A <server IP> for CapRover and deploy a new app called shop. What happens?",
+    "options": [
+      "shop.apps.example.com resolves to the server at once, but HTTPS still needs its own certificate",
+      "You must add a DNS record for shop first",
+      "shop.apps.example.com resolves and gets a wildcard certificate for free",
+      "Only apps.example.com resolves"
+    ],
+    "answer": 0,
+    "why": "A wildcard record answers for every name below it that has no record of its own. The CapRover docs say wildcard DNS does not create a wildcard TLS certificate."
+  },
+  {
+    "type": "tf",
+    "q": "A DNS wildcard *.apps.example.com can answer for a.b.apps.example.com, but a TLS wildcard certificate for *.apps.example.com does not cover that name.",
+    "answer": true,
+    "why": "DNS wildcards (RFC 4592) can match several labels when the names in between do not exist. A TLS wildcard covers exactly one label."
+  },
+  {
+    "type": "fill",
+    "q": "Which record type names the mail servers of a domain? Type the two letters in capitals.",
+    "answer": "MX",
+    "why": "MX records list the mail servers with a priority number. TXT records often hold things like SPF and verification strings."
+  },
+  {
+    "q": "DNS answers with 3 server IPs, and a health check removes one dead server from the answers. TTL is 3600. What is the problem?",
+    "options": [
+      "None, users move to the other servers at once",
+      "Resolvers that saved the old answer can keep sending users to the dead server for up to an hour",
+      "DNS cannot do health checks at all",
+      "The dead server stays in the answers forever"
+    ],
+    "answer": 1,
+    "why": "Failover through DNS is only as fast as the TTL. That is why failover records use short TTLs, 60 seconds or less according to the Route 53 FAQ."
+  }
+]

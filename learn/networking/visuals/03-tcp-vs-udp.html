@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCP vs UDP: handshake, resend, order, closing and windows</title>
+<style>
+
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: 1fr 1.25fr 1fr; }
+  .stage.two { grid-template-columns: 1.1fr .9fr; }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; margin-bottom: 10px; }
+  .comp:last-child { margin-bottom: 0; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .clock { font-size: .9rem; margin-bottom: 8px; }
+  .clock b { font-size: 1.1rem; }
+
+  .meter { position: relative; height: 22px; border-radius: 8px; background: var(--code-bg); overflow: visible; margin: 8px 0 4px; }
+  .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: var(--srv); transition: width .25s; }
+  .meter i.hot { background: var(--bad); }
+  .meter u { position: absolute; top: -5px; bottom: -5px; width: 0; border-left: 3px dashed var(--ink); text-decoration: none; }
+  .meterlabel { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; flex-wrap: wrap; }
+  .meterlabel b { font-size: .95rem; }
+  .legend2 { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+  .pager { border-radius: 12px; padding: 10px; text-align: center; font-weight: 800; font-size: 1.1rem; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+  .pager.on { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .pager.cleared { border-color: var(--srv); background: var(--srv-bg); color: var(--srv); }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  table.rows th { text-align: left; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.rows td { padding: 6px; border-bottom: 1px dashed var(--border); }
+  table.rows tr.cur td { background: var(--predict-bg); font-weight: 700; }
+  table.rows tr.hide td { color: var(--muted); opacity: .45; }
+
+  .monthbar { display: flex; height: 34px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); background: var(--srv-bg); }
+  .monthbar .good { background: var(--srv-bg); flex: 1; }
+  .monthbar .slice { background: var(--bad); min-width: 4px; }
+  .cap { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+
+  .days { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 6px; }
+  .day { height: 26px; border-radius: 5px; background: var(--srv-bg); border: 1px solid var(--border); font-size: .6rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+  .day.ev { background: var(--store); color: #fff; border-color: var(--store); font-weight: 700; }
+  .day.now { box-shadow: 0 0 0 3px var(--accent); }
+  .day.future { opacity: .35; }
+  .bud { height: 26px; border-radius: 8px; background: var(--code-bg); position: relative; overflow: hidden; margin: 8px 0 4px; }
+  .bud i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--srv); transition: width .25s; }
+  .bud i.mid { background: var(--store); }
+  .bud i.low { background: var(--bad); }
+  .policy { border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: .92rem; border: 2px solid var(--srv); background: var(--srv-bg); }
+  .policy.mid { border-color: var(--store); background: var(--store-bg); }
+  .policy.low { border-color: var(--bad); background: var(--bad-bg); }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+  .dot { border: 1px solid var(--border); border-radius: 8px; padding: 3px 0; text-align: center; font-size: .72rem; background: var(--card); color: var(--muted); }
+  .dot b { display: block; font-size: .72rem; color: var(--ink); }
+  .dot.on { background: var(--srv); color: #fff; border-color: var(--srv); } .dot.on b { color: #fff; }
+  .cols { display: grid; gap: 6px; margin-top: 4px; }
+  .col { border: 2px solid var(--store); border-radius: 8px; padding: 5px 8px; background: var(--card); font-size: .8rem; }
+  .col b { display: block; font-family: ui-monospace, Menlo, monospace; }
+  .col span { color: var(--muted); font-size: .72rem; }
+  .col.new { border-color: var(--srv); background: var(--srv-bg); }
+  .col.bad { border-color: var(--bad); background: var(--bad-bg); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.write { background: var(--store-bg); border-color: var(--store); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .45; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+  .wbars { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .wrow { display: grid; grid-template-columns: 34px 1fr 30px; gap: 6px; align-items: center; font-size: .74rem; font-family: ui-monospace, Menlo, monospace; }
+  .wrow .track { height: 16px; border-radius: 5px; background: var(--code-bg); overflow: hidden; }
+  .wrow .fill { display: block; height: 100%; background: var(--srv); }
+  .wrow.slow .fill { background: var(--user); }
+  .wrow.lossrow .fill { background: var(--bad); }
+  .wrow.now { outline: 3px solid var(--accent); border-radius: 5px; }
+  .wrow.future { opacity: .3; }
+  .pieces { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+  .pc { border: 2px solid var(--border); border-radius: 7px; padding: 3px 7px; font-family: ui-monospace, Menlo, monospace; font-size: .76rem; background: var(--card); }
+  .pc small { display: block; color: var(--muted); font-size: .62rem; }
+  .pc.ok { border-color: var(--srv); background: var(--srv-bg); }
+  .pc.lost { border-color: var(--bad); background: var(--bad-bg); text-decoration: line-through; }
+  .pc.held { border-color: var(--store); background: var(--store-bg); }
+  .pc.now { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/networking/README" id="lessons">&larr; Networking lessons</a>
+    <a href="../../../viewer.html?note=learn/networking/03-tcp-vs-udp" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>TCP vs UDP: handshake, resend, order, closing and windows</h1>
+  <p class="sub">Press Next to move one step. Guess first, then check. Everything runs on a small model: the same code as the lesson practice answer. Nothing here is a real network, and the numbers are examples.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> IP only tries its best. TCP adds a handshake, numbers, receipts and resending, so every byte arrives in order, but it can arrive late. UDP adds almost nothing: no handshake, no resend, no order. Pick TCP when every byte matters. Pick UDP when old data is useless.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The model below is the same code as the practice answer in the lesson (learn/networking/practice).
+// Text stands for bytes. Nothing here touches a network. Numbers are examples.
+// ---------------------------------------------------------------------------------------------
+function isCount(n) {
+  return Number.isInteger(n) && n >= 0;
+}
+
+function handshake(clientSeq, serverSeq) {
+  if (!isCount(clientSeq) || !isCount(serverSeq)) throw new Error("sequence numbers must be whole numbers of 0 or more");
+  return [
+    { from: "client", flags: ["SYN"], seq: clientSeq },
+    { from: "server", flags: ["SYN", "ACK"], seq: serverSeq, ack: clientSeq + 1 },
+    { from: "client", flags: ["ACK"], seq: clientSeq + 1, ack: serverSeq + 1 },
+  ];
+}
+
+function splitIntoSegments(text, mss) {
+  if (!Number.isInteger(mss) || mss < 1) throw new Error("mss must be a whole number of 1 or more");
+  const out = [];
+  for (let i = 0; i < text.length; i += mss) out.push({ seq: i, data: text.slice(i, i + mss) });
+  return out;
+}
+
+function reassemble(segments) {
+  const sorted = [...segments].sort((a, b) => a.seq - b.seq);
+  let data = "";
+  for (const seg of sorted) {
+    if (seg.seq > data.length) break;
+    if (seg.seq + seg.data.length > data.length) data += seg.data.slice(data.length - seg.seq);
+  }
+  return { data, ack: data.length };
+}
+
+function sendReliably(text, mss, lostSends, maxAttempts = 5) {
+  const lost = new Set(lostSends);
+  const log = [];
+  const arrived = [];
+  let n = 0;
+  let ok = true;
+  for (const piece of splitIntoSegments(text, mss)) {
+    let delivered = false;
+    for (let attempt = 1; attempt <= maxAttempts && !delivered; attempt++) {
+      n += 1;
+      const wasLost = lost.has(n);
+      log.push({ n, seq: piece.seq, attempt, lost: wasLost });
+      if (!wasLost) {
+        arrived.push(piece);
+        delivered = true;
+      }
+    }
+    if (!delivered) {
+      ok = false;
+      break;
+    }
+  }
+  return {
+    ok,
+    data: reassemble(arrived).data,
+    log,
+    retransmissions: log.filter((entry) => entry.attempt >= 2).length,
+  };
+}
+
+function udpDeliver(sent, arrivalOrder) {
+  const received = arrivalOrder.map((i) => sent[i]);
+  const seen = new Set(arrivalOrder);
+  const lost = [];
+  for (let i = 0; i < sent.length; i++) if (!seen.has(i)) lost.push(i);
+  let inOrder = true;
+  for (let i = 1; i < arrivalOrder.length; i++) if (arrivalOrder[i] <= arrivalOrder[i - 1]) inOrder = false;
+  return { received, lost, inOrder };
+}
+
+function closeConnection(first) {
+  if (first !== "client" && first !== "server") throw new Error("first must be client or server");
+  const other = first === "client" ? "server" : "client";
+  return {
+    steps: [
+      { from: first, flags: ["FIN"] },
+      { from: other, flags: ["ACK"] },
+      { from: other, flags: ["FIN"] },
+      { from: first, flags: ["ACK"] },
+    ],
+    timeWait: first,
+  };
+}
+
+function chooseProtocol(need) {
+  if (need === null || typeof need !== "object" || Array.isArray(need)) throw new Error("need must be an object");
+  if (need.oldDataUseless) return "udp";
+  if (need.oneSmallExchange) return "udp";
+  if (need.mustArrive || need.inOrder) return "tcp";
+  return "udp";
+}
+
+function sendLimit(rwnd, cwnd, inFlight) {
+  return Math.max(0, Math.min(rwnd, cwnd) - inFlight);
+}
+
+function congestionWindows(rounds, lossRounds) {
+  const out = [];
+  let window = 1;
+  let ssthresh = Infinity;
+  for (let round = 1; round <= rounds; round++) {
+    out.push(window);
+    if (lossRounds.includes(round)) {
+      ssthresh = Math.max(2, Math.floor(window / 2));
+      window = ssthresh;
+    } else if (window < ssthresh) {
+      window *= 2;
+    } else {
+      window += 1;
+    }
+  }
+  return out;
+}
+
+function canBind(table, proto, port) {
+  if (proto !== "tcp" && proto !== "udp") throw new Error("proto must be tcp or udp");
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("port must be a whole number from 0 to 65535");
+  if (port === 0) return true;
+  return !table.some((entry) => entry.proto === proto && entry.port === port);
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// The stories. Each one builds a list of steps from the model code above.
+// ---------------------------------------------------------------------------------------------
+const MSS = 4;
+const TEXT = "HELLOWORLD";
+const range = p => "bytes " + p.seq + " to " + (p.seq + p.data.length - 1);
+const peer = (title, cls, state, lines, lit) => ({ title, cls, tag: [state, ""], lines, lit });
+const wireBox = (label, sub, lines, tag, cls) => ({ title: "On the wire", cls: cls || "fol", tag: tag || null, big: { text: label, neg: cls === "alarm" }, bigLabel: sub, lines: lines || [] });
+const flagsOf = s => s.flags.join("+");
+const numsOf = s => "seq " + s.seq + ("ack" in s ? ", ack " + s.ack : "");
+
+function storyHandshake() {
+  const [syn, synack, ack] = handshake(1000, 5000);
+  const idle = wireBox("nothing yet", "no message is travelling", []);
+  return [
+    { hop: "Setup", phase: "setup",
+      note: "<b>Two computers, no connection.</b> The server has a program that waits for callers. We call that waiting <code>LISTEN</code>. The client wants to talk. Before any data moves, TCP makes them agree on start numbers, with 3 short messages.",
+      boxes: [peer("Client", "user", "CLOSED", ["wants to talk", "has no connection"]), idle, peer("Server", "srv", "LISTEN", ["waits on its port"])] },
+    { hop: "1. The client says hello", phase: "run",
+      note: "<b>SYN</b> means: hello, please connect. The client picks a start number, here <b>" + syn.seq + "</b>. The client now waits for the answer. This waiting is the cost of TCP.",
+      boxes: [peer("Client", "user", "SYN_SENT", ["sent SYN", "start number " + syn.seq, "waiting for an answer"], true), wireBox(flagsOf(syn), numsOf(syn), ["client to server"], ["message 1", "warn"]), peer("Server", "srv", "LISTEN", ["still waiting"])] },
+    { hop: "2. The server answers", phase: "run",
+      note: "The server did two things in one message. <b>ACK " + synack.ack + "</b> means: I got your hello, and the next number I want from you is " + synack.ack + ". <b>SYN</b> means: here is my own start number, <b>" + synack.seq + "</b>.",
+      boxes: [peer("Client", "user", "SYN_SENT", ["still waiting"]), wireBox(flagsOf(synack), numsOf(synack), ["server to client"], ["message 2", "warn"]), peer("Server", "srv", "SYN_RECEIVED", ["got the client's number", "sent its own number " + synack.seq], true)] },
+    { hop: "3. The client confirms", phase: "chk",
+      note: "<b>ACK " + ack.ack + "</b> means: I got your number too. Now both sides know both start numbers. The client has waited <b>one round trip</b>: out with message 1, back with message 2. It can send its first data right away.",
+      boxes: [peer("Client", "user", "ESTABLISHED", ["connected", "may send data now"], true), wireBox(flagsOf(ack), numsOf(ack), ["client to server"], ["message 3", "warn"]), peer("Server", "srv", "SYN_RECEIVED", ["waiting for this last message"])] },
+    { hop: "The connection is open", phase: "done",
+      note: "The server got message 3, so both sides are <code>ESTABLISHED</code>. Why 3 messages and not 2? Each side must send its own number and get a receipt for it. The middle message does two jobs at once, so it is 3 and not 4. In the real world HTTPS adds more round trips on top of this (see the TLS lesson).",
+      boxes: [peer("Client", "user", "ESTABLISHED", ["numbers agreed"]), wireBox("data can flow", "in both directions", []), peer("Server", "srv", "ESTABLISHED", ["numbers agreed"], true)] }
+  ];
+}
+
+function piecesBox(title, pieces, mark) {
+  const h = pieces.map(p => '<div class="pc ' + (mark(p) || "") + '">' + p.data + "<small>" + p.seq + "</small></div>").join("");
+  return { title, cls: "fol", raw: '<div class="pieces">' + h + "</div>" };
+}
+
+function storyResend() {
+  const lostSends = [2];
+  const r = sendReliably(TEXT, MSS, lostSends);
+  const pieces = splitIntoSegments(TEXT, MSS);
+  const steps = [];
+  steps.push({ hop: "Setup", phase: "setup",
+    note: "<b>The sender cuts the text into pieces of " + MSS + " bytes.</b> Each piece gets the number of its first byte (small number under the piece). The sender sends one piece at a time. <b>Send number 2 will be lost</b> by the network.",
+    boxes: [peer("Sender", "user", "ready", ["text: " + TEXT, "3 pieces"]), piecesBox("The pieces", pieces, () => ""), peer("Receiver", "srv", "waiting", ["has: nothing", "wants byte: 0"])] });
+  const arrived = [];
+  r.log.forEach((e, i) => {
+    const p = pieces.find(x => x.seq === e.seq);
+    if (!e.lost) arrived.push(p);
+    const rc = reassemble(arrived);
+    const retry = e.attempt > 1;
+    const lead = retry ? "<b>The timer ran out and no ACK came.</b> The sender cannot know if the piece was lost or the ACK was lost, so it sends the same piece again. " : "";
+    let note, phase = "run";
+    if (e.lost) {
+      phase = "bad";
+      note = lead + "<b>Send " + e.n + ": the network loses it.</b> The piece (" + range(p) + ") never reaches the receiver. The receiver says nothing, because it saw nothing. The sender starts its timer and waits for an ACK.";
+    } else {
+      phase = retry ? "srv" : "chk";
+      note = lead + "<b>Send " + e.n + " arrives.</b> The receiver now has <b>" + rc.data + "</b> with no gap. It sends <b>ACK " + rc.ack + "</b>: the next byte I want is " + rc.ack + ".";
+    }
+    steps.push({ hop: "Send " + e.n + " of " + r.log.length + ": " + range(p) + (retry ? " (attempt " + e.attempt + ")" : ""), phase,
+      note,
+      boxes: [peer("Sender", "user", e.lost ? "waiting for ACK" : "got ACK " + rc.ack, ["sending " + range(p), "send number " + e.n + ", attempt " + e.attempt, e.lost ? "timer is running" : "next: " + (i + 1 < r.log.length ? "the next piece" : "nothing left")], true),
+        wireBox(p.data, range(p) + " (" + e.n + ")", [e.lost ? "LOST on the way" : "arrived"], [e.lost ? "lost" : "arrived", e.lost ? "bad" : "ok"], e.lost ? "alarm" : "srv"),
+        peer("Receiver", "srv", e.lost ? "no news" : "ACK " + rc.ack, ["has: " + (rc.data || "nothing"), "wants byte: " + rc.ack])] });
+  });
+  steps.push({ hop: "All of it arrived", phase: "done",
+    note: "The receiver has <b>" + r.data + "</b>, whole and in order. The price: <b>" + r.retransmissions + " extra send</b> and a wait for the timer. This is what TCP gives you: no lost bytes, but possibly late. The app never sees the loss.",
+    boxes: [peer("Sender", "user", "done", ["sends: " + r.log.length, "of them extra: " + r.retransmissions]), wireBox(r.data, "complete", []), peer("Receiver", "srv", "has everything", ["has: " + r.data, "wants byte: " + r.data.length], true)] });
+  return steps;
+}
+
+function storyOrder() {
+  const pieces = splitIntoSegments(TEXT, MSS);
+  const order = [pieces[1], pieces[2], pieces[0], pieces[0]];
+  const steps = [{ hop: "Setup", phase: "setup",
+    note: "<b>The network can deliver pieces in another order.</b> Here piece 2 and piece 3 arrive first, then piece 1, then piece 1 arrives a second time (a copy). The receiver must still build the right text.",
+    boxes: [peer("Sender", "user", "sent all 3", ["pieces numbered 0, 4 and 8"]), piecesBox("Arriving order", order, () => ""), peer("Receiver", "srv", "waiting", ["has: nothing", "wants byte: 0"])] }];
+  const got = [];
+  order.forEach((p, i) => {
+    got.push(p);
+    const rc = reassemble(got);
+    const dup = got.slice(0, -1).some(q => q.seq === p.seq);
+    const held = got.filter(q => q.seq >= rc.ack).filter((q, j, a) => a.findIndex(z => z.seq === q.seq) === j);
+    let note, phase = "run";
+    if (dup) { note = "<b>A copy arrives.</b> The receiver already has this piece, so it throws the copy away. The text does not change. Copies are normal on a network."; phase = "chk"; }
+    else if (rc.ack === 0) { note = "<b>" + range(p) + " arrives, but there is a hole at the start.</b> The receiver keeps the piece in a waiting room and cannot give it to the app. It still wants byte <b>0</b>, so the ACK stays at <b>0</b>."; phase = "bad"; }
+    else { note = "<b>" + range(p) + " arrives and fills the hole.</b> Now the pieces join up with no gap. The ACK jumps to <b>" + rc.ack + "</b>, and the app gets <b>" + rc.data + "</b> in the right order."; phase = "srv"; }
+    steps.push({ hop: "Arrival " + (i + 1) + ": " + range(p), phase, note,
+      boxes: [peer("The network", "lb", "mixing", ["order of arrival: " + got.map(q => q.seq).join(", ")], true),
+        { title: "Receiver waiting room", cls: "fol", tag: [held.length + " waiting", ""], raw: '<div class="pieces">' + (held.length ? held.map(q => '<div class="pc held">' + q.data + "<small>" + q.seq + "</small></div>").join("") : '<span class="empty">empty</span>') + "</div>" },
+        peer("Receiver", "srv", "ACK " + rc.ack, ["gives the app: " + (rc.data || "nothing yet"), "wants byte: " + rc.ack], true)] });
+  });
+  return steps;
+}
+
+function storyClose() {
+  const c = closeConnection("server");
+  const A = c.steps[0].from, B = A === "server" ? "client" : "server";
+  const cls = x => x === "client" ? "user" : "srv";
+  const nm = x => x === "client" ? "Client" : "Server";
+  const mk = (a, b, hop, note, wire, wsub, phase, lit) => ({ hop, phase, note,
+    boxes: [peer(nm(A) + " (closes first)", cls(A), a[0], a[1], lit === "A"), wireBox(wire, wsub, []), peer(nm(B), cls(B), b[0], b[1], lit === "B")] });
+  return [
+    mk(["ESTABLISHED", ["connected"]], ["ESTABLISHED", ["connected"]], "Setup", "<b>An open connection.</b> Here the <b>server</b> decides to close first (a web server often does this after an answer). Each direction is closed on its own, so closing takes <b>4 messages</b>.", "open", "data flows", "setup"),
+    mk(["FIN_WAIT_1", ["I am done sending"]], ["ESTABLISHED", ["can still send"]], "1. The server sends FIN", "<b>FIN</b> means: I have no more data to send. The server can still receive.", flagsOf(c.steps[0]), "server to client", "run", "A"),
+    mk(["FIN_WAIT_2", ["my FIN is receipted"]], ["CLOSE_WAIT", ["got FIN", "may still send"]], "2. The client sends ACK", "The client says: got it. The client is not done yet, it may have more bytes to send. So the connection is <b>half closed</b>.", flagsOf(c.steps[1]), "client to server", "chk", "B"),
+    mk(["FIN_WAIT_2", ["waiting for the other FIN"]], ["LAST_ACK", ["sent its own FIN"]], "3. The client sends FIN", "Now the client is done too. In real life messages 2 and 3 are often sent as one (FIN+ACK).", flagsOf(c.steps[2]), "client to server", "run", "B"),
+    mk(["TIME_WAIT", ["sent the last ACK", "waits a while"]], ["CLOSED", ["finished"]], "4. The server sends the last ACK", "<b>The server waits in <code>TIME_WAIT</code>.</b> It sends the last ACK, and does not know if it arrived. If it is lost, the client sends FIN again, and the server must still be there to answer. It also lets old delayed pieces die out. The client is already <code>CLOSED</code>.", flagsOf(c.steps[3]), "server to client", "bad", "A"),
+    mk(["CLOSED", ["timer ended", "port is free again"]], ["CLOSED", ["finished"]], "The wait is over", "After the wait (Linux uses 60 seconds), the server forgets the connection. <b>A pile of TIME_WAIT is normal.</b> It is only a problem if a busy computer uses up all its free ports.", "closed", "nothing left", "done", "A")
+  ];
+}
+
+function storyUdp() {
+  const dg = ["HELL", "OWOR", "LD"];
+  const t = sendReliably(TEXT, MSS, [2]);
+  const u = udpDeliver(dg, [0, 2]);
+  const steps = [{ hop: "Setup", phase: "setup",
+    note: "<b>Same text, same loss.</b> We send " + TEXT + " in 3 pieces. The network loses the second piece. On the left, TCP. On the right, UDP. UDP pieces are called <b>datagrams</b>: each one is sent alone.",
+    boxes: [{ title: "TCP", cls: "user", tag: ["handshake done", ""], lines: ["numbers and ACKs", "resends lost pieces"] }, { title: "The network", cls: "lb", tag: ["loses piece 2", "bad"], lines: ["piece 1: ok", "piece 2: lost", "piece 3: ok"] }, { title: "UDP", cls: "srv", tag: ["no handshake", ""], lines: ["no numbers, no ACKs", "never resends"] }] }];
+  const two = (hop, phase, note, tcpLines, udpLines, tcpTag, udpTag, wl) => ({ hop, phase, note,
+    boxes: [{ title: "TCP receiver", cls: "user", tag: tcpTag, lines: tcpLines }, wireBox(wl[0], wl[1], []), { title: "UDP receiver", cls: "srv", tag: udpTag, lines: udpLines }] });
+  steps.push(two("Piece 1", "run", "<b>Piece 1 arrives on both.</b> TCP sends ACK 4. UDP sends no ACK, there is no such thing.", ["has: HELL", "sent ACK 4"], ["got: HELL"], ["ACK 4", "ok"], ["no receipt", ""], ["HELL", "arrives"]));
+  steps.push(two("Piece 2 is lost", "bad", "<b>Piece 2 is lost on both.</b> Nobody tells the UDP sender. The UDP receiver does not even know a piece is missing, unless the app has its own numbers.", ["still has: HELL", "no news yet"], ["got: HELL", "does not know about the hole"], ["waiting", "warn"], ["nothing", ""], ["OWOR", "LOST"]));
+  steps.push(two("TCP's timer ends", "srv", "<b>TCP sends piece 2 again.</b> It arrives this time. UDP does nothing: it has no timer and no copy.", ["has: HELLOWOR", "sent ACK 8"], ["got: HELL", "still does not know"], ["ACK 8", "ok"], ["nothing", ""], ["OWOR", "sent again (TCP only)"]));
+  steps.push(two("Piece 3", "chk", "<b>Piece 3 arrives on both.</b> TCP has everything. UDP has the pieces that arrived: it hands each datagram to the app whole, with the hole left open.", ["has: " + t.data, "sent ACK " + t.data.length], ["got: " + u.received.join(" | "), "missing piece number " + (u.lost[0] + 1)], ["ACK " + t.data.length, "ok"], ["hole", "bad"], ["LD", "arrives"]));
+  steps.push({ hop: "The result", phase: "done",
+    note: "<b>TCP: " + t.data + "</b>, complete and in order, but one piece came late. <b>UDP: " + u.received.join("") + "</b>, with a hole, but nothing waited. For a file you need TCP. For a live call, a short gap is better than a pause, so UDP wins there.",
+    boxes: [{ title: "TCP result", cls: "user", tag: ["complete", "ok"], big: { text: t.data }, bigLabel: t.retransmissions + " extra send, one wait" }, wireBox("same loss", "different answer", []), { title: "UDP result", cls: "srv", tag: ["has a hole", "bad"], big: { text: u.received.join("") }, bigLabel: "no wait, no resend" }] });
+  return steps;
+}
+
+function storyWindows() {
+  const rounds = 10, loss = [5];
+  const w = congestionWindows(rounds, loss);
+  const max = Math.max.apply(null, w);
+  const rows = upto => w.map((v, i) => '<div class="wrow ' + (i + 1 === upto ? "now " : "") + (i + 1 > upto ? "future " : "") + (loss.includes(i + 1) ? "lossrow" : (i > 0 && v >= w[i - 1] * 2 || i === 0 ? "slow" : "")) + '"><span>R' + (i + 1) + '</span><span class="track"><i class="fill" style="width:' + Math.round(100 * v / max) + '%"></i></span><span>' + v + "</span></div>").join("");
+  const mk = (i) => {
+    const r = i + 1, v = w[i];
+    const lost = loss.includes(r);
+    const next = w[i + 1];
+    let note, phase = "run";
+    if (r === 1) note = "<b>Round 1: send 1 piece.</b> TCP starts small, because it does not know how much the network can take. One round is one trip there and back.";
+    else if (lost) { phase = "bad"; note = "<b>Round " + r + ": window " + v + ", and a piece is lost.</b> A lost piece tells TCP the network is too full. It cuts the window to half: <b>" + next + "</b>. The new limit it remembers is " + next + ".";}
+    else if (r > loss[0]) { phase = "chk"; note = "<b>Round " + r + ": window " + v + ".</b> Now TCP is careful. It adds just <b>1</b> each round, and no longer doubles."; }
+    else note = "<b>Round " + r + ": window " + v + ".</b> No loss, so the window doubles. This is called slow start, and it is not slow for long.";
+    return { hop: "Round " + r + ": the sender may send " + v + " piece" + (v > 1 ? "s" : ""), phase, note,
+      boxes: [{ title: "Congestion window (pieces per round)", cls: "lb", tag: [lost ? "loss" : (r > loss[0] ? "careful growth" : "doubling"), lost ? "bad" : ""], raw: '<div class="wbars">' + rows(r) + "</div>" },
+        { title: "This round", cls: "srv", tag: ["R" + r, ""], big: { text: String(v) }, bigLabel: "pieces sent now", lines: [lost ? "loss, so the next window is " + next : (next === undefined ? "the test ends here" : "next window: " + next)] }] };
+  };
+  const steps = [{ hop: "Setup", phase: "setup",
+    note: "<b>The sender must not send faster than the network can carry.</b> If it does, routers drop pieces and everybody slows down. TCP keeps its own limit, the <b>congestion window</b>, and learns it by testing: grow until a loss, then back off.",
+    boxes: [{ title: "Congestion window", cls: "lb", tag: ["starts at 1", ""], raw: '<div class="wbars">' + rows(0) + "</div>" }, { title: "Two limits", cls: "fol", lines: ["congestion window: the network's room (the sender guesses it)", "receiver window: the receiver's room (the receiver tells it)", "the sender uses the smaller one"] }] }];
+  for (let i = 0; i < rounds; i++) steps.push(mk(i));
+  const lim = sendLimit(6, w[rounds - 1], 0);
+  steps.push({ hop: "The receiver speaks up", phase: "done",
+    note: "<b>The receiver says: my room is only 6.</b> That is <b>flow control</b>: it protects the receiver. The sender may send the smaller of the two windows: <code>sendLimit(6, " + w[rounds - 1] + ", 0)</code> = <b>" + lim + "</b>. Congestion control protects the network, flow control protects the receiver.",
+    boxes: [{ title: "Network window", cls: "lb", tag: ["congestion", ""], big: { text: String(w[rounds - 1]) }, bigLabel: "what the network seems to take" }, { title: "Receiver window", cls: "srv", tag: ["flow control", ""], big: { text: "6" }, bigLabel: "what the receiver has room for" }, { title: "The sender may send", cls: "fol", tag: ["the smaller", "ok"], big: { text: String(lim) }, bigLabel: "pieces now" }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. The handshake", sim: storyHandshake,
+    why: "The client can send its first data after one round trip: the SYN goes out, and the SYN+ACK comes back. Then it sends the third message, and data can ride with it.",
+    predict: { q: "How many round trips does the client wait before it can send its first data?", options: ["0", "1", "2"], answer: "1" } },
+  { name: "2. A lost piece", sim: storyResend,
+    why: "The piece that was lost is sent again, so there are 3 pieces and 1 extra send: 4 sends in all. The receiver gets the whole text, just later.",
+    predict: { q: "The text is 3 pieces and send number 2 is lost. How many sends happen in total?", options: ["3", "4", "5"], answer: "4" } },
+  { name: "3. Out of order", sim: storyOrder,
+    why: "The receiver wants byte 0 first. Pieces that come after a hole wait in a waiting room. When the hole is filled, the ACK jumps to the end.",
+    predict: { q: "Piece 2 (bytes 4 to 7) arrives first. Which ACK number does the receiver send?", options: ["0", "4", "8"], answer: "0" } },
+  { name: "4. Closing", sim: storyClose,
+    why: "The side that sends the last ACK cannot know if it arrived, so it waits in TIME_WAIT. That is the side that closed first.",
+    predict: { q: "Which side ends up in TIME_WAIT?", options: ["The side that closes first", "The side that closes second", "Both sides"], answer: "The side that closes first" } },
+  { name: "5. TCP and UDP, same loss", sim: storyUdp,
+    why: "UDP has no numbers, no receipts and no timer, so nobody notices or fixes the lost datagram. The app gets what arrived, with a hole.",
+    predict: { q: "One piece is lost. What does the app get with UDP?", options: ["The whole text, a bit late", "The text with a hole", "An error"], answer: "The text with a hole" } },
+  { name: "6. The two windows", sim: storyWindows,
+    why: "The window doubles each round: 1, 2, 4, 8, 16. In round 5 it is 16, and the loss comes after that round.",
+    predict: { q: "There is no loss for 5 rounds. How many pieces does the sender send in round 5?", options: ["5", "16", "32"], answer: "16" } }
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => (typeof document !== "undefined" ? document.getElementById(id) : null);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.raw) h += b.raw;
+  if (b.lines && b.lines.length) h += '<ul class="log">' + b.lines.map(l => "<li>" + l + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + (s.boxes.length === 3 ? "three" : "two");
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { STORIES, handshake, splitIntoSegments, reassemble, sendReliably, udpDeliver, closeConnection, sendLimit, congestionWindows };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

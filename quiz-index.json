@@ -480,6 +480,38 @@
   "count": 13
  },
  {
+  "slug": "learn/networking/01-the-layers-osi-and-tcp-ip",
+  "subject": "networking",
+  "subjectTitle": "Networking",
+  "num": "01",
+  "title": "The layers: OSI and TCP/IP",
+  "count": 14
+ },
+ {
+  "slug": "learn/networking/02-dns",
+  "subject": "networking",
+  "subjectTitle": "Networking",
+  "num": "02",
+  "title": "DNS: how a name becomes an IP address",
+  "count": 14
+ },
+ {
+  "slug": "learn/networking/03-tcp-vs-udp",
+  "subject": "networking",
+  "subjectTitle": "Networking",
+  "num": "03",
+  "title": "TCP vs UDP",
+  "count": 14
+ },
+ {
+  "slug": "learn/networking/06-cookies-cors-and-same-origin",
+  "subject": "networking",
+  "subjectTitle": "Networking",
+  "num": "06",
+  "title": "Cookies, CORS and same origin",
+  "count": 14
+ },
+ {
   "slug": "learn/problem-solving/01-big-o-time-and-space",
   "subject": "problem-solving",
   "subjectTitle": "Problem Solving Practice (JavaScript)",
