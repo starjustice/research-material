@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLS and HTTPS: key exchange, the handshake, what a spy sees, forward secrecy, resumption, mTLS</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/networking/README" id="lessons">&larr; Networking lessons</a>
+    <a href="../../../viewer.html?note=learn/networking/04-tls-and-https" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>TLS and HTTPS: key exchange, the handshake, what a spy sees, forward secrecy, resumption, mTLS</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of a TLS 1.3 connection. The numbers in the key exchange are tiny so you can follow them by hand. It runs the same <code>modPow</code>, <code>dhPublic</code>, <code>validateHandshake</code>, <code>whatObserverSees</code>, <code>canReadRecordedTraffic</code>, <code>acceptEarlyData</code> and <code>checkClientCert</code> code as the practice answer in the lesson. The message sizes and the openssl results come from real runs on 2026-11-21 (OpenSSL 4.1.0). Nothing here opens a real connection.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict" id="predict"></div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> a <b>key exchange</b> lets two strangers make the same secret while a spy watches. The <b>handshake</b> uses it, proves who the server is, and then everything is encrypted. A spy still sees the IP, the server name (until ECH), the sizes and the timing. A <b>throwaway key</b> gives forward secrecy. A <b>ticket</b> speeds up the next visit, and early data can be replayed. <b>mTLS</b> makes the client show a certificate too.</p>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------
+// The code below is the same code as the practice answer in the lesson. It is a model: no real
+// connection is made. Message sizes and openssl results in the notes come from real runs on 2026-11-21.
+// ---------------------------------------------------------------------------------------------
+const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+function modPow(base, exp, mod) {
+  let result = 1n;
+  let b = BigInt(base) % BigInt(mod);
+  let e = BigInt(exp);
+  const m = BigInt(mod);
+  while (e > 0n) {
+    if (e & 1n) result = (result * b) % m;
+    b = (b * b) % m;
+    e >>= 1n;
+  }
+  return Number(result % m);
+}
+
+function dhPublic(g, secret, p) {
+  return modPow(g, secret, p);
+}
+
+function dhShared(theirPublic, mySecret, p) {
+  return modPow(theirPublic, mySecret, p);
+}
+
+const ORDERS = {
+  full: ["ClientHello", "ServerHello", "EncryptedExtensions", "Certificate", "CertificateVerify", "Finished", "Finished"],
+  mutual: ["ClientHello", "ServerHello", "EncryptedExtensions", "CertificateRequest", "Certificate", "CertificateVerify", "Finished", "Certificate", "CertificateVerify", "Finished"],
+  resumed: ["ClientHello", "ServerHello", "EncryptedExtensions", "Finished", "Finished"],
+};
+
+function validateHandshake(types, mode) {
+  if (!has(ORDERS, mode)) throw new Error("mode must be full, mutual or resumed");
+  const want = ORDERS[mode];
+  if (types.length === 0) return { ok: false, reason: "no messages", at: 0 };
+  if (types[0] !== "ClientHello") return { ok: false, reason: "must start with ClientHello", at: 0 };
+  for (let i = 1; i < types.length; i++) {
+    if (i >= want.length) return { ok: false, reason: "unexpected " + types[i] + " after the handshake", at: i };
+    if (types[i] !== want[i]) return { ok: false, reason: "unexpected " + types[i] + " after " + types[i - 1], at: i };
+  }
+  if (types.length < want.length) return { ok: false, reason: "handshake not finished", at: types.length };
+  return { ok: true };
+}
+
+function whatObserverSees({ tlsVersion, ech }) {
+  const seen = ["destination ip", "destination port", "message sizes", "message timing"];
+  if (!ech) seen.push("server name (SNI)");
+  if (tlsVersion === "1.2") seen.push("server certificate");
+  return seen.sort();
+}
+
+function canReadRecordedTraffic(keyExchange, serverKeyLeaked) {
+  if (keyExchange === "rsa") return serverKeyLeaked === true;
+  if (keyExchange === "ecdhe") return false;
+  throw new Error("keyExchange must be rsa or ecdhe");
+}
+
+function acceptEarlyData(method, ticketUsedBefore) {
+  const m = String(method).toUpperCase();
+  return (m === "GET" || m === "HEAD") && !ticketUsedBefore;
+}
+
+function checkClientCert(requireClientCert, clientCertIssuer, trustedIssuers) {
+  if (!requireClientCert) return { ok: true };
+  if (clientCertIssuer === null) return { ok: false, alert: "certificate_required" };
+  if (!trustedIssuers.includes(clientCertIssuer)) return { ok: false, alert: "unknown_ca" };
+  return { ok: true };
+}
+
+function sessionKeySteps(clientSecret, serverSecret, g, p) {
+  const clientPublic = dhPublic(g, clientSecret, p);
+  const serverPublic = dhPublic(g, serverSecret, p);
+  const clientShared = dhShared(serverPublic, clientSecret, p);
+  const serverShared = dhShared(clientPublic, serverSecret, p);
+  return { clientPublic, serverPublic, clientShared, serverShared, same: clientShared === serverShared };
+}
+
+function describeLeg(scheme) {
+  const s = String(scheme).toLowerCase();
+  if (s === "http") return { port: 80, encrypted: false, proves: "nothing" };
+  if (s === "https") return { port: 443, encrypted: true, proves: "who you talk to" };
+  throw new Error("scheme must be http or https");
+}
+
+
+const L = (...xs) => xs;
+const fmtList = (xs) => xs.join(", ");
+
+// ---- Story 1: the key exchange with tiny numbers ----
+function simulateKeyExchange() {
+  const g = 5, p = 23, a = 6, b = 15;
+  const r = sessionKeySteps(a, b, g, p);
+  const steps = [];
+  steps.push({ layout: "three", hop: "Setup: two public numbers", phase: "setup",
+    note: "<b>The browser and the server agree on two numbers, and they say them out loud.</b> Here they are <code>p = " + p + "</code> and <code>g = " + g + "</code>. A spy may hear them. Real TLS does not use these tiny numbers. The ClientHello names a curve such as X25519, which plays the same role.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["knows", ""], small: "", lines: ["p = " + p + ", g = " + g] },
+            { title: "In the open", cls: "fol", tag: ["a spy sees this", "warn"], small: "", lines: ["p = " + p + ", g = " + g] },
+            { title: "Server", cls: "srv", tag: ["knows", ""], small: "", lines: ["p = " + p + ", g = " + g] }] });
+  steps.push({ layout: "three", hop: "Each side picks a secret number", phase: "run", lit: true,
+    note: "<b>Each side picks a private number and never sends it.</b> The browser picks <code>" + a + "</code>. The server picks <code>" + b + "</code>. In TLS 1.3 these are new for every connection, and they are thrown away after the handshake.",
+    boxes: [{ title: "Browser", cls: "user", lit: true, tag: ["secret", "bad"], small: "", lines: ["my secret = " + a, "never leaves me"] },
+            { title: "In the open", cls: "fol", tag: ["a spy sees this", "warn"], small: "", lines: ["p = " + p + ", g = " + g, "nothing else yet"] },
+            { title: "Server", cls: "srv", lit: true, tag: ["secret", "bad"], small: "", lines: ["my secret = " + b, "never leaves me"] }] });
+  steps.push({ layout: "three", hop: "Each side makes a public value", phase: "run",
+    note: "<b>Each side mixes g with its secret.</b> The browser works out <code>g to the power " + a + ", remainder after " + p + "</code>, which is <code>" + r.clientPublic + "</code>. The server does the same with its secret and gets <code>" + r.serverPublic + "</code>. This is the part you cannot easily run backwards.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["secret " + a, "bad"], small: "", lines: [g + "^" + a + " mod " + p + " = " + dhPublic(g, a, p), "my public value = " + r.clientPublic] },
+            { title: "In the open", cls: "fol", tag: ["a spy sees this", "warn"], small: "", lines: ["p = " + p + ", g = " + g] },
+            { title: "Server", cls: "srv", tag: ["secret " + b, "bad"], small: "", lines: [g + "^" + b + " mod " + p + " = " + dhPublic(g, b, p), "my public value = " + r.serverPublic] }] });
+  steps.push({ layout: "three", hop: "They swap the public values", phase: "chk", lit: true,
+    note: "<b>They swap the public values in the open.</b> This is the key_share in the ClientHello and in the ServerHello. The spy sees <code>" + r.clientPublic + "</code> and <code>" + r.serverPublic + "</code> go by.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["has", ""], small: "", lines: ["my secret = " + a, "server public = " + r.serverPublic] },
+            { title: "In the open", cls: "fol", lit: true, tag: ["a spy sees this", "warn"], small: "", lines: ["browser sends " + r.clientPublic, "server sends " + r.serverPublic] },
+            { title: "Server", cls: "srv", tag: ["has", ""], small: "", lines: ["my secret = " + b, "browser public = " + r.clientPublic] }] });
+  steps.push({ layout: "three", hop: "Both sides get the same number", phase: "srv",
+    note: "<b>Each side mixes the other side's public value with its own secret, and both get " + r.clientShared + ".</b> The browser computes <code>" + r.serverPublic + "^" + a + " mod " + p + "</code>. The server computes <code>" + r.clientPublic + "^" + b + " mod " + p + "</code>. Same answer: <code>same = " + r.same + "</code>. Nobody ever sent it.",
+    boxes: [{ title: "Browser", cls: "srv", lit: true, tag: ["shared secret", "ok"], small: "", lines: [r.serverPublic + "^" + a + " mod " + p + " = " + r.clientShared], big: { text: String(r.clientShared) } },
+            { title: "In the open", cls: "fol", tag: ["a spy sees this", "warn"], small: "", lines: ["only " + r.clientPublic + " and " + r.serverPublic, "the number " + r.clientShared + " was never sent"] },
+            { title: "Server", cls: "srv", lit: true, tag: ["shared secret", "ok"], small: "", lines: [r.clientPublic + "^" + b + " mod " + p + " = " + r.serverShared], big: { text: String(r.serverShared) } }] });
+  let found = null;
+  for (let x = 1; x < p; x++) { if (dhPublic(g, x, p) === r.clientPublic) { found = x; break; } }
+  steps.push({ layout: "three", hop: "Can the spy get it?", phase: "bad", badge: ["Why this is safe", "chk"],
+    note: "<b>The spy knows " + p + ", " + g + ", " + r.clientPublic + " and " + r.serverPublic + ". To find the shared number the spy must find a secret.</b> With numbers this small, trying every secret takes " + found + " tries and finds " + found + ". With real sizes (a 256 bit curve), no one can try them all. Real TLS depends on that.",
+    boxes: [{ title: "The spy's problem", cls: "alarm", tag: ["find x", "bad"], small: "", lines: [g + "^x mod " + p + " = " + r.clientPublic, "try x = 1, 2, 3, ...", "found x = " + found + " after " + found + " tries"] },
+            { title: "Tiny numbers", cls: "fol", tag: ["this demo", "warn"], small: "", lines: ["22 possible secrets", "a computer tries all at once"] },
+            { title: "Real sizes", cls: "srv", tag: ["real TLS", "ok"], small: "", lines: ["a 256 bit curve", "more secrets than atoms you can count", "no way to try them all"] }] });
+  steps.push({ layout: "three", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A key exchange lets two strangers make the same secret number while a spy watches.</b> That number then becomes the keys for the fast lock (symmetric encryption). The interview name for the real thing is <b>ECDHE</b>: Diffie-Hellman on an elliptic curve, with a new pair each time (the E at the front).",
+    boxes: [{ title: "Sent in the open", cls: "fol", tag: ["public", "warn"], small: "", lines: ["the curve and g", "both public values"] },
+            { title: "Kept at home", cls: "alarm", tag: ["private", "bad"], small: "", lines: ["each side's secret", "the shared number is worked out, not sent"] },
+            { title: "Result", cls: "srv", tag: ["keys", "ok"], small: "", lines: ["the shared number feeds the key setup", "fast encryption for the page"] }] });
+  return steps;
+}
+
+// ---- Story 2: the TLS 1.3 handshake, message by message ----
+function simulateHandshake() {
+  const sent = [];
+  const order = () => validateHandshake(sent.slice(), "full");
+  const steps = [];
+  steps.push({ layout: "three", hop: "Setup: a connection is open", phase: "setup",
+    note: "<b>The browser wants <code>https://shop.example.test</code>.</b> The connection (TCP) is already open, and nothing is secret yet. The sizes in this stepper come from a real <code>openssl s_client -msg</code> run against example.com on 2026-11-21.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["wants HTTPS", ""], small: "", lines: ["knows: the name shop.example.test", "has: a list of trusted roots"] },
+            { title: "The wire", cls: "fol", tag: ["plain so far", "warn"], small: "", lines: ["only a TCP connection"] },
+            { title: "Server", cls: "srv", tag: ["has", ""], small: "", lines: ["a certificate for its name", "the matching private key"] }] });
+  sent.push("ClientHello");
+  steps.push({ layout: "three", hop: "1. ClientHello (browser to server)", phase: "run",
+    note: "<b>The browser says hello and already sends its half of the key exchange.</b> It lists the TLS versions and ciphers it can use, the server name it wants (<b>SNI</b>), and a public value (key_share). That is why TLS 1.3 needs one round trip and not two. About 250 bytes in my run. This message is <b>not</b> encrypted.",
+    boxes: [{ title: "Browser", cls: "user", lit: true, tag: ["sends", ""], small: "", lines: ["versions: TLS 1.3", "ciphers: a short list", "server name: shop.example.test", "key_share: my public value"] },
+            { title: "The wire", cls: "fol", lit: true, tag: ["plain text", "warn"], small: "", lines: ["ClientHello, about 250 bytes", "a spy can read every field"] },
+            { title: "Server", cls: "srv", tag: ["receives", ""], small: "", lines: ["reads the list and the key_share"] }] });
+  sent.push("ServerHello");
+  steps.push({ layout: "three", hop: "2. ServerHello (server to browser)", phase: "srv",
+    note: "<b>The server picks one cipher and sends its half of the key exchange.</b> Both sides now mix their secret with the other public value. Both get the same shared secret and make the <b>handshake keys</b> from it. About 122 bytes in my run. This is the last message in plain text.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["can now make keys", "ok"], small: "", lines: ["my secret + server key_share", "= shared secret", "handshake keys ready"] },
+            { title: "The wire", cls: "fol", lit: true, tag: ["plain text", "warn"], small: "", lines: ["ServerHello, about 122 bytes", "chosen cipher + key_share"] },
+            { title: "Server", cls: "srv", lit: true, tag: ["sends", ""], small: "", lines: ["cipher: TLS_AES_256_GCM_SHA384", "key_share: my public value", "handshake keys ready"] }] });
+  sent.push("EncryptedExtensions", "Certificate", "CertificateVerify", "Finished");
+  steps.push({ layout: "three", hop: "3. The server's flight, all encrypted", phase: "run",
+    note: "<b>From here on, everything is encrypted.</b> The server sends four messages in a row: EncryptedExtensions, its <b>Certificate</b> (the chain, about 3,700 bytes here), <b>CertificateVerify</b> (a signature made with its private key) and <b>Finished</b>. A spy sees random looking bytes. In TLS 1.2 the certificate was visible. For what a certificate is, see the HTTPS lesson in DevOps.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["receives", ""], small: "", lines: ["decrypts with the handshake keys"] },
+            { title: "The wire", cls: "srv", lit: true, tag: ["encrypted", "ok"], small: "", lines: ["EncryptedExtensions, 10 bytes", "Certificate, about 3,686 bytes", "CertificateVerify, 80 bytes", "Finished, 52 bytes"] },
+            { title: "Server", cls: "srv", lit: true, tag: ["sends", ""], small: "", lines: ["my certificate chain", "a signature with my private key", "a check value over the whole talk"] }] });
+  steps.push({ layout: "three", hop: "4. The browser checks the server", phase: "chk",
+    note: "<b>The browser asks three questions.</b> Does the certificate chain end at a root I trust, and does it name shop.example.test? Does the signature in CertificateVerify match the certificate's public key? That proves the server holds the private key. Does Finished match everything said so far? That proves nobody changed the talk.",
+    boxes: [{ title: "Browser", cls: "user", lit: true, tag: ["checks", "warn"], small: "", lines: ["1. chain, name and dates", "2. signature: server owns the key", "3. Finished: nothing was changed"] },
+            { title: "The wire", cls: "fol", tag: ["quiet", ""], small: "", lines: ["nothing is sent in this step"] },
+            { title: "Server", cls: "srv", tag: ["waits", ""], small: "", lines: ["waiting for the browser Finished"] }] });
+  sent.push("Finished");
+  const ord = order();
+  steps.push({ layout: "three", hop: "5. Client Finished", phase: "srv",
+    note: "<b>The browser sends its own Finished.</b> Now both sides make the <b>application keys</b> and switch to them. The handshake took one round trip. <code>validateHandshake(sent, \"full\")</code> on the seven messages gives <code>ok: " + ord.ok + "</code>. The order matters: a server flight in the wrong order would fail.",
+    boxes: [{ title: "Browser", cls: "user", lit: true, tag: ["sends", ""], small: "", lines: ["Finished, 52 bytes", "application keys ready"] },
+            { title: "The wire", cls: "srv", lit: true, tag: ["encrypted", "ok"], small: "", lines: ["Finished, 52 bytes", "7 handshake messages in all", "order check: ok " + ord.ok] },
+            { title: "Server", cls: "srv", tag: ["receives", ""], small: "", lines: ["checks Finished", "application keys ready"] }] });
+  steps.push({ layout: "three", hop: "6. Now the HTTP request", phase: "srv",
+    note: "<b>The request travels inside the encrypted channel.</b> <code>GET /secret-page</code>, the cookies and the answer are all encrypted with a fast symmetric cipher (AES in this run). A spy sees only the size and the timing of each piece.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["sends", ""], small: "", lines: ["GET /secret-page", "Cookie: ..."] },
+            { title: "The wire", cls: "srv", lit: true, tag: ["encrypted", "ok"], small: "", lines: ["random looking bytes", "only the size and the timing show"] },
+            { title: "Server", cls: "srv", tag: ["sends", ""], small: "", lines: ["HTTP/1.1 200 OK", "the page"] }] });
+  steps.push({ layout: "three", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>TLS 1.3 handshake: hello with a key share, hello with a key share, then everything encrypted: certificate, proof, Finished. One round trip.</b> After it, HTTP runs inside the secret channel. For a repeat visit, a ticket can shorten it (tab 5).",
+    boxes: [{ title: "Plain text", cls: "fol", tag: ["two messages", "warn"], small: "", lines: ["ClientHello (with the server name)", "ServerHello"] },
+            { title: "Encrypted", cls: "srv", tag: ["the rest", "ok"], small: "", lines: ["certificate and proof", "Finished, both ways", "all the HTTP"] },
+            { title: "Cost", cls: "lb", tag: ["one round trip", ""], small: "", lines: ["TLS 1.2 needed two", "after TCP, before the first request"] }] });
+  return steps;
+}
+
+// ---- Story 3: what a spy sees ----
+function simulateSpy() {
+  const steps = [];
+  const v13 = whatObserverSees({ tlsVersion: "1.3", ech: false });
+  const v13ech = whatObserverSees({ tlsVersion: "1.3", ech: true });
+  const v12 = whatObserverSees({ tlsVersion: "1.2", ech: false });
+  steps.push({ layout: "two", hop: "Setup: you open a page", phase: "setup",
+    note: "<b>You open <code>https://shop.example.test/secret-page</code> on a cafe Wi-Fi.</b> Someone on the same network records every packet. Question: what can they read? I measured this on 2026-11-21 with a local server and a small recorder that sat between <code>openssl s_client</code> and the server.",
+    boxes: [{ title: "You send", cls: "user", tag: ["request", ""], small: "", lines: ["name: shop.example.test", "page: /secret-page", "cookie and body, if any"] },
+            { title: "The spy records", cls: "fol", tag: ["everything on the wire", "warn"], small: "", lines: ["every packet, both ways"] }] });
+  steps.push({ layout: "two", hop: "The address", phase: "chk",
+    note: "<b>The spy always sees who is talking.</b> The packet needs a destination address and port to travel, so they are never hidden by TLS. (The earlier DNS lookup is a separate story.)",
+    boxes: [{ title: "Visible", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: ["destination ip", "destination port (443)"] },
+            { title: "Hidden", cls: "srv", tag: ["nothing yet", ""], small: "", lines: ["the packets have not carried a message yet"] }] });
+  steps.push({ layout: "two", hop: "The ClientHello", phase: "bad", badge: ["Spy reads this", "bad"],
+    note: "<b>The server name is in the ClientHello, in plain text.</b> This is the <b>SNI</b>. The server needs it to choose the right certificate when one IP address hosts many sites. In my test, I searched the recorded bytes and found <code>shop.example.test</code> in the browser's first message.",
+    boxes: [{ title: "Visible", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: ["destination ip and port", "server name: shop.example.test", "key_share, ciphers"] },
+            { title: "Hidden", cls: "srv", tag: ["still safe", "ok"], small: "", lines: ["the page", "the cookies", "the answer"] }] });
+  steps.push({ layout: "two", hop: "The certificate", phase: "srv",
+    note: "<b>In TLS 1.3 the certificate is encrypted.</b> In my test the name <code>shop.example.test</code> appeared in the browser's bytes, but I could not find it in the server's bytes, although the certificate holds that name. With TLS 1.2 a spy could read the certificate. That is from the RFC, which says all handshake messages after the ServerHello are encrypted.",
+    boxes: [{ title: "Visible in TLS 1.2", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: v12.filter((x) => x === "server certificate").concat(["...plus the list on the left of the final step"]) },
+            { title: "Hidden in TLS 1.3", cls: "srv", tag: ["encrypted", "ok"], small: "", lines: ["the certificate", "CertificateVerify", "Finished"] }] });
+  steps.push({ layout: "two", hop: "The request", phase: "srv",
+    note: "<b>The path, the headers, the cookies and the body are all inside the encrypted data.</b> I sent <code>GET /secret-page</code> through the recorder and searched for <code>secret-page</code> in both directions. It was not in the bytes. A spy cannot tell which page of the site you read.",
+    boxes: [{ title: "Visible", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: ["ip, port, server name"] },
+            { title: "Hidden", cls: "srv", tag: ["encrypted", "ok"], small: "", lines: ["/secret-page", "headers and cookies", "the body of the answer"] }] });
+  steps.push({ layout: "two", hop: "Sizes and timing", phase: "bad", badge: ["Spy reads this", "bad"],
+    note: "<b>The spy still sees how much data moved and when.</b> In my test, 416 bytes went up and 6,475 bytes came back. A big download looks different from a tiny one. Researchers use sizes and timing to guess pages or videos. Encryption does not hide the size of a message.",
+    boxes: [{ title: "Visible", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: ["416 bytes up", "6,475 bytes down", "the time of each packet"] },
+            { title: "So", cls: "fol", tag: ["careful", "warn"], small: "", lines: ["a 2 MB reply is not a 2 KB reply", "padding can help, few sites use it"] }] });
+  steps.push({ layout: "two", hop: "With ECH", phase: "srv",
+    note: "<b>Encrypted Client Hello (ECH) hides the server name too.</b> The browser sends an outer hello with a shared name, and puts the real name in an inner hello that only the server side can open. Cloudflare says the shared name it uses is <code>cloudflare-ech.com</code>. The spy still sees the IP address. ECH is RFC 9849 (March 2026).",
+    boxes: [{ title: "Visible with ECH", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: v13ech }, { title: "Visible without ECH", cls: "fol", tag: ["spy reads", "warn"], small: "", lines: v13 }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>HTTPS hides what you say, not who you talk to or how much.</b> The IP, the port, the server name (until ECH), the sizes and the timing stay visible. The page, the headers, the cookies and the body do not.",
+    boxes: [{ title: "Not hidden", cls: "alarm", tag: ["spy reads", "bad"], small: "", lines: ["destination ip and port", "server name (SNI)", "sizes and timing"] },
+            { title: "Hidden", cls: "srv", tag: ["encrypted", "ok"], small: "", lines: ["the path and query", "headers and cookies", "the body", "the certificate (TLS 1.3)"] }] });
+  return steps;
+}
+
+// ---- Story 4: forward secrecy ----
+function simulateForwardSecrecy() {
+  const steps = [];
+  steps.push({ layout: "two", hop: "Setup: a spy records everything", phase: "setup",
+    note: "<b>A spy cannot read your traffic today, but records it all and stores it.</b> The question is what happens in a year, if the server's private key leaks (a hacked backup, a court order, a bad employee).",
+    boxes: [{ title: "Today", cls: "user", tag: ["encrypted", "ok"], small: "", lines: ["you and the server talk", "the spy records the bytes"] },
+            { title: "In one year", cls: "fol", tag: ["what if", "warn"], small: "", lines: ["the server's private key leaks", "can the spy open the old recording?"] }] });
+  steps.push({ layout: "two", hop: "The old way: RSA key exchange", phase: "bad", badge: ["Old TLS 1.2 style", "bad"],
+    note: "<b>The browser makes a session key and sends it, locked with the server's long term public key.</b> Only the server's private key can unlock it. That one key protects every session it ever had.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["makes the key", ""], small: "", lines: ["session key = random", "locks it with the server's public key", "sends the locked key"] },
+            { title: "What the spy records", cls: "alarm", tag: ["stored", "bad"], small: "", lines: ["the locked session key", "all the encrypted data"] }] });
+  steps.push({ layout: "two", hop: "A year later, the key leaks", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>With the leaked private key the spy unlocks every recorded session key.</b> <code>canReadRecordedTraffic(\"rsa\", true)</code> is <code>" + canReadRecordedTraffic("rsa", true) + "</code>. A single leak opens years of recordings.",
+    boxes: [{ title: "The spy", cls: "alarm", tag: ["has the key", "bad"], small: "", lines: ["unlocks each saved session key", "decrypts each saved session"] },
+            { title: "Result", cls: "alarm", tag: ["can read all", "bad"], small: "", lines: ["canReadRecordedTraffic(rsa, true) = " + canReadRecordedTraffic("rsa", true)] }] });
+  steps.push({ layout: "two", hop: "The new way: ECDHE", phase: "run",
+    note: "<b>Both sides make a new throwaway key pair for each connection and mix the public halves.</b> The session key is never sent, even locked. After the handshake, both sides delete their secret numbers. The server's long term key now only <b>signs</b> (the CertificateVerify). It no longer protects any session key.",
+    boxes: [{ title: "Each connection", cls: "srv", tag: ["new pair", "ok"], small: "", lines: ["browser: new secret", "server: new secret", "shared secret by key exchange", "secrets deleted afterwards"] },
+            { title: "Server's long term key", cls: "lb", tag: ["only signs", ""], small: "", lines: ["proves who the server is", "does not unlock any session"] }] });
+  steps.push({ layout: "two", hop: "A year later, the key leaks", phase: "srv",
+    note: "<b>Now the spy has the leaked key and the old recordings, and still cannot read them.</b> The secrets that made the session keys were deleted a year ago. <code>canReadRecordedTraffic(\"ecdhe\", true)</code> is <code>" + canReadRecordedTraffic("ecdhe", true) + "</code>. This is called <b>forward secrecy</b>: a later leak does not open earlier sessions.",
+    boxes: [{ title: "The spy", cls: "alarm", tag: ["has the key", "bad"], small: "", lines: ["the leaked long term key", "the old recordings"] },
+            { title: "Result", cls: "srv", tag: ["still locked", "ok"], small: "", lines: ["canReadRecordedTraffic(ecdhe, true) = " + canReadRecordedTraffic("ecdhe", true)] }] });
+  steps.push({ layout: "two", hop: "What TLS 1.3 did", phase: "chk",
+    note: "<b>TLS 1.3 removed RSA key exchange.</b> Every full handshake uses a throwaway key exchange, so forward secrecy is the default and not a setting you must remember. One exception to keep in mind: 0-RTT early data (tab 5) is not forward secret.",
+    boxes: [{ title: "TLS 1.2", cls: "fol", tag: ["your choice", "warn"], small: "", lines: ["RSA key exchange: no forward secrecy", "ECDHE: forward secrecy"] },
+            { title: "TLS 1.3", cls: "srv", tag: ["always", "ok"], small: "", lines: ["only key exchange with throwaway keys", "forward secrecy for the full handshake"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>Forward secrecy means a stolen server key cannot open old recordings.</b> It works because the session key comes from throwaway secrets that are deleted, not from the long term key.",
+    boxes: [{ title: "The idea", cls: "srv", tag: ["remember", "ok"], small: "", lines: ["session key from throwaway secrets", "long term key only signs", "leak later, nothing opens"] },
+            { title: "The cost", cls: "lb", tag: ["small", ""], small: "", lines: ["a little extra math per connection", "worth it: modern CPUs do it fast"] }] });
+  return steps;
+}
+
+// ---- Story 5: resumption and 0-RTT ----
+function simulateResume() {
+  const steps = [];
+  const full = ["ClientHello", "ServerHello", "EncryptedExtensions", "Certificate", "CertificateVerify", "Finished", "Finished"];
+  const resumed = ["ClientHello", "ServerHello", "EncryptedExtensions", "Finished", "Finished"];
+  steps.push({ layout: "two", hop: "First visit: a full handshake", phase: "setup",
+    note: "<b>The first visit does the whole handshake.</b> In my local test the browser read 740 bytes from the server, because the certificate was sent. <code>validateHandshake</code> on the messages: <code>ok: " + validateHandshake(full, "full").ok + "</code>.",
+    boxes: [{ title: "Messages", cls: "user", tag: ["full", ""], small: "", lines: full },
+            { title: "Cost", cls: "fol", tag: ["first time", "warn"], small: "", lines: ["740 bytes read in my run", "one round trip", "a signature check"] }] });
+  steps.push({ layout: "two", hop: "The server hands out a ticket", phase: "run",
+    note: "<b>After the handshake the server sends a session ticket.</b> It holds what is needed to restart later, locked with a key only the server knows. In my test the hint said the ticket lasts 7,200 seconds (2 hours).",
+    boxes: [{ title: "Server", cls: "srv", tag: ["sends", ""], small: "", lines: ["NewSessionTicket", "lifetime hint: 7200 seconds"] },
+            { title: "Browser", cls: "user", tag: ["keeps", ""], small: "", lines: ["the ticket", "plus a secret for it"] }] });
+  steps.push({ layout: "two", hop: "Second visit: resumed", phase: "srv",
+    note: "<b>The browser shows the ticket in its ClientHello, and the server skips the certificate.</b> The ticket already proves the earlier talk. In my test the browser read only 269 bytes, and openssl printed <code>Reused, TLSv1.3</code>. <code>validateHandshake</code> with mode resumed: <code>ok: " + validateHandshake(resumed, "resumed").ok + "</code>.",
+    boxes: [{ title: "Messages", cls: "srv", tag: ["resumed", "ok"], small: "", lines: resumed },
+            { title: "Cost", cls: "srv", tag: ["cheaper", "ok"], small: "", lines: ["269 bytes read in my run", "no certificate, no big signature check"] }] });
+  steps.push({ layout: "two", hop: "0-RTT: send the request at once", phase: "run",
+    note: "<b>With 0-RTT the browser puts its request in the very first message.</b> The data is encrypted with a key from the ticket. The server can answer with no waiting. In my test openssl printed <code>Early data was accepted</code>. This is the fastest path, and it has a catch.",
+    boxes: [{ title: "First flight", cls: "user", tag: ["browser sends", ""], small: "", lines: ["ClientHello + ticket", "early data: GET /", "all in one go"] },
+            { title: "Server", cls: "srv", tag: ["accepts", "ok"], small: "", lines: ["Early data was accepted", "answers right away"] }] });
+  steps.push({ layout: "two", hop: "The catch: replay", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>An attacker can copy that first flight and send it again.</b> The RFC says: \"There are no guarantees of non-replay between connections.\" If the early request was <code>POST /pay</code>, the server could run it twice. I tried to send the same ticket's early data a second time. This OpenSSL test server answered <code>Early data was rejected</code>, so it carries on with a normal handshake. Not every server remembers old tickets.",
+    boxes: [{ title: "Attacker", cls: "alarm", tag: ["copies", "bad"], small: "", lines: ["records the first flight", "sends the same bytes again"] },
+            { title: "In my test", cls: "fol", tag: ["observed", "warn"], small: "", lines: ["1st use of the ticket: early data accepted", "2nd use: early data rejected"] }] });
+  steps.push({ layout: "two", hop: "The rule", phase: "chk",
+    note: "<b>Only allow early data for requests that are safe to run twice.</b> <code>acceptEarlyData(\"GET\", false)</code> is <code>" + acceptEarlyData("GET", false) + "</code>. <code>acceptEarlyData(\"POST\", false)</code> is <code>" + acceptEarlyData("POST", false) + "</code>. A used ticket is refused: <code>acceptEarlyData(\"GET\", true)</code> is <code>" + acceptEarlyData("GET", true) + "</code>. Early data is also not forward secret, because it uses a key from the ticket and not a fresh exchange. Cloudflare's overview says servers should force a full handshake for requests that must not repeat.",
+    boxes: [{ title: "Allowed", cls: "srv", tag: ["safe to repeat", "ok"], small: "", lines: ["GET, HEAD", "when the ticket is fresh"] },
+            { title: "Refused", cls: "alarm", tag: ["not safe", "bad"], small: "", lines: ["POST, PUT, PATCH, DELETE", "a ticket used before"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>A ticket makes the next visit cheaper. 0-RTT makes it fastest, but a copied request can run twice, so use it only for safe requests.</b> Resumption still gives forward secrecy for the new data, but early data does not have it.",
+    boxes: [{ title: "Resumption", cls: "srv", tag: ["use it", "ok"], small: "", lines: ["skips the certificate", "269 vs 740 bytes in my test"] },
+            { title: "0-RTT", cls: "lb", tag: ["careful", ""], small: "", lines: ["request in the first flight", "can be replayed", "safe requests only"] }] });
+  return steps;
+}
+
+// ---- Story 6: mutual TLS ----
+function simulateMtls() {
+  const steps = [];
+  const mutual = ["ClientHello", "ServerHello", "EncryptedExtensions", "CertificateRequest", "Certificate", "CertificateVerify", "Finished", "Certificate", "CertificateVerify", "Finished"];
+  steps.push({ layout: "two", hop: "Setup: normal TLS", phase: "setup",
+    note: "<b>In normal HTTPS only the server shows a certificate.</b> You are anyone: the server does not know who you are at this level. It asks for a login or a token later, inside HTTP.",
+    boxes: [{ title: "Browser", cls: "user", tag: ["no certificate", ""], small: "", lines: ["checks the server's certificate"] },
+            { title: "Server", cls: "srv", tag: ["certificate", ""], small: "", lines: ["shows its certificate", "does not ask who you are"] }] });
+  steps.push({ layout: "two", hop: "The server asks for a certificate", phase: "run",
+    note: "<b>With mutual TLS (mTLS) the server adds one message: CertificateRequest.</b> It says: show me a certificate too, from one of these issuers. In my test openssl s_client printed \"Acceptable client certificate CA names\".",
+    boxes: [{ title: "Server flight", cls: "srv", tag: ["encrypted", "ok"], small: "", lines: ["EncryptedExtensions", "CertificateRequest", "Certificate", "CertificateVerify", "Finished"] },
+            { title: "Browser", cls: "user", tag: ["is asked", ""], small: "", lines: ["show me a certificate too"] }] });
+  steps.push({ layout: "two", hop: "The client answers", phase: "chk",
+    note: "<b>The client sends its certificate and a CertificateVerify signature.</b> That proves it holds the matching private key, just like the server did. Messages in order, checked by <code>validateHandshake(..., \"mutual\")</code>: <code>ok: " + validateHandshake(mutual, "mutual").ok + "</code>.",
+    boxes: [{ title: "Client flight", cls: "user", tag: ["encrypted", "ok"], small: "", lines: ["Certificate (CN=ana-laptop)", "CertificateVerify", "Finished"] },
+            { title: "All 10 messages", cls: "fol", tag: ["in order", "ok"], small: "", lines: mutual }] });
+  steps.push({ layout: "two", hop: "The server checks it", phase: "srv",
+    note: "<b>The server checks that the client certificate was issued by a CA it trusts.</b> <code>checkClientCert(true, \"Demo Root\", [\"Demo Root\"])</code> gives <code>ok: " + checkClientCert(true, "Demo Root", ["Demo Root"]).ok + "</code>. In my test the server answered <code>HTTP/1.0 200 ok</code> to the client with a certificate.",
+    boxes: [{ title: "Check", cls: "srv", tag: ["trusted issuer", "ok"], small: "", lines: ["client cert issued by Demo Root", "Demo Root is on my trust list", "the server knows: this is ana-laptop"] },
+            { title: "Result", cls: "srv", tag: ["connected", "ok"], small: "", lines: ["HTTP/1.0 200 ok"] }] });
+  const missing = checkClientCert(true, null, ["Demo Root"]);
+  const other = checkClientCert(true, "Evil CA", ["Demo Root"]);
+  steps.push({ layout: "two", hop: "A client with no certificate", phase: "bad", badge: ["Something is wrong", "bad"],
+    note: "<b>The server stops the connection with an alert.</b> In my test, openssl without a certificate printed <code>tlsv13 alert certificate required</code> and <code>SSL alert number 116</code>. <code>checkClientCert(true, null, [...])</code> gives <code>alert: " + missing.alert + "</code>. A certificate from an unknown issuer gives <code>alert: " + other.alert + "</code>.",
+    boxes: [{ title: "No certificate", cls: "alarm", tag: ["refused", "bad"], small: "", lines: ["alert: " + missing.alert, "real alert number: 116"] },
+            { title: "Wrong issuer", cls: "alarm", tag: ["refused", "bad"], small: "", lines: ["alert: " + other.alert] }] });
+  steps.push({ layout: "two", hop: "Where it is used", phase: "chk",
+    note: "<b>mTLS is common between services, and rare between a browser and a website.</b> The MDN page says client authentication is rare on the web outside specialized applications. Inside a company, service meshes and zero trust setups use it, so each service proves its identity with a certificate and not with a password. The cost: you must hand out, rotate and revoke many certificates.",
+    boxes: [{ title: "Good fit", cls: "srv", tag: ["often", "ok"], small: "", lines: ["service to service calls", "partner APIs", "device to cloud"] },
+            { title: "Poor fit", cls: "fol", tag: ["rare", "warn"], small: "", lines: ["public websites", "ordinary visitors"] }] });
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>mTLS means both sides show a certificate.</b> The server learns who the client is during the handshake, and the client must hold a private key and a certificate from a trusted issuer.",
+    boxes: [{ title: "Normal TLS", cls: "user", tag: ["one way", ""], small: "", lines: ["the server proves who it is"] },
+            { title: "mTLS", cls: "srv", tag: ["two way", "ok"], small: "", lines: ["the server proves who it is", "the client proves who it is"] }] });
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Key exchange", sim: simulateKeyExchange,
+    why: "The spy sees both public values and the two starting numbers, but never the shared number. Each side mixes the other side's public value with its own secret, and both get the same result.",
+    predict: { q: "A spy sees both public values go by. Can the spy simply read the shared secret off the wire?", options: ["Yes, it is sent in the ClientHello", "No, each side works it out and nobody sends it", "Only on a public Wi-Fi"], answer: "No, each side works it out and nobody sends it" } },
+  { name: "2. The handshake", sim: simulateHandshake,
+    why: "The ClientHello already carries the browser's key share, so the server can answer with its own and start encrypting at once. The server's flight and the browser's Finished make up the rest.",
+    predict: { q: "After the connection is open, how many round trips does a full TLS 1.3 handshake need before the browser can send its HTTP request?", options: ["Zero", "One", "Three"], answer: "One" } },
+  { name: "3. What a spy sees", sim: simulateSpy,
+    why: "TLS hides the content, not the address. The IP, the port, the server name in the ClientHello (until ECH), and the size and timing of the packets are still visible.",
+    predict: { q: "Someone on the cafe Wi-Fi records your HTTPS request to shop.example.test/secret-page. Which of these can they read?", options: ["The server name and the IP, not the path", "The whole URL including /secret-page", "Nothing at all"], answer: "The server name and the IP, not the path" } },
+  { name: "4. Forward secrecy", sim: simulateForwardSecrecy,
+    why: "With a throwaway key exchange the session key is never sent and the secrets are deleted. A later leak of the server's long term key opens nothing from earlier sessions.",
+    predict: { q: "A spy recorded your traffic a year ago. Today the server's private key leaks. Can the spy read the old recording if the sessions used ECDHE?", options: ["Yes, the leaked key opens everything", "No, the session keys came from deleted throwaway secrets", "Only the first minute"], answer: "No, the session keys came from deleted throwaway secrets" } },
+  { name: "5. Resume and 0-RTT", sim: simulateResume,
+    why: "A ticket lets a second visit skip the certificate. 0-RTT sends the request in the first flight, so an attacker can replay it. Only safe, repeatable requests may use early data.",
+    predict: { q: "A browser resumes with a saved ticket. Does the server send its certificate again?", options: ["Yes, always", "No, the ticket stands in for it", "Only if the page changed"], answer: "No, the ticket stands in for it" } },
+  { name: "6. mTLS", sim: simulateMtls,
+    why: "In mutual TLS the server sends a CertificateRequest and the client answers with its own certificate and signature. With none, the handshake ends with the alert certificate_required.",
+    predict: { q: "A server requires a client certificate and the client has none. What happens?", options: ["The page loads as usual", "The handshake ends with an alert: certificate required", "The server asks for a password"], answer: "The handshake ends with an alert: certificate required" } }
+];
+
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.big) h += '<div class="big' + (b.big.neg ? " neg" : "") + '">' + b.big.text + "</div>";
+  if (b.bigLabel) h += '<div class="biglabel">' + b.bigLabel + "</div>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateKeyExchange, simulateHandshake, simulateSpy, simulateForwardSecrecy, simulateResume, simulateMtls, STORIES, modPow, dhPublic, dhShared, validateHandshake, whatObserverSees, canReadRecordedTraffic, acceptEarlyData, checkClientCert, sessionKeySteps, describeLeg };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

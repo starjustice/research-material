@@ -504,6 +504,22 @@
   "count": 14
  },
  {
+  "slug": "learn/networking/04-tls-and-https",
+  "subject": "networking",
+  "subjectTitle": "Networking",
+  "num": "04",
+  "title": "TLS and HTTPS",
+  "count": 14
+ },
+ {
+  "slug": "learn/networking/05-http-1-1-vs-http-2-vs-http-3",
+  "subject": "networking",
+  "subjectTitle": "Networking",
+  "num": "05",
+  "title": "HTTP/1.1 vs HTTP/2 vs HTTP/3",
+  "count": 14
+ },
+ {
   "slug": "learn/networking/06-cookies-cors-and-same-origin",
   "subject": "networking",
   "subjectTitle": "Networking",

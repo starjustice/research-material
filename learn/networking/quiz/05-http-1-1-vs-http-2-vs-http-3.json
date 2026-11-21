@@ -1,0 +1,153 @@
+[
+  {
+    "q": "A page needs 12 files, 100 ms each. The browser uses HTTP/1.1 with 6 connections. About how long does it take?",
+    "options": [
+      "100 ms",
+      "200 ms",
+      "600 ms",
+      "1200 ms"
+    ],
+    "answer": 1,
+    "why": "Each connection does one request at a time. Six run together, then six more. That is two rounds of 100 ms."
+  },
+  {
+    "type": "tf",
+    "q": "HTTP/1.1 keep-alive lets one connection carry two requests at the same moment.",
+    "answer": false,
+    "why": "No. Keep-alive only reuses the connection for the next request, one after the other. Doing two at once needs HTTP/2 streams."
+  },
+  {
+    "q": "What is head-of-line blocking at the HTTP level in HTTP/1.1?",
+    "options": [
+      "A request waits behind the one in front of it on the same connection",
+      "The server runs out of memory",
+      "A packet is lost and TCP waits",
+      "The browser blocks the first request"
+    ],
+    "answer": 0,
+    "why": "A connection answers requests in order. A slow first answer holds back all the others on that connection. Browsers open six connections to soften this."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these does HTTP/2 add compared with HTTP/1.1?",
+    "options": [
+      "Many streams on one connection",
+      "Header compression (HPACK)",
+      "A new transport called QUIC over UDP",
+      "Binary frames instead of text"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "HTTP/2 has multiplexed streams, HPACK and binary frames, all over TCP. QUIC over UDP belongs to HTTP/3."
+  },
+  {
+    "q": "One packet is lost on an HTTP/2 connection. What happens?",
+    "options": [
+      "Only the stream that owned the packet waits",
+      "Every stream on that TCP connection waits",
+      "Nothing, HTTP/2 repairs it with no delay",
+      "The browser opens six new connections"
+    ],
+    "answer": 1,
+    "why": "TCP gives data to the app in order, and it does not know about streams. One missing packet holds everything behind it."
+  },
+  {
+    "type": "order",
+    "q": "Put these in order, from the oldest protocol to the newest.",
+    "items": [
+      "HTTP/1.1",
+      "HTTP/2 over TCP",
+      "HTTP/3 over QUIC"
+    ],
+    "why": "HTTP/1.1 came first, then HTTP/2 with multiplexing, then HTTP/3 which moves to QUIC over UDP."
+  },
+  {
+    "q": "Why does HTTP/3 use UDP?",
+    "options": [
+      "UDP is more reliable than TCP",
+      "QUIC builds its own reliability and streams on top of UDP, and new TCP changes are hard to roll out",
+      "UDP has no header",
+      "Browsers cannot use TCP any more"
+    ],
+    "answer": 1,
+    "why": "QUIC runs in user space on UDP. It adds its own loss repair and keeps streams apart. Changing TCP would need every router and system to update."
+  },
+  {
+    "type": "fill",
+    "q": "A fresh HTTP/3 connection needs this many round trips before the first request is sent. Type the number.",
+    "answer": [
+      "1",
+      "one"
+    ],
+    "why": "QUIC joins the connection and the TLS 1.3 handshake, so it needs 1 round trip. HTTP/2 with TLS 1.3 needs 2."
+  },
+  {
+    "q": "Why can a server not accept every request sent in 0-RTT?",
+    "options": [
+      "It is not encrypted",
+      "An attacker can copy and replay the first packet",
+      "It only works for images",
+      "It needs a second certificate"
+    ],
+    "answer": 1,
+    "why": "0-RTT data has no replay protection. So servers allow it for safe requests such as GET, and refuse POST."
+  },
+  {
+    "type": "tf",
+    "q": "A phone moves from Wi-Fi to mobile data. An HTTP/3 connection can keep going, because QUIC names a connection by an ID and not by IP addresses.",
+    "answer": true,
+    "why": "This is connection migration. A TCP connection is named by the four address numbers, so HTTP/2 must open a new connection."
+  },
+  {
+    "q": "How does the browser learn that a site also speaks HTTP/3?",
+    "options": [
+      "From the Alt-Svc response header",
+      "From the DNS TTL",
+      "From the HTTP method",
+      "From the cookie"
+    ],
+    "answer": 0,
+    "why": "A header like alt-svc: h3=\":443\"; ma=86400 says h3 is on port 443 for a day. The next visit can try QUIC."
+  },
+  {
+    "q": "Which sits inside the TLS hello and lets the client and server pick h2 or http/1.1?",
+    "options": [
+      "Alt-Svc",
+      "ALPN",
+      "HSTS",
+      "ETag"
+    ],
+    "answer": 1,
+    "why": "ALPN is a TLS extension. The client lists what it speaks and the server picks one."
+  },
+  {
+    "type": "multi",
+    "q": "Your site now speaks HTTP/3. What must you do on the server side?",
+    "options": [
+      "Open UDP 443 in the firewall",
+      "Send an Alt-Svc header on the TCP answers",
+      "Turn off TCP 443",
+      "Keep HTTP/2 on as the fallback"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Open UDP 443, advertise with Alt-Svc, and keep TCP and HTTP/2 because some networks block UDP."
+  },
+  {
+    "q": "A response has Cache-Control: no-cache. What does it mean?",
+    "options": [
+      "Do not store it at all",
+      "The cache may keep it but must ask the server before reusing it",
+      "It stays fresh for a year",
+      "It is always served from the CDN"
+    ],
+    "answer": 1,
+    "why": "no-cache means revalidate before reuse, usually with an ETag and a 304. no-store is the one that forbids keeping it."
+  }
+]

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTTP/1.1, HTTP/2 and HTTP/3: lines, one road, a lost packet</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+  .stage.one { grid-template-columns: 1fr; }
+  .wfrow { display: flex; align-items: center; gap: 6px; margin: 2px 0; font-size: .7rem; }
+  .wfn { width: 64px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .wft { position: relative; flex: 1; height: 13px; background: var(--code-bg); border-radius: 4px; overflow: hidden; }
+  .wft i { position: absolute; top: 0; height: 100%; display: block; }
+  .wft i.wait { top: 5px; height: 3px; background: var(--muted); opacity: .45; }
+  .wft i.go { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.45) 0 4px, transparent 4px 8px); }
+  .wft b { position: absolute; top: 0; width: 2px; height: 100%; background: var(--ink); }
+  .k0 { background: var(--user); } .k1 { background: var(--lb); } .k2 { background: var(--srv); }
+  .k3 { background: var(--store); } .k4 { background: var(--bad); } .k5 { background: #14a3b8; } .kh2 { background: var(--srv); }
+  .srow { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: .74rem; }
+  .srow .sn { width: 84px; flex: none; color: var(--muted); }
+  .chunk { width: 22px; height: 22px; border-radius: 5px; border: 1.5px solid var(--border); font-size: .62rem; display: flex; align-items: center; justify-content: center; flex: none; }
+  .chunk.wait { border-style: dashed; opacity: .5; }
+  .chunk.lost { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); font-weight: 800; }
+  .chunk.stuck { background: var(--store-bg); border-color: var(--store); }
+  .chunk.done { background: var(--srv-bg); border-color: var(--srv); }
+  .chunks { display: flex; gap: 3px; flex-wrap: wrap; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/networking/README" id="lessons">&larr; Networking lessons</a>
+    <a href="../../../viewer.html?note=learn/networking/05-http-1-1-vs-http-2-vs-http-3" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>HTTP/1.1, HTTP/2 and HTTP/3: lines, one road, a lost packet</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model. It runs the same <code>h1Schedule</code>, <code>h2LoadTime</code>, <code>deliveryTimes</code>, <code>pickProtocol</code>, <code>parseAltSvc</code>, <code>setupRoundTrips</code> and <code>survivesNetworkChange</code> as the practice answer in the lesson. No real network is used.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+  <p class="legend"><b>The rule to remember:</b> HTTP/1.1 does one request per connection, so browsers open six. HTTP/2 shares one connection, but TCP holds every stream when one packet is lost. HTTP/3 uses QUIC, so only the stream with the loss waits.</p>
+</div>
+<script>
+// The model code below is the same code as the practice answer in the lesson.
+function h1Schedule(durations, options = {}) {
+  const { connections = 6, connectMs = 0, keepAlive = true } = options;
+  if (!Number.isInteger(connections) || connections < 1) throw new Error("connections must be a whole number of 1 or more");
+  const freeAt = new Array(connections).fill(0);
+  const used = new Array(connections).fill(false);
+  const out = [];
+  for (const ms of durations) {
+    let c = 0;
+    for (let i = 1; i < connections; i++) if (freeAt[i] < freeAt[c]) c = i;
+    const needsConnect = !used[c] || !keepAlive;
+    const start = freeAt[c] + (needsConnect ? connectMs : 0);
+    const end = start + ms;
+    freeAt[c] = end;
+    used[c] = true;
+    out.push({ conn: c, start, end });
+  }
+  return out;
+}
+
+function h1LoadTime(durations, options) {
+  const schedule = h1Schedule(durations, options);
+  return schedule.length === 0 ? 0 : Math.max(...schedule.map((r) => r.end));
+}
+
+function h2LoadTime(durations, options = {}) {
+  const { connectMs = 0, maxStreams = 100 } = options;
+  if (durations.length === 0) return 0;
+  return connectMs + h1LoadTime(durations, { connections: maxStreams, connectMs: 0 });
+}
+
+function deliveryTimes(chunkCounts, protocol, lost, retransmitDelay = 8) {
+  if (protocol !== "h2" && protocol !== "h3") throw new Error("protocol must be h2 or h3");
+  const sends = [];
+  const longest = Math.max(0, ...chunkCounts);
+  for (let k = 0; k < longest; k++) {
+    for (let s = 0; s < chunkCounts.length; s++) {
+      if (k < chunkCounts[s]) sends.push({ stream: s, chunk: k });
+    }
+  }
+  const finish = new Array(chunkCounts.length).fill(0);
+  const lastOf = new Array(chunkCounts.length).fill(0);
+  let lastAll = 0;
+  sends.forEach((c, i) => {
+    const isLost = lost && lost.stream === c.stream && lost.chunk === c.chunk;
+    const arrives = i + 1 + (isLost ? retransmitDelay : 0);
+    const before = protocol === "h2" ? lastAll : lastOf[c.stream];
+    const delivered = Math.max(before, arrives);
+    lastAll = Math.max(lastAll, delivered);
+    lastOf[c.stream] = delivered;
+    finish[c.stream] = Math.max(finish[c.stream], delivered);
+  });
+  return finish;
+}
+
+function pickProtocol(clientOffers, serverSupports) {
+  for (const p of serverSupports) {
+    if (clientOffers.includes(p)) return p;
+  }
+  return "http/1.1";
+}
+
+function parseAltSvc(header) {
+  const text = String(header || "").trim();
+  if (text === "" || text.toLowerCase() === "clear") return [];
+  const entries = [];
+  for (const part of text.split(",")) {
+    const m = /^\s*([^=\s]+)\s*=\s*"([^"]*)"/.exec(part);
+    if (!m) continue;
+    const at = m[2].lastIndexOf(":");
+    const age = /;\s*ma\s*=\s*(\d+)/.exec(part);
+    entries.push({
+      protocol: m[1],
+      host: m[2].slice(0, at),
+      port: Number(m[2].slice(at + 1)),
+      maxAge: age ? Number(age[1]) : 86400,
+    });
+  }
+  return entries;
+}
+
+function nextVisitProtocol(firstProtocol, altSvcHeader, udpBlocked) {
+  const offersH3 = parseAltSvc(altSvcHeader).some((e) => e.protocol === "h3" && e.maxAge > 0);
+  return offersH3 && !udpBlocked ? "h3" : firstProtocol;
+}
+
+function setupRoundTrips(protocol, options = {}) {
+  const { tls = "1.3", resumed = false, zeroRtt = false } = options;
+  if (tls !== "1.2" && tls !== "1.3") throw new Error("tls must be 1.2 or 1.3");
+  const early = resumed && zeroRtt;
+  if (protocol === "h1" || protocol === "h2") {
+    const tlsTrips = tls === "1.3" ? (early ? 0 : 1) : resumed ? 1 : 2;
+    return 1 + tlsTrips;
+  }
+  if (protocol === "h3") return early ? 0 : 1;
+  throw new Error("protocol must be h1, h2 or h3");
+}
+
+function survivesNetworkChange(protocol, before, after) {
+  if (protocol === "h3") return before.connectionId === after.connectionId;
+  if (protocol === "h1" || protocol === "h2") {
+    const key = (p) => [p.srcIp, p.srcPort, p.dstIp, p.dstPort].join("|");
+    return key(before) === key(after);
+  }
+  throw new Error("protocol must be h1, h2 or h3");
+}
+
+const METHODS = {
+  GET: { safe: true, idempotent: true },
+  HEAD: { safe: true, idempotent: true },
+  OPTIONS: { safe: true, idempotent: true },
+  PUT: { safe: false, idempotent: true },
+  DELETE: { safe: false, idempotent: true },
+  POST: { safe: false, idempotent: false },
+  PATCH: { safe: false, idempotent: false },
+};
+
+function methodProps(method) {
+  const props = METHODS[String(method).toUpperCase()];
+  if (!props) throw new Error("unknown method: " + method);
+  return { ...props };
+}
+
+function statusClass(code) {
+  if (!Number.isInteger(code) || code < 100 || code > 599) throw new Error("status must be a whole number from 100 to 599");
+  return ["informational", "success", "redirect", "client error", "server error"][Math.floor(code / 100) - 1];
+}
+
+function cacheState(cacheControl, ageSeconds) {
+  const directives = String(cacheControl || "").toLowerCase().split(",").map((d) => d.trim());
+  if (directives.includes("no-store")) return "no-store";
+  if (directives.includes("no-cache")) return "revalidate";
+  const found = directives.map((d) => /^max-age=(\d+)$/.exec(d)).find(Boolean);
+  if (found && ageSeconds < Number(found[1])) return "fresh";
+  return "stale";
+}
+
+
+// Helper for the page only: when each chunk is sent, arrives and is given to the app.
+function chunkTimes(chunkCounts, protocol, lost, retransmitDelay = 8) {
+  const out = [];
+  const longest = Math.max(0, ...chunkCounts);
+  for (let k = 0; k < longest; k++) for (let s = 0; s < chunkCounts.length; s++) if (k < chunkCounts[s]) out.push({ stream: s, chunk: k });
+  let lastAll = 0;
+  const lastOf = new Array(chunkCounts.length).fill(0);
+  out.forEach((c, i) => {
+    c.sent = i + 1;
+    c.lost = !!(lost && lost.stream === c.stream && lost.chunk === c.chunk);
+    c.arrive = c.sent + (c.lost ? retransmitDelay : 0);
+    c.delivered = Math.max(protocol === "h2" ? lastAll : lastOf[c.stream], c.arrive);
+    lastAll = Math.max(lastAll, c.delivered);
+    lastOf[c.stream] = c.delivered;
+  });
+  return out;
+}
+
+const B = (title, cls, tagText, tagCls, small, lines, html) => ({ title, cls, tag: tagText ? [tagText, tagCls || ""] : null, small: small || "", lines, html });
+const LAY = (title, cls, tagText, tagCls, small, layers) => ({ title, cls, tag: tagText ? [tagText, tagCls || ""] : null, small: small || "", layers });
+const lay = (name, size, state) => ({ name, size, state: state || "cached" });
+
+// ---- Story 1: lines ----
+const FILES = ["page.html", "app.js", "style.css", "logo.png", "hero.jpg", "font.woff", "a.svg", "b.svg", "c.svg", "d.svg", "api/user", "api/cart"];
+const MS = FILES.map(() => 100);
+const AXIS = 1300;
+const pct = (x) => (100 * x / AXIS).toFixed(2);
+
+function waterfall(rows, t, forceClass) {
+  return rows.map((r, i) => {
+    const waitTo = Math.min(r.start, t), runTo = Math.min(r.end, t);
+    let h = '<div class="wfrow"><span class="wfn">' + FILES[i] + '</span><div class="wft">';
+    if (waitTo > 0) h += '<i class="wait" style="left:0;width:' + pct(waitTo) + '%"></i>';
+    if (runTo > r.start) h += '<i class="' + (forceClass || "k" + r.conn) + (r.end > t ? " go" : "") + '" style="left:' + pct(r.start) + "%;width:" + pct(runTo - r.start) + '%"></i>';
+    return h + '<b style="left:' + pct(t) + '%"></b></div></div>';
+  }).join("");
+}
+function wfBox(title, rows, t, forceClass, small) {
+  const done = rows.filter((r) => r.end <= t).length;
+  return B(title, "user", "t = " + t + " ms", "", small + " Done: " + done + " of " + rows.length + ".", null, '<div>' + waterfall(rows, t, forceClass) + "</div>");
+}
+function simulateLines() {
+  const one = h1Schedule(MS, { connections: 1 });
+  const six = h1Schedule(MS);
+  const h2 = h1Schedule(MS, { connections: 100 });
+  const S = (hop, phase, note, boxes, badge) => ({ layout: "one", hop, phase, note, boxes, badge });
+  const steps = [];
+  steps.push(S("Setup: a page needs 12 files", "setup", "<b>A page needs 12 files.</b> Each one takes 100 ms alone. The grey line will show waiting, the coloured bar will show a file coming. Press Next.",
+    [wfBox("HTTP/1.1, one connection", one, 0, null, "A connection does one request at a time.")]));
+  steps.push(S("HTTP/1.1, one connection, 300 ms", "run", "<b>One request at a time.</b> After 300 ms three files are done. Nine others wait in one line. This is head-of-line blocking at the HTTP level.",
+    [wfBox("HTTP/1.1, one connection", one, 300, null, "Keep-alive: the same connection is reused.")]));
+  steps.push(S("HTTP/1.1, one connection, finished", "bad", "<b>" + h1LoadTime(MS, { connections: 1 }) + " ms.</b> That is 12 times 100. This is why browsers do not use only one connection.",
+    [wfBox("HTTP/1.1, one connection", one, 1200, null, "Total " + h1LoadTime(MS, { connections: 1 }) + " ms.")]));
+  steps.push(S("HTTP/1.1, six connections, 100 ms", "run", "<b>The browser opens six connections.</b> Six files run together. Six wait. Each connection still does one at a time.",
+    [wfBox("HTTP/1.1, six connections", six, 100, null, "Six lines, one request each.")]));
+  steps.push(S("HTTP/1.1, six connections, finished", "chk", "<b>" + h1LoadTime(MS) + " ms.</b> Two rounds of six. Six connections cost memory and six handshakes on the server.",
+    [wfBox("HTTP/1.1, six connections", six, 200, null, "Total " + h1LoadTime(MS) + " ms.")]));
+  steps.push(S("HTTP/2, one connection, 100 ms", "srv", "<b>HTTP/2 sends all 12 requests on one connection.</b> Each request is a stream, and the streams share the road. <code>h2LoadTime</code> says " + h2LoadTime(MS) + " ms. (The model has plenty of bandwidth. A real page shares one pipe.)",
+    [wfBox("HTTP/2, one connection", h2, 100, "kh2", "Twelve streams at once.")]));
+  const c = 100;
+  steps.push(S("Add the cost of opening connections", "chk", "<b>Opening a connection costs time too.</b> With 2 round trips of 50 ms it costs " + c + " ms. HTTP/1.1 pays it on six connections at the same time. HTTP/2 pays it once. Without keep-alive, every request pays it again.",
+    [B("Connect cost 100 ms", "lb", "from the model", "", "Same 12 files.", [
+      "HTTP/1.1, one connection: " + h1LoadTime(MS, { connections: 1, connectMs: c }) + " ms",
+      "HTTP/1.1, six connections: " + h1LoadTime(MS, { connectMs: c }) + " ms",
+      "HTTP/1.1, six, no keep-alive: " + h1LoadTime(MS, { connectMs: c, keepAlive: false }) + " ms",
+      "HTTP/2: " + h2LoadTime(MS, { connectMs: c }) + " ms"])]));
+  steps.push(S("What to remember", "done", "<b>HTTP/1.1 is one request per connection.</b> Browsers open six to work around it. HTTP/2 puts many requests on one connection.",
+    [B("The numbers", "srv", "", "", "", ["1 connection: 1200 ms", "6 connections: 200 ms", "HTTP/2: 100 ms"])], ["Finished", "done"]));
+  return steps;
+}
+
+// ---- Story 2: a lost packet ----
+const STREAMS = [{ n: "big.js", c: 6 }, { n: "style.css", c: 1 }, { n: "icon.svg", c: 1 }];
+const COUNTS = STREAMS.map((s) => s.c);
+const LOST = { stream: 0, chunk: 0 };
+function chunkBox(protocol, t) {
+  const times = chunkTimes(COUNTS, protocol, LOST);
+  const fin = deliveryTimes(COUNTS, protocol, LOST);
+  let h = "";
+  STREAMS.forEach((s, si) => {
+    h += '<div class="srow"><span class="sn">' + s.n + '</span><div class="chunks">';
+    times.filter((x) => x.stream === si).forEach((x) => {
+      let cls = "wait", txt = "";
+      if (x.sent <= t) {
+        if (x.delivered <= t) cls = "done";
+        else if (x.arrive <= t) cls = "stuck";
+        else { cls = "lost"; txt = "X"; }
+      }
+      h += '<span class="chunk ' + cls + '">' + txt + "</span>";
+    });
+    h += "</div>" + (fin[si] <= t ? '<span class="tag ok">done</span>' : "") + "</div>";
+  });
+  const name = protocol === "h2" ? "HTTP/2 over TCP" : "HTTP/3 over QUIC";
+  return B(name, protocol === "h2" ? "user" : "srv", "tick " + t, "", "Green: given to the app. Orange: arrived but held. Red X: lost.", null, h);
+}
+function simulateLoss() {
+  const S = (t, hop, phase, note) => ({ layout: "two", hop, phase, note, boxes: [chunkBox("h2", t), chunkBox("h3", t)] });
+  const f2 = deliveryTimes(COUNTS, "h2", LOST), f3 = deliveryTimes(COUNTS, "h3", LOST), f0 = deliveryTimes(COUNTS, "h3");
+  const steps = [];
+  steps.push(S(0, "Setup: three files, one connection", "setup", "<b>Three files share one connection:</b> big.js (6 chunks), style.css (1) and icon.svg (1). The sender sends one chunk per tick, in turns. Chunk 1 of big.js will be lost."));
+  steps.push(S(1, "Tick 1: the first chunk is sent and lost", "bad", "<b>Chunk 1 of big.js is lost.</b> It will be sent again, and it will arrive at tick " + (1 + 8) + "."));
+  steps.push(S(3, "Tick 3: the small files have arrived", "chk", "<b>style.css and icon.svg arrived whole.</b> TCP gives data over in order. Chunk 1 is missing, so over TCP they are held (orange). QUIC knows the streams are separate, so they are done (green)."));
+  steps.push(S(8, "Tick 8: still waiting for the repeat", "chk", "<b>Over TCP, every stream waits.</b> Over QUIC only big.js waits. The wait is about one round trip, which feels long for small files."));
+  steps.push(S(9, "Tick 9: the chunk comes again", "srv", "<b>The repeat arrives.</b> TCP gives everything over at once. All three streams finish at tick 9."));
+  steps.push({ layout: "two", hop: "What to remember", phase: "done", badge: ["Finished", "done"],
+    note: "<b>HTTP/2 fixed the line at the HTTP level but not at the TCP level.</b> HTTP/3 moves to QUIC, which keeps streams apart.",
+    boxes: [B("HTTP/2 over TCP", "user", "with loss", "", "", ["finish ticks: " + f2.join(", "), "style.css waits for big.js"]), B("HTTP/3 over QUIC", "srv", "with loss", "", "", ["finish ticks: " + f3.join(", "), "no loss, any protocol: " + f0.join(", ")])] });
+  return steps;
+}
+
+// ---- Story 3: ALPN and Alt-Svc ----
+function simulateAlpn() {
+  const server = ["h2", "http/1.1"];
+  const client = ["h2", "http/1.1"];
+  const header = 'h3=":443"; ma=86400';
+  const parsed = parseAltSvc(header)[0];
+  const S = (hop, phase, note, boxes, badge) => ({ layout: "two", hop, phase, note, boxes, badge });
+  const mk = (a, b, tag) => [B("Browser", "user", tag || "", "", "", a), B("Server", "srv", "", "", "speaks h2, http/1.1 over TCP and h3 over UDP", b)];
+  return [
+    S("Setup: a first visit", "setup", "<b>The browser has never visited this site.</b> The server can speak three ways. Press Next.", mk(["no notes about this site"], ["TCP 443: h2 and http/1.1", "UDP 443: h3"])),
+    S("Visit 1: the browser offers a list (ALPN)", "run", "<b>Inside the TLS hello, the browser lists what it speaks.</b> This is ALPN. The server's own order wins: <code>pickProtocol</code> gives <code>" + pickProtocol(client, server) + "</code>.", mk(["offers: " + client.join(", ")], ["picks: " + pickProtocol(client, server)], "TCP")),
+    S("Visit 1: the answer says where h3 is", "chk", "<b>The response carries an Alt-Svc header.</b> It means: the same site also speaks h3 on port " + parsed.port + ", for " + parsed.maxAge + " seconds. This is a real header from a real site.", mk(["got: alt-svc: " + header, "parsed: " + JSON.stringify(parsed)], ["sends the header on h2 responses"])),
+    S("Visit 2: the browser tries HTTP/3", "srv", "<b>The browser remembers for a day.</b> Next time <code>nextVisitProtocol</code> gives <code>" + nextVisitProtocol("h2", header, false) + "</code>. It sends QUIC packets over UDP to port 443.", mk(["note: this site speaks h3, keep 86400 s", "uses: " + nextVisitProtocol("h2", header, false)], ["answers over QUIC"], "UDP")),
+    S("Visit 3: a network that blocks UDP", "bad", "<b>Some offices block UDP.</b> The QUIC packets get no answer. The browser keeps working on <code>" + nextVisitProtocol("h2", header, true) + "</code> over TCP. That is why you keep TCP on too.", mk(["UDP 443 is blocked", "uses: " + nextVisitProtocol("h2", header, true)], ["still answers on TCP"], "blocked")),
+    S("An old client", "chk", "<b>An old client offers only http/1.1.</b> <code>pickProtocol</code> gives <code>" + pickProtocol(["http/1.1"], server) + "</code>. The site still works, only slower.", mk(["offers: http/1.1"], ["picks: " + pickProtocol(["http/1.1"], server)])),
+    S("What to remember", "done", "<b>ALPN picks h2 or http/1.1 in the TLS hello. Alt-Svc tells the browser about h3 for next time.</b>", mk(["TCP first, UDP next time"], ["keep TCP on as the fallback"]), ["Finished", "done"]),
+  ];
+}
+
+// ---- Story 4: setup time and moving ----
+function simulateSetup() {
+  const rtt = 50;
+  const row = (label, protocol, opts) => { const n = setupRoundTrips(protocol, opts); return lay(label, n + " trips = " + n * rtt + " ms", n === 0 ? "cached" : n === 1 ? "now" : "base"); };
+  const rows = [
+    row("HTTP/2, TLS 1.2", "h2", { tls: "1.2" }),
+    row("HTTP/2, TLS 1.3", "h2", {}),
+    row("HTTP/3, first visit", "h3", {}),
+    row("HTTP/3, 0-RTT repeat visit", "h3", { resumed: true, zeroRtt: true }),
+  ];
+  const wifi = { srcIp: "192.168.1.20", srcPort: 50000, dstIp: "203.0.113.5", dstPort: 443, connectionId: "c0ffee" };
+  const mobile = { srcIp: "100.64.7.9", srcPort: 41000, dstIp: "203.0.113.5", dstPort: 443, connectionId: "c0ffee" };
+  const S = (hop, phase, note, boxes, badge) => ({ layout: "two", hop, phase, note, boxes, badge });
+  const get = methodProps("GET"), post = methodProps("POST");
+  return [
+    S("Setup: the road to the server takes 50 ms one way and back", "setup", "<b>One round trip is 50 ms.</b> Before the first request can go, the connection must be set up. Count the round trips.", [LAY("Round trips before the first request", "user", "50 ms each", "", "", [])]),
+    S("HTTP/2 with TLS 1.2", "bad", "<b>3 round trips:</b> 1 for TCP and 2 for TLS 1.2. The request leaves after " + rows[0].size.split("= ")[1] + ".", [LAY("Round trips before the first request", "user", "50 ms each", "", "", [rows[0]])]),
+    S("HTTP/2 with TLS 1.3", "run", "<b>2 round trips:</b> 1 for TCP and 1 for TLS 1.3.", [LAY("Round trips before the first request", "user", "50 ms each", "", "", rows.slice(0, 2))]),
+    S("HTTP/3 first visit", "srv", "<b>1 round trip.</b> QUIC does the connection and the TLS 1.3 handshake together.", [LAY("Round trips before the first request", "user", "50 ms each", "", "", rows.slice(0, 3))]),
+    S("HTTP/3 repeat visit with 0-RTT", "srv", "<b>0 round trips.</b> The browser sends the request in its first packet. A thief could copy and replay that packet, so servers allow it for safe requests only. GET is safe: " + get.safe + ". POST is safe: " + post.safe + ".", [LAY("Round trips before the first request", "user", "50 ms each", "", "", rows)]),
+    S("A phone leaves Wi-Fi for mobile data", "bad", "<b>The phone gets a new IP address.</b> A TCP connection is named by the four address numbers, so <code>survivesNetworkChange</code> says <code>" + survivesNetworkChange("h2", wifi, mobile) + "</code> for HTTP/2. The page must open a new connection: " + setupRoundTrips("h2") + " round trips.",
+      [B("HTTP/2 over TCP", "user", "ends", "bad", "", ["before: " + wifi.srcIp + ":" + wifi.srcPort, "after: " + mobile.srcIp + ":" + mobile.srcPort, "same connection: " + survivesNetworkChange("h2", wifi, mobile)]), B("HTTP/3 over QUIC", "srv", "lives", "ok", "", ["connection ID: " + wifi.connectionId, "after: " + mobile.connectionId, "same connection: " + survivesNetworkChange("h3", wifi, mobile)])]),
+    S("What to remember", "done", "<b>HTTP/3 needs fewer round trips and survives a change of network</b>, because QUIC names a connection by an ID, not by addresses.", [B("Numbers", "srv", "", "", "", ["TLS 1.2 + TCP: 3", "TLS 1.3 + TCP: 2", "QUIC: 1", "QUIC 0-RTT: 0"])], ["Finished", "done"]),
+  ];
+}
+
+const STORIES = [
+  { name: "1. Lines and one road", sim: simulateLines,
+    why: "HTTP/1.1 does one request per connection, so 12 files on 6 connections take two rounds of 100 ms. HTTP/2 runs all 12 on one connection.",
+    predict: { q: "A page needs 12 files, 100 ms each. HTTP/1.1 with 6 connections. How long does the page take?", options: ["100 ms", "200 ms", "600 ms", "1200 ms"], answer: "200 ms" } },
+  { name: "2. A lost packet", sim: simulateLoss,
+    why: "TCP gives data to the app in order, so one lost packet holds every stream. QUIC orders data per stream, so only the stream with the loss waits.",
+    predict: { q: "One chunk of the big file is lost. HTTP/2 runs on TCP. What happens to the small CSS file that already arrived?", options: ["It is given to the page at once", "It waits until the lost chunk is sent again", "It is lost too"], answer: "It waits until the lost chunk is sent again" } },
+  { name: "3. Which protocol?", sim: simulateAlpn,
+    why: "ALPN picks h2 or http/1.1 inside the TLS hello. The Alt-Svc header tells the browser that h3 exists, so the next visit can use QUIC. If UDP is blocked, TCP still works.",
+    predict: { q: "A server sends alt-svc h3 on the first visit. What does the browser do on the next visit if UDP is open?", options: ["Stays on HTTP/2 forever", "Tries HTTP/3 over UDP", "Asks the user which one to use"], answer: "Tries HTTP/3 over UDP" } },
+  { name: "4. Setup and moving", sim: simulateSetup,
+    why: "QUIC joins the connection and TLS handshakes and names a connection by an ID, so it needs fewer round trips and survives a new IP address.",
+    predict: { q: "A phone moves from Wi-Fi to mobile data. Which connection keeps going?", options: ["HTTP/2 over TCP", "HTTP/3 over QUIC", "Both", "Neither"], answer: "HTTP/3 over QUIC" } },
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser (the lesson check script does that).
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.html) h += b.html;
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulateLines, simulateLoss, simulateAlpn, simulateSetup, STORIES, chunkTimes, h1Schedule, h1LoadTime, h2LoadTime, deliveryTimes };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

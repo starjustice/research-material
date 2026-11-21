@@ -1,0 +1,148 @@
+[
+  {
+    "q": "Why does TLS use a slow key exchange first and then a fast shared key for the page?",
+    "options": [
+      "The fast shared key (symmetric) is quick for lots of data, but both sides must first agree on it without sending it",
+      "The slow key exchange is stronger, so the page uses it for every byte",
+      "The fast key is only for the certificate",
+      "Browsers cannot run symmetric encryption"
+    ],
+    "answer": 0,
+    "why": "Symmetric encryption is fast but needs a secret both sides already share. The key exchange makes that secret over an open line. Then the fast cipher carries the page."
+  },
+  {
+    "type": "tf",
+    "q": "In a key exchange, the shared secret number is sent over the network in the ClientHello and ServerHello.",
+    "answer": false,
+    "why": "Only the public values are sent. Each side mixes the other's public value with its own secret and gets the same number. The shared number itself is never sent."
+  },
+  {
+    "type": "fill",
+    "q": "Toy key exchange with p = 23 and g = 5. The browser's secret is 6. What public value does it send? (g to the power 6, remainder after 23)",
+    "code": "console.log(5 ** 6 % 23);",
+    "answer": [
+      "8"
+    ],
+    "why": "5 to the power 6 is 15625. The remainder after dividing by 23 is 8. The server, with secret 15, sends 19, and both sides end with the shared number 2."
+  },
+  {
+    "type": "order",
+    "q": "Put the TLS 1.3 handshake messages in order.",
+    "items": [
+      "ClientHello (with a key share)",
+      "ServerHello (with a key share)",
+      "Server Certificate and CertificateVerify",
+      "Server Finished",
+      "Client Finished"
+    ],
+    "why": "Both hellos carry key shares, so the keys exist right after the ServerHello. Everything after it is encrypted: the certificate, the proof of the key, then the two Finished messages."
+  },
+  {
+    "q": "How many round trips does a full TLS 1.3 handshake need after the connection is open, before the browser can send the request?",
+    "options": [
+      "Zero",
+      "One",
+      "Two",
+      "Three"
+    ],
+    "answer": 1,
+    "why": "The ClientHello already carries the key share, so the server can answer with its own and encrypt right away. TLS 1.2 needed two round trips."
+  },
+  {
+    "type": "multi",
+    "q": "Someone records your HTTPS request on the Wi-Fi. Which of these can they still see?",
+    "options": [
+      "The server's IP address",
+      "The server name (SNI), when ECH is not used",
+      "The path, for example /secret-page",
+      "The size and timing of the packets"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "TLS hides the content: path, headers, cookies and body. The IP address, the server name in the ClientHello and the sizes and timing stay visible."
+  },
+  {
+    "type": "tf",
+    "q": "In TLS 1.3 the server's certificate is sent in plain text, so a spy can read which site you visit from it.",
+    "answer": false,
+    "why": "All handshake messages after the ServerHello are encrypted in TLS 1.3, including the certificate. The server name in the ClientHello is still plain, unless ECH is used."
+  },
+  {
+    "q": "What does CertificateVerify prove?",
+    "options": [
+      "The certificate has not expired",
+      "The server holds the private key that matches the certificate",
+      "The browser trusts the root",
+      "The page was not changed"
+    ],
+    "answer": 1,
+    "why": "CertificateVerify is a signature made with the server's private key over the handshake. Only the real owner of the key can make it. Expiry and the root are checked on the certificate chain."
+  },
+  {
+    "q": "A spy recorded traffic a year ago. The server's private key leaks today. In which case can the spy NOT read the old recording?",
+    "options": [
+      "The session key was sent locked with the server's public key (RSA key exchange)",
+      "The session key came from a throwaway ECDHE exchange",
+      "The session was not encrypted",
+      "The key leaked from a backup"
+    ],
+    "answer": 1,
+    "why": "This is forward secrecy. With ECDHE the secrets are made for one connection and deleted, and the long term key only signs. With RSA key exchange the leaked key unlocks every recorded session key."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true about 0-RTT early data?",
+    "options": [
+      "The request travels in the first flight, with no waiting",
+      "An attacker can copy it and replay it",
+      "It is forward secret like the rest of the handshake",
+      "It should only be used for requests that are safe to repeat, like GET"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Early data is encrypted with a key from the ticket, not a fresh exchange, so it is not forward secret. The RFC gives no guarantee of non-replay, so only safe requests should use it."
+  },
+  {
+    "type": "fill",
+    "q": "On a resumed connection with a ticket, which handshake message from a full handshake is skipped? Type its name.",
+    "answer": [
+      "Certificate",
+      "the Certificate"
+    ],
+    "why": "The ticket stands in for the proof. In my test the resumed handshake read 269 bytes against 740 for the full one, with no certificate."
+  },
+  {
+    "q": "A server requires a client certificate (mTLS) and the client has none. What happens?",
+    "options": [
+      "The page loads and the server asks for a password",
+      "The handshake ends with the alert certificate_required",
+      "The browser shows a padlock and continues",
+      "The server falls back to HTTP"
+    ],
+    "answer": 1,
+    "why": "In mTLS the server sends a CertificateRequest. With no certificate sent, it ends the handshake with the alert certificate_required (number 116)."
+  },
+  {
+    "type": "order",
+    "q": "Put these in order for an HTTPS page load, after the TCP connection is open.",
+    "items": [
+      "Both sides make a shared secret by key exchange",
+      "The browser checks the server's certificate and signature",
+      "Both sides switch to the application keys",
+      "The HTTP request is sent, encrypted"
+    ],
+    "why": "Keys first, so the rest can be encrypted. The browser then checks who the server is. After the Finished messages both sides switch to the application keys, and only then does the request go."
+  },
+  {
+    "type": "tf",
+    "q": "HTTPS is HTTP sent inside a TLS connection, normally on port 443, and HTTP alone uses port 80.",
+    "answer": true,
+    "why": "HTTPS is not a new language. It is the same HTTP messages inside TLS. The default ports are 443 for HTTPS and 80 for HTTP."
+  }
+]

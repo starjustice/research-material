@@ -30,8 +30,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 01 | [The layers: OSI and TCP/IP](01-the-layers-osi-and-tcp-ip.md) | what each layer does, in one picture | ready |
 | 02 | [DNS](02-dns.md) | how a name becomes an IP, caching, TTL | ready |
 | 03 | [TCP vs UDP](03-tcp-vs-udp.md) | handshake, reliability, when UDP wins | ready |
-| 04 | TLS and HTTPS `04-tls-and-https.md` | the handshake, certificates, what is encrypted | planned |
-| 05 | HTTP/1.1 vs HTTP/2 vs HTTP/3 `05-http-1-1-vs-http-2-vs-http-3.md` | multiplexing, head of line blocking, QUIC | planned |
+| 04 | [TLS and HTTPS](04-tls-and-https.md) | the handshake, certificates, what is encrypted | ready |
+| 05 | [HTTP/1.1 vs HTTP/2 vs HTTP/3](05-http-1-1-vs-http-2-vs-http-3.md) | multiplexing, head of line blocking, QUIC | ready |
 | 06 | [Cookies, CORS and same origin](06-cookies-cors-and-same-origin.md) | why the browser blocks requests, and how CORS allows them | ready |
 | 07 | WebSockets and server sent events `07-websockets-and-server-sent-events.md` | real time options | planned |
 | 08 | How the browser renders a page `08-how-the-browser-renders-a-page.md` | HTML parse, CSS, layout, paint | planned |
