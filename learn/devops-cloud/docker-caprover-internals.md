@@ -288,15 +288,15 @@ That sentence is the whole answer to "what is CapRover?" and it's accurate.
 graph TD
     A["You push code or an image"] --> B["captain-captain receives it - reads captain-definition"]
     B --> C["Builds the Docker image from your Dockerfile"]
-    C --> D["Pushes to the registry"]
+    C --> D["Pushes to the registry - only when the registry is on, for several servers"]
     D --> E["docker service update on the Swarm service"]
     E --> F["Swarm rolling update - start new task, health check, stop old"]
     F --> G["nginx config regenerated for the app domain"]
-    G --> H["Let's Encrypt issues or renews the certificate"]
+    G --> H["HTTPS certificate - asked for once when you enable HTTPS on the domain, renewed on a schedule, not on every deploy"]
     H --> I["Traffic flows to the new version"]
 ```
 
-Being able to walk through those seven steps is the difference between "I click deploy" and "I operate this".
+Being able to walk through those steps is the difference between "I click deploy" and "I operate this".
 
 ## The pieces
 - **`captain-definition`** — a small JSON file in your repo telling CapRover how to build (a Dockerfile path, inline Dockerfile lines, or a template).

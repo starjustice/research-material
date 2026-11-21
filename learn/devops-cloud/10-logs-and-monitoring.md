@@ -243,7 +243,7 @@ alert 5 in 2 rows: 2026-11-13T23:15
 
 **What to watch.** The same page names four signals: latency, traffic, errors and saturation (how "full" your service is). Page on symptoms users feel, and keep cause-based checks as hints for debugging.
 
-**The limit of this card.** Counting log lines is the simple way. A real system keeps numbers in a metrics store and alerts on error rate, not on lines. That is the metrics lesson (planned: Metrics, dashboards and alerts). For how fast to react, see [SLOs and error budgets](../system-design/26-slos-and-error-budgets.md), card 4 (burn rate).
+**The limit of this card.** Counting log lines is the simple way. A real system keeps numbers in a metrics store and alerts on error rate, not on lines. That is the metrics lesson ([Metrics, dashboards and alerts](20-metrics-dashboards-and-alerts.md)). For how fast to react, see [SLOs and error budgets](../system-design/26-slos-and-error-budgets.md), card 4 (burn rate).
 
 **Not run here:** a real alerting tool, and a message to a phone. The rule above ran as a function on real log lines.
 
@@ -694,5 +694,5 @@ Close this file. Explain logs and monitoring out loud like to a new junior, in 4
 - [Kubernetes objects](04-kubernetes-objects.md) - the pods whose logs `kubectl logs` reads.
 - [Observability](../system-design/14-observability.md) - the design view: metrics, traces and logs, and JSON logs with a trace id.
 - [SLOs and error budgets](../system-design/26-slos-and-error-budgets.md) - how fast to react and what to alert on, in numbers.
-- Metrics, dashboards and alerts (planned) - the better way to count than counting log lines.
+- [Metrics, dashboards and alerts](20-metrics-dashboards-and-alerts.md) - the better way to count than counting log lines.
 - Incidents, on-call and postmortems (planned) - what to do after the alert fires.
