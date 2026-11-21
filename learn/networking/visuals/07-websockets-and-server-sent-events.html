@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebSockets and server sent events: how a server talks first</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --on-ink: #fff; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px; --chip: #fff; --code-bg: #efe9db;
+    --predict-bg: #fff8e1;
+    --user: #3b82f6; --user-bg: #e3eefe;
+    --lb: #8b5cf6; --lb-bg: #efe8fd;
+    --srv: #2f9e6b; --srv-bg: #dff3ea;
+    --store: #e8890c; --store-bg: #fdecd2;
+    --bad: #c0392b; --bad-bg: #fde2e2;
+    --ok-bg: #e9f7ef; --ok-border: #b9e2cc; --no-bg: #fdecea; --no-border: #f2b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141f28; --card: #1c2b36; --ink: #e8eef2; --on-ink: #141f28; --muted: #9db0bd; --border: #2e4150;
+      --chip: #2b3d4a; --code-bg: #2b3d4a; --predict-bg: #3a3318;
+      --user: #6aa5f7; --user-bg: #1e3350;
+      --lb: #b79cf8; --lb-bg: #2f2650;
+      --srv: #5fd09a; --srv-bg: #163a2c;
+      --store: #f0a64a; --store-bg: #4a3414;
+      --bad: #ff8f84; --bad-bg: #4a2222;
+      --ok-bg: #173b2d; --ok-border: #2f6b52; --no-bg: #4a2222; --no-border: #86413b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px 16px 60px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600;
+  }
+  .tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .predict {
+    background: var(--predict-bg); border-left: 4px solid var(--accent); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: .9rem;
+  }
+  .predict .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .predict .opts button {
+    font: inherit; font-size: .85rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .predict .opts button.pick { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+  .stage { display: grid; gap: 12px; }
+  .stage.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 860px) { .stage.three, .stage.two { grid-template-columns: 1fr; } }
+  .stage > * { min-width: 0; }
+  .stage > .wide { grid-column: 1 / -1; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+
+  .comp { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; transition: box-shadow .2s, background .2s; }
+  .comp h3 { font-size: .78rem; margin: 0 0 6px; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .comp small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-bottom: 6px; }
+  .comp.user  { border-color: var(--user);  background: var(--user-bg); }
+  .comp.lb    { border-color: var(--lb);    background: var(--lb-bg); }
+  .comp.srv   { border-color: var(--srv);   background: var(--srv-bg); }
+  .comp.fol   { border-color: var(--store); background: var(--store-bg); }
+  .comp.alarm { border-color: var(--bad);   background: var(--bad-bg); }
+  .comp.user h3 { color: var(--user); } .comp.lb h3 { color: var(--lb); } .comp.srv h3 { color: var(--srv); } .comp.fol h3 { color: var(--store); } .comp.alarm h3 { color: var(--bad); }
+  .comp.lit { box-shadow: 0 0 0 4px var(--accent); }
+  .tag { font-size: .66rem; border-radius: 999px; padding: 1px 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; white-space: nowrap; }
+  .tag.bad { background: var(--bad); color: #fff; }
+  .tag.ok { background: var(--srv); color: #fff; }
+  .tag.warn { background: var(--store); color: #fff; }
+
+  .big { font-size: 1.6rem; font-weight: 800; line-height: 1.05; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .big.neg { color: var(--bad); }
+  .biglabel { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+
+  .log { margin: 8px 0 0; padding: 0; list-style: none; font-size: .78rem; }
+  .log li { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log li.bad { color: var(--bad); font-weight: 700; }
+  .log li.ok { color: var(--srv); font-weight: 700; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .hop { margin-top: 12px; font-size: .84rem; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .badge { border-radius: 999px; padding: 3px 12px; font-size: .78rem; color: #fff; background: var(--muted); }
+  .badge.run { background: #3b82f6; } .badge.srv { background: #2f9e6b; }
+  .badge.chk { background: #e8890c; } .badge.bad { background: #c0392b; } .badge.done { background: #1e3a4c; }
+  .hoptext { color: var(--muted); font-weight: 600; }
+
+  .note {
+    margin-top: 10px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 96px;
+  }
+  .note code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button {
+    border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650;
+  }
+  .controls button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--srv); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .result.bad { background: var(--no-bg); border-color: var(--no-border); }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .lay { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--card); font-size: .76rem; font-family: ui-monospace, Menlo, monospace; }
+  .lay em { font-style: normal; overflow-wrap: anywhere; min-width: 0; }
+  .lay span { color: var(--muted); font-size: .68rem; text-align: right; overflow-wrap: anywhere; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; }
+  .lay.base { background: var(--user-bg); border-color: var(--user); }
+  .lay.cached { background: var(--srv-bg); border-color: var(--srv); }
+  .lay.rebuilt { background: var(--bad-bg); border-color: var(--bad); }
+  .lay.now { background: var(--predict-bg); border-color: var(--accent); }
+  .lay.wait { opacity: .5; border-style: dashed; }
+  .lay.lit { box-shadow: 0 0 0 3px var(--accent); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step can-dark">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/networking/README" id="lessons">&larr; Networking lessons</a>
+    <a href="../../../viewer.html?note=learn/networking/07-websockets-and-server-sent-events" id="lessonLink">Open the lesson &#8599;</a>
+  </div>
+  <h1>WebSockets and server sent events: how a server talks first</h1>
+  <p class="sub">Use the buttons below to move one step at a time. Guess first, then check. This is a small model of the practice answer (<code>parseSse</code>, <code>formatSse</code>, <code>missedEvents</code>, <code>acceptKey</code>, <code>handshake</code>, <code>encodeFrame</code>, <code>decodeFrame</code>, <code>backoffDelay</code>, <code>chooseTransport</code>, <code>deliver</code>). No real network or browser is used here.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="predict" id="predict"></div>
+  <div class="stage" id="stage"></div>
+  <div class="hop"><span class="badge" id="badge">setup</span><span class="hoptext" id="hop"></span></div>
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="stepBwd">Back</button>
+    <button id="stepFwd" class="primary">Next</button>
+    <button id="play">&#9654; Auto</button>
+    <button id="zero">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+  <p class="legend"><b>The rule to remember:</b> plain HTTP cannot push. Polling asks again and again. <b>SSE</b> is one long answer, one way, and the browser reconnects for you. A <b>WebSocket</b> is a two way connection after a 101 handshake, and you write the reconnect and the Origin check. Many servers need pub/sub to share messages.</p>
+</div>
+<script>
+// The model code below follows the practice answer in the lesson. It is written for the browser (Uint8Array and a small SHA-1
+// instead of Buffer and node:crypto). No real browser, network or server is used. I checked the results against the Node answer.
+// ---------- helpers ----------
+const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const OPCODES = { 0: "continuation", 1: "text", 2: "binary", 8: "close", 9: "ping", 10: "pong" };
+function lower(headers) { const out = {}; for (const [k, v] of Object.entries(headers || {})) out[k.toLowerCase()] = String(v); return out; }
+const list = (text) => (text || "").split(",").map((s) => s.trim()).filter(Boolean);
+const utf8 = (s) => new TextEncoder().encode(s);
+const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(" ");
+
+// A small SHA-1 and base64, so the page can compute Sec-WebSocket-Accept without Node.
+function sha1(bytes) {
+  const words = [];
+  const len = bytes.length;
+  const padded = new Uint8Array(((len + 8) >> 6 << 6) + 64);
+  padded.set(bytes); padded[len] = 0x80;
+  const view = new DataView(padded.buffer);
+  view.setUint32(padded.length - 4, len * 8 >>> 0);
+  view.setUint32(padded.length - 8, Math.floor(len * 8 / 4294967296));
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+  const rol = (x, n) => (x << n) | (x >>> (32 - n));
+  for (let i = 0; i < padded.length; i += 64) {
+    const w = new Array(80);
+    for (let t = 0; t < 16; t++) w[t] = view.getUint32(i + t * 4);
+    for (let t = 16; t < 80; t++) w[t] = rol(w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16], 1);
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let t = 0; t < 80; t++) {
+      let f, k;
+      if (t < 20) { f = (b & c) | (~b & d); k = 0x5A827999; }
+      else if (t < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+      else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+      else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+      const temp = (rol(a, 5) + f + e + k + w[t]) >>> 0;
+      e = d; d = c; c = rol(b, 30) >>> 0; b = a; a = temp;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+  }
+  const out = new Uint8Array(20), ov = new DataView(out.buffer);
+  [h0, h1, h2, h3, h4].forEach((h, i) => ov.setUint32(i * 4, h));
+  return out;
+}
+function base64(bytes) {
+  const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const n = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8) | (bytes[i + 2] || 0);
+    out += abc[(n >> 18) & 63] + abc[(n >> 12) & 63] + (i + 1 < bytes.length ? abc[(n >> 6) & 63] : "=") + (i + 2 < bytes.length ? abc[n & 63] : "=");
+  }
+  return out;
+}
+
+// ---------- the ten pieces ----------
+function parseSse(text) {
+  const events = []; let retry = null, lastId = "", eventName = "", dataLines = [];
+  for (const line of String(text).split(/\r\n|\n|\r/)) {
+    if (line === "") {
+      if (dataLines.length > 0) events.push({ event: eventName || "message", data: dataLines.join("\n"), id: lastId });
+      eventName = ""; dataLines = []; continue;
+    }
+    if (line.startsWith(":")) continue;
+    const colon = line.indexOf(":");
+    const field = colon === -1 ? line : line.slice(0, colon);
+    let value = colon === -1 ? "" : line.slice(colon + 1);
+    if (value.startsWith(" ")) value = value.slice(1);
+    if (field === "data") dataLines.push(value);
+    else if (field === "event") eventName = value;
+    else if (field === "id") lastId = value;
+    else if (field === "retry" && /^\d+$/.test(value)) retry = Number(value);
+  }
+  return { events, retry };
+}
+function formatSse(message) {
+  const { id, event, data, retry } = message;
+  if (id !== undefined && /[\r\n]/.test(String(id))) throw new Error("id must not contain a line break");
+  let out = "";
+  if (id !== undefined) out += "id: " + id + "\n";
+  if (event !== undefined) out += "event: " + event + "\n";
+  if (retry !== undefined) out += "retry: " + retry + "\n";
+  if (data !== undefined) for (const line of String(data).split(/\r\n|\n|\r/)) out += "data: " + line + "\n";
+  return out + "\n";
+}
+function missedEvents(history, lastEventId) {
+  if (lastEventId === undefined || lastEventId === null || lastEventId === "") return [];
+  const at = history.findIndex((item) => String(item.id) === String(lastEventId));
+  if (at === -1) return null;
+  return history.slice(at + 1);
+}
+function acceptKey(key) { return base64(sha1(utf8(key + WS_GUID))); }
+function handshake(request, options) {
+  const h = lower(request.headers);
+  const fail = (status, reason, headers) => ({ status, reason, headers: headers || {} });
+  if (String(request.method).toUpperCase() !== "GET") return fail(405, "method must be GET");
+  const wantsUpgrade = (h.upgrade || "").toLowerCase() === "websocket" && list(h.connection).some((t) => t.toLowerCase() === "upgrade");
+  if (!wantsUpgrade) return fail(426, "Upgrade Required");
+  if (!h["sec-websocket-key"]) return fail(400, "missing Sec-WebSocket-Key");
+  if (h["sec-websocket-version"] !== "13") return fail(426, "unsupported version", { "Sec-WebSocket-Version": "13" });
+  const allowed = options && options.allowedOrigins;
+  if (allowed && h.origin !== undefined && !allowed.includes(h.origin)) return fail(403, "origin not allowed");
+  return { status: 101, reason: "Switching Protocols", headers: { Upgrade: "websocket", Connection: "Upgrade", "Sec-WebSocket-Accept": acceptKey(h["sec-websocket-key"]) } };
+}
+function encodeFrame(frame) {
+  const payload = typeof frame.payload === "string" ? utf8(frame.payload) : Uint8Array.from(frame.payload || []);
+  const fin = frame.fin === false ? 0 : 0x80;
+  if (frame.opcode >= 8 && payload.length > 125) throw new Error("control frame payload is at most 125 bytes");
+  if (payload.length > 65535) throw new Error("payload too large for this exercise");
+  const maskBit = frame.maskKey ? 0x80 : 0;
+  const head = [fin | frame.opcode];
+  if (payload.length < 126) head.push(maskBit | payload.length);
+  else head.push(maskBit | 126, payload.length >> 8, payload.length & 255);
+  const out = [...head];
+  if (frame.maskKey) { out.push(...frame.maskKey); payload.forEach((b, i) => out.push(b ^ frame.maskKey[i % 4])); }
+  else out.push(...payload);
+  return Uint8Array.from(out);
+}
+function decodeFrame(buffer) {
+  if (buffer.length < 2) return null;
+  const fin = (buffer[0] & 0x80) !== 0, opcode = buffer[0] & 0x0f, masked = (buffer[1] & 0x80) !== 0;
+  let length = buffer[1] & 0x7f, at = 2;
+  if (length === 126) { if (buffer.length < 4) return null; length = (buffer[2] << 8) | buffer[3]; at = 4; }
+  else if (length === 127) throw new Error("payload too large for this exercise");
+  const maskKey = masked ? buffer.slice(at, at + 4) : null;
+  if (masked) at += 4;
+  if (buffer.length < at + length) return null;
+  const payload = buffer.slice(at, at + length).map((b, i) => (masked ? b ^ maskKey[i % 4] : b));
+  return { fin, opcode, type: OPCODES[opcode] || "unknown", masked, payload, size: at + length };
+}
+function backoffDelay(attempt, options) {
+  const base = (options && options.base) || 1000, max = (options && options.max) || 30000;
+  return Math.min(max, base * 2 ** attempt);
+}
+function chooseTransport(need) {
+  if (!need.serverPushes) return "plain-http";
+  if (need.binary || need.clientSendsOften) return "websocket";
+  if (need.delayOkSeconds >= 30) return "polling";
+  return "sse";
+}
+function deliver(connections, sender, usePubSub) {
+  const from = connections.find((c) => c.user === sender);
+  if (!from) return [];
+  return connections.filter((c) => usePubSub || c.server === from.server).map((c) => c.user);
+}
+
+// Two small helpers only for this page: when does the page see a message that appears at eventAt (milliseconds)?
+function pollingSim(eventAt, every, count) {
+  const asks = [];
+  for (let i = 0; i < count; i++) { const t = i * every; asks.push({ t, news: t >= eventAt }); }
+  const first = asks.find((a) => a.news);
+  return { asks, seenAt: first ? first.t : null };
+}
+function longPollSim(eventAt, hold) {
+  // one request waits until the message appears, or until hold milliseconds pass
+  return { askedAt: 0, answeredAt: Math.min(eventAt, hold), news: eventAt <= hold };
+}
+
+// ---------- the pictures ----------
+const B = (title, cls, tagText, tagCls, small, lines, lit) => ({ title, cls, tag: tagText ? [tagText, tagCls || ""] : null, small: small || "", lines, lit: !!lit });
+const S3 = (hop, phase, note, boxes) => ({ layout: "three", hop, phase, note, boxes });
+const J = (o) => JSON.stringify(o);
+const sec = (ms) => (ms / 1000).toFixed(1) + " s";
+const pageBox = (lines, tag, lit) => B("Page in the browser", "user", tag || "", "", "your JavaScript", lines, lit);
+const wireBox = (lines, tag, lit) => B("On the wire", "lb", tag || "", "", "what travels", lines, lit);
+const serverBox = (lines, tag, lit, small) => B("Server", "srv", tag || "", "", small || "your Node code", lines, lit);
+const lines = (text) => text.replace(/\n$/, "").split("\n");
+
+// ---- tab 1: polling and long polling ----
+function simulatePolling() {
+  const EVENT = 1300, EVERY = 1000;
+  const poll = pollingSim(EVENT, EVERY, 4);
+  const lp = longPollSim(EVENT, 2500);
+  const late = poll.seenAt - EVENT;
+  const steps = [];
+  steps.push(S3("Setup", "setup", "<b>The server cannot speak first.</b> A new message will appear on the server at <b>" + sec(EVENT) + "</b>. The page wants to know as soon as it exists. First idea: <b>polling</b>, which means asking again and again on a timer. This page asks every " + sec(EVERY) + ".",
+    [pageBox(["timer: ask every " + sec(EVERY)], "polling"), wireBox(["nothing sent yet"]), serverBox(["no message yet", "a message will appear at " + sec(EVENT)])]));
+  steps.push(S3("Ask at " + sec(0), "run", "The page asks. The server answers at once: <b>nothing new</b>. This round trip was wasted work, but it is how polling works.",
+    [pageBox(["ask #1 at " + sec(0)]), wireBox(["GET /messages", "200 {\"news\": false}"], "request 1", true), serverBox(["answer: nothing new"])]));
+  steps.push(S3("Ask at " + sec(1000), "run", "One second later, the same question and the same answer. <b>Two requests, no news.</b>",
+    [pageBox(["ask #2 at " + sec(1000)]), wireBox(["GET /messages", "200 {\"news\": false}"], "request 2", true), serverBox(["answer: nothing new"])]));
+  steps.push(S3("The message appears at " + sec(EVENT), "bad", "The message now exists on the server. The server <b>cannot send it</b>: a normal HTTP answer only follows a request. The server must wait for the next question.",
+    [pageBox(["asleep until the timer fires"]), wireBox(["(nothing)"]), serverBox(["NEW MESSAGE at " + sec(EVENT), "no open request to answer"], "waiting", true)]));
+  steps.push(S3("Ask at " + sec(poll.seenAt), "srv", "The third question gets the news. The page saw it <b>" + sec(late) + " late</b>. It used <b>" + "1 useful</b> request and <b>" + poll.asks.filter((a) => a.t < poll.seenAt).length + " empty</b> ones. A shorter timer is less late but sends even more empty requests.",
+    [pageBox(["ask #3 at " + sec(poll.seenAt), "news seen " + sec(late) + " late"], "got it", true), wireBox(["GET /messages", "200 {\"news\": true}"], "request 3", true), serverBox(["answer: the new message"])]));
+  steps.push(S3("Idea 2: long polling", "setup", "<b>Long polling:</b> the page asks once, and the server <b>does not answer yet</b>. It keeps the request open until it has news or a time limit (here " + sec(2500) + ") passes. Then the page asks again at once.",
+    [pageBox(["ask once, then wait"], "long polling"), wireBox(["GET /messages?seen=0", "(no answer yet)"], "held open", true), serverBox(["request parked", "waiting for news"], "holding")]));
+  steps.push(S3("The message appears at " + sec(lp.answeredAt), "srv", "The server finds the parked request and answers <b>straight away</b>. The page is <b>" + sec(lp.answeredAt - EVENT) + " late</b>. Then it asks again, and the server parks the new request.",
+    [pageBox(["news seen " + sec(lp.answeredAt - EVENT) + " late", "asks again at once"], "got it", true), wireBox(["200 {\"news\": true}", "GET /messages?seen=1", "(held open)"], "answer then ask", true), serverBox(["answered the parked request", "parked the next one"])]));
+  steps.push(S3("Summary", "done", "In my run over 6 seconds, polling used <b>6</b> requests and long polling used <b>4</b>, and long polling saw both messages on time. Both still work as <b>question and answer</b>: a new request goes out every time. The next two tools keep one connection open instead.",
+    [pageBox(["polling: late by up to one timer", "long polling: on time"], "result"), wireBox(["both are request and answer", "headers are sent each time"]), serverBox(["long polling keeps one request waiting per user"])]));
+  return steps;
+}
+
+// ---- tab 2: server-sent events ----
+function simulateSse() {
+  const history = [], steps = [];
+  const send = (n) => { history.push({ id: n, data: "tick " + n }); return formatSse({ id: n, data: "tick " + n }); };
+  const streamHead = "HTTP/1.1 200 OK\nContent-Type: text/event-stream\nCache-Control: no-cache\n";
+  steps.push(S3("Setup", "setup", "<b>Server-Sent Events (SSE).</b> The page opens one normal GET with <code>new EventSource(\"/events\")</code>. The server answers with <code>Content-Type: text/event-stream</code> and <b>never finishes the answer</b>. Every time it has news, it writes one more block of text.",
+    [pageBox(["const es = new EventSource(\"/events\")"], "EventSource", true), wireBox(["GET /events", "Accept: text/event-stream"], "request"), serverBox(["history: (empty)"])]));
+  steps.push(S3("Server answers and keeps it open", "run", "The headers go out. The body stays open. The first block tells the browser how long to wait before it reconnects: <code>retry: 500</code>.",
+    [pageBox(["state: open", "waiting for events"]), wireBox([...lines(streamHead), ...lines(formatSse({ retry: 500 }))], "headers", true), serverBox(["connection kept open"])]));
+  let text = formatSse({ retry: 500 });
+  for (const n of [1, 2]) {
+    const block = send(n); text += block;
+    const parsed = parseSse(text);
+    steps.push(S3("Server writes event " + n, "run", "One block of text ends with an empty line. The browser reads it as <b>one event</b>. <code>lastEventId</code> is now <b>" + n + "</b>.",
+      [pageBox(["onmessage: " + J(parsed.events[parsed.events.length - 1].data), "lastEventId: " + n], "message", true), wireBox(lines(block), "one block", true), serverBox(["history: " + history.map((h) => h.id).join(", ")])]));
+  }
+  const b3 = send(3); text += b3;
+  steps.push(S3("Server writes event 3, then the connection drops", "bad", "Event 3 arrives. Then the network breaks (a Wi-Fi change, a proxy, a restart). The browser does <b>not</b> give up. <code>EventSource</code> goes back to state <b>connecting</b> and will try again by itself.",
+    [pageBox(["lastEventId: 3", "state: connecting (0)", "onerror fires"], "dropped", true), wireBox(lines(b3), "last block"), serverBox(["history: 1, 2, 3", "connection lost"], "lost")]));
+  const b4 = send(4), b5 = send(5);
+  const wait = backoffDelay(0, { base: 500 });
+  steps.push(S3("While the page is offline", "run", "The server makes events 4 and 5 and has nobody to send them to. The browser waits <b>" + sec(wait) + "</b> (the <code>retry</code> value), then asks again.",
+    [pageBox(["waiting " + sec(wait), "then reconnect"], "waiting"), wireBox(["(nothing can travel)"]), serverBox(["history: " + history.map((h) => h.id).join(", "), "events 4 and 5 are saved"])]));
+  const missed = missedEvents(history, "3");
+  steps.push(S3("Browser reconnects with Last-Event-ID", "chk", "The browser sends a <b>new GET</b> and adds <code>Last-Event-ID: 3</code> by itself. Your server code can read that header. <code>missedEvents(history, \"3\")</code> gives <b>" + missed.map((m) => m.id).join(" and ") + "</b>.",
+    [pageBox(["state: connecting"], "reconnect", true), wireBox(["GET /events", "Last-Event-ID: 3"], "request", true), serverBox(["history: 1, 2, 3, 4, 5", "missed after 3: " + missed.map((m) => m.id).join(", ")], "reads the header")]));
+  steps.push(S3("Server sends what was missed", "srv", "The server writes events 4 and 5 first, then carries on. The page missed <b>nothing</b>. Nobody wrote any reconnect code in the page. <b>The server must keep the history</b>, and it must make the ids.",
+    [pageBox(["onmessage: \"tick 4\"", "onmessage: \"tick 5\"", "lastEventId: 5", "state: open (1)"], "caught up", true), wireBox([...lines(b4), ...lines(b5)], "missed blocks", true), serverBox(["sent 4 and 5", "carries on with 6"])]));
+  const old = missedEvents(history, "0");
+  steps.push(S3("Summary", "done", "SSE is <b>one way</b>: server to page. The browser reconnects and sends <code>Last-Event-ID</code> by itself. If the id is too old for the history (here <code>missedEvents(history, \"0\")</code> gives <b>" + old + "</b>), the server should tell the page to load everything again. To send data up, the page uses a normal <code>fetch</code> POST.",
+    [pageBox(["receives only", "reconnects by itself"], "one way"), wireBox(["plain HTTP, text"]), serverBox(["keeps the history", "makes the ids"])]));
+  return steps;
+}
+
+// ---- tab 3: WebSocket handshake and frames ----
+function simulateWebSocket() {
+  const KEY = "dGhlIHNhbXBsZSBub25jZQ==";
+  const reqHeaders = { Host: "example.com", Upgrade: "websocket", Connection: "Upgrade", "Sec-WebSocket-Key": KEY, "Sec-WebSocket-Version": "13", Origin: "http://localhost:3000" };
+  const answer = handshake({ method: "GET", headers: reqHeaders });
+  const mask = [1, 2, 3, 4];
+  const hi = encodeFrame({ opcode: 1, payload: "hi", maskKey: mask });
+  const echo = encodeFrame({ opcode: 1, payload: "echo: hi" });
+  const ping = encodeFrame({ opcode: 9, payload: "p" });
+  const pong = encodeFrame({ opcode: 10, payload: "p" });
+  const dHi = decodeFrame(hi), dEcho = decodeFrame(echo);
+  const steps = [];
+  steps.push(S3("Setup", "setup", "<b>WebSocket.</b> The page runs <code>new WebSocket(\"ws://example.com/chat\")</code>. It starts as a normal HTTP GET that <b>asks to switch protocol</b>. This first step is called the <b>handshake</b>.",
+    [pageBox(["new WebSocket(\"ws://example.com/chat\")"], "WebSocket", true), wireBox(["nothing sent yet"]), serverBox(["listening on port 80"])]));
+  steps.push(S3("Handshake request", "run", "The browser sends a GET with <code>Upgrade: websocket</code>, <code>Connection: Upgrade</code>, a random <code>Sec-WebSocket-Key</code> and the page <code>Origin</code>. The WebSocket constructor takes only a URL and subprotocols, so JavaScript cannot add its own headers here.",
+    [pageBox(["connecting (readyState 0)"]), wireBox(["GET /chat HTTP/1.1", ...Object.entries(reqHeaders).map(([k, v]) => k + ": " + v)], "request", true), serverBox(["reads the headers"])]));
+  steps.push(S3("Server proves it understands", "chk", "The server adds a fixed text to the key, runs SHA-1, and writes the result in base64. <code>acceptKey(\"" + KEY + "\")</code> is <b>" + answer.headers["Sec-WebSocket-Accept"] + "</b>. This is the example from RFC 6455, and my real run gave the same text. It shows the server speaks WebSocket. It is not a password.",
+    [pageBox(["waiting for the answer"]), wireBox(["key + fixed text", "SHA-1, then base64"]), serverBox(["accept = " + answer.headers["Sec-WebSocket-Accept"]], "computed", true)]));
+  steps.push(S3("101 Switching Protocols", "srv", "The server answers <b>" + answer.status + " " + answer.reason + "</b>. From this moment the same TCP connection is <b>no longer HTTP</b>. It carries WebSocket frames both ways.",
+    [pageBox(["open (readyState 1)", "onopen fires"], "open", true), wireBox(["HTTP/1.1 " + answer.status + " " + answer.reason, ...Object.entries(answer.headers).map(([k, v]) => k + ": " + v)], "response", true), serverBox(["connection upgraded"], "open")]));
+  steps.push(S3("Page sends a text frame", "run", "<code>ws.send(\"hi\")</code> becomes one <b>frame</b>. First byte <code>81</code>: end of message plus type text. Second byte <code>82</code>: the mask bit plus length 2. Then 4 mask bytes. The browser <b>always masks</b> what it sends.",
+    [pageBox(["ws.send(\"hi\")"], "send", true), wireBox(["bytes: " + hex(hi)], "frame", true), serverBox(["waiting"])]));
+  steps.push(S3("Server decodes the frame", "chk", "The server reads the first two bytes, then the mask, then <b>XORs</b> each byte with the mask to get the text back. It finds type <b>" + dHi.type + "</b>, masked <b>" + dHi.masked + "</b> and text <b>\"" + new TextDecoder().decode(dHi.payload) + "\"</b>.",
+    [pageBox(["waiting"]), wireBox(["bytes: " + hex(hi)]), serverBox(["type: " + dHi.type, "text: " + new TextDecoder().decode(dHi.payload), "frame size: " + dHi.size + " bytes"], "decoded", true)]));
+  steps.push(S3("Server sends without being asked", "srv", "The server answers with <code>echo: hi</code>. A server frame has <b>no mask</b>, so it is shorter. And the server could send this at any time, <b>without a request</b>. That is the point of a WebSocket. Frame size: " + dEcho.size + " bytes for 8 letters.",
+    [pageBox(["onmessage: \"echo: hi\""], "message", true), wireBox(["bytes: " + hex(echo)], "frame", true), serverBox(["ws.send(\"echo: hi\")"])]));
+  steps.push(S3("Ping and pong", "run", "Either side can send a <b>ping</b> (type 9). The other side must answer with a <b>pong</b> (type 10) with the same payload. A server uses this to find dead connections, and it also keeps proxies from closing a quiet connection. The browser answers by itself.",
+    [pageBox(["answers the ping by itself"], "pong", true), wireBox(["ping:  " + hex(ping), "pong:  " + hex(pong)], "control frames", true), serverBox(["sends ping every 30 s", "no pong means dead"], "ping")]));
+  steps.push(S3("The connection drops", "bad", "A WebSocket has <b>no automatic reconnect</b>. The page gets <code>onclose</code> (code 1006 when the connection just broke) and is closed for good. <b>You write the retry</b>, and you should wait longer each time: " + [0, 1, 2, 3, 4, 5].map((n) => sec(backoffDelay(n))).join(", ") + " (never more than 30 s). Also, nothing is saved for you: after you reconnect you ask for what you missed.",
+    [pageBox(["onclose, code 1006", "readyState 3 (closed)", "your code: retry with backoff"], "closed", true), wireBox(["(broken)"]), serverBox(["connection gone", "no history kept for you"], "lost")]));
+  steps.push(S3("Summary", "done", "A WebSocket is <b>one TCP connection, both ways</b>, after one HTTP handshake. It sends small frames (2 to 14 bytes of header). It does <b>not</b> reconnect, replay missed messages or follow CORS for you. You handle those.",
+    [pageBox(["send and receive any time"], "two way"), wireBox(["101, then frames"]), serverBox(["checks Origin", "pings", "owns the history"])]));
+  return steps;
+}
+
+// ---- tab 4: many servers ----
+function simulateScaling() {
+  const conns = [{ user: "Ann", server: "A" }, { user: "Bob", server: "B" }, { user: "Cy", server: "A" }, { user: "Di", server: "C" }];
+  const lbl = (c) => c.user + " on " + c.server;
+  const without = deliver(conns, "Ann", false), withBus = deliver(conns, "Ann", true);
+  const onServer = (s) => conns.filter((c) => c.server === s).map((c) => c.user);
+  const serverBoxes = (got) => ["A", "B", "C"].map((s) => B("Server " + s, "srv", "", "", "", onServer(s).map((u) => u + (got.includes(u) ? "  got it" : "  (nothing)")), onServer(s).some((u) => got.includes(u))));
+  const steps = [];
+  steps.push({ layout: "three", hop: "Setup", phase: "setup", note: "<b>One server is not enough.</b> Four people are connected to three servers behind a load balancer. Each open WebSocket lives on <b>one</b> server, in that server's memory. Ann writes \"hi\" in a chat room that all four are in.",
+    boxes: serverBoxes([]) });
+  steps.push({ layout: "three", hop: "No shared bus", phase: "bad", note: "Without a shared channel, server A only knows its own sockets. <code>deliver(connections, \"Ann\", false)</code> gives <b>" + without.join(", ") + "</b>. Bob and Di <b>never see the message</b>. In my real run with two servers, only Ann's side got it.",
+    boxes: serverBoxes(without) });
+  steps.push({ layout: "three", hop: "Add pub/sub", phase: "run", note: "<b>Pub/sub</b> (publish and subscribe) fixes it. Every server <b>subscribes</b> to a channel on a shared service, for example Redis. When A gets Ann's message, it <b>publishes</b> it. Redis hands it to every subscriber. Each server then sends it to its own sockets.",
+    boxes: [B("Server A", "srv", "publishes", "", "", ["Ann says hi", "publish chat \"hi\""], true), B("Redis channel: chat", "fol", "shared", "", "", ["A, B and C subscribe", "pushes the message to all"], true), B("Servers B and C", "srv", "subscribed", "", "", ["receive the message", "send to their own sockets"])] });
+  steps.push({ layout: "three", hop: "With pub/sub", phase: "srv", note: "Now <code>deliver(connections, \"Ann\", true)</code> gives <b>" + withBus.join(", ") + "</b>. Everyone gets it. Redis pub/sub keeps no copy: a server that was offline at that moment <b>misses the message for good</b> (from the Redis docs, not run here). For chats that must not lose messages, keep them in a database or a stream as well.",
+    boxes: serverBoxes(withBus) });
+  steps.push({ layout: "three", hop: "Quiet connections get cut", phase: "bad", note: "<b>Proxies and load balancers close quiet connections.</b> nginx closes a proxied connection after <b>60 seconds</b> without data by default. An AWS Application Load Balancer also uses <b>60 seconds</b> (from their docs, not run here). A WebSocket ping every 30 s, or an SSE comment line every 15 s, keeps it open.",
+    boxes: [B("Browser", "user", "quiet 60 s", "bad", "", ["no messages for a minute"]), B("Load balancer", "lb", "idle timeout 60 s", "warn", "", ["closes the connection"], true), B("Your server", "srv", "", "", "", ["sends ping every 30 s", "so it never looks idle"])] });
+  steps.push({ layout: "three", hop: "Sticky sessions", phase: "done", note: "<b>Sticky sessions</b> send the same user to the same server every time. A pure WebSocket does not need them after the handshake, because it is one long connection. They matter for <b>long polling</b> and for libraries that fall back to it (Socket.IO says so in its docs), because each request is new and must reach the server that holds the state.",
+    boxes: [B("WebSocket only", "srv", "no sticky needed", "ok", "", ["one connection", "stays on one server"]), B("Long polling", "alarm", "sticky needed", "bad", "", ["many requests", "each one may land elsewhere"], true), B("Rule", "fol", "", "", "", ["messages between users", "need pub/sub in both cases"])] });
+  return steps;
+}
+
+// ---- tab 5: who may connect, and which tool ----
+function simulateAuthChoice() {
+  const KEY = "dGhlIHNhbXBsZSBub25jZQ==";
+  const ALLOWED = ["http://localhost:3000"];
+  const req = (origin) => ({ method: "GET", headers: Object.assign({ Upgrade: "websocket", Connection: "Upgrade", "Sec-WebSocket-Key": KEY, "Sec-WebSocket-Version": "13" }, origin ? { Origin: origin } : {}) });
+  const steps = [];
+  steps.push(S3("Setup", "setup", "<b>WebSockets have no CORS.</b> A page on any origin can open a WebSocket to your server. The browser <b>always sends an Origin header</b>, but it does not block anything. <b>Your server must check it.</b> Here the server only allows <code>" + ALLOWED[0] + "</code>. (SSE is different: <code>EventSource</code> does follow CORS. See lesson 06.)",
+    [pageBox(["new WebSocket(\"wss://api.example.com\")"], "any page", true), wireBox(["nothing yet"]), serverBox(["allowed: " + J(ALLOWED)])]));
+  [["http://localhost:3000", "your own page"], ["http://evil.com", "a page on another site"]].forEach(([origin, who]) => {
+    const r = handshake(req(origin), { allowedOrigins: ALLOWED });
+    steps.push(S3("Handshake from " + origin, r.status === 101 ? "srv" : "bad", "<b>" + who + ".</b> <code>handshake()</code> answers <b>" + r.status + " " + r.reason + "</b>." + (r.status === 101 ? " The connection opens." : " The server stops before the upgrade. In Chrome 157 the page only saw <code>onerror</code> and close code 1006. Without this check the page <b>would</b> connect, and, if the cookie rules (SameSite) allow it, the browser would send the visitor's cookies along. That attack is called cross-site WebSocket hijacking."),
+      [pageBox(["Origin: " + origin], who, true), wireBox(["GET / HTTP/1.1", "Upgrade: websocket", "Origin: " + origin, "", r.status + " " + r.reason], "handshake", true), serverBox(["origin allowed: " + ALLOWED.includes(origin)], r.status === 101 ? "open" : "refused", false)]));
+  });
+  const curl = handshake(req(null), { allowedOrigins: ALLOWED });
+  steps.push(S3("curl, with no Origin at all", "run", "A script or curl sends no <code>Origin</code>, or any text it likes. The model lets it through (<b>" + curl.status + "</b>), and most servers do the same. So <b>Origin is not a login</b>. It only stops other websites from using a logged-in visitor's browser.",
+    [B("curl or a script", "fol", "no Origin", "", "", ["can write any header"]), wireBox(["GET / HTTP/1.1", "Upgrade: websocket", "(no Origin)", "", curl.status + " " + curl.reason], "handshake", true), serverBox(["so also check who the user is"], "", false)]));
+  steps.push(S3("Who is the user?", "chk", "A browser cannot add an <code>Authorization</code> header to <code>new WebSocket()</code>. The usual ways: send the <b>cookie</b> (the browser adds it to the handshake, and my run showed it arriving), put a short-lived token in the <b>URL</b> (it may end up in logs), or send a token in the <b>first message</b> (GraphQL does this in <code>connection_init</code>). Check it <b>before</b> you let the user do anything.",
+    [pageBox(["cookie: sent by the browser", "or token in the first message"], "", true), wireBox(["handshake: Cookie: sid=abc123", "first message: { token }"]), serverBox(["look up the session", "close the socket if it is bad"])]));
+  const needs = [
+    ["A live price board, the page only reads", { serverPushes: true, clientSendsOften: false, binary: false, delayOkSeconds: 1 }],
+    ["A chat room", { serverPushes: true, clientSendsOften: true, binary: false, delayOkSeconds: 0 }],
+    ["A nightly report page, 10 minutes late is fine", { serverPushes: true, clientSendsOften: false, binary: false, delayOkSeconds: 600 }],
+    ["A normal product page", { serverPushes: false, clientSendsOften: false, binary: false, delayOkSeconds: 0 }],
+  ];
+  steps.push(S3("Which tool?", "done", "<code>chooseTransport</code> on four apps: " + needs.map(([n, need]) => "<b>" + n + "</b> gives <b>" + chooseTransport(need) + "</b>").join("; ") + ". This is a simple rule for learning. SSE plus a normal POST also works for many chats.",
+    [B("Needs", "user", "", "", "", needs.map(([n]) => n)), B("Answer", "srv", "chooseTransport", "", "", needs.map(([, need]) => chooseTransport(need)), true), B("Remember", "fol", "", "", "", ["plain http first", "sse for feeds", "websocket for two way", "polling when late is fine"])]));
+  return steps;
+}
+
+const STORIES = [
+  { name: "1. Polling", sim: simulatePolling,
+    why: "A normal HTTP server can only answer a question. Polling asks on a timer, so news arrives late and most requests are empty. Long polling parks the request, so news arrives at once, but it is still question and answer.",
+    predict: { q: "A message appears 0.3 seconds after the page polled. The page polls every 1 second. How late does the page see it?", options: ["0.3 seconds", "About 0.7 seconds, at the next ask", "It never sees it"], answer: "About 0.7 seconds, at the next ask" } },
+  { name: "2. Server-Sent Events", sim: simulateSse,
+    why: "SSE is one long HTTP answer that carries blocks of text. The browser reconnects by itself and sends Last-Event-ID, but the server must keep the history to replay what was missed.",
+    predict: { q: "An EventSource loses its connection. What does the page code have to do to reconnect?", options: ["Nothing, the browser reconnects by itself", "Call new EventSource again in onclose", "Poll with fetch until the server is back"], answer: "Nothing, the browser reconnects by itself" } },
+  { name: "3. WebSocket", sim: simulateWebSocket,
+    why: "A WebSocket starts as an HTTP GET, becomes a two-way connection after 101, and then sends small frames. It does not reconnect for you, so you write the retry with a growing wait.",
+    predict: { q: "A WebSocket connection drops. What does the browser do?", options: ["Reconnects by itself, like EventSource", "Fires onclose and stays closed", "Switches to polling"], answer: "Fires onclose and stays closed" } },
+  { name: "4. Many servers", sim: simulateScaling,
+    why: "Each socket lives on one server. A message from a user on server A does not reach a user on server B unless the servers share it, for example with Redis pub/sub. Proxies also close quiet connections.",
+    predict: { q: "Ann is on server A and Bob is on server B. Ann sends a chat message. Without anything shared between the servers, who gets it?", options: ["Ann and Bob", "Only Ann (and others on server A)", "Nobody"], answer: "Only Ann (and others on server A)" } },
+  { name: "5. Origin and choosing", sim: simulateAuthChoice,
+    why: "A WebSocket does not follow CORS, so the server checks Origin and also checks who the user is. Pick plain HTTP first, SSE for one way feeds, WebSocket for two way or binary, and polling when late is fine.",
+    predict: { q: "A page on evil.com opens a WebSocket to your API. The user is logged in to your site. What stops it?", options: ["The browser blocks it, like CORS", "Only your server, when it checks the Origin header", "Nothing can stop it"], answer: "Only your server, when it checks the Origin header" } },
+];
+
+// ---------------------------------------------------------------------------------------------
+// The page. Skipped when this file runs without a browser.
+// ---------------------------------------------------------------------------------------------
+const BADGE = { setup: ["Setup", ""], run: ["Doing a step", "run"], chk: ["Check", "chk"], bad: ["Something is wrong", "bad"], srv: ["Under control", "srv"], done: ["Finished", "done"] };
+let cur = 0, idx = 0, steps = [], timer = null, guess = null;
+const $ = id => document.getElementById(id);
+
+function box(b) {
+  let h = '<div class="comp ' + (b.cls || "lb") + (b.lit ? " lit" : "") + '"><h3>' + b.title + (b.tag ? '<span class="tag ' + (b.tag[1] || "") + '">' + b.tag[0] + "</span>" : "") + "</h3>";
+  if (b.small) h += "<small>" + b.small + "</small>";
+  if (b.layers) h += '<div class="stack">' + b.layers.map(l => '<div class="lay ' + (l.state || "") + (l.lit ? " lit" : "") + '"><em>' + l.name + "</em><span>" + l.size + "</span></div>").join("") + "</div>";
+  if (b.lines) h += '<ul class="log">' + b.lines.map(l => "<li>" + String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</li>").join("") + "</ul>";
+  return h + "</div>";
+}
+function render() {
+  const s = steps[idx];
+  $("stage").className = "stage " + s.layout;
+  $("stage").innerHTML = s.boxes.map(b => '<div class="panel' + (b.wide ? " wide" : "") + '">' + box(b) + "</div>").join("");
+  const b = s.badge || BADGE[s.phase] || BADGE.setup;
+  $("badge").textContent = b[0]; $("badge").className = "badge " + b[1];
+  $("hop").textContent = s.hop;
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (idx + 1) + " of " + steps.length;
+  $("bar").style.width = Math.round(100 * (idx + 1) / steps.length) + "%";
+  $("stepBwd").disabled = idx === 0;
+  $("stepFwd").disabled = idx === steps.length - 1;
+  showResult();
+}
+function showResult() {
+  const r = $("result");
+  if (idx !== steps.length - 1) { r.className = "result"; return; }
+  const p = STORIES[cur];
+  const real = p.predict.answer;
+  const why = "<br><b>Why:</b> " + p.why;
+  if (!guess) { r.className = "result show"; r.innerHTML = "<b>Answer: " + real + "</b>" + why + "<br>Pick your guess before you press the buttons. Predicting is what makes it stick."; return; }
+  const ok = guess === real;
+  r.className = "result show" + (ok ? "" : " bad");
+  r.innerHTML = (ok ? "<b>Your guess was right.</b> " : "<b>Not quite.</b> ") + "You chose <code>" + guess + "</code>. The answer is <code>" + real + "</code>." + why + (ok ? "" : "<br>Press Reset and step through again.");
+}
+function renderPredict() {
+  const p = STORIES[cur].predict;
+  $("predict").innerHTML = "<b>Predict first.</b> " + p.q + '<div class="opts" id="opts"></div>';
+  p.options.forEach(o => {
+    const b = document.createElement("button");
+    b.textContent = o; b.className = guess === o ? "pick" : "";
+    b.onclick = () => { guess = o; renderPredict(); showResult(); };
+    $("opts").appendChild(b);
+  });
+}
+function pickStory(i) {
+  stop(); cur = i;
+  steps = STORIES[i].sim();
+  idx = 0; guess = null;
+  document.querySelectorAll("#tabs button").forEach((b, j) => b.classList.toggle("on", j === i));
+  renderPredict(); render();
+}
+function move(d) { idx = Math.max(0, Math.min(steps.length - 1, idx + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; } if (typeof document !== "undefined") $("play").innerHTML = "&#9654; Auto"; }
+function play() {
+  if (timer) return stop();
+  if (idx === steps.length - 1) { idx = 0; render(); }
+  $("play").innerHTML = "&#9208; Pause";
+  timer = setInterval(() => { if (idx >= steps.length - 1) return stop(); move(1); }, 2800);
+}
+
+window.__sim = { simulatePolling, simulateSse, simulateWebSocket, simulateScaling, simulateAuthChoice, STORIES };
+
+if (typeof document !== "undefined" && document.getElementById) {
+  STORIES.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.textContent = p.name; b.onclick = () => pickStory(i);
+    $("tabs").appendChild(b);
+  });
+  $("stepFwd").onclick = () => { stop(); move(1); };
+  $("stepBwd").onclick = () => { stop(); move(-1); };
+  $("zero").onclick = () => { stop(); idx = 0; render(); };
+  $("play").onclick = play;
+  document.addEventListener("keydown", e => { if (e.key === "ArrowRight") { stop(); move(1); } else if (e.key === "ArrowLeft") { stop(); move(-1); } });
+  pickStory(0);
+}
+</script>
+</body>
+</html>

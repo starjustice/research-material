@@ -33,8 +33,8 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 04 | [TLS and HTTPS](04-tls-and-https.md) | the handshake, certificates, what is encrypted | ready |
 | 05 | [HTTP/1.1 vs HTTP/2 vs HTTP/3](05-http-1-1-vs-http-2-vs-http-3.md) | multiplexing, head of line blocking, QUIC | ready |
 | 06 | [Cookies, CORS and same origin](06-cookies-cors-and-same-origin.md) | why the browser blocks requests, and how CORS allows them | ready |
-| 07 | WebSockets and server sent events `07-websockets-and-server-sent-events.md` | real time options | planned |
-| 08 | How the browser renders a page `08-how-the-browser-renders-a-page.md` | HTML parse, CSS, layout, paint | planned |
+| 07 | [WebSockets and server sent events](07-websockets-and-server-sent-events.md) | real time options | ready |
+| 08 | [How the browser renders a page](08-how-the-browser-renders-a-page.md) | HTML parse, CSS, layout, paint | ready |
 
 **To make the next lesson:** in a chat with this folder open, say `/learn networking 01` to learn it live with Claude, or ask "make lesson networking 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

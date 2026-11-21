@@ -1,0 +1,131 @@
+[
+  {
+    "q": "A page needs to know the moment a new message appears on the server. Why can a normal HTTP request and answer not do this alone?",
+    "options": [
+      "HTTP answers are too small to carry a message",
+      "The server can only answer a request, so it cannot speak first",
+      "Browsers block messages that the page did not ask for",
+      "HTTP closes the connection after one second"
+    ],
+    "answer": 1,
+    "why": "In plain HTTP the page asks and the server answers. With no open request, the server has nothing to answer, so it cannot start the talk. Polling, SSE and WebSockets are three ways around this."
+  },
+  {
+    "type": "tf",
+    "q": "Long polling is still question and answer: the server holds the request open until it has news, and the page then sends a new request.",
+    "answer": true,
+    "why": "Long polling parks one request on the server and answers it when news arrives. The page then asks again. News arrives on time, but a new request goes out each round."
+  },
+  {
+    "q": "A page polls every 1 second. A message appears 0.3 seconds after a poll. About how late does the page see it?",
+    "options": [
+      "0.3 seconds",
+      "About 0.7 seconds, at the next poll",
+      "Exactly 1 second",
+      "It sees it at once"
+    ],
+    "answer": 1,
+    "why": "The server cannot push. The page learns about the message at its next question, 0.7 seconds later. A shorter timer is less late but sends more empty requests."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these does EventSource (Server-Sent Events) do for you?",
+    "options": [
+      "Reconnects by itself after the connection drops",
+      "Sends the Last-Event-ID header when it reconnects",
+      "Lets the page send messages up to the server on the same connection",
+      "Sends binary frames in both directions",
+      "Needs a response with Content-Type: text/event-stream"
+    ],
+    "answer": [0, 1, 4],
+    "why": "SSE is one way (server to page) and sends text. The browser reconnects and sends Last-Event-ID by itself. To send data up, the page uses a normal fetch POST."
+  },
+  {
+    "type": "order",
+    "q": "Put these steps of an SSE reconnect in order.",
+    "items": [
+      "The server writes event 3 with id: 3, then the connection drops",
+      "The browser waits for the retry time",
+      "The browser sends a new GET with Last-Event-ID: 3",
+      "The server sends events 4 and 5 that the page missed",
+      "The page keeps getting events as normal"
+    ],
+    "why": "The browser reconnects by itself and says what it saw last. The server must keep a history to replay what was missed."
+  },
+  {
+    "type": "fill",
+    "q": "An SSE message ends with one empty line. Which field name sets how many milliseconds the browser waits before it reconnects? (type the field name)",
+    "answer": ["retry"],
+    "why": "The retry field holds the wait in milliseconds. The id field sets the last event id, event names the event, and data holds the text."
+  },
+  {
+    "q": "A WebSocket starts as an HTTP request. Which answer from the server means the upgrade worked?",
+    "options": [
+      "200 OK",
+      "301 Moved Permanently",
+      "101 Switching Protocols",
+      "204 No Content"
+    ],
+    "answer": 2,
+    "why": "The server answers 101 Switching Protocols with Upgrade: websocket and a Sec-WebSocket-Accept value. After that, the same TCP connection carries WebSocket frames, not HTTP."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true for a browser WebSocket?",
+    "options": [
+      "The server can send a message without being asked",
+      "The browser reconnects by itself after a drop",
+      "Frames sent by the browser are masked",
+      "Either side can send a ping and the other must answer with a pong",
+      "The browser blocks the connection if the server sends no CORS headers"
+    ],
+    "answer": [0, 2, 3],
+    "why": "A WebSocket is two way, and the browser masks the frames it sends. Ping and pong check that the other side is alive. There is no automatic reconnect and no CORS check, so you write the retry and the server checks Origin."
+  },
+  {
+    "type": "order",
+    "q": "Put these in the order they happen when a WebSocket opens and the page says hello.",
+    "items": [
+      "The browser sends a GET with Upgrade: websocket and a Sec-WebSocket-Key",
+      "The server answers 101 with Sec-WebSocket-Accept",
+      "The page runs ws.send(\"hi\")",
+      "The browser sends a masked text frame",
+      "The server decodes the frame and reads \"hi\""
+    ],
+    "why": "The handshake is one HTTP request and answer. Only after the 101 do frames flow, and the server must unmask what the browser sends."
+  },
+  {
+    "q": "Ann is connected to server A and Bob to server B. Ann sends a chat message. Nothing is shared between the servers. Who gets it?",
+    "options": [
+      "Ann and Bob",
+      "Only the people connected to server A",
+      "Only Bob",
+      "Nobody, because WebSockets cannot do chat"
+    ],
+    "answer": 1,
+    "why": "Each socket lives in the memory of one server. A message only reaches other servers if they share it, for example through Redis pub/sub."
+  },
+  {
+    "type": "tf",
+    "q": "Redis pub/sub keeps a copy of each message, so a server that was offline can read the missed messages later.",
+    "answer": false,
+    "why": "Redis pub/sub is at-most-once. A subscriber that is not connected when the message is published never gets it. For messages that must not be lost, store them in a database or a stream as well."
+  },
+  {
+    "q": "A page on evil.com opens a WebSocket to your API. What can stop it?",
+    "options": [
+      "The browser, with the same CORS rule as fetch",
+      "Your server, when it checks the Origin header in the handshake and answers 403",
+      "The 101 response, which is only sent to trusted pages",
+      "Nothing, because the page is allowed to open any connection"
+    ],
+    "answer": 1,
+    "why": "WebSockets do not follow CORS. The browser sends an Origin header and the server must check it. Origin is not a login: a script can fake it, so the server should also check who the user is."
+  },
+  {
+    "type": "fill",
+    "q": "Which WebSocket message type (opcode 9) does a server send every 30 seconds to find dead connections and keep proxies from closing a quiet one? (type one word)",
+    "answer": ["ping"],
+    "why": "A ping frame asks the other side to answer with a pong that has the same payload. nginx closes a proxied connection after 60 seconds without data by default, so a ping every 30 seconds keeps it open."
+  }
+]

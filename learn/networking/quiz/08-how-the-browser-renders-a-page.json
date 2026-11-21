@@ -1,0 +1,149 @@
+[
+  {
+    "q": "The server sends the HTML in two pieces, 800 ms apart. When can the first piece show on screen?",
+    "options": [
+      "Right away, the browser works on each piece as it arrives",
+      "After the second piece, when all the HTML is there",
+      "Only after all JavaScript has run",
+      "Only after the page has fully loaded"
+    ],
+    "answer": 0,
+    "why": "The parser builds the DOM while bytes arrive. In a real Chrome 157 run the first piece painted after 36 ms and the whole answer ended after about 805 ms."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps from bytes to pixels in order.",
+    "items": [
+      "Bytes arrive and the parser builds the DOM",
+      "The CSS becomes the CSSOM",
+      "DOM and CSSOM make the render tree",
+      "Layout gives each box a size and a place",
+      "Paint writes the list of drawing steps",
+      "Compositing puts the layers together on the screen"
+    ],
+    "why": "Each step uses the result of the one before. Layout needs the render tree, paint needs the layout, and the compositor needs the painted layers."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are NOT in the render tree?",
+    "options": [
+      "An element with display: none",
+      "The head element",
+      "An element with visibility: hidden",
+      "An element with opacity: 0",
+      "A script element"
+    ],
+    "answer": [0, 1, 4],
+    "why": "The render tree holds only what can be drawn. display: none, head and script are left out. visibility: hidden and opacity: 0 stay, because they still take space."
+  },
+  {
+    "type": "tf",
+    "q": "A stylesheet in the head stops the parser from building the DOM until the CSS has arrived.",
+    "answer": false,
+    "why": "CSS holds back the first paint, not the parsing. In the model and in real Chrome the DOM is ready while the CSS is still loading. (A plain script after the CSS does wait for it.)"
+  },
+  {
+    "q": "A script tag has type=\"module\" and no other attribute. How does it behave?",
+    "options": [
+      "Like a plain script: it stops the parser",
+      "Like defer: it downloads in the background and runs after the parse",
+      "Like async but it never runs",
+      "It is ignored by the browser"
+    ],
+    "answer": 1,
+    "why": "Module scripts are deferred by default. In real Chrome a 500 ms module script let the page paint at 28 ms and ran at about 514 ms."
+  },
+  {
+    "type": "single",
+    "q": "A page has a plain script in the head that takes 500 ms. Another page has the same script with defer. What is different?",
+    "options": [
+      "Nothing, both paint at 500 ms",
+      "With defer the page can paint at once and the script runs after the parse",
+      "With defer the script never runs",
+      "With defer the parser stops for longer"
+    ],
+    "answer": 1,
+    "why": "A plain script stops the parser, so the body cannot be read until it has run (real Chrome: first paint at 532 ms). With defer the first paint was at 24 ms."
+  },
+  {
+    "type": "fill",
+    "q": "What is the name of the helper that reads the HTML text ahead of the parser and starts downloads early? (two words)",
+    "answer": ["preload scanner"],
+    "why": "The preload scanner starts downloads for img, link and script tags while the main parser is stopped. It cannot see files that JavaScript or CSS create."
+  },
+  {
+    "q": "Which file can the preload scanner find early?",
+    "options": [
+      "An img tag written in the HTML after a slow script",
+      "An image that a script creates with new Image()",
+      "A background-image inside a CSS file",
+      "A file loaded by CSS @import"
+    ],
+    "answer": 0,
+    "why": "The scanner reads only the HTML text. In real Chrome an image in the HTML was requested after 20 ms. The image made by a script was requested after 517 ms."
+  },
+  {
+    "q": "How many layouts does this loop make for 100 items?",
+    "code": "for (const el of items) {\n  el.style.width = \"200px\";\n  total += el.offsetWidth;\n}",
+    "options": [
+      "1",
+      "100",
+      "0",
+      "It depends on the screen size"
+    ],
+    "answer": 1,
+    "why": "Reading offsetWidth after a write forces a layout right now. Write, read, write, read makes one layout per item. Real Chrome with 2000 items: 2000 layouts, about 1070 ms. Reading first and writing after made 1 layout, about 9 ms."
+  },
+  {
+    "type": "multi",
+    "q": "Which changes make the browser run layout again?",
+    "options": [
+      "Changing width",
+      "Changing color",
+      "Changing font-size",
+      "Changing box-shadow",
+      "Changing transform on an element that is already on its own layer"
+    ],
+    "answer": [0, 2],
+    "why": "Width and font-size can move other boxes, so layout runs. Colour and shadow only need a repaint. A transform on an element that already has its own layer is handled by the compositor."
+  },
+  {
+    "q": "Which change is the cheapest to animate?",
+    "options": [
+      "width",
+      "margin-top",
+      "transform on an element that has its own layer",
+      "background-color"
+    ],
+    "answer": 2,
+    "why": "In real Chrome, a transform on an element with its own layer needed no layout and no paint, only style and composite. Width needs layout and colour needs paint."
+  },
+  {
+    "q": "A page has a 75th percentile LCP of 3.1 seconds. What is the rating?",
+    "options": [
+      "Good",
+      "Needs improvement",
+      "Poor",
+      "LCP has no rating"
+    ],
+    "answer": 1,
+    "why": "Good is 2.5 seconds or less. Needs improvement is up to 4 seconds. Above 4 seconds is poor."
+  },
+  {
+    "type": "tf",
+    "q": "CLS measures how fast the page reacts when the user clicks or taps.",
+    "answer": false,
+    "why": "That is INP, good at 200 ms or less. CLS measures how much the page jumps around, good at 0.1 or less. LCP is when the biggest element appears, good at 2.5 seconds or less."
+  },
+  {
+    "q": "What is the dead time after server rendering in a Next.js page?",
+    "options": [
+      "The time when the HTML is shown but the buttons do not work until hydration finishes",
+      "The time the server needs to start",
+      "The time the DNS lookup takes",
+      "The time the CSS takes to download"
+    ],
+    "answer": 0,
+    "why": "Server HTML can be painted at once. React then downloads its JavaScript and hydrates, which attaches the event handlers. Until then a click may do nothing. Less client JavaScript shortens this gap."
+  }
+]
