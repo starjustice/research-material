@@ -4,6 +4,9 @@ Containers, Kubernetes, cloud models, serverless, and how code gets to productio
 
 **Why it matters in interviews:** You deploy with Docker and CapRover. Interviews ask how containers work, what Kubernetes adds, and when serverless fits.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn top to bottom.

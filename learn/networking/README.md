@@ -4,6 +4,9 @@ What happens between the browser and the server: DNS, TCP, TLS, HTTP and the bro
 
 **Why it matters in interviews:** "What happens when you type a URL" is a classic. Senior rounds go deeper into TLS, HTTP/2 and HTTP/3, and CORS.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn left to right.

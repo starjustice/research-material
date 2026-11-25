@@ -2,6 +2,8 @@
 
 This folder is for **understanding concepts**, one subject per folder. Interview prep for a specific company lives in [`../interview/`](../interview/README.md).
 
+**Short on time, or lessons feel hard?** Start with [what is most important to know](must-know-summary.md). It lists the top 25 ideas and ranks every lesson by how often interviewers ask it.
+
 ```mermaid
 graph LR
     JS["JavaScript"] --> TS["TypeScript"]

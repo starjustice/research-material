@@ -4,6 +4,9 @@ How React turns state into UI, how rendering works, and the hooks you use every 
 
 **Why it matters in interviews:** React questions at senior level are about rendering: why a component re-renders, stale closures in hooks, and performance. Plus Next.js rendering choices.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn left to right.

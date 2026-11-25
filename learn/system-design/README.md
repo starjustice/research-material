@@ -4,6 +4,9 @@ Designing systems that scale: the building blocks, the interview framework, and 
 
 **Why it matters in interviews:** Senior rounds almost always include one design question. They judge how you clarify, draw, and explain tradeoffs, not a perfect answer.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 **Start here:** [System design roadmap, beginner to senior](system-design-roadmap-beginner-to-senior.md) ([visual version](system-design-roadmap-beginner-to-senior-cheatsheet.html)). It puts every file below in order, in six stages, with "I can..." checks and a 10 week plan that fits your weekly schedule.
 
 ## The map

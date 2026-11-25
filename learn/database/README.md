@@ -4,6 +4,9 @@ SQL and PostgreSQL: queries, indexes, transactions, and how the database works i
 
 **Why it matters in interviews:** This is where you fail most theory questions. Interviewers ask how an index works, what isolation levels do, and how you would fix a slow query.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn left to right. Each group builds on the one before.

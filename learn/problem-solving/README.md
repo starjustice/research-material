@@ -6,6 +6,9 @@ Part of the plan in [`my-learning/study-method-and-weekly-plan.md`](../../my-lea
 
 **Why it matters in interviews:** most coding rounds are about a few data structures (array, hash map, stack, queue, tree, graph, heap) and a few ideas (Big O, binary search, recursion, dynamic programming). If you can see the picture and say the cost, you can solve the new problem in front of you.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn top to bottom. The first lesson gives you the words to say the cost of everything after it.

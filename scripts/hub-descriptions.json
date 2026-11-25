@@ -282,5 +282,45 @@
  "learn/system-design/senior-system-design-interview-questions-cheatsheet.html": [
   "System Design Interview Drill",
   "Flashcards for every question, four part answers, got it / not yet"
+ ],
+ "learn/javascript/must-know-summary.md": [
+  "JavaScript: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/react/must-know-summary.md": [
+  "React and frontend: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/react-native/must-know-summary.md": [
+  "React Native: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/backend-api/must-know-summary.md": [
+  "Backend and API: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/database/must-know-summary.md": [
+  "Database: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/system-design/must-know-summary.md": [
+  "System design: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/networking/must-know-summary.md": [
+  "Networking: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/devops-cloud/must-know-summary.md": [
+  "DevOps and cloud: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/problem-solving/must-know-summary.md": [
+  "Problem solving: what to know first",
+  "Short ranked list: what to learn first, what to say in the interview, and the common trap"
+ ],
+ "learn/must-know-summary.md": [
+  "What is most important to know",
+  "Top 25 ideas, a plan for 2 days, 1 week or 3 weeks, and a ranked page for each subject"
  ]
 }

@@ -179,6 +179,8 @@ def main():
 <p>Pick what to learn, track your steps, and see what is due for review.</p>
 """]
     parts.append(card("study.html", "START HERE", "map", *DESC.get("study.html", ["Study Route", ""])))
+    parts.append(card(viewer("learn/must-know-summary.md"), "START HERE", "map",
+                      *DESC.get("learn/must-know-summary.md", ["What is most important to know", ""])))
     parts.append(card("speak.html", "PRACTICE", "note", *DESC.get("speak.html", ["Say it out loud", ""])))
     parts.append(card("progress.html", "PRACTICE", "note", "My quiz scores",
                       "Your score on each lesson quiz, and the questions to look at again"))

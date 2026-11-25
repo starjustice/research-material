@@ -4,6 +4,9 @@ How the language really works: values, scope, functions, objects, and how JavaSc
 
 **Why it matters in interviews:** Almost every frontend and Node interview starts here. Questions like "what is a closure", "what does this print" and "explain the event loop" test whether you understand how JavaScript runs your code, not whether you can use a framework.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn left to right.

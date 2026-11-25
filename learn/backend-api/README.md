@@ -4,6 +4,9 @@ HTTP, REST and GraphQL APIs, Express, authentication and authorization, and Hasu
 
 **Why it matters in interviews:** Backend rounds ask you to walk through a request end to end, design an endpoint, and explain JWT and refresh tokens. Your DBO and Skyworx work lives here.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn left to right.

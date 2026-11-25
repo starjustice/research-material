@@ -4,6 +4,9 @@ How React code becomes a native app, and what is different from React on the web
 
 **Why it matters in interviews:** You built ZWS and the DBO mobile app. Interviews ask about the architecture (bridge vs JSI), list performance, and Expo vs bare.
 
+**Short on time?** Read [what to know first](must-know-summary.md). It ranks the lessons by how often interviewers ask them.
+
+
 ## The map
 
 How the lessons connect. Learn left to right.
