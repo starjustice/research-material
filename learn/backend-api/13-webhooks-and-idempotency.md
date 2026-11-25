@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Verify, save the id, answer fast, work later, make the work safe to repeat.
+- Check the signature on the raw bytes first. Parse the JSON after.
+- Write first, and let the database say if you are the first.
+- A slow answer looks like a failure to the sender.
+- `200` for repeats and unused events. `5xx` only when you want a retry.
+- One idempotency key for one action. A retry gets the saved answer.
+- An id saved without a queued job is a lost event.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a courier rings the bell
 
 A **webhook** is another service calling a URL of yours when something happens, like a payment. It is like a courier. If nobody opens the door in 10 seconds, he comes back later with the **same parcel**. The parcel has a wax **seal** only the real shop can make, and a **number**. You check the seal, write the number in a log book, sign at the door, and unpack later.

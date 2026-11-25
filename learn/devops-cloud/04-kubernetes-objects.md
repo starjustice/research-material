@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Kubernetes facts come from the official docs, checked on 2026-11-13. The newest Kubernetes release on that date was 1.37. There was no cluster on the machine that made this lesson, so anything that needs a running cluster is marked "from the docs, not run here". About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Compose manages one machine. Kubernetes manages many, and moves work when one fails.
+- You write what you want, and loops keep reality equal to it, for as long as the object exists.
+- A pod is disposable. Do not repair it, do not call its address, and do not create it by hand.
+- You write a Deployment, not pods. A change to the pod blueprint starts a rolling update, and the old ReplicaSet makes a rollback possible.
+- A Service picks pods by label, and only ready ones. A label that matches nothing means no traffic.
+- An Ingress is only rules. You also need an ingress controller. For new work, look at Gateway API, the newer direction.
+- CapRover app is roughly Deployment plus Service. nginx routing is Ingress plus an ingress controller. Environment variables become ConfigMaps and Secrets.
+- If you freeze, say "I write what I want. A Deployment keeps the pods. A Service gives them one address by label. An Ingress sends web requests to Services."
+<!-- quick-summary:end -->
+
 ## 1. The problem: Compose stops at one machine
 
 In lesson 03 you ran your app with Compose. Compose looks after containers on **one machine**. That is fine until the machine dies, or one machine is too small, or you must deploy a new version without a gap.

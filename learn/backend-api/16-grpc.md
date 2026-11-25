@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Number every field and never reuse a number, always set a deadline, and expect gRPC status codes, not HTTP ones.
+- The number is the field. The names are not in the bytes.
+- The `.proto` file is the one contract. Both sides make their code from it.
+- Unary is the plain call. The other three use a stream.
+- The HTTP status of a gRPC answer is 200 even when the call failed. Read `grpc-status`.
+- Every call has a deadline, and the deadline is passed along.
+- Delete a field, write `reserved`, and never reuse the number.
+- Retry only what a retry can fix.
+- A browser needs gRPC-Web or Connect. A balancer must understand HTTP/2 calls.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a printed order form with numbered boxes
 
 The form says: box 1 is the customer number, box 2 is the name, box 3 is the email. Everyone in the company has the same form. When you fill it in, you write only "box 1: 1, box 2: Ana". That is why the message is short. **gRPC** works like this. You write the form once, in a `.proto` file, and programs in any language call each other's functions by sending small binary messages over HTTP/2.

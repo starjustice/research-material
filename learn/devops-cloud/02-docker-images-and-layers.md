@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- An image is a stack of read-only layers. A container is that stack plus one thin writable layer, and that layer dies with the container.
+- Docker checks the lines from the top. The first changed line, and every line after it, runs again.
+- Put the lines that change least at the top, and copy the library list before the source code.
+- Deleting in a later line hides the file but keeps the bytes. Create and delete in the same `RUN` line.
+- Build in a big stage and ship a small one. Only the last stage becomes the image, so copy in only what runs.
+- Write a `.dockerignore` on day one: `node_modules`, `.git`, `dist`, logs and `.env` files.
+- Use `USER node` so the app is not root, and pin the base by digest when you need the same bytes every time.
+- If you freeze, say "Layers only add. The cache breaks at the first changed line. Slow stable lines go first. Ship only what runs."
+<!-- quick-summary:end -->
+
 ## 1. An image is a stack of layers. A container adds one thin layer
 
 A **Dockerfile** is the recipe: a list of lines. An **image** is what the recipe builds. Think of a pile of clear plastic sheets. Each sheet is a **layer**: the files that one line added. You cannot change a sheet in the pile. You can only add one on top. A container is the pile plus one new empty sheet. It writes only on that sheet, and the sheet is thrown away when the container is removed.

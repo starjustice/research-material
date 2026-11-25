@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- With "mod N", adding one server moves about N out of N+1 keys. Almost everything moves.
+- A key walks clockwise to the next server spot. A new server takes over only the keys just before it.
+- On a ring, a change moves about 1 key in N, and only to or from the changed server.
+- Give each server many spots, so the load is even. A bigger server can get more spots.
+- The idea is "an owner that does not depend on how many servers there are". A ring and fixed slots both do that.
+- If you freeze, say "Hash servers and keys onto a ring. A key goes to the next server clockwise. Each server has many spots. Adding a server moves about 1 key in N."
+<!-- quick-summary:end -->
+
 ## 1. The idea: which server holds this key?
 
 You have 3 cache servers and millions of keys. For each key you need one server, and every app server must pick the **same** one. The easy rule: turn the key into a number (a **hash**), divide by the number of servers, and use the remainder. Key 7 with 3 servers: 7 mod 3 = 1, so server 1. Like putting books on 3 shelves by the book number.

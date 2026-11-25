@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- `GROUP BY` squashes many rows into one row. A window function keeps every row and adds one column.
+- `OVER (PARTITION BY ...)` makes one window per group. Each row gets the answer of its own window.
+- ROW_NUMBER never repeats. RANK repeats on a tie and then skips. DENSE_RANK repeats on a tie and does not skip.
+- `ORDER BY` inside `OVER` makes `SUM` a running total: it adds from the top down to this row.
+- `LAG` reads the row above, inside the same window. The first row has no row above, so it gets NULL.
+- You cannot filter on a window value in the same query. Make it in an inner query (a CTE or a subquery in `FROM`), then filter outside.
+- No `PARTITION BY` means one big window for all rows.
+- `SUM(...) OVER (PARTITION BY ...)` is a total. Add `ORDER BY` to make it a running total.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a rank next to every name
 
 A school prints one sheet with every student's test score.

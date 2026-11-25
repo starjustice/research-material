@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Drawing the boxes is job five. When you freeze, ask "which job am I on?".
+- An estimate that does not change what you say next wasted four minutes.
+- Draw only what the numbers need. Then ask the interviewer where to go deeper.
+- Options, cost, choice, and what would change it.
+- When you do not know what to draw, go back one step. Never jump forward.
+- The order costs time before the first picture. Do not rush it, and do not ask 15 questions.
+<!-- quick-summary:end -->
+
 ## 1. The idea: six jobs in order
 
 A design answer is six small jobs in a fixed order. Drawing the boxes is job five, not job one. When you freeze, you do not need a good idea. You only need to know the next job.

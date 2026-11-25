@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A tenant is one customer company. In a shared table, the tenant filter must be on every query, and one miss leaks data silently.
+- Start with shared tables plus a safety net. Give a schema or database only to the tenants that need a wall.
+- Tenant from the token, required on every call, and RLS as a net. The app role must not be the owner, a superuser or `BYPASSRLS`.
+- Share the machine, not the limit. Count and limit for each tenant, and give a paid plan a bigger number.
+- Route by tenant id, with an override list for big tenants. Move data first, then switch the route.
+- If you freeze, say "Tenant from the token, required on every call, filter in the data layer, RLS as a net, and a limit for each tenant. Shared tables by default, a schema or database only for tenants that need it."
+<!-- quick-summary:end -->
+
 ## 1. The idea: many companies, one system
 
 You build one product, and many **customer companies** use it. Each company is a **tenant**. Acme must never see Globex's orders, even though both live in the same system. The easy way to build this is one table that holds everyone's rows, with a `tenant_id` column. It works until one query forgets `WHERE tenant_id = ...`. Then Acme reads Globex's data, and no error appears.

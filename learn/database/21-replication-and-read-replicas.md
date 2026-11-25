@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run on a real primary and a real streaming replica on one laptop, with PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A replica replays the primary's log. It is read only, and it is a little behind.
+- A replica can be behind. A user may not see their own write there. This bug is called a read-your-writes failure.
+- After a write, either read from the primary, or wait until the replica has reached the write's LSN.
+- Use replay_lag on the primary for the delay. Do not alarm on now() minus the last replay time, because it grows when nobody writes.
+- The replica applies the primary's cleanup. A long query there can be cancelled (error 40001). Retry, or give long reports their own replica.
+- Async can lose the last commits if the primary dies. Sync cannot, but it makes writes wait for the replica, and they stop if the replica is gone.
+- Promote one replica, and make sure the old primary can never write again. Check for slots nobody reads.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a copy that follows the primary
 
 One database server does all the work: writes and reads. When it is too busy, or when you want a spare, you make a **replica**: a second server that keeps a copy of everything. The primary sends it every change, as the **write-ahead log** (lesson 13). The replica replays the log, over and over.

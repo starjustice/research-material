@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Kubernetes facts come from the official docs (the pages are for Kubernetes 1.37), opened on 2026-11-17. There was no cluster on the machine that made this lesson, so anything that needs one is marked "from the docs, not run here". The limit numbers, the Node code and the Compose file were really run on Docker Desktop 29.3.1. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Startup asks "finished starting?", readiness asks "send me traffic?", liveness asks "restart me?". Only a failed readiness probe does not restart the container.
+- Readiness decides who gets traffic. A pod that is not ready is out of the Service's list, and nothing restarts. The probe runs for the whole life of the pod.
+- Liveness means "restart me". Use it only for "stuck for good", and keep the database out of it. A startup probe gives a slow app time, and holds back liveness and readiness until it passes.
+- A request is for the scheduler: it reserves room. A limit is for the kernel: it is the ceiling. Docker's `--memory` and `--cpus` set the same limits.
+- Over the memory limit, the container is killed with exit code 137. Over the CPU limit, it is only slowed, with no error. Look at the restart count for memory, and at slow answers for CPU.
+- A rolling update starts a new pod, waits for ready, then removes an old one. maxSurge allows extra pods. maxUnavailable allows missing pods. Both default to 25 percent.
+- A readiness probe plus `maxUnavailable: 0` makes a bad release stall, not break. Kubernetes reports the stall but does not roll back. `kubectl rollout undo` does.
+- Liveness checks only the process. Readiness may check what you need to serve. Measure memory before you set a limit.
+<!-- quick-summary:end -->
+
 ## 1. Three questions: startup, readiness, liveness
 
 Lesson 10 showed that a Docker health check only reports. It does not act. Kubernetes goes further. The **kubelet** (the helper program on each machine, from lesson 04) asks your container a question again and again. One question is a **probe**. It is usually a web request to your own app. There are three kinds, and each one acts differently when the answer is no.

@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The model only knows what is in the prompt. Your code finds the pieces, checks the permissions, guards the call and checks the output.
+- Filter by permission first, then score, then take the top k. Show the source ids next to the answer.
+- A fallback needs a timeout in front of it. The gateway is the place for keys, timeout, fallback, budget and log.
+- Never trust the model's output more than the least trusted text it read. Allow list the tools, give the least power, ask a person before a risky action.
+- Stream with SSE, end with a clear done message, and cancel the model call when the user leaves.
+- Output tokens cost more than input tokens. Cache the repeated start of the prompt, route easy work to a small model, and set a budget and a max length.
+- If you freeze, say "My code finds and filters the data, and a gateway guards the call. I treat the model's output as a request and check it. I stream the answer and I cap the cost."
+<!-- quick-summary:end -->
+
 ## 1. The idea: the model is a part you call, not a magic box
 
 An LLM (large language model) feature is a normal system with one slow, costly, unreliable part in the middle: the model. The model only sees the text you put in the prompt. So your code has to do the rest: find the right pieces of your data, check who may see them, call the model safely, stream the answer, and keep the bill under control. A student at an **open book exam** is a good picture. The student (the model) is clever but knows nothing about your company. A clerk (your code) walks to the shelves, picks the right pages, and hands them over. The clerk also checks which pages this student may read.

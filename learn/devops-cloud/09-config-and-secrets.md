@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Every secret in this lesson is a made up text like `not-a-real-secret`. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Build once. Give each place its own settings from outside the code.
+- If a value gives power, it is a secret, even when its name does not say so.
+- Never commit a real secret. Deleting it in a later commit does not remove it from history.
+- A `NEXT_PUBLIC_` value is pasted into the code at build time. It is frozen and public. Other names are read when the server runs.
+- A layer only adds. A secret that reached a layer, an `ARG` or an `ENV` line ships with the image. If it did, change the secret.
+- At build use a secret mount. At start prefer a file in `/run/secrets/` to an environment variable.
+- Rotate means changing the secret in both places, and the app must read the new value without a long outage.
+- Change the secret first, clean up second. Mask secret values before you log anything.
+<!-- quick-summary:end -->
+
 ## 1. Settings live outside the code
 
 Your app needs settings: a port, a database address, a log level. They are different on your laptop, on the test server and in production. If you write them in the code, you must edit the code and build again for each place. So you build **one image**. Each machine gives the app its own settings when it starts. These are **environment variables**: named text values that the machine hands to a program.

@@ -4,6 +4,20 @@
 > **You will be able to:** build the common layouts from memory (center a box, header with content and footer, row of equal columns, wrapping grid, corner badge) and say which three defaults differ from the web.
 > **Before this:** [React Native lessons](README.md) · **Next:** 12 The styling toolkit (planned)
 
+<!-- quick-summary:start -->
+<!-- quick-summary:manual -->
+## Quick summary
+
+> Short on time? Read only this. It is the short version of the cards below, so you can read the whole lesson in one minute.
+
+- `flexDirection` picks the main axis. `justifyContent` works on the main axis. `alignItems` works on the cross axis.
+- Three defaults differ from the web: `flexDirection` is `column` (web: `row`), `flexShrink` is `0` (web: `1`), `alignContent` is `flex-start` (web: `stretch`).
+- Long text pushes an icon off the screen because `flexShrink` is `0`. Give the Text `flexShrink: 1` (or `flex: 1`) so it wraps.
+- In a column, `alignItems: 'center'` centers left to right. To center both ways you need both `justifyContent` and `alignItems`.
+- There is no cascade. Styles are plain objects, and a child does not inherit `flexDirection`.
+- The rules interact. A missing `flex: 1` high up in the tree makes everything below it collapse, so add one rule at a time.
+<!-- quick-summary:end -->
+
 ## 1. The idea in one sentence
 
 Every `View` is a box that decides how its children share its space, and you tell it with a few style words: which way to line up, how to spread, how to align.

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A running app is seven layers. A cloud model only says who looks after which layer.
+- Climbing from on-prem to IaaS, PaaS and SaaS, you look after fewer layers. Your data stays yours in every model.
+- CapRover takes the platform layer. The operating system, the runtime and the server stay yours, so it is more control and more work than a real PaaS.
+- IaaS, PaaS and SaaS say who looks after the layers. Public, private and hybrid say whose buildings they are. They are two separate questions.
+- A region is a far away place and a zone is a separate building inside it. Pick the region near your users. Spread copies over zones.
+- The provider secures the cloud. You secure what you put in it: your data, your accounts and your settings, in every model.
+- More layers yours means more control and more work. Pick by what you need, and check that a person has time to do the work.
+- If you freeze, say "Seven layers. Each model decides who looks after which. The line moves, but your data and access stay yours. Spread over zones."
+<!-- quick-summary:end -->
+
 ## 1. Running an app means looking after seven layers
 
 A web app does not run by itself. Seven layers sit under your users. If nobody looks after one layer, the app breaks. A "cloud model" is only a decision: **which layers do you look after, and which layers does a company look after for you?** The **runtime** is the program that runs your code, such as Node. The **platform** is the part that deploys your code, restarts it and gives it HTTPS.

@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A hash map turns the key into a bucket number, then jumps straight there.
+- A collision is normal. Short buckets keep the lookup fast. Many collisions make it slow.
+- Use `Map` and `Set` for lookups. A plain object is fine for a fixed record, not for "any word a user gives me".
+- A hash map problem is a question of "what is the key?".
+- "the other number I need" is a lookup. Turn it into `has`.
+- `Map.has` is one step. `Array.includes` is a loop.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a wall of mailboxes
 
 A hash map is like a wall of mailboxes. You do not search every box. A rule turns the name into a **box number**, and you walk straight to that box.

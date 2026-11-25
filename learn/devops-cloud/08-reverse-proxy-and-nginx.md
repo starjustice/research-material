@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Every nginx output in this lesson was printed by real nginx 1.30.6 running in Docker, with `curl` from a second container, on 2026-11-13. The small model in the practice was run with Node. The one thing I could not run here (HTTPS) is marked "from the docs, not run here". About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A reverse proxy owns the one public door and passes each request to an app behind it. The browser only knows the proxy.
+- The Host header picks the site. The longest matching path prefix picks the rule. Then `proxy_pass` picks an app.
+- The chain is `server_name` (which site), `location` (which path), `proxy_pass` (which app). Test a change with `nginx -t`, and apply it with `nginx -s reload`.
+- One dead app in a pool costs no errors, because nginx tries the next one. The cost is that the others carry all the work.
+- 502 means nginx is up and the apps did not answer. 504 means too slow. Read the nginx error log first, then check the apps.
+- Set three headers: `Host`, `X-Forwarded-For` and `X-Forwarded-Proto`. Each proxy adds one address to the list. Trust only the addresses your own proxies added.
+- One nginx can serve files, compress, and end HTTPS, so your app does not have to. Compression only applies to the types you list.
+- CapRover is Swarm plus nginx plus Let's Encrypt. nginx routes by domain and ends HTTPS. It is the same idea as an Ingress controller in Kubernetes.
+<!-- quick-summary:end -->
+
 ## 1. The problem: many apps, one front door
 
 A server has one public web door for HTTPS: port 443. Only one program can use it. But you run several apps. Without help, each app needs its own public port and its own certificate, and the browser has to know them all.

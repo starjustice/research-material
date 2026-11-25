@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Copies help reads and survival. The cost is a stale read: nothing crashed, the new value is just not there yet.
+- Read your own writes: for a few seconds after you write, send your reads to the leader.
+- Choose per feature. Money is strong. Likes are eventual. A user's own change must be visible to that user.
+- During a network split, choose: refuse, or answer with maybe old data. With no split you can have both.
+- CAP only speaks when the line is cut. PACELC is the choice you live in every day: speed against freshness.
+- If you freeze, say "A copy can be old for a moment. That is a stale read."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a copy can be behind
 
 Data often lives in more than one place. The **leader** takes every write. A **follower** holds a copy and answers reads. Like a head office that changes the price list, and branch shops that keep a copy. A courier carries each change to the branches, so for a moment a branch can say the old price. That is a **stale read**.

@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 30 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A tree is a linked list where each node can point to two next nodes.
+- Recursion on a tree = base case for null, then combine the answers of the left and the right.
+- Preorder = me first. Inorder = left, me, right. Postorder = me last.
+- DFS = stack, goes deep first. BFS = queue, goes level by level.
+- A BST is fast only if it stays balanced. Inorder of a BST is sorted.
+- A node must fit between the limits from **all** of its ancestors, not only its parent.
+- Every tree function = base case + combine the children.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a family tree upside down
 
 A **tree** is nodes joined by arrows that go down. The top node is the **root**. Each node has **children**. A node with no children is a **leaf**. In a **binary** tree, a node has at most two children: left and right.

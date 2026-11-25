@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run with real connections on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Assume every event, request and job can arrive twice. The code must be safe when that happens, even at the same moment.
+- ON CONFLICT needs a unique rule. DO NOTHING skips the row (INSERT 0 0). DO UPDATE changes the old row.
+- The database must enforce "only one". A unique rule stops the duplicate. ON CONFLICT makes the loser quiet.
+- Record the event id and do the work in one transaction. The unique id decides who goes first.
+- A counter is one upsert with n = n + 1. For messages that can arrive out of order, update only when the new one is newer.
+- FOR UPDATE makes the job yours. SKIP LOCKED makes the other workers look at the next job instead of waiting.
+- A dead worker's transaction is rolled back, and the job returns to pending. Make the work safe to run twice, because it may run again.
+<!-- quick-summary:end -->
+
 ## 1. The problem: the same thing arrives twice
 
 A payment service tells you "user 1 paid 100" with a webhook. Networks are not perfect: if your server is slow to answer, the sender sends the **same event again**. A user double-clicks a button. A job is retried. Your code must give the same result whether it runs once or five times. That property has a name: **idempotent**.

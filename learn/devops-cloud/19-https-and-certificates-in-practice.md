@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** `openssl` and `curl` against live sites, a small certificate chain I made with `openssl`, a Node proxy that ends HTTPS, and the practice code. **What I did not run:** certbot, nginx, a real Let's Encrypt order, Cloudflare and AWS. Those are marked "from the docs, not run here". Facts and links were checked on 2026-11-19. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A certificate proves who controls a name and carries the key to start encrypted talk. It does not prove the site is honest.
+- The browser trusts a short list of roots. Your server must send its own certificate plus the middle ones (`fullchain.pem`).
+- TLS termination means the HTTPS ends at the proxy. The leg behind it is plain unless you encrypt it again.
+- ACME proves control of a name with a test: a file on port 80, or a DNS record. The private key stays on your server.
+- A wildcard needs DNS-01. HTTP-01 needs port 80 open. DNS-01 needs a DNS API token, so keep that token narrow.
+- Certificates are getting shorter (90 days at Let's Encrypt now, 47 days at most for every public CA from 2029). So renewal must be automatic and watched.
+- Renewal has four weak spots: the timer, the challenge, the reload and the watching. Alert on days left, because Let's Encrypt no longer sends expiry emails.
+- HSTS tells the browser "HTTPS only" for a time. It blocks click through, so make renewal solid first and start with a short time.
+<!-- quick-summary:end -->
+
 ## 1. What a certificate proves
 
 You open `https://shop.example.com`. Anyone on the Wi-Fi could answer instead of the real shop. So the server shows a **certificate**: a small file with the site's name, its public key, the dates it is valid, and a signature from an issuer the browser trusts. If the browser accepts it, it knows it talks to whoever controls that name, and it can start encrypted talk. The padlock does not say the site is honest.

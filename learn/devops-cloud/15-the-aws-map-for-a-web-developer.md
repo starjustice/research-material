@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. **I did not open an AWS account and I ran no AWS command for this lesson.** What each AWS service does comes from the AWS docs, opened on 2026-11-19, and is marked "from the docs, not run here". The small model in the practice file and in the stepper is plain JavaScript that I ran for real. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A web app is six small jobs. In AWS each job has a service with its own name.
+- Pick by who looks after the machine, how long one run lasts, and how steady the traffic is.
+- Keep files in S3, not on a server disk. A signed link lets a browser upload one file, once, for a short time.
+- RDS is Postgres where AWS does the backups and the patches. You still own the schema, the queries and the indexes.
+- Route 53 finds you. CloudFront keeps copies near the users. The load balancer shares the work between copies.
+- Start from "who looks after the machine" and "how steady is the traffic". Then add RDS for the data and S3 for the files.
+- Many short Lambda calls plus Postgres need a pool in the middle, or a container instead of Lambda.
+- Put the database where only your app can reach it. The internet should have no way in.
+<!-- quick-summary:end -->
+
 ## 1. The map: a few pieces, each with one job
 
 AWS has a very long list of services. A web app needs about six jobs done: find the site by its name, keep copies near the users, share the work, run your code, keep the data, keep the files. Each piece lives in a **Region**: a place in the world where AWS keeps its data centres. You pick one, usually near your users.

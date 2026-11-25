@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Use the simplest one that works. Polling for rare news, SSE for one-way pushes, WebSocket when both sides talk. Connections drop, so plan for reconnects.
+- SSE is plain HTTP and plain text. A blank line ends an event.
+- SSE has resume built in (`id` and `Last-Event-ID`). WebSocket does not.
+- It starts as HTTP, then the same connection speaks WebSocket.
+- A browser has both built in. Node has `WebSocket`, not `EventSource`.
+- With more than one server, publish each message on a bus.
+- Never reconnect at once, in a loop. Wait longer after each failure, with some random time.
+- A heartbeat shorter than the idle timeout.
+- A one-time ticket, and a check of who the user is when the socket opens.
+<!-- quick-summary:end -->
+
 ## 1. The idea: three ways to follow a football match
 
 When the server has news, it should tell the client at once, without the client asking again and again. Think of three ways to follow a match.

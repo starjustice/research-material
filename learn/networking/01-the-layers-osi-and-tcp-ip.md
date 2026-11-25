@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** `curl -v`, `nc`, `dig` and `traceroute` against live sites, a small Node program with two servers on one machine, and the practice code. **What I did not run:** `tcpdump` and Wireshark (they need admin rights here), and any load balancer. Those are marked "from the docs, not run here". Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Each layer does one job and only talks to its neighbours. So you can change one layer without touching the others.
+- TCP/IP has 4 layers (application, transport, internet, link). In OSI terms, layer 7 is the application, layer 4 is TCP or UDP, layer 3 is IP, and layer 2 is Ethernet or Wi-Fi.
+- Going down, each layer wraps the data in its own header. Going up, each layer removes its own header. A layer only reads its own header.
+- MAC is the next stop, IP is the machine, port is the program. MAC changes at every router. IP and port stay.
+- A web request goes bottom up in time: IP lookup, TCP connect, TLS handshake, HTTP. `curl -v` shows each step, and each step needs the one below it.
+- The layer number says how deep a device reads. Layer 4 reads IP and port (fast, any TCP or UDP). Layer 7 reads HTTP (smarter, and it needs the certificate for HTTPS).
+<!-- quick-summary:end -->
+
 ## 1. The problem: one job per layer
 
 Think about sending a parcel. You write a letter. You put it in an envelope with the flat number. A post office puts the envelope in a bag with the city. A van carries the bag to the next depot. Nobody does all the jobs. Each one does a single job and trusts the next one.

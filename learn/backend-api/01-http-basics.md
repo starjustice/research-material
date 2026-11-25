@@ -8,6 +8,23 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A request and an answer both have four parts: a first line, headers, an empty line, a body.
+- `GET` reads. `POST` makes. A repeated `POST` makes a second thing.
+- 4xx means "change your request". 5xx means "not your fault, maybe try later".
+- 401 is "who are you". 403 is "I know you, and no".
+- Crash first, then who, then may you, then does it exist, then the data, then success.
+- The server forgets you on purpose. The token tells it who you are, every time.
+- The status goes out first, and the app can read it before the body.
+- Choose the status from what happened. Never send 200 for an error.
+- After every `fetch`, check `res.ok` before you read the body.
+- Always send `Content-Type: application/json` with a JSON body.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a paper slip at a counter
 
 At a warehouse counter you write a slip. The top line says what you want: "get product 41". Below it are small lines, like your member card. The clerk answers with a slip too. Its top line is a number that says how it went. HTTP is the same, only as text.

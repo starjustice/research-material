@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3 on a table of 2 million rows. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A constant default, a wider varchar and a DROP COLUMN are instant. A volatile default and a type change of a different size rewrite the table.
+- Run every migration with a short lock_timeout, and retry. It is better to fail fast than to block the site.
+- NOT VALID adds the rule fast. VALIDATE checks the old rows with a lock that lets writes through.
+- On a live table, always CREATE INDEX CONCURRENTLY. It cannot run inside BEGIN, and a failed build leaves an INVALID index to drop.
+- Change big tables in small batches, each in its own transaction. Never one UPDATE for millions of rows.
+- Expand (add), sync, backfill, switch, contract (drop). Each step must work with the old code and the new code.
+- Instant change, short lock_timeout, small steps, concurrent index, batches, drop last. When unsure, test on a copy with a lot of rows.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a change must not stop the site
 
 You have a table with millions of rows, and users are using it right now. You must change it. Two things can go wrong:

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards. Every command output below was run for real on a Mac with Docker Desktop (the dates and versions are in the blue bars).
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A VM has its own kernel. A container is a process that shares the host's kernel.
+- A container is a normal process. Namespaces decide what it sees. Cgroups decide how much it uses.
+- Each namespace hides one part of the machine. A flag such as `--pid=host` switches one box off.
+- A cgroup limit is a number in a file. Over the memory limit, the kernel kills the program (exit 137). Over the CPU limit, it only slows the program down.
+- All containers on one host share one kernel. On a Mac or Windows laptop, that kernel belongs to Docker's hidden Linux VM.
+- A container starts a process, it does not boot a kernel. That is why it starts fast and uses little memory.
+- The kernel is shared, so the wall is weaker. Use a VM or a microVM for another kernel or for strangers' code.
+- If you freeze, say "A container is a process with namespaces and cgroups on a shared kernel. A VM has its own kernel."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a pretend computer, or a program in a box
 
 One server runs many apps, and they get in each other's way. One eats all the memory. Two need different versions of one library. The old fix is one pretend computer per app, a **virtual machine** (VM). Each VM boots its own **kernel**, the core of an operating system, which controls memory, disk and network. A **hypervisor** is the program that runs the VMs. A **container** is the lighter fix: a normal running program (a process) that the host's kernel puts in a box. Many containers share one kernel.

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** Google Chrome 157.0.8103.79 in headless mode, driven through its DevTools protocol, against a small Node v26.5.0 server that delays each file on purpose, on 2026-11-21. I read first paint times from the browser, request times from the server log, and layout counts from Chrome's own counters. **What I did not run:** Firefox, Safari, a real Next.js app, hydration, and real user data for the Core Web Vitals (from the docs, not run here). Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The browser builds the page piece by piece: DOM, render tree, layout, paint, composite. It does not wait for the last byte.
+- DOM = the tags. CSSOM = the style rules. Render tree = what is drawn. `display: none`, `head` and `script` are not in it.
+- Layout = sizes and places. Paint = the list of drawing steps. Compositing = stacking the layers. Layout and paint run on the main thread. Compositing runs on another thread.
+- CSS blocks the first paint. A plain script blocks the parser. `defer`, `async` and module scripts do not.
+- Put important files in the HTML so the scanner finds them early. Files that JavaScript, CSS `@import` or CSS backgrounds create start late.
+- Layout costs the most, paint less, composite least. Never read a layout value (like `offsetWidth`) between writes. Read first, then write.
+- LCP = when the biggest thing is shown (2.5 s). CLS = how much the page jumps (0.1). INP = how fast it reacts to input (200 ms).
+- Server HTML is painted at once. Hydration makes it live. A gap exists between the two. Less client JavaScript makes the gap smaller.
+<!-- quick-summary:end -->
+
 ## 1. The problem: the server sent text, the screen needs pixels
 
 The server sent you letters: HTML and CSS. The screen needs coloured dots. Between them the browser runs a fixed chain of steps. The [URL guide](networking-url-to-page-step-by-step.md) calls the whole chain "render". It starts when the first bytes arrive, so it begins where lessons 04 and 05 (TLS, HTTP) end.

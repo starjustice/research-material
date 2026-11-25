@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A heap keeps only "the smallest is on top", not a full sort. That makes push and pop cheap.
+- Parent ≤ children. The top is the smallest. Stored in an array: children of `i` are `2i + 1` and `2i + 2`.
+- Push = add at the end and bubble up. Pop = take the top, move the last to the top, sink down. Both O(log n).
+- `push` and `pop` are O(log n). `peek` is O(1). `compare` lets you order by anything.
+- K biggest = min-heap of size k. Its top is the one to beat. O(n log k).
+- Heap = "I need the best next, again and again". Sort = "I need everything in order once".
+<!-- quick-summary:end -->
+
 ## 1. The idea: the emergency room
 
 In a shop, the person who came first is served first (a **queue**). In an emergency room, the **most urgent** patient is seen first, even if they just arrived. That is a **priority queue**: whoever has the best priority leaves first.

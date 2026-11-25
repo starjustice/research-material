@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- One fact, one place. Copy only on purpose, and decide who keeps the copy right.
+- A fact saved many times will one day disagree with itself.
+- A table with the store inside the order cannot hold a store with no orders, and deleting the last order deletes the store.
+- Split by kind of fact. Other rows point at the fact with an id, and a join puts them back together when you read.
+- 1NF no lists. 2NF no half of a key. 3NF no facts about another column.
+- A price paid is a fact about a moment. Save it on the order line and never update it.
+- Every copy needs an owner, and a check that compares the copy with the truth.
+- Before you copy anything, try an index first (lesson 09). Measure the slow read (lesson 11). Copy only if the read is still too slow.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a phone number on every card
 
 You write your friend's phone number on **every birthday card** you send. When the number changes, you must find every card. You will miss one.

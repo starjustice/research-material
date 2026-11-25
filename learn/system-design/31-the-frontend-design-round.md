@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Requirements first, then the parts, the data, the API, then the deep dives. Say each step out loud, and treat the server as a closed door.
+- Choose rendering per page. Same for everyone: build ahead. Personal: stream it in behind a loading box. A heavy tool behind a login can stay client side.
+- Server data in a cache, shareable choices in the URL, small flags local, and only the rest in a shared store.
+- One key, one running request, a fresh time, and invalidate after a change.
+- Shown value = confirmed value + changes that are waiting. A failure removes only its own change. Use it only for easy, safe actions, never for money.
+- Cursor pages for lists that change, a window for long lists, and a tall empty box so the scroll bar stays right.
+- Read from the local copy, write to an outbox, give every item a key, and decide what happens when both sides changed the same thing.
+- LCP 2.5 s, INP 200 ms, CLS 0.1, at the 75th percentile of real visits. Say which design choice moves which number.
+- If you freeze, say "I ask the requirements. I draw the parts and say where each piece of state lives. I name the data and the API. Then I go deep: how the page is built, one cache, safe optimistic changes, cursor pages and a window, offline, and the three speed numbers."
+<!-- quick-summary:end -->
+
 ## 1. The idea: the frontend round draws the dining room, not the kitchen
 
 In a backend round you draw the kitchen: servers, databases, queues. In a frontend round you draw the **dining room**: the screens, the parts they are made of, the data the **client** (the app on the user's phone or browser) keeps, and the calls it makes. The kitchen is a closed door with a menu. The menu is the **API** (the list of calls the server accepts). Use a fixed plan so you do not wander. A common one is **RADIO**, from GreatFrontEnd: Requirements, Architecture, Data model, Interface, Optimizations. Spend the most time on the last one.

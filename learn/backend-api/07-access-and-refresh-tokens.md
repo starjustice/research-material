@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The access token is used often and ends fast. The refresh token is used rarely, lives in the database, and works once.
+- The database is touched only at the refresh step.
+- The server keeps the used row. That is how it spots an old token that comes back.
+- A used refresh token that comes back means two people hold it. Cancel the whole family.
+- Store the hash, mark the token used, rotate, and cancel on reuse.
+- Access token in memory. Refresh token in an `HttpOnly` cookie, or the Keychain or Keystore.
+- Rotate on every use, and watch for reuse.
+- Store the hash of the refresh token, never the token.
+- One refresh at a time on the client.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a day pass and a membership card
 
 At a gym, a **day pass** opens the door and ends tonight. A **membership card** is shown only at the front desk, to get a new day pass. A login works the same way, with **two tokens**.

@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A short code is a key in a table. A click is a read. Reads are about 100 times more than writes.
+- The counter never gives a code twice. A collision can come only from a custom alias.
+- Let the table decide, in one step. The unique rule refuses the second one.
+- A row never changes, so a cache is safe. Delete the cache key when you turn a link off.
+- The status number is a hint. The `Cache-Control` header decides how long the browser keeps the answer.
+- If you freeze, say "A short code is a key in a table. A click reads the row and answers with a redirect."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a table from a short code to a long link
 
 A URL shortener is a table that maps a short code to a long link. Making a link adds one row. A click finds the row and tells the browser to go to the long link. Like numbered post office boxes: each box holds a note, "forward this mail to this long address". The table is easy. The two hard parts are a code that never repeats, and about 100 clicks for every new link.

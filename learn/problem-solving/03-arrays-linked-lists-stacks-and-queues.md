@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Array = jump to any position fast. Linked list = add or remove at a known spot fast, but you must walk to find it.
+- Array = lockers. Front of an array is slow. Linked list = treasure hunt. Reading item i is slow.
+- Save next, flip the arrow, move both forward. O(n) time, O(1) space.
+- Slow moves 1, fast moves 2. They meet only if there is a loop.
+- A stack remembers "what is still open", and gives back the newest first.
+- A queue is first in, first out. In JavaScript, do not use `shift` on a big array.
+- Pick the structure by the order you need things back: newest first (stack), oldest first (queue), by position (array).
+<!-- quick-summary:end -->
+
 ## 1. The idea: a row of lockers against a treasure hunt
 
 An **array** is a row of numbered lockers side by side. To open locker 500, you walk straight to it.

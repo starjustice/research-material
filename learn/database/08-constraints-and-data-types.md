@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Every path into the table goes through the same rules. Your app code will have bugs, so Postgres says no to bad data itself.
+- `NOT NULL` no empty. `UNIQUE` no copy. `CHECK` a test. `DEFAULT` a fill-in.
+- A refused row saves nothing, but the id counter still moves.
+- Money goes in `bigint` cents (or `numeric`). Never in `float`.
+- Use `timestamptz` by default. It stores one moment in UTC and shows it in your session's time zone.
+- A CHECK list for a list that rarely changes. A lookup table when non-developers change the list.
+- Filter, sort, join or add it up? Use a normal column. JSONB is for shapes that change.
+- No value means DEFAULT. NULL is a value. In Prisma, `undefined` leaves the field out, and `null` sends NULL.
+- In Prisma, ask for `@db.Timestamptz(3)` on purpose. The default has no time zone.
+<!-- quick-summary:end -->
+
 ## 1. The idea: one counter for every form
 
 Think of the counter at a government office. The clerk refuses a form with an empty box, or a second form with the same ID number. It does not matter who brought the form.

@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A safe deploy limits how many users one bad release can touch, and keeps a fast way back.
+- A rolling update is not instant. Old and new code run side by side, against the same database.
+- Judge the canary against the control, not against zero, and wait for enough requests.
+- Blue green gives a fast way back and a test on the real setup, but it switches everyone at once and needs two full copies.
+- A flag separates deploying from releasing. Use a stable bucket, keep a kill switch, and remove the flag when done.
+- Add first, move the code, remove last. Set a lock timeout, so a migration gives up fast and does not freeze the table.
+- If you freeze, say "Few users first, compare with a control, keep a fast way back, and change the database in small steps."
+<!-- quick-summary:end -->
+
 ## 1. The idea: never show a new version to everybody at once
 
 A deploy is the moment you change a working system, so it is the moment most things break. Safe deploys do two things: they show the new version to **few users first**, and they keep a **fast way back**. A restaurant shows the idea. The chef does not change the whole menu on Friday night. She puts one new dish on three tables, watches the plates come back, then decides.

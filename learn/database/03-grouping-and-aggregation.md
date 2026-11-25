@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- WHERE throws away rows before the buckets. HAVING throws away buckets after the totals are done.
+- The order is WHERE, GROUP BY, HAVING. Each store gets one result row.
+- Every column in SELECT must be in GROUP BY or inside a summary function.
+- `COUNT(*)` counts rows. `COUNT(column)` skips NULL.
+- `FILTER` is a small WHERE for one summary function. Every row still reaches its bucket.
+- HAVING repeats the summary function. It cannot use a new name from SELECT.
+- After a LEFT JOIN, count a column from the right table, not `*`.
+- A join can multiply rows, and then every SUM is too big. Add up each table first, then join.
+<!-- quick-summary:end -->
+
 ## 1. The idea: receipts and envelopes
 
 You have a pile of shop receipts. You want one number per store.

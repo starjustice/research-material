@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real (2026-11-21):** `openssl s_client` against example.com and against a small local server with a demo certificate I made, a small recorder that sat between them, and the practice code. **What I did not run:** a packet capture tool, nginx, a browser, and TLS 1.2 servers other than one connection to example.com. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- HTTPS is HTTP inside TLS. TLS promises privacy, no changes, and the right server. It does not promise an honest site.
+- Slow asymmetric math makes a shared secret once. A fast symmetric cipher then protects the data.
+- A key exchange sends only public values. Both sides mix the other's public value with their own secret and get the same number. Nobody sends it.
+- TLS 1.3 handshake: hello with a key share, hello with a key share, then encrypted certificate, proof and Finished. One round trip.
+- HTTPS hides the content. The IP, the site name (SNI), the sizes and the timing stay visible. ECH can hide the name.
+- Forward secrecy means a later key leak cannot open old recordings, because each session key came from deleted throwaway secrets.
+- A ticket makes the next visit cheaper (no certificate). 0-RTT is fastest but can be replayed, so only safe requests may use it.
+- MTLS means both sides show a certificate. A server that requires it refuses clients without a valid one.
+<!-- quick-summary:end -->
+
 ## 1. The problem: a plain line can be read and changed
 
 You open a page on a cafe Wi-Fi. With plain **HTTP** every router and every person on the Wi-Fi can read your request and change the answer. **HTTPS** is the same HTTP, sent inside a protected tunnel made by **TLS** (Transport Layer Security). TLS gives three promises: nobody can read it, nobody can change it, and you talk to the real server. HTTPS uses port 443. HTTP uses port 80. The name "SSL" is the old name. People still say it, but only TLS is in use.

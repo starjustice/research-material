@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- One open line per phone, plus a map to find it. Save first, then deliver.
+- Save first, then ack, then deliver. Sent means on disk.
+- Ids only grow, so "bigger than my last id" is exactly what a phone missed.
+- Offline means: save, push to wake the phone, then catch up from the last id.
+- The map lives in Redis. Its keys end unless a heartbeat keeps them alive.
+- If you get stuck, say "Each phone holds a WebSocket to a connection server. A Redis map says which one."
+<!-- quick-summary:end -->
+
 ## 1. The idea: one open line per phone
 
 Each phone keeps one line open to a server (a **WebSocket**). The server saves each new message, then sends it down that line. In chat, Bob never asks for news, so the server must reach him by itself. Think of a hotel: each room has an open phone line, and the desk calls when a letter arrives. Two parts are hard: **finding Bob** (he sits on one of many servers) and **never losing a message** (phones go offline all the time).

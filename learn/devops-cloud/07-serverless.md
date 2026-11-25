@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation and the step by step traces. Skip them on the first read. Facts about AWS Lambda, Vercel, Cloudflare and Postgres come from their official docs, checked on 2026-11-13. The model, the Node timings and the Docker timings were run on one Mac, so treat the numbers as examples. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A server bills you for being on. Serverless bills you for the work.
+- Serverless still has servers. You upload a function, a trigger runs it, and the platform does the rest.
+- The first call on a new copy is cold, because setup runs first. Later calls on the same copy are warm and skip it.
+- No calls means no copies and no bill, and the next call is cold. Many calls at once make many copies, up to a limit.
+- A function has a time limit, a memory limit, and no memory between calls. Keep anything that must last in a database, a cache or file storage.
+- You pay per call and per millisecond. It is cheap when quiet. A fixed server wins when traffic is high and steady.
+- Pick by the shape of the traffic and the work. Put a connection pool between many copies and Postgres.
+- The same Next.js app can run as functions on Vercel or as a Node server in Docker. Where it runs sets the cold starts, the limits and the bill.
+<!-- quick-summary:end -->
+
 ## 1. The problem: you pay for the server, not for the work
 
 A normal server is a machine you rent. It is on all day, and the bill is the same. At 3am nobody calls it, and you still pay. During a big sale it is too small. You must guess the right size, and you must look after it.

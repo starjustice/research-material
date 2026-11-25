@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The big numbers come from the practice database (100,000 orders), so yours will differ a little. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Equality columns first, then the sort or range column. Postgres jumps with the first column, then reads in order and stops early.
+- One sorted list can give "store 42, already in date order". Two single indexes cannot.
+- An index on (a, b) can jump with `a`. It cannot jump with only `b` (except Postgres 18 skip scan, when `a` has few values).
+- Put columns you test with `=` first. Put the sort or range column (`>=`, `BETWEEN`, `ORDER BY`) last.
+- A partial index is small, but only for queries that repeat its `WHERE`.
+- `INCLUDE (col)` lets Postgres answer from the index alone. It works only for pages that `VACUUM` has marked as clean.
+- Do not wrap the indexed column in a function or a cast. Compare the plain column.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a phone book with two sort keys
 
 A phone book is sorted by last name, then by first name. "Find Tan, Budi" is fast: open at the Tans, then find Budi. "Find all the Tans" is fast too. But "find everyone called Budi" is slow, because the Budis are spread across every last name.

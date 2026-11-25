@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 30 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- On sorted data, look in the middle and throw away half. 1,000,000 items need about 20 looks.
+- Each turn, move `lo` up or `hi` down past `mid`. If the area does not shrink, the loop never ends.
+- Two shapes. Exact match: `lo <= hi`, `mid ± 1`. First position that works: `lo < hi`, `hi = mid`.
+- "smallest value that works" with a monotonic yes/no check = binary search on the answer.
+- `sort()` with numbers needs `(a, b) => a - b`. It changes the array. Use `toSorted` for a copy.
+- Merge sort = split, sort the halves, merge. O(n log n) time, O(n) space, stable.
+- If the same list is searched many times, sort it once.
+<!-- quick-summary:end -->
+
 ## 1. The idea: the guessing game
 
 *I think of a number from 1 to 1,000. You guess. I only say "higher" or "lower".* You do not guess 1, 2, 3. You guess **500**. Then 250 or 750. Each guess throws away **half** of the numbers. After about 10 guesses you win.

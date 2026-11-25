@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The first service drops an event and goes back to work. A provider that is down only delays the notification.
+- A key seen before means "do not send again". Put the key in after the 200.
+- Only a short problem is worth a retry. A dead token is deleted.
+- A blast must never block a login code. Give the urgent lane its own priority.
+- The costs are duplicates, retries that make it worse, dead letters that need a person, stale tokens, quiet hours, and too many messages.
+- If you freeze, say "Services drop an event. The notification service checks it and queues one job per channel."
+<!-- quick-summary:end -->
+
 ## 1. The idea: drop an event, and go back to work
 
 A service drops a short note that says "this happened" (an **event**) and goes back to work. A notification service checks the event and makes one job per **channel** (push, email, SMS, or in-app). Workers send the jobs, retry short problems, and never send twice. Like the mail room of a bank: departments drop letters in the tray and do not walk to the post office.

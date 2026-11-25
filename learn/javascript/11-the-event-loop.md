@@ -8,6 +8,18 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- JavaScript does one thing at a time. The event loop brings a callback back only when the call stack is empty.
+- The sync code runs first. Then the microtasks (promises). Then one task (a timer).
+- After one task, the loop goes back to the microtasks.
+- A timer of 0 ms means "at least 0 ms", not "now".
+- A long loop on the stack blocks **everything**, including timers and clicks.
+<!-- quick-summary:end -->
+
 ## 1. The idea: one chef in a kitchen
 
 A restaurant kitchen has **one chef**. The chef is the call stack: one thing at a time. An order that needs waiting, like a 10 minute oven timer, goes to the oven. When the oven rings, the dish joins a line of finished dishes.

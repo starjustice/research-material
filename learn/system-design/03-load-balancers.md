@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Users know one address. The load balancer picks the server for each request.
+- Round robin counts turns, not work. Least connections looks at the work.
+- A health check always has a gap. Retry safe requests on another server to hide it.
+- Layer 4 sees the outside of the envelope. Layer 7 opens it, and is the default for a web app.
+- The front door is one more part and one more step on every request. It can fail too.
+- If you freeze, say "One front door, many servers. Users know one address."
+<!-- quick-summary:end -->
+
 ## 1. The idea: one front door
 
 A load balancer is one front door for many servers. It sends each request to a server that is alive, and it stops sending requests to a dead one. Like a host at a restaurant door: the host does not cook, the host only decides which waiter takes each guest.

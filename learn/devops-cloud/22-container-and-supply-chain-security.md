@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **I did not run Trivy, cosign or Docker for this lesson** (Docker was not running). Their behavior comes from their docs and is marked "from the docs, not run here". What I did run: `npm ci`, `npm audit signatures` and an install script test on npm 11.17.0, and the practice code in Node v26.5.0. The attack facts come from the sources linked in the cards (opened 2026-11-19). About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Your supply chain is everything that arrives with your code. One bad link is enough.
+- Every attack used a different door. No single defense covers them all, so use layers.
+- A small base and a multi-stage build leave less to attack. A secret in any layer is public to everyone who can pull the image.
+- `USER node`, a read-only filesystem, and no extra Linux powers. The app can then do little, even if it is broken into.
+- Exact names beat moving names. Lockfile and `npm ci`, a digest for images, a full commit id for actions.
+- Scripts off, and a short wait for new versions. Neither one needs to know the attack exists.
+- A scan finds known holes only. A clean scan means "nothing known". Scan old images too, because a hole becomes known after you built the image.
+- Deploy by digest, check there is a signature for it, check who signed. A signature proves who built it, not that the code is safe.
+<!-- quick-summary:end -->
+
 ## 1. The problem: you run code you did not write
 
 Your `package.json` names 1 library. After `npm install` there were **68 packages** on my machine (I installed `express`). Your image also has a base image, system packages and build tools. Your pipeline runs tools made by others. Together this is your **supply chain**: everything that arrives with your code. An attacker does not need to break your code. One bad link is enough.

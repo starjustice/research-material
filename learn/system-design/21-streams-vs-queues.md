@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A queue hands out jobs and forgets them. A stream keeps the events, and each reader keeps its own place.
+- The key picks the partition. Order is kept inside a partition, not across partitions.
+- Commit after the work, so a crash gives a repeat and not a loss. Then make the work safe to repeat.
+- More workers than partitions do not help. And a replay is just a commit to an earlier offset.
+- A queue is a to-do list. A stream is a history. Many systems have both: events in a stream, and jobs in queues.
+- If you freeze, say "A queue hands out jobs and forgets them. A stream keeps events with a bookmark for each group. The key picks the partition, and order lives only inside a partition."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a tray of jobs, or a notebook that stays
 
 A **work queue** is like a tray of papers on a desk. A worker takes one paper and does it. The paper is gone. Another worker takes the next one. A **stream** is like a notebook where every event is written on the next line. Nobody tears out a page. Each reader keeps a **bookmark** that says how far it has read. A new reader can start at page one.

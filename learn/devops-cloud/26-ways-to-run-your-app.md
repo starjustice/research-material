@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Pick by who looks after the machine, how much you want to learn, and the shape of your traffic. Not by what sounds modern.
+- The first column decides your Friday night. If it says "you", you patch the server.
+- An orchestrator is a loop that compares "want" with "have". Swarm, ECS and Kubernetes all work this way.
+- Lambda is for short, small and spiky work. A 20 minute video job belongs on a container.
+- Match the bill's shape to your traffic's shape.
+- Choose the smallest option that solves today's problem and has a clear next step.
+- Copies on one machine are not safety. Spread them over machines.
+- Read the limits before you choose Lambda, not after.
+<!-- quick-summary:end -->
+
 ## 1. The idea: the same container, six places to run it
 
 You have a Docker image of your API. Where does it run? The honest answer is "it depends", and the interview question is really: **who looks after the machine, and how much do you want to write and learn?** Each option below moves that work from you to somebody else.

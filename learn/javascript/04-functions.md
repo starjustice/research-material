@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A function is steps you write once and run many times. Each call gets its own new box, and gives one value back.
+- A missing argument is `undefined`, not an error. A default fills in only when no value comes in.
+- Only the **slots** are made early. A declaration is ready anywhere in the file. An arrow or expression is ready only after its line.
+- A function is a value. The interview word is *first-class functions*.
+- Brackets mean "call it now". Pass `fn`, not `fn()`.
+- An arrow without braces returns the value. An arrow with braces needs `return`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a recipe card
 
 A function is a **recipe card**. Writing the card is not cooking. Each time you cook, you get a clean worktop, and you hand over one finished dish.

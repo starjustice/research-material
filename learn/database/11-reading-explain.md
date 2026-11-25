@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The numbers come from the practice database (100,000 orders), so yours will differ a little. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Read the plan from the inside out. Find the node where rows are thrown away or time piles up. Then compare the guess with the truth.
+- The first line of a plan is the last step. Go to the deepest nodes and walk up.
+- Big `Rows Removed by Filter` and most of the time in one node: that node is the one to fix. Measure again after the fix.
+- A guess far from the truth means old notes. Run `ANALYZE` on the table, then read the plan again.
+- Cost is a price in planner units. `actual time` is the real clock.
+- Seq Scan reads everything. Index Scan jumps. Nested Loop runs child 2 once per row of child 1. Sort must see all rows first.
+- A Seq Scan that keeps most of what it reads is fine. A Seq Scan that throws away 99.9% is the one to fix.
+- Find it, explain it, find the node, fix it, measure again.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a map app and a dashcam
 
 A map app plans your drive before you leave. It shows the route and a guessed time. That is `EXPLAIN`. Then you drive with a dashcam that writes the real time on every road. That is `EXPLAIN ANALYZE`.

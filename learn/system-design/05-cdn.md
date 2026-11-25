@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Only a miss travels to the origin. The first user at an edge pays a little more. Everyone after pays almost nothing.
+- The origin writes the note and the edge obeys it.
+- Does every user get exactly the same page from this URL? If not, it is private.
+- Give a long life only to a name that changes when the content changes.
+- The CDN protects your origin. Only misses reach it.
+- If you freeze, ask "does every user get the same answer from this URL?".
+<!-- quick-summary:end -->
+
 ## 1. The idea: copies on servers near the user
 
 A CDN keeps copies of your public files on servers around the world. Your own server is the **origin**. A CDN server close to the user is an **edge**. Like a bakery chain: one big bakery in Singapore, and small shops in many cities that each keep a few loaves on a shelf.

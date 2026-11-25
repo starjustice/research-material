@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- An inverted index maps each word to the documents that hold it. A search reads the lists for the words, not the documents.
+- Tokenize, then for each word keep the documents and the counts.
+- A search looks up each word, keeps the documents in every list, and sorts by a score.
+- Start with Postgres full text search. Move to a search engine when you need more than it does well.
+- Changes arrive twice and out of order. Number the changes (a version) and ignore any that are not newer. Search is a little behind, on purpose.
+- If you freeze, say "An inverted index maps each word to its documents. Postgres full text search is the start. For a search engine, the database stays the truth and an outbox with versioned changes keeps the index in step."
+<!-- quick-summary:end -->
+
 ## 1. The idea: the index at the back of a book
 
 To find the word "shirt" in a thick book, you do not read every page. You open the **index** at the back. It lists words in order, and next to each word the pages that have it. A search index is the same, built for a computer. For each **word**, it keeps the list of **documents** that contain it. This is called an **inverted index**: the normal way is "document, then its words", and the index turns it round into "word, then its documents".

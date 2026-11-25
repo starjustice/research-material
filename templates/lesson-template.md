@@ -27,6 +27,8 @@ Rules found while building the first lessons:
 - Mermaid: never flowchart. Edge labels only -->|label| with no colons and no commas. No parentheses in node labels. No <-->.
 - Every code output and every number is run for real. A "checked on <date>" line goes inside a bar, not in the card text.
 - Plain words, at most 4 new words in the whole lesson, interview word in brackets after the plain one. No em dashes.
+
+Quick summary: after the last card is written, run `python3 scripts/quick-summary.py`. It puts a "Quick summary" section above the first card, made from the lesson's `> **Remember:**` lines, so a reader can review the whole lesson in one minute. If a lesson has no Remember lines, write the section by hand and mark it manual (the top of scripts/quick-summary.py explains how). A test fails for a lesson without one.
 -->
 
 ## 1. The idea: <a short everyday picture>

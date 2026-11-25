@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with real output. Skip them on the first read, and open them when you want more. Every output was run on Docker 29.3.1 with Compose v5.1.1 (checked 2026-11-13). About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- One file describes the whole app. One command starts it, one command stops it, on one machine.
+- Inside Compose, the host name is the service name. `localhost` is only yourself.
+- `HOST:CONTAINER`. Containers talk on the container port. Publish only what outsiders need.
+- `down` keeps a named volume. `down -v` deletes it, and your data with it.
+- `depends_on` alone means "started". It does not mean "ready".
+- A healthcheck plus `condition: service_healthy` waits for ready. A shorter interval waits less.
+- `environment` and `env_file` for settings, profiles for optional services, `watch` for live code in development. Never commit real secrets.
+- If you freeze, say "One file for the whole app on one machine. Services find each other by name. `depends_on` needs a healthcheck. `down` keeps the volume, `down -v` deletes it."
+<!-- quick-summary:end -->
+
 ## 1. The idea: one file for the whole app
 
 Your app is not one container. It is a web server, a database and a cache. By hand that is five commands (a network, a volume and three containers), each with many flags. Forget one flag and the app breaks on a new laptop.

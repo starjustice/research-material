@@ -8,6 +8,23 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. The Postgres results and the cache results were run on PostgreSQL 18.3 on one laptop. **I did not run Redis** (it is not installed here). The cache in my tests is a Map inside the program. What I say about Redis comes from its docs, read on 2026-11-03. About 30 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Each box is good at a job. Asking for one thing by its id is easy in all of them. The questions that cut across many things are where they differ.
+- One thing by id, or a search with an index: documents and tables are both fast. A question across everything (totals, joins, reports) is faster with tables.
+- Tables enforce rules (lesson 8) for every writer. A plain document store trusts every writer. That is the price of the flexible shape.
+- Name the family, not "NoSQL". Related data with rules and reports: tables. A fast lookup by a name: key and value. Shape changes and read whole: documents.
+- The default is Postgres, with `jsonb` for the parts that change shape. Add another box when a clear problem needs it, and keep the truth in one place.
+- Redis keeps data in memory, with optional snapshots or a log on disk. Used as a cache, it can be thrown away at any time. Do not keep the only copy of important data in a cache.
+- Cache-aside is: look in the cache, on a miss ask the database, keep the answer with a time to live. It pays when the same answer is read many times.
+- A cache is fast and can be out of date. After you write to Postgres, delete the cache key. A short time to live is the safety net, not the plan.
+- When a hot key is missing, only one request should go to the database. The rest wait for its answer (this is called single flight, or request coalescing).
+- Cache the slow, repeated, can-be-old read. Do not cache what you decide a write from, and never keep the only copy of important data in a cache.
+<!-- quick-summary:end -->
+
 ## 1. The idea: pick the box for the job
 
 "SQL or NoSQL?" is not one question. NoSQL is a name for many different boxes. Each box keeps data in a different shape, and is good at a different job.

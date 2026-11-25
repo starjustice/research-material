@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Nouns in the path. The method is the verb.
+- Plural nouns, lowercase, the id in the path, one level of nesting at most.
+- `res.ok`, retries and alerts all read the status, not your body.
+- An action path when the action does more than change one field. `PATCH` for a plain edit.
+- Offset counts places. A cursor remembers an id.
+- A cursor page starts after an id, so a new row at the top changes nothing.
+- Cursor for things people scroll. Offset when people need page numbers.
+- Cap the limit, ask for one extra row, answer with an object.
+- Add fields freely. Remove or rename only in a new version.
+<!-- quick-summary:end -->
+
 ## 1. The idea: street addresses
 
 A street address looks the same in every town: "Orders Street, number 41". What you do there is the verb. REST does the same. The path is a **noun** (`/orders`, `/orders/41`). The HTTP method is the **verb**.

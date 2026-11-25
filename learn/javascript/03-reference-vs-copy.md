@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- `=` copies what is in the slot. For an object, what is in the slot is an arrow.
+- Two objects with the same content are still **not** `===`. It compares arrows, not content.
+- `copy = cart` copies the arrow. There is only one cart.
+- Spread copies one level. The `address` field holds an arrow, and the arrow is copied, not the address.
+- A function can change your object through its arrow. Copy first if you must not change it.
+- In React, never change state in place. Make a new object and a new array.
+- Use `structuredClone` for a deep copy. The JSON way loses things.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a sticky note and a house
 
 **A simple value is a sticky note** with "5" on it. Copying it gives you your own note. **An object is a house.** The variable holds a paper with the house address, not the house.

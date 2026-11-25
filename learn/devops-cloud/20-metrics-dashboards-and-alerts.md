@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **I did not run a Prometheus server or Grafana for this lesson.** What they do comes from their official docs and from a public Prometheus demo (opened 2026-11-19), and is marked "from the docs". The Node code (`@prometheus-io/client` and Express) and the small model in the practice file and the stepper were run for real. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The app keeps numbers. Prometheus pulls and stores them. Grafana draws them. Alert rules ask questions about them.
+- Counter only goes up. Gauge goes up and down. Histogram counts values into buckets.
+- Never graph or alert on a raw counter. Use `rate()`. A drop in a counter means a restart.
+- A histogram is counts in cumulative buckets. p95 is an estimate made from them. Never average percentiles.
+- Per service, watch rate, errors and duration. Add saturation for the resource that runs out first.
+- Page on what users feel. `for` makes the rule wait, so blips do not wake you. Causes go on a dashboard.
+- Burn rate is the error ratio divided by the allowed ratio. Page when a long and a short window both burn fast.
+- Labels need few values. Use `rate()` on counters, histograms for time, and symptoms for pages.
+<!-- quick-summary:end -->
+
 ## 1. Logs say what happened. Metrics say how it is going.
 
 [Lesson 10](10-logs-and-monitoring.md) counted error lines in logs. That works for one server, but it is slow and clumsy. A **metric** is a number your app keeps, such as "failed requests so far". The app does not send it anywhere. It shows it on a page, `/metrics`. **Prometheus** comes to that page on a timer, reads the numbers and stores them with the time. Each visit is a **scrape** (the word for one visit). **Grafana** draws graphs from what Prometheus has stored. Prometheus also checks **alert rules** and tells **Alertmanager**, which sends the message.

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Every index is written on every INSERT. More indexes, slower writes.
+- A full page splits in two. Keys in order split only on the right edge.
+- An UPDATE that is not HOT adds an entry to every index, even for columns you did not change.
+- HOT needs no indexed column changed and room on the page. A lower fillfactor leaves room.
+- An index helps when few rows match. When most rows match, reading the table is cheaper.
+- Do not wrap the indexed column in a function or a cast. If you must, index the expression.
+- Default to B-tree. Think BRIN for huge tables that grow in the order of one column.
+- Unused indexes still cost on every write. Check `idx_scan`, then drop with care.
+<!-- quick-summary:end -->
+
 ## 1. The idea: every catalog needs a new card
 
 A shop has a main shelf, plus three card catalogs: by title, by author, by year. A new book arrives. You put it on the shelf. Then you must also write a card for each catalog, in the right sorted spot.

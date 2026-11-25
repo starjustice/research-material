@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A cache buys speed and pays with old data. Decide how old is fine.
+- A hit uses the copy. A miss asks the database and saves the answer with a TTL.
+- The ETag saves bandwidth. A `304` has no body.
+- `no-cache` = check before use. `no-store` = never save.
+- Data about one person is private. Put the user id in the cache key.
+- Write the database, then delete the copy.
+- Cache only real answers, and give every key a TTL.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a fridge at home and the shop
 
 The shop (the database) has everything, but the trip takes time. The fridge (the cache) holds copies of what you use every day. Milk has a date on it. That is the **TTL**: after the date, you throw it away and go to the shop again. A request can be answered at any of these places. Closer to the user is faster, and harder to change.

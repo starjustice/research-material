@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Up is one bigger machine. Out is more machines. Out only works when no machine keeps user data in its own memory.
+- A stateless server keeps nothing about a user between two requests.
+- Move the data out of the server, and then any server can answer. You moved the single point of failure, you did not remove it.
+- The more machines you have, the less you waste on spares.
+- Scale up needs no code change. Scale out needs stateless servers, a load balancer and a shared box.
+- Glue is not a fix. Move the data out of the server.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a bigger machine or more machines
 
 When one machine is too busy, you can **scale up** (buy a bigger one) or **scale out** (add more machines of the same kind). A small shop with one cashier shows both: scale up is a faster till for the same cashier. Scale out is a second cashier and a person at the door who sends each customer to a free one.

@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The producer adds a job and moves on. A worker does the slow work later.
+- Ack after the work. A crash means the job runs again, so the worker must be safe to repeat.
+- Nobody can promise one single delivery. You build one single effect: at least once, plus a worker that is safe to repeat.
+- One bad job cannot stop the others. Alert when the dead letter queue holds anything.
+- If the user is waiting for the answer, call it directly. A login check cannot wait in a line.
+- If you freeze, say "Slow work that nobody waits for goes in a queue. The API adds a job and answers at once."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a waiting line for slow work
 
 A message queue is a waiting line between two programs. The **producer** (your API) drops a job in the line and moves on. A **worker** takes jobs from the line and does the slow work later. Like a phone repair shop: the clerk pins a ticket on the board and says "we will call you", and technicians take tickets one at a time.

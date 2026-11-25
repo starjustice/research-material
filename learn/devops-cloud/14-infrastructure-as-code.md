@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. **I did not install Terraform or run any plan or apply for this lesson.** What Terraform, OpenTofu, Pulumi and CDK do comes from their official docs (opened 2026-11-17) and is marked "from the docs, not run here". The small model in the practice file and in the stepper is plain JavaScript that I ran for real. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Infrastructure as code means servers, databases and networks are written in files in Git, and a tool builds them. So they can be reviewed, repeated and rolled back.
+- Declarative means you write what you want, not the steps. Run it again and nothing changes.
+- Plan shows, apply does. Read the plan before you apply, and look hardest at the delete lines.
+- The state is the tool's notes about which real thing has which name. Lose it and the tool forgets what it built.
+- Keep the state in a shared place with a lock, so one run changes it at a time. It can hold secrets in plain text, so protect it like a password.
+- Drift is a change made outside the code. `plan` finds it. Either let apply undo it, or put the change in the code.
+- A module is a function: variables go in, outputs come out. Write the recipe once and call it for each place.
+- Terraform and OpenTofu use HCL and many clouds. Pulumi uses normal languages and many clouds. The AWS CDK uses normal languages and AWS only.
+<!-- quick-summary:end -->
+
 ## 1. The problem: servers made by clicking
 
 Your app needs a server, a database and a network. The usual way is to click in the cloud's website, called the **console**. It works. But nobody sees the clicks, nobody can review them, and nobody can repeat them. **Infrastructure as code** means you write these things in files, keep the files in Git, and let a tool build them. Your CapRover dashboard is the small version of the same story: you click to make an app.

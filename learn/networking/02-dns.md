@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** `dig` and `dig +trace` against live servers, a small model of a resolver (the practice code and the stepper page). **What I did not run:** Route 53, Cloudflare and CapRover. Those are marked "from the docs, not run here". Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- DNS turns a name into an IP address, before the connection starts. It is split into many small books, not one big one.
+- Resolver asks root, then the TLD server, then the domain's own server. Two referrals, then the answer.
+- A and AAAA give addresses, CNAME gives another name, MX gives mail servers, TXT gives notes, NS says who holds the records.
+- A TTL is how many seconds an answer may be kept. The resolver serves it from the cache until the time runs out. Short TTL: fresh but more lookups. Long TTL: fast and calm but slow to change.
+- A DNS change is only as fast as the old TTL. Lower the TTL one full old TTL before a move. Raise it again after.
+- A CNAME must be the only record on its name, so never on the apex. Alias (Route 53) and flattening (Cloudflare) are provider tricks that get around it.
+- The CapRover wildcard record `*.apps.example.com` makes every app name resolve to your server. It does not make a certificate.
+- DNS can spread load and skip dead servers, but only as fast as the TTL. For fine control, put a real load balancer behind one stable name.
+<!-- quick-summary:end -->
+
 ## 1. The problem: computers need numbers, people use names
 
 You type `www.wikipedia.org`. The network can only send packets to a number, an **IP address** like `103.102.166.224`. Something must turn the name into the number, every time, for every site, in a few milliseconds. That is **DNS** (the Domain Name System): a worldwide phone book that is split into many small books, so no single company runs it all.

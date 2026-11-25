@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Same three dots, opposite directions. Left side collects (rest). Right side expands (spread).
+- Spread builds a new array or object. The original stays as it was.
+- Spread is a shallow copy. Spread every level you change. [Lesson 03](03-reference-vs-copy.md) explains arrows and copies.
+- A default fills in only for `undefined`. `??` also covers `null`, and it keeps `0`.
+- Later keys win. Spread defaults first, your changes last.
+- With a pattern in the parameter, add `= {}`. (`show(null)` still throws.)
+<!-- quick-summary:end -->
+
 ## 1. The idea: a shopping bag
 
 Think of a shopping bag. **Destructuring:** "first item to the fridge, second item to the shelf". **Rest:** "put everything else in one new box". **Spread:** pour the bag out onto the table, item by item.

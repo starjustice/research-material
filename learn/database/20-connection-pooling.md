@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3 on one laptop, with the `pg` library for Node. The PgBouncer facts come from its docs: I did not run PgBouncer. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A new connection is slow, and a process on the server. Open a few, keep them, and reuse them.
+- The pool has a maximum. The queries share those connections, and extra queries wait in line.
+- A pool is a queue. A long query makes the next ones wait. Set a connection timeout, so a request fails instead of hanging.
+- A pool should be small. A good start is a few times the number of CPU cores of the database, split across all your app servers.
+- Total connections = app instances × pool size. Add them up, and keep the sum under max_connections, with room for admin work.
+- A pooler lets many clients share few connections. Transaction mode is the best for that, but session state does not survive between transactions.
+- Budget the connections first, then size each pool. Set a connection timeout, release in finally, listen for pool errors.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a connection is a whole process
 
 When your app connects to Postgres, the server **starts a new process** for you. The Postgres docs say it "forks" one for each connection. Setting it up takes time (and a password check, and maybe TLS). If you do it for every query, most of your time goes into connecting.

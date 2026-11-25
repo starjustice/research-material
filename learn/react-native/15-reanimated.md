@@ -4,6 +4,20 @@
 > **You will be able to:** write a Reanimated animation from memory (`useSharedValue`, `useAnimatedStyle`, `withTiming`, `withSpring`), say what a worklet is, and choose between `Animated`, Reanimated, `LayoutAnimation` and CSS transitions in an interview.
 > **Before this:** [Animation with the Animated API](14-animated-api.md) · **Next:** 16 Gestures (planned)
 
+<!-- quick-summary:start -->
+<!-- quick-summary:manual -->
+## Quick summary
+
+> Short on time? Read only this. It is the short version of the cards below, so you can read the whole lesson in one minute.
+
+- Reanimated lets small functions run on the UI thread, so animations that follow a finger or a scroll stay smooth even when the JavaScript thread is busy.
+- Change a shared value with `.value = ...`. Read it only inside `useAnimatedStyle`, never directly in the render.
+- A worklet is a short function that is allowed to run on the UI thread. Reanimated marks it for you inside `useAnimatedStyle`.
+- Use `Animated.View` from `react-native-reanimated`. A normal `View` ignores the animated style.
+- Do not animate `flexDirection` or `justifyContent` with a transition. They jump in steps. Use Layout Animations for those changes.
+- Do not call a React `setState` straight from a worklet.
+<!-- quick-summary:end -->
+
 ## 1. The idea in one sentence
 
 Reanimated lets you write small functions that run on the phone's UI thread, so animations that react to a finger, a scroll or any logic stay smooth even when the JavaScript thread is busy.

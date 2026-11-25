@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number and error text was run on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A transaction turns several writes into one: all of them happen, or none of them.
+- An error aborts the whole transaction. COMMIT on an aborted transaction rolls back.
+- The database enforces the rules you give it. A broken rule undoes the whole transaction.
+- A reader sees the last committed value. Two writers on the same row wait for each other.
+- COMMIT means the log is on disk. After a crash, Postgres replays the log: committed stays, unfinished goes.
+- Keep the outside world out of the transaction. Write an outbox row inside, and send after commit.
+- BEGIN, every step and COMMIT must go through the same client. Always release it in `finally`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: two steps that must happen together
 
 Ana sends 100 to Budi. That is two writes: take 100 from Ana, give 100 to Budi. If only the first one happens, 100 disappears.

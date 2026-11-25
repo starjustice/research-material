@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** `curl --http2 -v` and `curl --http1.1 -v` against live sites, and a small Node test of 18 requests over HTTP/1.1 and HTTP/2, plus the practice code. **What I did not run:** HTTP/3. The curl on this Mac (8.7.1) has no HTTP/3 support, and I did not install nginx. Those parts are marked "from the docs, not run here". Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Keep-alive reuses a connection. It does not run two requests at the same time.
+- Six connections is a patch for one-request-at-a-time. It costs handshakes and memory, and each line can still block.
+- HTTP/2 = same HTTP, but many streams on one connection, with compressed headers. It fixes the line at the HTTP level.
+- HTTP/2 fixed the line in HTTP, but TCP still holds all streams when one packet is lost.
+- HTTP/3 = HTTP over QUIC over UDP. A loss stops one stream, and a new connection needs 1 round trip.
+- ALPN picks h2 or http/1.1 in the TLS hello. Alt-Svc tells the browser that h3 exists for next time.
+- Turn HTTP/2 and HTTP/3 on at the proxy or CDN. Open UDP 443, keep TCP 443, and check the Protocol column.
+- Safe = only reads. Idempotent = same result if repeated. no-store forbids keeping a copy. no-cache means ask the server first.
+<!-- quick-summary:end -->
+
 ## 1. The problem: a page is many files
 
 A page is not one file. It is HTML, then scripts, styles, images, fonts and API calls. Often 50 or more requests. HTTP/1.1 sends them over a **connection** (a TCP line between browser and server). One connection answers one request at a time. **Keep-alive** means the connection stays open after an answer, so the next request does not pay for a new handshake. It is the default in HTTP/1.1.

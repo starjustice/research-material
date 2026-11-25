@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- OFFSET does not jump. It reads every skipped row and throws it away.
+- OFFSET cost grows with the page number. Page 5000 reads 5000 times more than page 1.
+- OFFSET counts rows from the top. When rows are added or deleted above you, the pages shift: repeats or gaps.
+- Keyset says "after this row". The cost is the same for every page.
+- The sort must be unique. Add the primary key as the last column, in the ORDER BY and in the cursor.
+- The cursor is the last row, packed into text. Ask for size + 1 rows to know if there is a next page.
+- OFFSET for small tables and page numbers. Keyset for big tables, feeds and APIs.
+<!-- quick-summary:end -->
+
 ## 1. The idea: skip some rows, show the next 20
 
 Nobody shows 1 million rows on a screen. You show a **page**: 20 rows at a time. The simplest way is `LIMIT 20 OFFSET 40` for page 3: "skip 40 rows, then give me 20".

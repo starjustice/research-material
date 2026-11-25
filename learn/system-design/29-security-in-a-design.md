@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A real token only says who you are. Also check, on every request, that this user may touch this object.
+- The user comes from the signed token. The owner is part of the database query. No row means 404. Test with two users.
+- The role says what kind of action is allowed. The rule says on which objects.
+- Internal does not mean trusted. Every call between services shows a certificate or a short token, and the receiver checks the permission.
+- A missed route is a hole. Put the check where it is hard to forget: in the data layer or a shared helper.
+- If you freeze, say "A real token only says who you are. I also check on every request that this user may touch this object."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a check at every door
 
 Security in a design is a check at every door, not only at the front door. Two checks matter most. **Authentication** asks "who are you?" (the login check). **Authorization** asks "what may you do to this one thing?" (the permission check). In a hotel, the desk checks your ID and gives you a key card (authentication). Your card opens room 43 but not room 44 (authorization).

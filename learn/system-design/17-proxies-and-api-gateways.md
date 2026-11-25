@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A gateway does the door jobs once: HTTPS, ticket, limit, route. Services stay private.
+- Bad and too many requests never reach a service. The cheap check goes first.
+- The gateway must overwrite `x-user-id` on every request, and the service must still check who owns the order.
+- In a design, draw a box for each job you need. Real systems stack them: gateway, then a load balancer per service, then the copies.
+- The gateway is the one door. Run two copies, share the counters, and keep it small.
+- If you freeze, say "A reverse proxy speaks for the servers. A gateway is a reverse proxy that also checks the ticket, limits requests and picks the service."
+<!-- quick-summary:end -->
+
 ## 1. The idea: one public front door
 
 An API gateway is one public front door for many services. It checks who you are, counts how often you knock, and sends you to the right service. Like a reception desk in a big office: it checks your badge (the **ticket**), counts how often you came today (the **limit**), points you to the right floor (the **route**), and writes your name in the visitor book (the log).

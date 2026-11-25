@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Big O is how the steps grow when the input grows. It is not the time.
+- Loop after loop = add. Loop inside loop = multiply. Cut in half each time = log.
+- A fast `Set` lookup turns "loop inside a loop" into "one loop".
+- Most speed-ups spend memory. Always say both: the time and the space.
+- A method call can hide a loop. `includes`, `indexOf`, `shift`, `unshift`, `slice` and spread all walk the array.
+- Brute force, say the cost, find the repeated work, improve, say the new cost.
+<!-- quick-summary:end -->
+
 ## 1. The idea: count the steps, not the seconds
 
 Seconds change with the computer. **Steps** do not. Big O asks one question: *when the input gets bigger, how fast does the number of steps grow?*

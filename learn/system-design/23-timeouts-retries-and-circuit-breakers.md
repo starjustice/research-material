@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Every call to another system needs a timeout. Without one, a slow friend takes down the healthy parts of your system.
+- Retry at one layer only, retry only what is worth retrying, and keep the number of tries small.
+- Backoff makes retries rarer. Jitter makes them spread out. You want both.
+- Closed lets calls through, open stops them, half open tests with one call. Open means "fail fast and give the other side time to recover".
+- Add up the worst case. Timeout per try times tries, plus the waits, must fit inside what the user is willing to wait.
+- If you freeze, say "Every outside call gets a timeout. I retry only safe, passing errors, at one layer, with backoff and jitter. A circuit breaker stops calls to a dependency that keeps failing, and I decide the fallback."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a call with no timeout waits for ever
 
 Your API calls a payment provider. One day the provider does not fail. It just **never answers**. Your code waits. Each waiting checkout holds one of your server's slots (a worker, a connection). Four checkouts later, all 4 slots are held, and a user who only wants to **log in** gets an error, even though login never touches the provider. A **timeout** fixes this: "if no answer comes in 2 seconds, give up and free the slot."

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- `===` never changes a type. `==` and `+` sometimes do. An `if` only asks: "is this one of the 8 values that count as false?"
+- `typeof null` is `"object"`, and so is `typeof []`. They are the two surprises.
+- If either side of `+` is text, it joins. `-`, `*` and `/` always turn both sides into numbers.
+- Use `===` everywhere. Change types yourself, with `Number(qty)` or `String(id)`.
+- `==` and `if` do not use the same rules. An empty array is `== false`, and it also counts as true.
+- 8 values count as false. Everything else counts as true.
+- When `0` or empty text is a real value, do not use `if (value)`. Use `value == null`.
+- Make the left side of `&&` a real boolean, like `count > 0`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a money changer
 
 You compare a price in dollars with a price in baht. The strict check `===` says: "Different money. Not equal." It never converts. The loose check `==` converts one price into the other money with a fixed list of rules, then compares.

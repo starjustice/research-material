@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A role answers for a kind of user. A list answers for one item. A rule answers from facts. The default is no.
+- A role gives the same answer for every item. It cannot say "this document, but not that one".
+- An ACL is a list on one item. "Not on the list" means no.
+- A rule reads facts. It is flexible, and it is code that you must test.
+- The right on an item is the best grant on the item or on any parent above it.
+- A scope can only take rights away from a token. It never adds rights the user does not have.
+- Routes ask `can(user, action, item)`. Only that one function knows about roles, lists and rules.
+- "may I open this one?" is a check. "Which ones may I see?" must be part of the query.
+- A token is a copy. For the dangerous actions, check the current truth.
+<!-- quick-summary:end -->
+
 ## 1. The idea: three ways to answer "may Ana do this?"
 
 In [lesson 08](08-authorization.md) the server asked three questions: who, which role, which row. This lesson is about the second and third questions. There is more than one way to write them down. Picture an office building.

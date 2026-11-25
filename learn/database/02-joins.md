@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A join puts rows from two tables side by side when the **match rule** (the part after `ON`) says they belong together.
+- INNER JOIN keeps only the pairs that match.
+- LEFT JOIN keeps every left row. An empty right side is NULL.
+- INNER keeps the pairs. LEFT, RIGHT and FULL also keep the lonely rows from one side or both.
+- WHERE runs after the join, and `NULL = 'PAID'` is never true.
+- To keep every left row, filter the right table in `ON`, not in `WHERE`.
+- A join can multiply rows. Count with `DISTINCT`, or ask a yes or no question with `EXISTS`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a class list and homework sheets
 
 A teacher has a **class list** and a pile of **homework sheets**. A sheet shows only a student **number**, not a name.

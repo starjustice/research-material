@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- RPO looks back from the disaster (data lost). RTO looks forward (time down). The business sets both, and your design must meet them.
+- A replica protects you from a dead server. Only a backup with saved changes protects you from a mistake. You need both.
+- Async means a small, nonzero RPO. Sync means RPO of zero but the primary can freeze when the standby is gone. Multi AZ is the usual choice. Add a second region only when the business needs it.
+- Pick the cheapest plan that meets both numbers. Warm standby can take traffic at once but small. Pilot light must be switched on first.
+- RTO is a sum of steps, not one number. Fence the old primary with an epoch. Automate every step, and decide by hand only if a false alarm would be costly.
+- If you freeze, say "Ask for RPO and RTO, copy the data two ways (replica and backups), pick the cheapest plan that fits, fence the old primary, and restore in a drill."
+<!-- quick-summary:end -->
+
 ## 1. The idea: two numbers, "how much can we lose" and "how long can we be down"
 
 Sooner or later something big breaks: a data center loses power, a region goes dark, or a person runs `DROP TABLE` on the wrong database. **Disaster recovery** is the plan for that day. It starts with two numbers that the **business** gives you, not the engineers:

@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 35 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A recursive function needs a base case that stops it, and a call on something smaller.
+- If the same sub-problem comes again and again, remember the answer. That is memoization.
+- DP = a table. Say what a cell means, how it starts, and how it comes from smaller cells.
+- Choose, explore, undo. Save a copy of the path, not the path.
+- Backtracking = O(2ⁿ) or O(n!) at worst. Prune early to survive.
+- A number = DP. A list = backtracking. A smaller copy = recursion.
+<!-- quick-summary:end -->
+
 ## 1. The idea: Russian dolls
 
 A **recursive** function solves a problem by solving a **smaller copy** of the same problem. Open a doll, and inside is a smaller doll, until the smallest one. The smallest doll is the **base case**: it stops the opening.

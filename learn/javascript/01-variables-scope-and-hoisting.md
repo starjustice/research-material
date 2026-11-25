@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Before line 1 runs, JavaScript makes a slot for every name. This early setup is called **hoisting**. Your code does **not** move.
+- A `var` slot starts as `undefined`, so reading it too early gives a quiet `undefined`. The bug hides.
+- A `let` or `const` slot starts locked. Reading it early gives a `ReferenceError`, not a quiet `undefined`.
+- A function declaration works before its line. A function expression in a `var` does not.
+- `var` leaks out of `if` and `for`. `let` and `const` stay inside the nearest curly braces.
+- `var` in a loop is one shared variable. `let` gives each pass its own.
+- `const` locks the name, not the inside of the object.
+<!-- quick-summary:end -->
+
 ## 1. The idea: the roll sheet
 
 A teacher writes the **roll sheet** before the class starts. Every student's name is on the sheet from the beginning.

@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A class is a function. Its methods sit on one shared prototype object. Every instance has an arrow to that object.
+- `extends` links the prototypes. `super.method()` runs the parent's version.
+- In a child class, call `super()` first. Then `this` works.
+- A class method is the same as any method: pass it with an arrow wrapper or `bind`.
+- `_balance` is only a polite sign. `#balance` is really private.
+- A child class cannot read the parent's `#` slot. Offer a getter.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a chain of shops
 
 Think of a chain of shops. Each shop keeps its own stock. The how-to steps sit in **one** manual at head office. Shops phone head office for a step.

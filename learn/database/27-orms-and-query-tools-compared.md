@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The more the tool hides, the less you type, and the less you see. Pick how far you want to stand from the SQL.
+- Read the "how much SQL you see" column first. It tells you how much you can tune, and how much you must trust the tool.
+- Under every one of these, there is SQL and a list of values. The tool is only a way to write them.
+- A type safe tool moves "wrong column" errors from production to your editor.
+- Values go in `$1`. Names (tables, columns, sort direction) cannot, so check them against a list.
+- An ORM hides SQL. That includes the 101 queries. Read the log.
+- Every tool here ends in SQL. Learn SQL first, then pick how to write it.
+- Check the date and the version. Then check what is current today.
+<!-- quick-summary:end -->
+
 ## 1. The idea: how far from the SQL do you want to stand?
 
 Every tool here does the same job: it gets rows out of PostgreSQL. They differ in **how much SQL you write yourself**, and **how much the tool guesses for you**. Picture a line. On the left you write every word of the SQL. On the right the tool writes the API, too.

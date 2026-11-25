@@ -4,6 +4,20 @@
 > **You will be able to:** write the regex that interviews ask for (OTP, digits only, thousands separator, password rules, deep link, card mask), say what each part does, and avoid the two bugs people hit most (`g` with `.test`, and missing `^` `$`).
 > **Before this:** [React Native lessons](README.md) · **Next:** 18 Forms and TextInput (planned)
 
+<!-- quick-summary:start -->
+<!-- quick-summary:manual -->
+## Quick summary
+
+> Short on time? Read only this. It is the short version of the cards below, so you can read the whole lesson in one minute.
+
+- A regex is a short pattern that describes text, so one line can check it, pull parts out of it, or replace it.
+- No `^` and `$` means "find it anywhere", so a validation regex without them is almost always wrong. `/\d{6}/` matches inside `abc1234567xyz`.
+- Do not use the `g` flag on a regex you only `.test`. It remembers `lastIndex`, so the next test can give a wrong answer. Use `g` for `replace` and `matchAll`.
+- `"a-b-c".replace("-", "+")` changes only the first match. Use `/-/g` or `replaceAll`.
+- Do not trust a regex to fully check an email. Use a simple "looks like an email" pattern, then confirm with the server.
+- A repeat inside a repeat on user input can be very slow (catastrophic backtracking, or ReDoS). Keep patterns simple and put a `maxLength` on the input.
+<!-- quick-summary:end -->
+
 ## 1. The idea in one sentence
 
 A **regex** (regular expression) is a short pattern that describes a piece of text, so one line of code can check it, pull parts out of it, or replace it.

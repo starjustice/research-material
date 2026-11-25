@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The SLI measures, the SLO is the goal, the error budget is what the SLO still allows. The SLA is a contract, and it is looser than the goal.
+- Each extra nine cuts the budget by ten. Pick the number users would notice, not a nice looking number.
+- Alert on symptoms (what users feel), not causes (CPU, memory). Keep causes on a dashboard.
+- Two windows, both above the line. Big problems page fast, small ones page slowly.
+- The budget turns "developers want speed, operators want safety" into one shared number.
+- If you freeze, say "The SLO is the goal. While there is budget, we ship. When it is gone, we fix reliability. I page on burn rate, not on CPU."
+<!-- quick-summary:end -->
+
 ## 1. The idea: how much failure is fine?
 
 An **SLO** is a number that says how often your service may fail. The failure you can still afford this month is your **error budget**. You watch how fast you spend it, and you alert on that speed. A city bus company shows it: "99 of every 100 buses on time" is the goal, the 1 late bus in 100 is the budget the manager may spend on trying a new route.

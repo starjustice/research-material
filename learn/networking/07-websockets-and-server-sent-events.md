@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real (2026-11-21):** Node v26.5.0 with the `ws` package 8.23.0 and `graphql-ws` 6.4.3, curl, and Google Chrome 157 in headless mode. I read the server logs to see what really arrived. **What I did not run:** Redis, nginx, an AWS load balancer, Hasura, Firefox and Safari (from the docs, not run here). Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- In plain HTTP the page asks first. A server cannot start the talk.
+- Polling asks on a timer and is late. Long polling holds the question open and is on time. Both send a new request each round.
+- SSE is one way, text only, and the browser reconnects and sends `Last-Event-ID` for you. The server keeps the history.
+- A WebSocket starts as HTTP, switches with a 101, then sends frames both ways. It does not reconnect for you.
+- Plain HTTP first. SSE for one way feeds. WebSocket for two way or binary. Polling when late is fine.
+- A socket lives on one server, so servers share messages through pub/sub. Send pings, because proxies close quiet connections.
+- WebSockets skip CORS, so the server checks Origin. Origin is not a login: also check the user.
+- A GraphQL subscription is a long running query over a WebSocket. Log in with `connection_init`, then `subscribe`, then `next` messages until `complete`.
+<!-- quick-summary:end -->
+
 ## 1. The problem: the server cannot speak first
 
 You ask a friend a question and they answer. That is HTTP. The page **asks**, the server **answers**, and the talk is over. Now a new chat message arrives on the server. The server has no open question to answer. It has no way to tap the page on the shoulder.

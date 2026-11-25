@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Never say "the best". Say which limits you had, what you compared, what you picked, what it cost.
+- The decider is usually the team, the lifetime, and who runs it. Not the benchmark.
+- The pick comes from the needs. Change the needs and a different tool wins.
+- A decision with no cost sounds shallow. Say what you gave up, and what would change your mind.
+- Every default has a "switch when". Know both halves.
+- For your own projects, say only what is true. If you do not remember the real reason, say "I would need to check", then find out.
+- If you freeze, say "It depends on two things: the team and the lifetime. If ..., I'd pick A. If ..., B. Here it is ..., so A. The cost is ... and I'd change if ...".
+<!-- quick-summary:end -->
+
 ## 1. The idea: a choice is a trade
 
 You need to get to the airport. A bike is cheap but slow. A taxi is fast but costs money. A train is cheap and fast but runs only at some times. Nobody says "the taxi is the best vehicle". They say "I have a heavy bag and a flight in one hour, so a taxi." Tools are the same. The interviewer wants your reasons, not a ranking.

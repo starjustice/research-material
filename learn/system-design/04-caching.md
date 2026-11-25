@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A cache keeps a copy in a fast place. The price is that a copy can go old.
+- On a write, change the database first, then delete the copy. Keep a TTL too.
+- The TTL does not make a copy fresh. It limits how long a copy can stay old.
+- A stampede is many equal misses at once. Let the first miss refill and the rest wait, or refill before the copy ends.
+- Cache what is read often, changes rarely and can be a few seconds old.
+- If you freeze, say "I cache answers that are read often and change rarely."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a copy in a fast place
 
 A cache keeps a copy of an answer in a fast place (usually memory), so the slow place does not do the same work again and again. A shop assistant keeps a sticky note on the till: "rice 100". Note found is a **hit**. No note is a **miss**, so the assistant makes the slow phone call.

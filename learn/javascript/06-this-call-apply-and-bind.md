@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- `this` is decided by the call, not by where the function is written.
+- Copy a method out, and the dot stays behind. `this` is gone.
+- **c**all takes **c**ommas, **a**pply takes an **a**rray, **b**ind is for **b**efore (lock it now, call it later).
+- Inside a method, use an arrow for a callback. A normal function callback loses `this`.
+- Hand a method to someone else with an arrow wrapper or `bind`.
+- The dot does not help an arrow. Write methods as normal functions.
+<!-- quick-summary:end -->
+
 ## 1. The idea: the word "my"
 
 Think of the word **"my"** in the sentence "my name is ...". The sentence never changes. The **person who says it** decides what "my" means. `this` works the same way: it is a hidden input of a normal function, and **the way you call the function** decides what goes into it.

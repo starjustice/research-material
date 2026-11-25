@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- An UPDATE is a new version plus an old version marked as ended. The old one stays until it is cleaned.
+- Xmin made it, xmax ended it, ctid is where it lives. An UPDATE gives the row a new ctid.
+- Every UPDATE and DELETE leaves a dead row. Dead rows take space until someone cleans them.
+- VACUUM frees space for reuse and keeps the file the same size. VACUUM FULL makes it smaller, but it rewrites the table and blocks it.
+- Autovacuum is on by default and cleans a table after about 20% of its rows are dead. Do not turn it off.
+- An old open transaction keeps every dead row since it started. Find it with backend_xmin, and end it.
+- Watch dead_pct and last_autovacuum. If a table stays bloated, find why autovacuum cannot clean it (card 6) before you reach for VACUUM FULL.
+<!-- quick-summary:end -->
+
 ## 1. The idea: an UPDATE writes a new row
 
 In Postgres, an UPDATE does not change a row where it lies. It writes a **new version** of the row, and leaves the old version where it was. The old version is marked "ended".

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. **I did not use AWS for this lesson.** The AWS facts come from the official docs and pricing pages (opened 2026-11-19) and are marked "from the docs, not run here". The small model in the practice file and in the stepper is plain JavaScript that I ran for real. This topic is a set of parts, so the lesson names about eight (more than the usual four). Each card adds one or two of them, with a picture. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Only the load balancer faces the internet. The app and the database live in private subnets.
+- The number after the slash counts the fixed bits. A bigger number is a smaller block. A subnet is a slice of the VPC block.
+- A public subnet is one with a route to an internet gateway. No route, no internet, even with a public IP address.
+- A security group allows only, remembers connections, and can name another group as the source. A new group lets nothing in.
+- A network ACL is stateless, sits at the subnet, has allow and deny rules, and reads the lowest number first. Use security groups as the main tool.
+- A NAT gateway lets private servers call out and lets nobody call in. It lives in a public subnet. It costs money every hour and for every GB.
+- The database is private for two reasons: no road from the internet, and a security group that trusts only the app. Keep both locks.
+- When a private server cannot call out, check its default road first. Then check that the NAT gateway sits in a public subnet.
+<!-- quick-summary:end -->
+
 ## 1. The problem: a database that anyone can try
 
 Give every server a public address, and anyone can try to log in to your database. Bots scan the internet for open database ports all day. So you build a small private network and decide who gets a door. Think of an office building. The building is a **VPC** (your own private network in the cloud). The rooms are **subnets**. The **internet gateway** is the front door to the street. Only the reception room has a corridor to that door.

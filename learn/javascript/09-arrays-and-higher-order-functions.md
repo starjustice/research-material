@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 30 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- You write only the one different line, as a callback. The method does the loop.
+- `map` and `filter` do not change the array you call them on. They build a new one.
+- Always give `reduce` a start value, like `0`.
+- `sort` and `reverse` change the array you call them on. Copy first, or use `toSorted`.
+- To sort numbers, pass `(a, b) => a - b`, and copy first.
+- An arrow with braces needs `return`. An arrow without braces returns the value.
+- A start value makes `reduce` safe on an empty array.
+- `forEach` does not wait for async callbacks. Use `Promise.all` with `map`.
+- `findIndex` gives `-1` for "not found". Check with `!== -1`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a factory belt
 
 Picture a **factory belt** with items on it, and one worker at each station. You give each worker one small function that handles **one item**. The worker does the looping. `map`, `filter` and `reduce` take a function like this, so they are called **higher order functions**.

@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** an Express 5.3.0 server with the `cors` package 2.8.6, two small page servers, and Google Chrome 157 in headless mode, on 2026-11-21. I read the server log to see which requests really arrived. **What I did not run:** Firefox, Safari, Next.js and Hasura (from the docs, not run here). Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- An origin is scheme + host + port. By default the browser lets a page send to another origin but not read the answer.
+- CORS is enforced by the browser. The server only sends headers. A blocked answer was still made by the server.
+- DELETE, JSON bodies, Authorization and custom headers trigger a preflight. If the preflight is refused, the real request is never sent.
+- Cookies across origins need three things: `credentials: "include"` in the page, one exact origin, and `Access-Control-Allow-Credentials: true`.
+- Secure = https only. HttpOnly = hidden from JavaScript. SameSite = may it go along on a cross-site request. Domain and Path = which addresses get it.
+- CORS decides who may read the answer. SameSite and tokens stop the forged request. Do not use CORS as CSRF protection.
+- Put `cors` first in Express, list exact origins, add `credentials: true` for cookies. Or avoid CORS with a proxy that makes the call same-origin.
+<!-- quick-summary:end -->
+
 ## 1. The problem, and what an origin is
 
 You are logged in to your bank in one tab. In another tab you open a strange site. The browser would send your bank cookie to the bank if that strange page asked. If the page could also **read** the answer, it could read your account. So the browser has one rule: a page may **send** to another origin, but it may not **read** the answer. This is the **same-origin policy**.

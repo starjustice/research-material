@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A request walks the line from the top, in the order you added the functions.
+- Every middleware calls `next()` or sends. Never neither, never both.
+- Each function adds one thing to the same `req`. The route only reads.
+- `express.json()` goes above every route that reads `req.body`. Error middleware goes last.
+- Four parameters, even if you never use `next`.
+- Express 5 sends a thrown `async` error to your error middleware. Express 4 did not.
+- `app.use` is wide. A route with its own function is narrow.
+- The logger passes the request on with `next()`. The route sends, and the line stops.
+- `return res.status(401).json(...)`. Always `return` when you send.
+<!-- quick-summary:end -->
+
 ## 1. The idea: an airport line
 
 At an airport you walk a line: check-in, bag scan, passport desk, gate. Each desk does one job and waves you on. Express is the same. Every request walks a **line of small functions**, in the order you added them. Each function either passes the request on, or sends the answer.

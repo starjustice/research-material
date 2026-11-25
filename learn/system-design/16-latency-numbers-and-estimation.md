@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Count the trips on the user's path. Distance is not fixed by a faster server. Fewer trips and a shorter distance fix it.
+- Memory is nanoseconds, the same machine is microseconds, the same data centre is half a millisecond, and across the world is 150 milliseconds.
+- A new connection costs about 3 round trips. Reuse connections, and put the server near the user.
+- Per day ÷ 100,000 = per second. Times 3 for the peak. Divide by 1,000 for servers.
+- Size of one thing × how many a day × 365. Network speed is counted in bits, files in bytes, so 1 byte = 8 bits.
+- Do the maths, find the one big number, and put the design where that number is.
+- If you freeze, say "A day is about 100,000 seconds. Users times actions, divided by that, is requests per second. Triple it for the peak. Size times count is storage."
+<!-- quick-summary:end -->
+
 ## 1. The idea: every step has a price
 
 Think of a trip across a city. Walking to the next room is seconds. Taking a bus is minutes. Flying to another country is a day. A computer is the same. Each step below costs much more than the one above it.

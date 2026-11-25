@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **What I ran for real:** small Node programs with `net` (TCP) and `dgram` (UDP) on my own computer, `netstat`, `dig`, `curl`, and the practice code. **What I did not run:** a packet capture, and anything over a bad network. Loss on the real network is shown only in the model. Facts and links were checked on 2026-11-21. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- IP only tries its best: pieces can be lost, repeated or mixed up. TCP fixes this for you. UDP does not.
+- The IP address finds the computer, the port finds the program. A TCP connection is named by 4 numbers: both IPs and both ports.
+- The handshake is 3 messages (SYN, SYN+ACK, ACK) that agree the start numbers. It costs one round trip before the data.
+- TCP numbers every byte. The receiver says which byte it wants next (ACK). No ACK in time means the sender sends it again.
+- Flow control protects the receiver. Congestion control protects the network. The sender may send only the smaller of the two windows.
+- Closing takes four messages (FIN, ACK, FIN, ACK). The side that closes first waits in TIME_WAIT. A pile of TIME_WAIT is normal, not a bug.
+- UDP sends separate datagrams: no handshake, no resend, no order, but each datagram arrives whole or not at all. TCP is a stream with no message edges.
+- Use TCP when every byte must arrive in order. Use UDP when old data is useless, or when you want to do your own recovery. QUIC (HTTP/3) is built on UDP.
+<!-- quick-summary:end -->
+
 ## 1. The problem: the network does not keep promises
 
 Your computer sends 3 pieces of a file. The network under it, **IP**, only tries its best. It can lose a piece, deliver one twice, or deliver them in another order. IP makes no promise and sends no receipt. A file with a missing middle piece is broken. So a layer on top has to decide: fix this, or leave it. **TCP** fixes it. **UDP** leaves it.

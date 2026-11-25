@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. **Every price in this lesson is an example.** I read the prices on 2026-11-19 from the official AWS price list files, for the region US East (N. Virginia). Prices change and differ by region, so look them up again before you decide anything. **The amounts of traffic and storage in the example app are made up.** I used no real AWS account and saw no real bill. The small model in the practice file and in the stepper is plain JavaScript that I ran for real. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A cloud bill is many meters. Each one counts hours, GB moved or GB stored. Ask which kind a line is.
+- Read the bill by line, not by the total. The biggest line is often a pipe or something forgotten, not the app.
+- Hours bill while a thing exists, not while it works. Look for the things that exist and do nothing.
+- Data that moves costs money each time it moves. Send less, keep it close, and keep a free route for the big flows.
+- A plan bills every hour. It wins only when the server runs more than the break-even share of the hours. Use Spot only for work that can stop and restart.
+- First use less (smaller, fewer, off at night), then pay less per hour. The practice function `rightSize` moves one size down at 40 percent peak or less, and one up at 85 percent or more.
+- A budget tells you early, a tag tells you who. Neither fixes anything. Someone must own the fix.
+- See it, delete it, use less, then pay less per hour. A plan or a year promise goes last.
+<!-- quick-summary:end -->
+
 ## 1. The problem: one bill, many small meters
 
 At the end of the month the cloud sends one number. It looks like one price. It is really **many small meters**, and each one counts something different. Some count **hours** (a thing exists, so it costs). Some count **GB moved** (data travels). Some count **GB stored** (you keep data). A CapRover server on a flat monthly rent has one meter. A cloud account has dozens.

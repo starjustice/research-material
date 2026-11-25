@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The API checks who may upload and signs a link. The bytes go straight to storage.
+- A bucket is a map: key to file. Put the bytes there and the details (owner, status) in Postgres.
+- A signed link allows one action on one key for a short time. It is a ticket: anyone who holds it can use it until it ends.
+- The server picks the key. Sign the type and the size. Never let the phone choose the name.
+- Parts are 5 MiB to 5 GiB, at most 10,000 of them. Consider parts above about 100 MB.
+- Pending first, ready only after the storage event. Clean up what never finishes.
+- If you freeze, say "The API checks the user and signs a short link for a key it picks. The phone uploads straight to storage. A storage event turns the row from pending to ready."
+<!-- quick-summary:end -->
+
 ## 1. The idea: the parcel skips reception
 
 A driver brings a parcel to a big warehouse. Reception does not carry the parcel inside. Reception checks who the driver is, then hands over a **ticket** that opens one door, for one parcel, for 5 minutes. The driver walks to the warehouse alone. Your API is reception. The storage is the warehouse. The file is the parcel.

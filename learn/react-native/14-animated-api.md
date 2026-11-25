@@ -4,6 +4,20 @@
 > **You will be able to:** write a fade and slide in from memory, explain what `useNativeDriver` does and what it cannot animate, and use `interpolate`, `sequence`, `parallel` and `loop`.
 > **Before this:** [Flexbox layout](11-flexbox-layout.md) · **Next:** 15 Reanimated (planned)
 
+<!-- quick-summary:start -->
+<!-- quick-summary:manual -->
+## Quick summary
+
+> Short on time? Read only this. It is the short version of the cards below, so you can read the whole lesson in one minute.
+
+- An animation is one number that changes over time. You connect it to a style, and the phone updates the view every frame without running your component again.
+- Animate `transform` and `opacity`, turn the native driver on, and keep the value in `useRef` or `useAnimatedValue`.
+- `useNativeDriver` runs the animation on the UI thread, so a busy JavaScript thread cannot make it stutter.
+- Always pass `useNativeDriver: true` or `false` on purpose. One Animated value supports only one driver, so do not mix them.
+- Animating `height` with the native driver does not work in the classic setup. Use `scaleY` instead, or `useNativeDriver: false`, or `LayoutAnimation`.
+- A new Animated value every render throws away the running animation.
+<!-- quick-summary:end -->
+
 ## 1. The idea in one sentence
 
 An animation in React Native is **one number that changes over time**, and you connect that number to a style, so the phone updates the view on every frame without running your component again.

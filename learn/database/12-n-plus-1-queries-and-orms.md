@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The numbers come from the practice database, so yours will differ a little. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Count the trips, not the speed of one query.
+- A loop with `await` inside looks innocent, and sends one trip per item.
+- One trip for the list, one trip for all the children, then group in code. Give empty lists to parents with no children.
+- The code did not change, but the page got slower. Look at the query log.
+- Make the DataLoader **once per request**. A shared loader keeps a cache across users and can show one user's data to another.
+- Let the tool batch for you: `include` in Prisma, a DataLoader in GraphQL, a nested query in Hasura.
+- One giant join with two child lists fans out and gives wrong sums.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a shop 10 minutes away
 
 You need 100 items from a shop that is 10 minutes away.

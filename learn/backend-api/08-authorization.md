@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 12 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Three questions in order: who, which role, which row. The default answer is no.
+- The owner is part of the question, not a check you may forget afterwards.
+- Deny by default. Say yes only when a rule says yes.
+- Write the rule once and reuse it.
+- The server checks every request. The button is only a hint.
+- The role comes from the token or the database, never from the request.
+- 401 means "who are you?". 403 means "I know you, and no".
+<!-- quick-summary:end -->
+
 ## 1. The idea: a hotel key card
 
 At a hotel, the desk checks your passport (**authentication**) and gives you a key card. The card opens **your room** and the gym, but not the staff room. Every door checks the card **at the door**. That is **authorization**: what you may do. The server asks three questions, in this order. Any "no" stops the request.

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The app lists the fields it wants. The server answers with that shape and nothing more.
+- `!` means never null. `Query` and `Mutation` are the doors in.
+- The function may return more. The answer has only the fields in the query.
+- A wrong field rejects the whole query. Nothing runs.
+- One URL. `mutation` is a write. Send it with `POST`.
+- After every GraphQL call, check `json.errors`.
+- Name the fields inside every object. There is no wildcard.
+- Several clients with different needs, or nested data: GraphQL. Simple create, read, update, delete, or public cached APIs: REST.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a menu and an order slip
 
 A restaurant has a **menu** (the schema). You write an **order slip** (the query): exactly what you want, "rice, chicken, no soup". The waiter checks the slip against the menu before the kitchen starts. You get back only what you asked for. GraphQL works the same way, always through one URL.

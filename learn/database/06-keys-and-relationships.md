@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number and error text was run on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A primary key names exactly one row: unique, never empty, one per table.
+- A foreign key must point to a real row. Add NOT NULL when the pointer is required.
+- Default is refuse. CASCADE for parts of the parent. SET NULL for an optional link.
+- The foreign key sits on the many side. Many to many needs a middle table. One to one is a foreign key that is also unique.
+- The key should never change and mean nothing. Keep real data as UNIQUE columns.
+- Default to a `bigint` identity. Use a UUID when ids are made outside the database. Prefer v7 over v4.
+- A primary key gets an index. A foreign key does not. Index every foreign key column you delete through or filter by.
+<!-- quick-summary:end -->
+
 ## 1. A primary key is a name tag
 
 Two shops are both called "Budi Shop", one in Bandung and one in Medan. Names repeat. Each shop needs a tag that never repeats: its **id**.

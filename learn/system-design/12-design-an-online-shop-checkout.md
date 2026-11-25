@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Hold in one step, let the payment company say "paid", run undo steps when something fails.
+- Check and change in one step. Zero rows means sold out.
+- The webhook marks it paid. The success page only reads.
+- Each move checks its starting status. The undo for a charge is a refund.
+- Hold in one step, keep the transaction short, and give stock back when the hold ends.
+- If you freeze, say "One conditional update holds the stock. Zero rows means sold out."
+<!-- quick-summary:end -->
+
 ## 1. The idea: hold, pay, undo
 
 Hold the item in one safe step, let the payment company say "paid", and run undo steps when something fails. A small shop has one blue mug and a bank down the road: the mug waits behind the counter for Ana, the bank phones "Ana paid", and the shopkeeper trusts the bank, not Ana. Examples use Next.js, Express, Prisma, Postgres and Stripe.

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Never trust the input, never show the insides.
+- The schema is the one door for input. It reports every wrong field at once, and gives you clean data.
+- After you validate, use `r.data`. Never use `req.body` again.
+- 4xx means the client must change something. 5xx means we have the problem.
+- The client gets a short safe message. You get the details.
+- `return` when you send an error.
+- Log the full error, send a safe message.
+- A real error status, and one error shape.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a host at the door and a complaints desk
 
 A restaurant has a **host at the door**. No booking, no table, so the kitchen never sees guests who should not be there. And it has **one complaints desk**. Every problem goes there. The desk writes the full story in a private book (the log) and gives the guest a short, polite note. The note always has the same form.

@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 30 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A graph is nodes and edges. Write it as "each node lists its neighbours".
+- BFS = queue + seen. Mark seen when you add to the queue. First arrival = shortest path (when every edge counts as 1).
+- Fewest steps = BFS. Explore, reach, count groups = DFS (or BFS).
+- A grid is a graph. Neighbours are up, down, left, right. Find a new land cell, count 1, then spread and mark.
+- Nodes with nothing left to wait for go first. If some are never freed, there is a cycle.
+- Start from every unseen node, and always keep a `seen`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: dots and lines
 
 A **graph** is dots (**nodes**) joined by lines (**edges**). A map of cities and roads. Friends in a social app. Pages that link to each other. Tasks that must happen before others.

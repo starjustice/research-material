@@ -10,6 +10,21 @@
 >
 > Lessons 24 to 26 go deeper into the same topic (how the pages really look, and what an index costs). Read this one first.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- An index is a sorted list of one column. Each entry says where its row lives. A search reads one page per level, then only the table pages that hold your rows.
+- Without an index, the work grows with the table, even when you want 1 row.
+- An index turns "read the whole table" into "read a few pages".
+- Each page tells Postgres which page to read next. The leaves hold every value in sorted order, and each leaf links to the next leaf.
+- A B-tree keeps values sorted, so it helps `ORDER BY`, `<`, `>` and `BETWEEN`, not only `=`.
+- Every index slows every INSERT and takes disk space. Index only what your real slow queries use.
+- "I made an index, so Postgres must use it" is wrong. Run `EXPLAIN`. If the filter matches a big part of the table, a Seq Scan is the correct, faster choice.
+- Postgres indexes the primary key and UNIQUE columns. It does not index the column that points to another table. Add that index yourself.
+<!-- quick-summary:end -->
+
 ## 1. The idea: the index at the back of a book
 
 You want the page about "closures". Reading the whole book takes hours. The index at the back lists words from A to Z, each with a page number. You jump to C, find "closures, page 212", and open page 212.

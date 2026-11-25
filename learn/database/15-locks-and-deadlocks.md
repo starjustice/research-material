@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run with two or three real connections on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A row lock stops other writers of that row. It does not stop readers, and it does not stop writers of other rows.
+- FOR UPDATE says "I will change this row, so nobody else may change it until I finish." Plain SELECTs are not blocked.
+- NOWAIT fails at once. SKIP LOCKED skips locked rows. lock_timeout gives up after a time.
+- A deadlock is a circle of waiting. Postgres breaks it by cancelling one transaction. Your code must retry it.
+- Lock the rows you need in one fixed order (ORDER BY id) at the start. Keep transactions short.
+- A waiting ALTER TABLE also blocks the readers behind it. Run it with a short lock_timeout.
+- A wait always has a holder. Often the holder is idle in transaction. Set a timeout so it cannot stay that way.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a writer holds a key to the row
 
 When a transaction changes a row, it holds a **lock** on that row until it commits or rolls back. Someone else who wants to change the same row must wait for the key.

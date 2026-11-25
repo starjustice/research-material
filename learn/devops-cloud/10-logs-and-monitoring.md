@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. Every log line, number and command output in this lesson came from a real run on Docker Desktop 29.3.1 unless the text says "from the docs, not run here". About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The app prints to stdout and stderr. Docker keeps the lines. They live as long as the container does.
+- The default json-file driver never rotates. Set `max-size` and `max-file`, or one noisy app can fill the disk.
+- One JSON line per event. The level answers "how bad?". The request id answers "whose?".
+- An alert says "wake me if X for Y minutes". Alert on what users feel, and wait a few minutes so one spike does not page you.
+- A health check only reports. Plain Docker does not restart an unhealthy container. Swarm or Kubernetes may.
+- A green health check inside does not prove users can reach you. Check the public address from another machine.
+- Send logs off the machine to one place. Keep rotation on as well, so a full disk cannot stop the app.
+- Never print a secret. Rotate the logs, give every line an id, and page only on what users feel.
+<!-- quick-summary:end -->
+
 ## 1. The app prints. Docker keeps the lines.
 
 Your app runs in a container. Something goes wrong at night. The only clue is what the app printed. In a container, the app should not write its own log file. It just prints to **stdout** (the normal output of a program, where `console.log` goes) and **stderr** (the same, for errors). Docker catches both and keeps each line in a file on the host machine. You read them with `docker logs`.

@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Count the requests of each caller. Over the limit: answer `429` and say when to try again.
+- A bucket fills steadily, so a short burst is fine, and the average speed is limited.
+- A fixed window can let through double the limit at a window edge.
+- Token bucket is a common default.
+- Count by the user when you know the user. Use the IP only when you do not.
+- More than one server needs a shared store for the counts.
+- The limiter sits in front of the handler. A refused request never reaches it.
+- Count inside a window. Answer `429` with `Retry-After`.
+- Put the limiter first.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a jar of coins with a helper
 
 A jar holds 3 coins at most. A helper drops in one new coin every second. To get through the door, you pay one coin. No coin, no entry: you wait for the helper. This is a **token bucket**. The server keeps one jar for each caller, and answers `429` when the jar is empty.

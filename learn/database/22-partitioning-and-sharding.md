@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every Postgres result was run on PostgreSQL 18.3 on one laptop. Sharding is explained, not run on a real cluster: I did not build one. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A partitioned table looks like one table. Under it are many small tables, and a query that names the right column opens only the drawers it needs.
+- Partitioning helps the queries that name the partition column. For the others, it is 12 small tables that all get asked.
+- To remove old data, drop the old drawer. It takes milliseconds and gives the space back. A big DELETE leaves dead rows and a file that stays big.
+- A primary key or unique rule must include the partition column. Make next month's drawer early. A default drawer is a safety net, not a plan.
+- Hundreds of drawers are fine. Thousands cost you in planning, and in every query that does not name the key. Make drawers big enough to matter.
+- RANGE for time and dropping old data. LIST for a small set of known values. HASH to spread the load evenly, for lookups by one key.
+- A shard is a separate server with part of the rows. Never use `hash % n` directly: it moves most rows when n changes. Use buckets and a table of owners.
+- Index, pool, cache, replicas, partition, bigger machine, and only then shard. Sharding is the last step because it takes away JOINs, transactions and unique rules across shards.
+<!-- quick-summary:end -->
+
 ## 1. The idea: one filing cabinet, one drawer for each month
 
 A table with 1.2 million rows is one big pile. You can split it into **drawers**, one for each month. Postgres calls a drawer a **partition**. Your queries still talk to one table. Postgres decides which drawers to open.

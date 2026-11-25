@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A session keeps the facts on the server and gives you a ticket number. A JWT puts the facts in the token and gives you the whole note.
+- The browser holds only an id. The facts stay on the server, so the server can delete them.
+- A JWT is signed, not locked. Anyone can read the payload.
+- The stamp cannot be made without the secret. An edited token fails.
+- If you can use sessions, sessions are simpler and safer.
+- With two servers, sessions need a shared store.
+- Always `verify`, never only `decode`.
+- A short token plus a refresh token you can cancel.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a cloakroom ticket or a festival wristband
 
 **Authentication** means checking who you are. HTTP forgets you after every request, so after login the server needs a way to know it is still you. There are two ways.

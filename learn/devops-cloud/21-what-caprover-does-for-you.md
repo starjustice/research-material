@@ -8,6 +8,23 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read. **I did not install CapRover or run a deploy for this lesson.** What CapRover does comes from its docs and from its source code on GitHub, both opened on 2026-11-19, and is marked "docs" or "source". The small model in the practice file and in the stepper is plain JavaScript that I ran. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- CapRover is a helper for five chores: build, run, route, certificate, renew. Nothing it does is out of reach by hand.
+- CapRover is three helper services (captain, nginx, certbot) plus your apps, all Swarm services on your server.
+- One wildcard DNS record gives every app a name. Each name needs its own certificate, asked for once.
+- The captain-definition says how to get the image, with exactly one of four choices. A one-click app is someone else's recipe, and still becomes ordinary apps.
+- Deploy means build, then update the service, then reload nginx. A failed build changes nothing. Certificates are a separate job.
+- A mounted folder means stop-first and a short gap. Only files in a mounted folder survive. Add a HEALTHCHECK so a copy that is not ready is never used.
+- One machine, backups, upgrades and scaling are yours. Test a restore before you need it.
+- The choice is who does the work. CapRover is the cheapest and leaves you the most jobs.
+- If it must survive a deploy, it is a persistent directory, or it lives outside the server.
+- A new CapRover is open until you close it. Port 3000 is for the first setup only.
+<!-- quick-summary:end -->
+
 ## 1. The problem: five chores for every app
 
 You have a Node API in a Docker image and a server. To put it online at `https://api.mysite.com` you do five chores: build the image, keep it running, write an nginx rule for the name, ask for a certificate, renew it before it ends. Then you do all five again for the next app. **CapRover** does these chores for you, from a dashboard or one command. It adds no new magic. It drives Docker, nginx and Let's Encrypt.

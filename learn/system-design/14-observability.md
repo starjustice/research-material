@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Metrics tell me something is wrong. A trace tells me where. Logs tell me why.
+- The id crosses the network inside a header. In a queue, put the `traceId` into the job data.
+- The top span is always the longest. Look for the biggest own time.
+- Every log line carries the trace id. Never log secrets.
+- Watch p99, not the average. Alert on what users feel: errors and slow requests. CPU goes on a dashboard.
+- If you freeze, say "Metrics tell me something is wrong. A trace tells me where. Logs tell me why."
+<!-- quick-summary:end -->
+
 ## 1. The idea: metrics, traces, logs
 
 It is 3 am and a user writes "checkout is slow". One checkout goes through the API, the payment service and a database. Which box was slow? **Observability** means the system shows you what happens inside it, so you do not guess. Give every request one id, then use numbers to see that something is wrong, a timeline to see where, and log lines to see why. Like a parcel company: a wall screen says "40 parcels late", the tracking page shows each stop, and the drivers' notebooks say why.

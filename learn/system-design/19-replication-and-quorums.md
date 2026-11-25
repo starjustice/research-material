@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A copy is only a safety net for the data that has reached it. The question is when "saved" is said.
+- Async can lose the last writes. Sync cannot, but writes wait for the follower, and stop if it is gone.
+- R + W > N means the group that wrote and the group that reads must share at least one copy.
+- A stale read is possible exactly when some write group and some read group share no copy.
+- Quorums keep answers right and give up availability when too many copies are gone.
+- If you freeze, say "Copies for safety. The leader takes writes. W copies must save and R copies are asked. If R plus W is more than N, a read meets the newest write."
+<!-- quick-summary:end -->
+
 ## 1. The idea: more than one copy
 
 One machine holding your data is one thing that can break. So you keep **copies** on other machines. In the simplest pattern, one machine is the **leader**. All writes go to it. It sends each change on to the **followers**. If the leader dies, a follower takes over. Like a teacher who writes on the board while three students copy it into their notebooks. If the teacher faints, a student has the notes.

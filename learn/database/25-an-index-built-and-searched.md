@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- An index is a second, sorted copy of one column, with the address of each row.
+- A row's address is (page, slot). Postgres always reads whole pages.
+- A leaf item is a key plus the address of its row. Items are sorted.
+- Short and wide. 1 million rows is only 3 levels.
+- With an index, about 4 pages. Without one, every page.
+- An index-only scan needs two things: every column in the index, and VACUUMed pages.
+- On a live table, use CREATE INDEX CONCURRENTLY. Then check for INVALID.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a card catalog
 
 A big library has a card catalog. You never walk every shelf. You open a drawer, then a part of the drawer, then find the card. The card says: **shelf 3, slot 7**.

@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. The pipeline in this lesson is a small script that was run for real on a laptop with Docker. What GitHub does on its own machines, and what CapRover does, comes from their docs (checked 2026-11-13) and is marked "from the docs, not run here". About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- By hand, every deploy depends on a person remembering. A pipeline does the same steps, in the same order, after every push.
+- A pipeline is the same list of stages on a clean machine for every push. Only what is in git reaches it.
+- A failed stage stops the line. Cheap checks go first, so a mistake costs seconds, not a whole build.
+- CI tests every push. Delivery stops before production and waits for a person. Deployment goes all the way by itself.
+- Build once, tag with the commit id, keep the last few. A rollback is a deploy of an older tag.
+- The key is the system plus a hash of the lockfile. A cache is only a speed up, so the pipeline must work when it is empty.
+- CapRover does the last stages. A pipeline adds the checks and the build before it. The deploy needs a secret token, so keep it out of the code.
+- If you freeze, say "Every push runs the same stages on a clean machine. A failed stage stops the line. I build once, tag it with the commit id, and roll back by deploying an older tag."
+<!-- quick-summary:end -->
+
 ## 1. The problem: deploys by hand, and a main branch nobody checks
 
 Without a pipeline, a person does every step. You build on your laptop, copy the result to the server, and hope. Three things go wrong. You forget a step. It works on your laptop and nowhere else ("works on my machine"). And a bad push sits on `main` while nobody knows.

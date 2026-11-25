@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every number was run on PostgreSQL 17.5 (the newest release is 18). About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Six stops: connect, parse, plan, run, memory, disk. Only "run" reads rows.
+- One connection is one process. Keep connections few. Use a pool.
+- Typos and unknown names fail early, before any row is read. Bad math fails late.
+- The planner scores each way and picks the lowest. The score is a guess, not a time.
+- Wrong notes make a wrong plan. After a big load, run `ANALYZE`.
+- The executor pulls rows up the tree. A box that has enough stops asking.
+- `hit` is memory, `read` is not. A page is always 8 KB.
+- Log first, table later. COMMIT waits for the log.
+- An UPDATE is a new row plus a dead old row. The row moves.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a restaurant kitchen
 
 You order a dish. Behind the counter, six things happen.

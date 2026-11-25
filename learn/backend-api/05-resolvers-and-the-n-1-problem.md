@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- N+1 is one query for the list, plus N queries for the related items.
+- A resolver gets `(parent, args, context, info)`. `parent` is the object that owns the field.
+- The resolver runs once per parent, not once per different shop.
+- The resolver calls `shopLoader.load(parent.shopId)`. One batch query, not N.
+- Create a new loader for every incoming request.
+- Return one result per key, in the same order as the keys.
+- DataLoader fixes the lookup problem. Pagination and limits fix the query shape problem.
+<!-- quick-summary:end -->
+
 ## 1. The idea: 20 guests, 20 taxi calls
 
 A hotel has 20 guests who each ask the concierge for a taxi. The concierge could phone the taxi company 20 times. That is the **N+1 problem**. In GraphQL it happens when every item in a list runs its own database query.

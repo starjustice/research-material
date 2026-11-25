@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Let Hasura do the boring CRUD and the row filters. Keep your rules about money, other services and many steps in your own code.
+- A role, a table and an action give one cell. An empty cell means no access.
+- The client never writes the filter. Hasura adds it to the SQL.
+- The rule uses a fact from the token (the user id), so the same query gives each user their own rows.
+- Plain CRUD stays in Hasura. An Action only where there is real logic.
+- Hasura for the boring CRUD. Your own service for the special parts.
+- The admin secret lives only on servers. Test as the real role.
+- A real filter, a list of columns, and a preset for the owner.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a waiter who has learned the whole menu
 
 A waiter who knows the whole menu serves any dish at once. You did not teach him dish by dish. That is **Hasura**: it sits in front of PostgreSQL, reads your tables, and gives you a GraphQL API without you writing resolvers. It carries a **card for each kind of guest** (the permission rules) and follows it on every order. For a special order, it walks to the **kitchen**: your own code.

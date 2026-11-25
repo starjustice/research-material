@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- One-way, salted, slow. Never plain text, never encryption, never a fast hash.
+- A new random salt for every password, saved next to the hash.
+- A password hash must be slow on purpose. One login pays 50 ms, and a thief pays 50 ms for every guess.
+- Argon2id first. Then scrypt, then bcrypt for old systems.
+- The salt is saved inside the string. Verify = hash again with that salt, then compare.
+- A forgotten password is reset, never read.
+- In a request handler, always use the async hash.
+- The same 401 answer for a wrong email and a wrong password. Compare in constant time.
+- Never write a password anywhere, even by accident.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a blender
 
 Put the password in a blender, with a pinch of random seasoning (the **salt**), and blend for a long time (the **cost**). You get a drink (the **hash**). You cannot turn the drink back into fruit. To check a login, blend what the user typed with the same seasoning, and see if the drink tastes the same.

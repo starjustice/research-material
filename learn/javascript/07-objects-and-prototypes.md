@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Reading a property walks up the chain and stops at the first object that owns it. If it reaches `null`, the answer is `undefined`.
+- A missing property is quiet. A typo like `user.nmae` gives `undefined`, not an error.
+- Writing never walks up. It always changes the object you wrote it on.
+- Put **data** on each object. Put **functions** on the prototype.
+- Every array shares one `map`. Every object can reach `toString` through `Object.prototype`.
+- `rex.prototype` is `undefined`. Use `Object.getPrototypeOf(rex)`.
+- To ask "does this object own x?", use `Object.hasOwn(obj, "x")`.
+- Do not change built-in prototypes. Write a normal function.
+<!-- quick-summary:end -->
+
 ## 1. The idea: the stapler in the office
 
 You sit at a desk and need a stapler. You look in **your own drawer** first. Not there? You walk to the **team cupboard**. Not there? The **supply room** for the whole building. Not there? Nobody has one.

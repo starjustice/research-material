@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The count lives in one shared Redis, changed in one step. Never in each server's memory.
+- No timer adds tokens. Each request adds the tokens for the time that passed, up to the cap.
+- The default is the token bucket. Login gets a sliding window.
+- Never read, decide, then write. Add 1 and read the new number in one step: `INCR`, or a Lua script.
+- Fail open on most routes, closed on login, OTP and money.
+- If you get stuck, say "It counts each client's requests and answers 429 past the limit."
+<!-- quick-summary:end -->
+
 ## 1. The idea: count each client, say "no" after a limit
 
 A rate limiter counts each client's requests and says "no, wait" after a limit. Lesson 08 ended with one script making millions of links. This is the guard. Two parts are hard: **how to count**, so nobody gets twice the limit, and **where the count lives**, so ten servers share one number.

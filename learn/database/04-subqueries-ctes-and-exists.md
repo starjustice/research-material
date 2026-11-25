@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A subquery is a query in brackets. Postgres uses its answer in the outer query.
+- One value goes after `>` or `=`. A list goes after `IN`. A table goes in `FROM`.
+- "has one" is `EXISTS`. "has none" is `NOT EXISTS`. The answer is always yes or no.
+- A correlated subquery runs once per outer row. Without an index, that can be slow.
+- Never use `NOT IN` on a list that can hold a NULL. Use `NOT EXISTS`.
+- If you add `DISTINCT` after a JOIN to remove copies, you probably wanted `EXISTS`.
+- `WITH name AS (...)` makes a named step. Later steps read it like a table.
+<!-- quick-summary:end -->
+
 ## 1. The idea: ask a friend first
 
 You want to know which orders are **bigger than the average order**. You cannot answer until you know the average. So you ask a friend first, then use the answer.

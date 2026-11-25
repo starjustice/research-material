@@ -8,6 +8,18 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, then guess, then press the orange bar to check. About 15 minutes.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- You write SELECT first. Postgres works on it almost last.
+- The order is FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, LIMIT. A part can only use what the parts before it made.
+- A new name works in ORDER BY, not in WHERE. In WHERE, write the full expression.
+- NULL means unknown. Test for it with `IS NULL`, never with `= NULL`.
+- LIMIT without ORDER BY gives any rows. When you mean "first", "top" or "cheapest", add ORDER BY.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a librarian's slip
 
 You give a librarian a slip: **"Titles of red books, biggest first, only 2."**

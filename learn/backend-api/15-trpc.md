@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The types help you while you write code. They are gone when the code runs, so the server must still check every input.
+- The router **is** the contract. The client imports its type.
+- A query is `GET`, a mutation is `POST`, and the answer is plain JSON with a normal status.
+- Types catch mistakes while you write. A validator such as Zod checks the real input at run time.
+- The login check first. A middleware says who you are, not whose row it is.
+- An `errorFormatter` for `INTERNAL_SERVER_ERROR`, and `onError` for the log.
+- TRPC for your own TypeScript apps. REST for outside callers.
+<!-- quick-summary:end -->
+
 ## 1. The idea: an internal phone system with a printed directory
 
 The directory lists every extension and what each person accepts. Your phone checks it before you dial, and warns you about a wrong extension. The call itself is an ordinary phone line. **tRPC** works the same way. Your TypeScript client calls server functions like normal functions, and the compiler knows the exact input and output of each one. There is no schema file and no generated code. Only the **type** of the server's router is shared, at build time.

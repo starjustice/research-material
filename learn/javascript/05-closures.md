@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A function carries a link to the box where it was made. A box stays alive as long as something points at it.
+- A local variable forgets. A global variable is shared. A closure remembers, privately.
+- Every call of the outer function makes a new box. Two counters do not share `count`.
+- A closure keeps a link to the box, not a copy of the value.
+- Only where a function was written matters, not who calls it.
+- `var` in a loop is one shared box. `let` gives each pass its own box.
+- A function that keeps reading an old box is a stale closure. Use `setCount(c => c + 1)`.
+- A timer or a listener is a long-living function. Clear it when you are done.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a locker and a key
 
 A school gives every new student **their own locker** and **a key** to it. The locker holds a number, `count`. The school day ends and the office closes, but the lockers stay, because students still have keys.

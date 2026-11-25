@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Ask who calls, then what they need. Do not start from what is new or fast.
+- Who calls decides most of it. Push to a browser is a separate question: SSE or WebSocket.
+- REST: the server picks the fields. GraphQL: the client picks. tRPC: the procedure picks. gRPC: the `.proto` message picks.
+- The sizes show the shape of the difference. Real differences depend on the data, compression and your network.
+- Fewer round trips is faster. REST often needs more of them.
+- No style fixes the hard parts. You still need validation, errors, limits, caching and idempotency.
+- Write down who calls, and what they need, before you name a style.
+- TRPC where both sides ship together. REST or GraphQL, with versions, for the rest.
+- One style per kind of caller, with a clear line between them.
+<!-- quick-summary:end -->
+
 ## 1. The idea: four ways to order food
 
 There is no best API style, only the best fit for **who calls** and **what they need**. Think of four ways to order food.

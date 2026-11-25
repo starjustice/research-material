@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A timeout means "I do not know". So the retry must be harmless: safe to repeat.
+- The insert is the check. Insert first, then do the work, then save the answer.
+- The unique rule picks the winner. No code asks "is it there?" first.
+- The first question is "is it safe to repeat?", not "did it fail?".
+- Where an action can be written to be safe by itself, that is simpler than a key.
+- If you freeze, say "A timeout means I do not know. So the retry must be harmless."
+<!-- quick-summary:end -->
+
 ## 1. The idea: a timeout means "I do not know"
 
 Ana taps Pay. The server charges her card, and then the answer gets lost on the way back. Her app waits 10 seconds and stops waiting. A timeout does not mean "it failed". It means "I do not know". So the app sends again, and without a guard Ana pays twice. The fix: the app gives each action a name once, so the server can say "I already did that" and send the same answer again.

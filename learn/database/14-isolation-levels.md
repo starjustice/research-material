@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation with the why and a real example. Skip them on the first read, and open them when you want more. Every result was run with two real connections on PostgreSQL 18.3. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The default is READ COMMITTED. A dirty read (seeing uncommitted work) never happens in Postgres.
+- READ COMMITTED takes a new picture for each statement. REPEATABLE READ takes one picture per transaction.
+- A phantom is a new row that matches your WHERE. REPEATABLE READ hides it in Postgres.
+- Read, compute in code, write back is the lost update. Do the math in the UPDATE or take a lock.
+- Write skew: two transactions read the same rows and each write a different row. Only SERIALIZABLE stops it.
+- On error 40001, run the whole transaction again from BEGIN. Give up after a few tries.
+- Default for most work. REPEATABLE READ for reports. SERIALIZABLE for a rule over many rows, with a retry.
+<!-- quick-summary:end -->
+
 ## 1. The idea: what does B see while A is in the middle?
 
 Lesson 13 said: other sessions do not see your half-done work. But when you commit, **when** do they start to see it? At the next statement? Only in a new transaction? The **isolation level** is the answer to that question.

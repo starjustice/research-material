@@ -8,6 +8,22 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- OAuth is permission. OIDC is login, built on OAuth. SAML is company login in XML. An API key is a password for a program.
+- The row to look at is "who proves who you are". For a session it is you. For OIDC and SAML it is somebody else.
+- Show the key once, store only its hash, and let it carry scopes. A leaked key works until you revoke it.
+- OAuth gives an app a limited key. It does not, by itself, tell the app who the user is.
+- Check `iss`, `aud`, `exp`, `nonce` and the signature. Then start your own session for `sub`.
+- SAML is the same idea as OIDC, in XML, mostly for company single sign-on. You usually support it because a customer asks.
+- An access token is a key for an API. An ID token is the answer to "who logged in?", and only for the app named in `aud`.
+- The redirect address must match a registered one **exactly**.
+- Use the authorization code flow with PKCE. Do not copy old implicit flow tutorials.
+<!-- quick-summary:end -->
+
 ## 1. The idea: four different questions
 
 People mix these names up because they all sound like "login". They answer **different questions**. Ask the question first, and the name follows.

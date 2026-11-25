@@ -8,6 +8,19 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, and open them when you want more. About 15 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Consensus is a group of servers agreeing on one history. The rule is "a majority must agree", so two halves of a split network can never both go ahead.
+- Majority is `floor(n / 2) + 1`. Use 3 or 5 servers. An even number adds cost and no safety.
+- A new election needs a majority and happens in a new term. Random timers make it rare that two servers stand at the same moment.
+- An entry is committed when a majority stores it. Only committed entries are promised.
+- An old leader on the small side can write to its own log but cannot commit. A bigger term always wins, so after the network heals there is one leader and one history.
+- If you freeze, say "Consensus means servers agree on one history. One leader at a time, elected by a majority, and a write is committed when a majority stores it. Use 3 or 5 servers. A bigger term always wins, so the old leader on the small side cannot commit."
+<!-- quick-summary:end -->
+
 ## 1. The idea: who is the boss, when the network can break?
 
 Some small data must be exactly right: "who is the leader", "which server has this lock", "what is the cluster's setting". You do not keep it on one server, because that server can die. So you keep it on **5 servers** that must **agree**. Getting a group of servers to agree, even when some are down or cannot talk to the others, is called **consensus**. The simple idea behind Raft, a popular way to do it: **one leader at a time, and it needs a majority** (3 of 5) before it says "done".
