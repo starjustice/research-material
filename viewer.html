@@ -430,6 +430,19 @@
     navList.push({ slug: subjectReadmeSlug, title: "Intro and map" });
     if (slug === subjectReadmeSlug && outline) { side.appendChild(outline); placedOutline = true; }
 
+    // The short "what to know first" page, when the subject has one (learn/<subject>/must-know-summary.md)
+    const summarySlug = subjectDir + "/must-know-summary";
+    const hasSummary = slug === summarySlug || await getText(summarySlug + ".md").then(() => true, () => false);
+    if (hasSummary) {
+      const sum = el("a", "s-item" + (slug === summarySlug ? " current" : ""));
+      sum.href = noteHref(summarySlug);
+      sum.appendChild(el("span", "dot ready"));
+      sum.appendChild(el("span", "num", "★"));
+      sum.appendChild(el("span", "label", "What to know first"));
+      side.appendChild(sum);
+      if (slug === summarySlug && outline) { side.appendChild(outline); placedOutline = true; }
+    }
+
     info.groups.forEach(g => {
       side.appendChild(el("div", "s-group", g.name));
       g.items.forEach(it => {
