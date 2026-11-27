@@ -1,0 +1,58 @@
+[
+  {
+    "q": "What happens to the types in a .ts file before the program runs?",
+    "options": [
+      "They are removed, so the running program has only values",
+      "They stay in the program and are checked again on every call",
+      "They are turned into extra code that protects each value",
+      "They are saved in a file next to the program"
+    ],
+    "answer": 0,
+    "why": "Type annotations and interfaces are erased. At run time there is no User and no string type, only values. The Handbook says type annotations never change the runtime behavior."
+  },
+  {
+    "type": "tf",
+    "q": "A file has a type error. With the default settings the JavaScript can still be written and run.",
+    "answer": true,
+    "why": "True. tsc reports the error but still writes the .js file by default. Node's type stripping never checks types, so node file.ts runs too. To stop the file from being written, use noEmitOnError, or make the build fail on errors."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps in order, from your .ts file to a running program.",
+    "items": [
+      "tsc checks the types and reports problems",
+      "The types are erased and plain JavaScript is left",
+      "Node runs the JavaScript"
+    ],
+    "why": "Check, erase, run. The checker works before the program starts and is not part of the running program."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are gone from the JavaScript that tsc writes?",
+    "options": [
+      "interface User { name: string }",
+      "The : string after a parameter",
+      "The generic <T extends User>",
+      "The line return \"Hi \" + user.name"
+    ],
+    "answer": [0, 1, 2],
+    "why": "Everything that only describes types is erased. The code that does the work stays."
+  },
+  {
+    "q": "const user = JSON.parse(text) as User compiles, but the text says {\"name\": 42}. What happens at run time?",
+    "options": [
+      "Nothing is checked, so user.name is the number 42 and a crash can come later",
+      "JSON.parse throws because name is not a string",
+      "The program stops at the as User line",
+      "tsc adds a check for every field"
+    ],
+    "answer": 0,
+    "why": "as is erased. It only changes what the checker believes. JSON.parse returns whatever the text holds, so the bad data goes through and user.name.toUpperCase() fails later."
+  },
+  {
+    "type": "fill",
+    "q": "Which compiler flag means check the types but write no files? (type the flag)",
+    "answer": ["--noEmit", "noEmit"],
+    "why": "--noEmit means check only. Many projects run tsc --noEmit in CI to fail on type errors, while another tool removes the types."
+  }
+]

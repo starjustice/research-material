@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From TypeScript to JavaScript</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/typescript/README">← TypeScript lessons</a>
+    <a href="../../../viewer.html?note=learn/typescript/01-why-typescript-and-how-it-compiles">Open the lesson ↗</a>
+  </div>
+  <h1>From TypeScript to JavaScript</h1>
+  <p class="sub">Press Next and watch what happens to your types. Pick a tab: good code, a type error, or data from outside.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> A file has a type error. You run it with <code>node file.ts</code>. Does Node stop and show the type error, or does it run?<br>
+    <input id="guess" placeholder="stops or runs" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What exists right now</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>Your file (.ts)</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>The checker (tsc)</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>The program running (Node)</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> Types are checked before the code runs and erased before it runs. At run time there are only values. Data from outside must be checked by your own code.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. Good code","steps":[{"who":0,"note":"You write TypeScript. The types are notes for the checker: <code>user: User</code>, <code>string</code>, <code>&lt;T&gt;</code>. They are not part of JavaScript.","lanes":[["interface User","greet(user: User): string","console.log(greet(ana))"],[],[]],"mem":[["Files","greet.ts"],["Types","in the file, as notes"],["Output","none yet"]]},{"who":1,"note":"<b>Check.</b> <code>tsc</code> reads the file and works out the type of every value. It finds no problem. This step only reads. It does not run anything.","lanes":[[],["+types match","+no errors, exit 0"],[]],"mem":[["Files","greet.ts"],["Types","checked, all fine"],["Output","none yet"]]},{"who":1,"note":"<b>Erase.</b> The compiler removes the types: the interface, the <code>: User</code>, the <code>: string</code>. What is left is plain JavaScript. The Handbook says type annotations never change the runtime behavior.","lanes":[[],["remove interface","remove : User and : string"],[]],"mem":[["Files","greet.ts and greet.js"],["Types","gone"],["Output","none yet"]]},{"who":2,"note":"<b>Run.</b> Node runs the plain JavaScript. It has never heard of <code>User</code>. There are only values: a string and an object.","lanes":[["greet.js"],[],["+Hi Ana"]],"mem":[["Files","greet.js"],["Types","do not exist"],["Output","Hi Ana"]]},{"who":2,"note":"<b>Three steps: check, erase, run.</b> Checking happens before the program. Running happens without types. In new Node versions you can skip the compile step and run the .ts file, because Node strips the types for you.","lanes":[[],[],["+only values exist"]],"mem":[["Files","greet.js"],["Types","do not exist"],["Output","Hi Ana"]],"finish":true}]},{"name":"2. A type error","steps":[{"who":0,"note":"This file says <code>const result: string = double(21)</code>, but <code>double</code> returns a number. The type error is in line 4.","lanes":[["function double(n: number): number","const result: string = double(21)"],[],[]],"mem":[["Files","bad.ts"],["Errors","none found yet"],["Output","none yet"]]},{"who":1,"note":"<b>Check.</b> <code>tsc</code> reports: <code>error TS2322: Type 'number' is not assignable to type 'string'.</code> It exits with a failure code, so a build or a CI job fails.","lanes":[[],["!TS2322 number is not assignable to string","!exit code 1"],[]],"mem":[["Files","bad.ts"],["Errors","1 error, line 4"],["Output","none yet"]]},{"who":1,"note":"<b>Emit anyway.</b> By default <code>tsc</code> still writes <code>bad.js</code>. The Handbook says TypeScript does not get in your way: much of the time you know better than the checker. To stop the file from being written, turn on <code>noEmitOnError</code>.","lanes":[[],["!error reported","+bad.js written anyway","noEmitOnError would stop it"],[]],"mem":[["Files","bad.ts and bad.js"],["Errors","1 error, line 4"],["Output","none yet"]]},{"who":2,"note":"<b>Run.</b> Node runs the file. It prints <code>result is 42 number</code>. The value is a number, but the type said string. Nothing at run time knows about the type.","lanes":[["bad.js"],[],["!result is 42 number"]],"mem":[["Files","bad.js"],["Errors","1 error, ignored by Node"],["Output","result is 42 number"]]},{"who":2,"note":"<b>A type error is a warning from the checker, not from Node.</b> If your build runs <code>tsc</code> and stops on errors, you are safe from this. If you only run the file, nothing checks the types.","lanes":[[],["a build should stop here"],["Node does not check types"]],"mem":[["Files","bad.js"],["Errors","1 error, ignored by Node"],["Output","result is 42 number"]],"finish":true}]},{"name":"3. Data from outside","steps":[{"who":0,"note":"The code says <code>JSON.parse(text) as User</code>. A <code>User</code> must have <code>name: string</code>. The text from the server says <code>{\"name\": 42}</code>.","lanes":[["interface User { name: string }","JSON.parse(text) as User"],[],[]],"mem":[["Type says","name is a string"],["Data says","name is 42"],["Result","not run yet"]]},{"who":1,"note":"<b>Check.</b> The checker sees <code>as User</code> and trusts you. It cannot look inside the text, because the text only exists at run time. No error.","lanes":[[],["+no errors, exit 0","a cast is a promise from you"],[]],"mem":[["Type says","name is a string"],["Data says","name is 42"],["Result","tsc passes"]]},{"who":2,"note":"<b>Run.</b> <code>JSON.parse</code> returns what the text holds: an object whose <code>name</code> is the number 42. The cast was erased, so nothing complains.","lanes":[["user = { name: 42 }"],[],["+no error here"]],"mem":[["Type says","name is a string"],["Data says","name is 42"],["Result","user.name is 42"]]},{"who":2,"note":"<b>Crash later.</b> <code>user.name.toUpperCase()</code> fails with <code>TypeError: user.name.toUpperCase is not a function</code>. The error shows far from the place where the bad data came in.","lanes":[["user.name.toUpperCase()"],[],["!TypeError: toUpperCase is not a function"]],"mem":[["Type says","name is a string"],["Data says","name is 42"],["Result","crash"]]},{"who":0,"note":"<b>The fix is to check at the border.</b> Write <code>isUser(value: unknown)</code>, which tests <code>typeof</code> for each field, and throw a clear error right where the data comes in. After that check, the type is true.","lanes":[["parseUser(text)","isUser checks each field","+throws: Field name must be a string"],[],[]],"mem":[["Type says","name is a string"],["Data says","name is 42"],["Result","rejected at the door"]],"finish":true}]}];
+const ANSWER = "it runs. Node only strips the types. It does not check them, so a file with a type error can still run. Only <code>tsc</code> reports the error. I ran this with Node 22.23.5.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>

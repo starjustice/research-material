@@ -1,0 +1,59 @@
+[
+  {
+    "q": "What type does the compiler give to const d = \"open\"?",
+    "code": "const d = \"open\";\nlet c = \"open\";",
+    "options": [
+      "The exact text \"open\"",
+      "string",
+      "any",
+      "unknown"
+    ],
+    "answer": 0,
+    "why": "A const cannot change, so the compiler keeps the exact value: \"open\". A let can change, so c is the wider type string. I ran both with tsc 7.0.2."
+  },
+  {
+    "type": "tf",
+    "q": "The tuple type [string, number] means an array of any length that holds strings and numbers.",
+    "answer": false,
+    "why": "No. A tuple has a fixed length and a type for each place. Reading t[2] gives: Tuple type '[string, number]' of length '2' has no element at index '2'."
+  },
+  {
+    "type": "multi",
+    "q": "In strict mode, which of these usually need a type that you write yourself?",
+    "options": [
+      "A function parameter with no default value, such as text in shout(text)",
+      "const n = 5",
+      "An empty array inside an object that you will push items into, such as { items: [] }",
+      "const names = [\"Ana\", \"Bo\"]"
+    ],
+    "answer": [0, 2],
+    "why": "The compiler cannot work out a parameter that has no value to look at, so it reports an implicit any. It also types an empty array in an object as never[]. n and names have a first value to infer from."
+  },
+  {
+    "type": "order",
+    "q": "Put these types in order, from the widest to the most exact.",
+    "items": [
+      "string",
+      "\"open\" | \"closed\"",
+      "\"open\""
+    ],
+    "why": "string allows any text. \"open\" | \"closed\" allows two texts. \"open\" allows exactly one text. A narrower type catches more mistakes."
+  },
+  {
+    "type": "fill",
+    "q": "To keep { mode: \"dark\" } as the exact text \"dark\" and make it read-only, write the object and then: as ______ (one word)",
+    "answer": "const",
+    "why": "as const stops the widening. The property becomes readonly mode: \"dark\", so a function that only accepts \"dark\" or \"light\" takes it without an error."
+  },
+  {
+    "q": "A function has the parameter text: any and calls text.toUpperCase(). What happens with shout(42)?",
+    "options": [
+      "It compiles, then crashes when it runs: text.toUpperCase is not a function",
+      "The compiler reports an error on the call",
+      "It prints 42",
+      "It returns \"42!\""
+    ],
+    "answer": 0,
+    "why": "any switches the checking off, so tsc says nothing about the number. Node then throws TypeError: text.toUpperCase is not a function. With text: string the call is a compile error."
+  }
+]
