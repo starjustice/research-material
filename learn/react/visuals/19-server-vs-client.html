@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Server Side and Client Side Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --browser: #3b82f6; --browser-bg: #e3eefe;
+    --server: #8b5cf6; --server-bg: #efe8fd;
+    --db: #2f9e6b; --db-bg: #dff3ea;
+    --stream: #e8890c; --stream-bg: #fdecd2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 120px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  /* what the user sees */
+  .screen { border: 2px solid var(--ink); border-radius: 10px; padding: 10px 12px; min-height: 210px; background: #fff; }
+  .screen .blank { color: var(--muted); font-style: italic; font-size: .85rem; }
+  .screen .part { border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: .85rem; border: 1px dashed var(--border); animation: pop .35s ease; }
+  .screen .part.shell { background: #eef4ff; border-color: #bcd1f7; }
+  .screen .part.fb { background: #f2f2f2; color: var(--muted); font-style: italic; }
+  .screen .part.late { background: #e9f7ef; border-color: #b9e2cc; font-weight: 700; }
+  .screen button { font: inherit; border-radius: 8px; padding: 4px 12px; border: 1px solid var(--border); background: #f4f4f4; color: #888; }
+  .screen button.live { background: var(--ink); color: #fff; border-color: var(--ink); cursor: pointer; }
+  .click { margin-top: 8px; font-size: .8rem; font-weight: 700; }
+  .click.no { color: #b42318; } .click.yes { color: var(--db); }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.browser { border-color: var(--browser); background: var(--browser-bg); } .lane.browser h3 { color: var(--browser); }
+  .lane.server { border-color: var(--server); background: var(--server-bg); } .lane.server h3 { color: var(--server); }
+  .lane.db { border-color: var(--db); background: var(--db-bg); } .lane.db h3 { color: var(--db); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .stream { grid-column: 1 / -1; }
+  .pipe { background: var(--stream-bg); border: 2px solid var(--stream); border-radius: 12px; padding: 8px 10px; min-height: 58px; }
+  .pipe h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: var(--stream); }
+
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--db); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .screen .part.cart { background: #fff3e0; border-color: #f2c88b; }
+  .screen .part.white { background: #fff; border-style: solid; color: var(--muted); }
+  .reqs { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react/README">← React lessons</a>
+    <a href="../../../viewer.html?note=learn/react/19-how-a-website-works-server-vs-client">Open the lesson ↗</a>
+  </div>
+  <h1>Server side, client side and the mix</h1>
+  <p class="sub">The same shop page, built three ways. Pick a tab, press Next, and watch what the user sees and how many requests it takes.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> Which way shows the products on screen first? Which way needs the most requests before the products show? Write your guess, then step through all three tabs.<br>
+    <input id="guess" placeholder="example: server, browser" autocomplete="off" style="width:200px">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What the user sees</h2>
+      <div class="screen" id="screen"></div>
+      <div class="click no" id="click"></div>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane browser" id="laneBrowser"><h3>Browser (the client)</h3><div class="items" id="browser"></div></div>
+        <div class="lane server" id="laneServer"><h3>Server</h3><div class="items" id="server"></div></div>
+        <div class="lane db" id="laneDb"><h3>Database</h3><div class="items" id="db"></div></div>
+      </div>
+    </div>
+    <div class="panel stream">
+      <h2>Requests the browser has made so far</h2>
+      <div class="pipe"><h3>Each one is a trip to the server</h3><div class="items" id="pipe"></div></div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> server side wins the first view. Client side wins the clicks after it. The mix (Next.js) sends a finished first page, wakes it up with JavaScript, and then works like an app.</p>
+</div>
+
+<script>
+// view: blank | shop | cart.  live: can the user click? Facts match a real test: the server way needs 1 request to show products,
+// the browser way needs 3 (page, script, data). Timings are not drawn, only the order of events.
+const MODES = [
+ { id: "server", name: "1. Server builds it", steps: [
+  { who: "browser", note: "The user types <code>/shop</code>. The browser sends <code>GET /shop</code>.",
+    browser: ["GET /shop"], server: [], db: [], reqs: ["GET /shop"], view: "blank", live: false },
+  { who: "server", note: "The server runs code and asks the database for the products. The user still sees a blank page.",
+    browser: ["waiting"], server: ["build the page"], db: ["get products"], reqs: ["GET /shop"], view: "blank", live: false },
+  { who: "server", note: "<b>Finished HTML arrives.</b> It already holds the products. The browser shows it at once. One request was enough.",
+    browser: ["show the page"], server: ["sent HTML"], db: [], reqs: ["GET /shop"], view: "shop", live: false, first: true,
+    clickNote: "Links work without JavaScript." },
+  { who: "browser", note: "The user clicks the <b>Cart</b> link. The browser asks the server for a whole new page.",
+    browser: ["GET /cart"], server: [], db: [], reqs: ["GET /shop", "GET /cart"], view: "shop", live: false,
+    clickNote: "Links work without JavaScript." },
+  { who: "server", note: "<b>A whole new page</b> arrives and replaces the old one. The shop page is gone, and anything the user typed in it is gone too.",
+    browser: ["replace the page"], server: ["build the cart page"], db: ["get cart"], reqs: ["GET /shop", "GET /cart"], view: "cart", live: false, finish: true,
+    clickNote: "Links work without JavaScript." }
+ ]},
+ { id: "browser", name: "2. Browser builds it", steps: [
+  { who: "browser", note: "The user types <code>/shop</code>. The browser sends <code>GET /shop</code>.",
+    browser: ["GET /shop"], server: [], db: [], reqs: ["GET /shop"], view: "blank", live: false },
+  { who: "server", note: "The server answers at once with an <b>empty page</b>: a <code>div</code> with nothing in it, and a script tag. No products, no database trip yet.",
+    browser: ["read empty page"], server: ["send empty page"], db: [], reqs: ["GET /shop"], view: "blank", live: false },
+  { who: "browser", note: "The browser sees the script tag and asks for the JavaScript file. The screen is still blank.",
+    browser: ["GET /app.js"], server: [], db: [], reqs: ["GET /shop", "GET /app.js"], view: "blank", live: false },
+  { who: "server", note: "The script arrives. The browser runs it. Now the script knows it needs data, so it asks for it.",
+    browser: ["run app.js"], server: ["send script"], db: [], reqs: ["GET /shop", "GET /app.js"], view: "blank", live: false },
+  { who: "db", note: "<b>A third request:</b> <code>GET /api/products</code>. The server asks the database and sends back the data (JSON), not a page.",
+    browser: ["GET /api/products"], server: ["send JSON"], db: ["get products"], reqs: ["GET /shop", "GET /app.js", "GET /api/products"], view: "blank", live: false },
+  { who: "browser", note: "<b>The browser builds the page.</b> The products show now, and the button already works because the script that made the page is running.",
+    browser: ["build the page"], server: [], db: [], reqs: ["GET /shop", "GET /app.js", "GET /api/products"], view: "shop", live: true, first: true },
+  { who: "browser", note: "The user clicks <b>Cart</b>. The script swaps the view <b>in place</b>. There is no new page. State stays. The click feels instant.",
+    browser: ["swap view in place"], server: [], db: [], reqs: ["GET /shop", "GET /app.js", "GET /api/products"], view: "cart", live: true, finish: true }
+ ]},
+ { id: "mix", name: "3. The mix (Next.js)", steps: [
+  { who: "browser", note: "The user types <code>/shop</code>. The browser sends <code>GET /shop</code>.",
+    browser: ["GET /shop"], server: [], db: [], reqs: ["GET /shop"], view: "blank", live: false },
+  { who: "server", note: "The server builds the first page, like way 1. It asks the database.",
+    browser: ["waiting"], server: ["build the page"], db: ["get products"], reqs: ["GET /shop"], view: "blank", live: false },
+  { who: "server", note: "<b>Finished HTML arrives.</b> The user sees the products at once, like way 1. But the button is only a picture for now.",
+    browser: ["show the page"], server: ["sent HTML"], db: [], reqs: ["GET /shop"], view: "shop", live: false, first: true },
+  { who: "browser", note: "The browser downloads the JavaScript for the interactive parts.",
+    browser: ["GET /app.js"], server: [], db: [], reqs: ["GET /shop", "GET /app.js"], view: "shop", live: false },
+  { who: "browser", note: "<b>Hydration.</b> React attaches the click handlers to the HTML that is already there. Now the button works.",
+    browser: ["hydrate", "clicks attached"], server: [], db: [], reqs: ["GET /shop", "GET /app.js"], view: "shop", live: true },
+  { who: "browser", note: "The user clicks <b>Cart</b>. Now it works like way 2: the browser asks only for the changed part, not a whole page, and swaps it in place.",
+    browser: ["GET cart data only", "swap in place"], server: ["send the change"], db: ["get cart"], reqs: ["GET /shop", "GET /app.js", "GET cart data"], view: "cart", live: true, finish: true }
+ ]}
+];
+
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+
+function chips(id, list, empty) {
+  $(id).innerHTML = list.length ? list.map(t => `<span class="chip">${t}</span>`).join("") : `<span class="empty">${empty || "nothing"}</span>`;
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => `<button class="${k === m ? "on" : ""}" data-k="${k}">${x.name}</button>`).join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+}
+function summary() {
+  return MODES.map(x => {
+    const first = x.steps.findIndex(s => s.first);
+    const reqsAtFirst = x.steps[first].reqs.length;
+    return `<li><b>${x.name}</b>: products first show at step ${first + 1}, after ${reqsAtFirst} request${reqsAtFirst > 1 ? "s" : ""}.</li>`;
+  }).join("");
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  chips("browser", s.browser); chips("server", s.server); chips("db", s.db); chips("pipe", s.reqs);
+  ["Browser", "Server", "Db"].forEach(n => $("lane" + n).classList.remove("active"));
+  $("lane" + (s.who === "db" ? "Db" : s.who === "server" ? "Server" : "Browser")).classList.add("active");
+
+  let html;
+  if (s.view === "blank") html = '<div class="part white">White page. Nothing to read yet.</div>';
+  else if (s.view === "shop") html = '<div class="part shell"><b>My Shop</b></div><div class="part shell">Products: shoes, hats</div>' +
+    '<div class="part shell"><button class="' + (s.live ? "live" : "") + '">Cart</button></div>';
+  else html = '<div class="part cart"><b>Your cart</b></div><div class="part cart">1 pair of shoes</div>';
+  $("screen").innerHTML = html;
+  const c = $("click");
+  if (s.view === "blank") c.textContent = "";
+  else if (MODES[m].id === "server") { c.textContent = "A normal link. It works, but it loads a whole new page."; c.className = "click yes"; }
+  else if (s.live) { c.textContent = "The button works (JavaScript is running)."; c.className = "click yes"; }
+  else { c.textContent = "The button is only a picture. Clicks do nothing yet."; c.className = "click no"; }
+
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Compare the three tabs:</b><ul>" + summary() + "</ul>" +
+      (g ? "You wrote: <i>" + g + "</i>. " : "") +
+      "The server way and the mix show products first. The browser way needs the most requests. Try the other tabs to see all three.";
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1700);
+};
+tabs(); render();
+</script>
+</body>
+</html>

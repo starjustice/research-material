@@ -36,12 +36,13 @@ This page is a short map of the long guide. The guide is big, so this page tells
 | Rendering strategies | CSR, SSR, ISR, RSC. Pick per page type, not per app. That sentence is the senior answer. |
 | "What happens when you type a URL?" (1.8) | DNS, TCP, TLS, HTTP, then DOM, layout, paint. Map each stage to TTFB, LCP, INP. See the [networking summary](../networking/must-know-summary.md). |
 
-## ★★ Next.js on the server (lessons 14, 16, 17, 18)
+## ★★ Next.js on the server (lessons 19, 14, 16, 17, 18)
 
 Written 2026-11-27 and checked against the Next.js 16 docs and a real Next.js 16.4.6 build.
 
 | Topic | Say this in the interview | Common trap |
 |---|---|---|
+| Server side vs client side ([19](19-how-a-website-works-server-vs-client.md)) | Server side: the server sends a finished page, so the first view is fast, but each click loads a whole new page. Client side: the server sends an empty page and a script, the browser builds it, so clicks are smooth but the first view waits. Next.js sends a finished first page, then wakes it up. | Saying client side means no server. The server and database stay. |
 | How a page request works ([14](14-next-js-rendering.md)) | The server sends a static shell first. Parts that need request data stream in behind Suspense. Hydration comes last, and only then do clicks work. | Saying SSR is "just HTML from the server". Forget hydration and you lose the point. |
 | ISR ([14](14-next-js-rendering.md)) | A saved page that refreshes in the background. The visitor who triggers the rebuild still gets the old copy. | Knowing only `getStaticProps`. In Next.js 16 it is `use cache` plus `cacheLife`. |
 | Server and Client Components ([16](16-server-and-client-components.md)) | Server Components send their result, not their code. `"use client"` marks the entry to the browser side, and its imports go along. | Putting `"use client"` on a big layout. Keep it at the leaves. |

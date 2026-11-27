@@ -1,0 +1,69 @@
+[
+  {
+    "q": "What does \"render\" mean in server side rendering and client side rendering?",
+    "options": [
+      "Build the page, that is, make the HTML the screen shows",
+      "Save the page in a cache",
+      "Send the page over the network",
+      "Download the JavaScript"
+    ],
+    "answer": 0,
+    "why": "Render only means build the page. Server side means the server builds it. Client side means the browser builds it."
+  },
+  {
+    "type": "tf",
+    "q": "With client side rendering, the products are already inside the first HTML that the server sends.",
+    "answer": false,
+    "why": "No. The first HTML is an empty root box and a script tag. The browser makes the products after it runs the script and fetches the data. I measured this: the first HTML did not contain the product names."
+  },
+  {
+    "q": "A plain client side app needs how many requests before the user sees the products, in the simple test of this lesson?",
+    "options": [
+      "3: the page, the script and the data",
+      "1: only the page",
+      "2: the page and the database",
+      "0: the browser already has everything"
+    ],
+    "answer": 0,
+    "why": "The browser asks for the empty page, then the script file, then the data (JSON). The server built way needed only 1 request."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are good reasons to build the first page on the server?",
+    "options": [
+      "The user sees content sooner",
+      "The content is in the HTML, so search engines and link previews can read it",
+      "It works even if JavaScript fails to load",
+      "It makes every later click instant with no request"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "Server built HTML shows fast, holds the content, and does not need JavaScript to be shown. Instant later clicks are the strength of client side apps, not of server built pages."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of the Next.js way (way 3) in order.",
+    "items": [
+      "The server builds the first page",
+      "The browser shows the finished HTML",
+      "The JavaScript loads",
+      "Hydration makes the page clickable",
+      "Later clicks fetch only what changed"
+    ],
+    "why": "First view like server side, then the page is woken up by JavaScript, then it works like an app."
+  },
+  {
+    "q": "Someone says: \"We use React, so we do not need a server.\" What is the best reply?",
+    "options": [
+      "The browser still needs a server for the files, the data and the login checks",
+      "That is correct, React replaces the server",
+      "You need a server only for images",
+      "You need a server only if you use Next.js"
+    ],
+    "answer": 0,
+    "why": "Client side moves the page building to the browser. The server and the database stay, and secrets and permission checks must stay there."
+  }
+]

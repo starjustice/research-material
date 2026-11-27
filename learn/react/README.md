@@ -18,7 +18,8 @@ graph LR
     C --> D["Hooks"]
     D --> E["Data fetching"]
     C --> F["Performance"]
-    F --> G["Next.js rendering"]
+    F --> W["Server side vs client side"]
+    W --> G["Next.js rendering"]
     G --> H["Server and Client Components"]
     H --> I["Caching"]
     I --> J["Server Actions"]
@@ -62,10 +63,11 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 ### Next.js on the server
 
-How Next.js 16 works on the server side. Learn in this order after lesson 14.
+How Next.js 16 works on the server side. Start with 19 (the basics), then 14, 16, 17, 18.
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
+| 19 | [How a website works: server side and client side](19-how-a-website-works-server-vs-client.md) | what the server and browser each do, three ways to build a page, why Next.js mixes them (read this first) | ready |
 | 16 | [Server and Client Components](16-server-and-client-components.md) | what runs where, what `"use client"` does, what can cross the boundary | ready |
 | 17 | [Caching and revalidation](17-nextjs-caching-and-revalidation.md) | `use cache`, `cacheLife`, tags, `updateTag` vs `revalidateTag` | ready |
 | 18 | [Server Actions](18-server-actions.md) | forms that call the server, why they are public doors, what to check | ready |
@@ -89,10 +91,12 @@ Open in the browser. Everything visible on one page.
 
 Press Next and watch it move.
 
+- [Server side, client side and the mix](visuals/19-server-vs-client.html) - the same page built three ways
 - [Next.js request journey](visuals/14-request-journey.html) - one visit: shell, streaming, hydration
 
 ## Practice
 
+- [Two ways to build a page (lesson 19)](practice/19-two-ways.js) - run `node --test learn/react/practice/19-two-ways.test.js`
 - [Tiny cache with tags (lesson 17)](practice/17-tiny-cache.js) - run `node --test learn/react/practice/17-tiny-cache.test.js`
 
 ## Watch and play

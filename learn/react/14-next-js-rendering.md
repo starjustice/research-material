@@ -4,7 +4,7 @@
 >
 > **You will be able to:** follow one page request from the browser to the Next.js server and back, and explain SSR, static pages, ISR and streaming in four parts.
 >
-> **Before this:** [React guide](react-js-frontend-interview-guide.md) · **Next:** [Server and Client Components](16-server-and-client-components.md)
+> **Before this:** [How a website works: server side and client side](19-how-a-website-works-server-vs-client.md) (read it first if "server side" and "client side" are still fuzzy) · **Next:** [Server and Client Components](16-server-and-client-components.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 20 minutes for the cards.
 
