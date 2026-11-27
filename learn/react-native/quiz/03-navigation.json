@@ -1,0 +1,61 @@
+[
+  {
+    "q": "In a stack navigator, which screen does the user see?",
+    "options": [
+      "The last route in the list, the top of the stack",
+      "The first route in the list",
+      "All routes at the same time",
+      "The route with the longest name"
+    ],
+    "answer": 0,
+    "why": "A stack is a list of routes. The last one is on top, and that is the screen you see. Going back removes it, and the one under it shows again."
+  },
+  {
+    "type": "tf",
+    "q": "You are on the Details screen and call navigate('Details', { id: 8 }). A second Details screen is added to the stack.",
+    "answer": false,
+    "why": "No. The React Navigation docs say navigate only pushes if you are not already on that route. If you are on Details, nothing changes. Use push to add a second Details screen."
+  },
+  {
+    "type": "order",
+    "q": "The stack starts as Home. You call push('A'), then push('B'), then popToTop(). Put the stacks in the order they appear after each call.",
+    "items": [
+      "Home, A",
+      "Home, A, B",
+      "Home"
+    ],
+    "why": "push A gives Home, A. push B gives Home, A, B. popToTop removes everything except the first route, so only Home is left."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are good things to put in route params?",
+    "options": [
+      "A product id",
+      "A search text",
+      "A big object with the whole product",
+      "A function"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "The docs recommend params that are JSON-serializable and small. A big object goes stale, and a function cannot be saved or put in a deep link."
+  },
+  {
+    "type": "fill",
+    "q": "Which route.params property would the Details screen read after navigation.navigate('Details', { productId: 7 })? Type the full expression, for example route.params.name.",
+    "answer": "route.params.productId",
+    "why": "Params go in the second argument and the screen reads them from route.params."
+  },
+  {
+    "q": "You open a Post in the Home tab, switch to the Profile tab, then switch back. With the default settings, what do you see?",
+    "options": [
+      "The Post, because each tab keeps its own stack",
+      "The first screen of the Home tab, always",
+      "A blank screen",
+      "The Profile tab again"
+    ],
+    "answer": 0,
+    "why": "Each tab can keep its own stack. The tab option popToTopOnBlur resets a nested stack when you leave the tab, and its default is false."
+  }
+]

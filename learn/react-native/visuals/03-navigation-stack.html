@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The navigation stack</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react-native/README">← React Native lessons</a>
+    <a href="../../../viewer.html?note=learn/react-native/03-navigation">Open the lesson ↗</a>
+  </div>
+  <h1>The navigation stack</h1>
+  <p class="sub">A navigator keeps a list of screens. Pick a tab, press Next, and watch the list change.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> You call <code>navigate('Details')</code> twice in a row, on the Details screen itself. How many Details screens are in the stack at the end?<br>
+    <input id="guess" placeholder="a number" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>The navigator's list (top is last)</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>What is going on</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>What the user sees</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>Navigator state</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>What just happened</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> A stack is a list. The last item is the screen you see. <code>push</code> adds, <code>goBack</code> removes, and <code>navigate</code> adds only if you are not already on that screen.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. A stack","steps":[{"who":0,"note":"The app starts on <b>Home</b>. The stack is a list with one item. The top of the list is the screen you see.","lanes":[["Home screen"],["Home"],["app starts"]],"mem":[["Stack","Home"],["Top","Home"],["Back button","none, nothing to go back to"]]},{"who":2,"note":"The user presses a product. Your code calls <code>navigate('Details', { productId: 7 })</code>. You are on Home, not on Details, so a new route is <b>added on top</b>.","lanes":[["Details screen","back arrow shows"],["Home","Details"],["+navigate adds Details"]],"mem":[["Stack","Home, Details"],["Top","Details, productId 7"],["Back button","shows"]]},{"who":2,"note":"A button on Details calls <code>navigate('Details', { productId: 8 })</code>. You are <b>already on Details</b>, so <b>nothing happens</b>. This surprises people.","lanes":[["Details screen","still product 7"],["Home","Details"],["!navigate does nothing"]],"mem":[["Stack","Home, Details"],["Top","Details, productId 7"],["Back button","shows"]]},{"who":2,"note":"To really open a second Details screen, call <code>push('Details', { productId: 8 })</code>. <code>push</code> always adds.","lanes":[["Details screen","product 8"],["Home","Details 7","Details 8"],["+push adds Details"]],"mem":[["Stack","Home, Details 7, Details 8"],["Top","Details, productId 8"],["Back button","shows"]]},{"who":2,"note":"The user presses the hardware back button or swipes back. That calls <code>goBack</code>. The top route is <b>removed</b>, so product 7 is on screen again. <code>popTo('Home')</code> would remove two at once.","lanes":[["Details screen","product 7"],["Home","Details 7"],["+goBack removes the top"]],"mem":[["Stack","Home, Details 7"],["Top","Details, productId 7"],["Back button","shows"]],"finish":true}]},{"name":"2. Tabs with stacks","steps":[{"who":1,"note":"A common setup (not the only one): a <b>tab bar</b> with a <b>stack inside each tab</b>. The Home tab starts with its own stack: Feed.","lanes":[["Home tab, Feed screen"],["Home stack: Feed","Profile stack: Profile"],["app starts"]],"mem":[["Home stack","Feed"],["Profile stack","Profile"],["Selected tab","Home"]]},{"who":1,"note":"The user opens a post. The Home stack gets a new route on top.","lanes":[["Home tab, Post screen"],["Home stack: Feed, Post","Profile stack: Profile"],["+push Post in Home stack"]],"mem":[["Home stack","Feed, Post"],["Profile stack","Profile"],["Selected tab","Home"]]},{"who":0,"note":"The user taps the <b>Profile</b> tab. The tab bar changes the selected tab. The Home stack is <b>not touched</b>.","lanes":[["Profile tab, Profile screen"],["Home stack: Feed, Post","Profile stack: Profile"],["+tab changes to Profile"]],"mem":[["Home stack","Feed, Post (kept)"],["Profile stack","Profile"],["Selected tab","Profile"]]},{"who":0,"note":"The user taps <b>Home</b> again. They land on the Post screen, where they left. In the React Navigation docs, <code>popToTopOnBlur</code> is <code>false</code> by default, so the stack is kept.","lanes":[["Home tab, Post screen"],["Home stack: Feed, Post","Profile stack: Profile"],["+tab changes to Home"]],"mem":[["Home stack","Feed, Post (kept)"],["Profile stack","Profile"],["Selected tab","Home"]]},{"who":1,"note":"If you set <code>popToTopOnBlur: true</code> on that tab, leaving the tab would reset its stack to Feed. Two choices, one setting.","lanes":[["Home tab"],["Home stack: Feed (reset)","Profile stack: Profile"],["+popToTopOnBlur true"]],"mem":[["Home stack","Feed (reset)"],["Profile stack","Profile"],["Selected tab","Home"]],"finish":true}]},{"name":"3. Params","steps":[{"who":0,"note":"A list screen shows products. Each row needs to open a Details screen for <b>that</b> product. The Details screen needs to know which one.","lanes":[["Product list"],["Products"],["user taps product 7"]],"mem":[["Stack","Products"],["Params of top","none"],["Idea","pass a small id"]]},{"who":2,"note":"The id goes in the <b>second argument</b>: <code>navigate('Details', { productId: 7 })</code>. The new route is an object with a name and params.","lanes":[["Details screen"],["Products","Details"],["+route = name and params"]],"mem":[["Stack","Products, Details"],["Params of top","{ productId: 7 }"],["Idea","pass a small id"]]},{"who":0,"note":"Details reads <code>route.params.productId</code> and loads product 7. The docs recommend params that are <b>JSON-serializable</b>: plain numbers, strings, lists and objects.","lanes":[["Details loads product 7"],["Products","Details"],["+reads route.params"]],"mem":[["Stack","Products, Details"],["Params of top","{ productId: 7 }"],["Idea","the screen gets the data itself"]]},{"who":2,"note":"The mistake: pass the <b>whole product</b> object. It works at first. Then the product changes elsewhere, and this screen shows an <b>old copy</b>. A big object also makes the params big.","lanes":[["Details shows an old copy"],["Products","Details"],["!whole object in params"]],"mem":[["Stack","Products, Details"],["Params of top","{ product: { id, name, price, ... } }"],["Idea","!old copy goes stale"]]},{"who":1,"note":"<code>setParams({ tab: 'reviews' })</code> <b>merges</b> into the current params. The old <code>productId</code> stays. To replace params, you would need to set them all again.","lanes":[["Details, reviews tab"],["Products","Details"],["+setParams merges"]],"mem":[["Stack","Products, Details"],["Params of top","{ productId: 7, tab: 'reviews' }"],["Idea","small, plain data"]],"finish":true}]}];
+const ANSWER = "one Details screen. <code>navigate</code> pushes only if you are not already on that route, so the second call changes nothing. <code>push</code> would have made two.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>

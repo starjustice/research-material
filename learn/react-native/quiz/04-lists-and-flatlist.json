@@ -1,0 +1,60 @@
+[
+  {
+    "q": "A screen shows 2000 products. What does a ScrollView do with them?",
+    "options": [
+      "Mounts all 2000 rows at once",
+      "Mounts only the rows near the screen",
+      "Mounts 21 rows and no more",
+      "Mounts only the 16 rows you can see"
+    ],
+    "answer": 0,
+    "why": "A ScrollView renders all its children at once. That slows the start and uses memory. A FlatList mounts only the rows near the screen."
+  },
+  {
+    "type": "tf",
+    "q": "With the default windowSize of 21, a FlatList keeps 21 rows mounted.",
+    "answer": false,
+    "why": "No. windowSize counts screens, not rows. 21 means 10 screens above, the screen you see and 10 below. With 16 rows per screen that is hundreds of rows."
+  },
+  {
+    "type": "multi",
+    "q": "Which changes make a blank area less likely when you fling a FlatList? Pick all that fit.",
+    "options": [
+      "Make the rows lighter",
+      "Give getItemLayout when every row has the same height",
+      "Raise windowSize (this costs memory)",
+      "Use the index as the key"
+    ],
+    "answer": [0, 1, 2],
+    "why": "Lighter rows and a known row height are free help. A bigger window costs memory. The key does not change how fast rows are made, and the index is a bad key for a list that changes."
+  },
+  {
+    "q": "You select a row and change selectedId in state, but the row colour does not change. What is the fix?",
+    "code": "<FlatList\n  data={items}\n  renderItem={({ item }) => (\n    <Row selected={item.id === selectedId} />\n  )}\n/>",
+    "options": [
+      "Add extraData={selectedId}",
+      "Add removeClippedSubviews",
+      "Raise initialNumToRender",
+      "Change the key to the index"
+    ],
+    "answer": 0,
+    "why": "FlatList is a PureComponent. It only runs again when its props change. Anything the rows depend on outside data goes in extraData."
+  },
+  {
+    "type": "order",
+    "q": "Put these in the order they happen when a FlatList opens and you start to scroll (defaults).",
+    "items": [
+      "The first 10 rows are mounted (initialNumToRender)",
+      "More rows are added in batches of 10, about 50 ms apart",
+      "The window fills around the screen",
+      "You scroll, and far rows are unmounted while new rows are mounted"
+    ],
+    "why": "The first render is small so the screen opens fast. Batches fill the window. Scrolling then moves the window."
+  },
+  {
+    "type": "fill",
+    "q": "Rows in a FlatList are checked by their own state. After you delete the first item, the checkmark moves to the wrong row because the key was the ____.",
+    "answer": ["index"],
+    "why": "With the index as the key, key 0 now belongs to a different item, so React keeps the old state. Use a key that belongs to the item, like its id."
+  }
+]

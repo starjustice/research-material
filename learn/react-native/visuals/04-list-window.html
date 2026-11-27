@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScrollView or FlatList: who is mounted?</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react-native/README">← React Native lessons</a>
+    <a href="../../../viewer.html?note=learn/react-native/04-lists-and-flatlist">Open the lesson ↗</a>
+  </div>
+  <h1>ScrollView or FlatList: who is mounted?</h1>
+  <p class="sub">A list of 1000 rows, each 50 tall, on a screen 800 tall (16 rows fit). Pick a tab, press Next. The numbers come from a small model that uses the documented defaults (windowSize 21, initialNumToRender 10, 10 rows per batch every 50 ms).</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> The list has 1000 rows and the user sees 16. About how many rows does a <code>FlatList</code> keep mounted when the user is in the middle: 16, about 350, or 1000?<br>
+    <input id="guess" placeholder="16, 350 or 1000" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Numbers right now</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>What is where</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>Your data (JavaScript array)</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>The list (rows that are mounted)</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>The screen (what the user sees)</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> A ScrollView mounts every row. A FlatList mounts the rows near the screen, and the rest are only data. The price is a blank area if you scroll faster than it can fill.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. ScrollView","steps":[{"who":0,"note":"You write <code>data.map(row =&gt; &lt;Row /&gt;)</code> inside a <code>ScrollView</code>. The data has 1000 rows.","lanes":[["1000 rows of data"],[],[]],"mem":[["Rows in the data","1000"],["Rows mounted","0"],["Rows the user sees","0"]]},{"who":1,"note":"A <code>ScrollView</code> renders <b>all</b> its children at once. React makes 1000 row components, and the phone makes 1000 sets of native views, even for rows nobody can see.","lanes":[["1000 rows of data"],["!1000 rows mounted"],[]],"mem":[["Rows in the data","1000"],["Rows mounted","1000"],["Rows the user sees","0"]]},{"who":2,"note":"The screen shows 16 rows. The other 984 rows are mounted for nothing. They cost start time and memory.","lanes":[["1000 rows of data"],["!1000 rows mounted"],["16 rows on screen"]],"mem":[["Rows in the data","1000"],["Rows mounted","1000"],["Rows the user sees","16"]]},{"who":1,"note":"You scroll. Nothing new is made, because everything already exists. Scrolling is smooth, but the first screen was slow and the memory is high. <b>For a long list, this is the wrong tool.</b>","lanes":[["1000 rows of data"],["!1000 rows mounted"],["16 rows on screen"]],"mem":[["Rows in the data","1000"],["Rows mounted","1000 (still)"],["Rows the user sees","16"]],"finish":true}]},{"name":"2. FlatList","steps":[{"who":0,"note":"You give the <code>FlatList</code> the data (1000 rows) and a <code>renderItem</code> function. It does not make the rows yet.","lanes":[["1000 rows of data"],[],[]],"mem":[["Rows in the data","1000"],["Rows mounted","0"],["Rows the user sees","0"]]},{"who":1,"note":"<b>First render:</b> only <code>initialNumToRender</code> rows, which is 10 by default. The screen can show 16, so the list must make more right away.","lanes":[["1000 rows of data"],["+10 rows mounted (0 to 9)"],["10 rows on screen"]],"mem":[["Rows in the data","1000"],["Rows mounted","10"],["Rows the user sees","10 of 16"]]},{"who":1,"note":"<b>Fill the window.</b> At the top, the window is rows 0 to 175 (176 rows). The list adds rows in batches of <code>maxToRenderPerBatch</code> (10), about <code>updateCellsBatchingPeriod</code> (50 ms) apart. In this model that is 17 batches.","lanes":[["1000 rows of data"],["+176 rows mounted (0 to 175)"],["16 rows on screen"]],"mem":[["Rows in the data","1000"],["Rows mounted","176"],["Rows the user sees","16"]]},{"who":1,"note":"<b>You scroll to the middle</b> (y = 10000). The window moves to rows 40 to 375 (336 rows). Rows above and below are unmounted. The first 10 rows stay, so jumping to the top is quick.","lanes":[["1000 rows of data"],["+336 rows in the window, plus the first 10"],["16 rows on screen (rows 200 to 215)"]],"mem":[["Rows in the data","1000"],["Rows mounted","346"],["Rows the user sees","16"]]},{"who":1,"note":"<b>At the end</b> (y = 49200) the window is cut at row 999: rows 824 to 999 (176 rows), plus the first 10. Memory stays flat however long the list is.","lanes":[["1000 rows of data"],["+176 rows in the window, plus the first 10"],["16 rows on screen (rows 984 to 999)"]],"mem":[["Rows in the data","1000"],["Rows mounted","186"],["Rows the user sees","16"]],"finish":true}]},{"name":"3. Blank area","steps":[{"who":2,"note":"The list is at the top. The user flings the list hard. In a moment the screen will show rows 600 to 615 (y = 30000).","lanes":[["1000 rows of data"],["rows 0 to 175 mounted"],["rows 0 to 15 on screen"]],"mem":[["Window now","rows 0 to 175"],["Window needed","rows 440 to 775"],["Rows the user sees","0 to 15"]]},{"who":2,"note":"The screen is already at rows 600 to 615. But those rows are <b>not mounted yet</b>, so the user sees an empty area. The docs say it is possible to scroll faster than the fill rate and momentarily see blank content.","lanes":[["1000 rows of data"],["!rows 600 to 615 not mounted yet"],["!blank area"]],"mem":[["Window now","rows 0 to 175"],["Window needed","rows 440 to 775"],["Rows the user sees","nothing yet"]]},{"who":1,"note":"The list moves its window and renders rows in batches of 10. Each batch takes JavaScript time. When the batch with the visible rows is done, the blank area fills.","lanes":[["1000 rows of data"],["+rows 440 to 775 being mounted, 10 at a time"],["+rows 600 to 615 appear"]],"mem":[["Window now","rows 440 to 775"],["Window needed","rows 440 to 775"],["Rows the user sees","16"]]},{"who":0,"note":"<b>The knobs, and their price.</b> A bigger <code>windowSize</code> means less blank but more memory. A bigger <code>maxToRenderPerBatch</code> means less blank but more JavaScript work at once, so taps can feel slow. Light rows and a known row height (<code>getItemLayout</code>) help for free.","lanes":[["windowSize up: more memory"],["maxToRenderPerBatch up: busier JS"],["+light rows and getItemLayout: free help"]],"mem":[["Fewer blank areas","bigger window or batch"],["Cost","memory or JS time"],["Best first step","light rows, fixed height"]],"finish":true}]}];
+const ANSWER = "about 346. The window keeps 336 rows (10 screens above, the screen, 10 below), and the first 10 rows stay mounted. It is far less than 1000, and far more than 16. That extra is what keeps scrolling smooth.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>
