@@ -1,0 +1,67 @@
+[
+  {
+    "q": "Which block do you wrap around your own content to detect a press?",
+    "options": [
+      "Pressable",
+      "View",
+      "Text",
+      "ScrollView"
+    ],
+    "answer": 0,
+    "why": "Pressable wraps any content and reports the press stages. It has no look of its own. A View is only a box."
+  },
+  {
+    "type": "tf",
+    "q": "In React Native you can write words directly inside a View, like <View>Hello</View>.",
+    "answer": false,
+    "why": "No. A View is a layout box. All words and numbers must be inside a Text."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these style lines follow the React Native rules? Pick all that fit.",
+    "options": [
+      "marginTop: 8",
+      "marginTop: \"8px\"",
+      "backgroundColor: \"#fff\"",
+      "width: \"50%\""
+    ],
+    "answer": [
+      0,
+      2,
+      3
+    ],
+    "why": "Names are camelCase and numbers have no unit, so marginTop: 8 is right. Percent values stay as text. \"8px\" is a web habit."
+  },
+  {
+    "q": "What colour is this text?",
+    "code": "<Text style={[{ color: \"red\" }, { color: \"blue\" }]}>Hi</Text>",
+    "options": [
+      "Blue",
+      "Red",
+      "Purple",
+      "It shows an error"
+    ],
+    "answer": 0,
+    "why": "In a style array the last item wins when both set the same name. Items that are false, null or undefined are skipped."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps in order for how React Native joins the style array [a, false, b], from the first step to the result.",
+    "items": [
+      "Take the style a as the start",
+      "Skip the false item",
+      "Put the style b over a, so b wins where both set a name",
+      "Use the joined style on the Text"
+    ],
+    "why": "The items are joined from the first to the last. false, null and undefined are skipped, and the last item wins when names clash."
+  },
+  {
+    "type": "fill",
+    "q": "A picture from a web address shows nothing. What two style names must you set on the Image? Write them with a space between.",
+    "answer": [
+      "width height",
+      "height width"
+    ],
+    "why": "React Native cannot know the size of a network image before it downloads it, so you must give the width and the height yourself."
+  }
+]
