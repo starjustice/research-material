@@ -1,0 +1,66 @@
+[
+  {
+    "q": "Which kind of test is the fastest to run?",
+    "options": [
+      "Unit test",
+      "End to end test",
+      "Load test",
+      "Visual test"
+    ],
+    "answer": 0,
+    "why": "A unit test checks one small piece with no network, database or browser, so it runs in milliseconds. End to end tests start a real browser and are the slowest."
+  },
+  {
+    "type": "tf",
+    "q": "A test with no assertion (no expect) can still pass and still add to the coverage number.",
+    "answer": true,
+    "why": "Yes. Coverage only counts which lines ran. A test that runs the code and checks nothing passes and looks good in the report. Ask: if I break this line, does a test fail?"
+  },
+  {
+    "q": "A test sends POST /api/items to an Express app with a test database and checks the status and the saved row. What kind is it?",
+    "options": [
+      "Integration test",
+      "Unit test",
+      "End to end test",
+      "Smoke test"
+    ],
+    "answer": 0,
+    "why": "Several real pieces work together (route, validation, data layer) and the test goes through the front door. A real browser is not involved, so it is not end to end."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are good reasons to keep end to end tests few?",
+    "options": [
+      "They are slow",
+      "They can be flaky",
+      "When one fails it is hard to see which piece broke",
+      "They cannot find any bugs"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "End to end tests are slow, can fail for unrelated reasons, and give less exact error locations. But they do find bugs the smaller tests miss, so keep a handful for the flows that matter most."
+  },
+  {
+    "type": "order",
+    "q": "Put the three steps of a good unit test in order.",
+    "items": [
+      "Arrange: prepare the input",
+      "Act: call the code",
+      "Assert: check the answer"
+    ],
+    "why": "Arrange, act, assert, often called AAA. Keep each test to one reason to fail."
+  },
+  {
+    "type": "fill",
+    "q": "What do we call a test that guards an old bug so that it never comes back? (one word)",
+    "answer": [
+      "regression",
+      "regression test",
+      "Regression"
+    ],
+    "why": "A regression test is any test written to make sure a fixed bug stays fixed. Add one every time you fix a bug."
+  }
+]

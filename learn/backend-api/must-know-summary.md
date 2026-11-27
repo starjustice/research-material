@@ -2,7 +2,7 @@
 
 **Written:** 2026-11-25 · **For:** Software Engineer and Senior Software Engineer interviews · **Stack:** Express, GraphQL, Prisma, Hasura
 
-This page is a short map of the 20 backend and API lessons. It tells you which ones to learn first and gives you the sentence to say out loud. If a lesson feels hard, read the line here first, then open the lesson.
+This page is a short map of the 21 backend and API lessons. It tells you which ones to learn first and gives you the sentence to say out loud. If a lesson feels hard, read the line here first, then open the lesson.
 
 **How to read the stars.** This ranking is my judgement of how often interviewers ask each topic, so treat it as a guide, not a rule.
 
@@ -35,6 +35,7 @@ This page is a short map of the 20 backend and API lessons. It tells you which o
 | [14 Hasura](14-hasura-when-and-when-not.md) | Let Hasura do plain CRUD and row filters. Keep money rules, other services and many step logic in your own code (Actions). | Do not say you used Hasura in a project unless you did. See the note at the bottom. |
 | [18 Choosing an API style](18-choosing-an-api-style.md) | Ask who calls and what they need. REST: the server picks the fields. GraphQL: the client picks. tRPC: the procedure picks. gRPC: the `.proto` picks. | Do not choose by what is new. Say the cost of your choice. |
 | [20 Login systems compared](20-login-systems-compared.md) | OAuth is permission. OIDC is login, built on OAuth. SAML is company login in XML. An API key is a password for a program. | OAuth alone does not tell the app who the user is. Check `iss`, `aud`, `exp`, `nonce` and the signature. |
+| [21 What the browser can see](21-what-the-browser-can-see.md) | You cannot hide a request from the Network tab. Keep the key on the server, call third parties from there, check the login and the rate on every request, and send only the needed fields. | Scrambling or encrypting in the browser. The key and the code ship to the user too. |
 
 ## ★ Depth, or only if the job needs it
 
@@ -45,7 +46,7 @@ This page is a short map of the 20 backend and API lessons. It tells you which o
 | [17 WebSockets and SSE](17-websockets-and-server-sent-events.md) | Polling for rare news, SSE for one way pushes, WebSocket when both sides talk. Plan for reconnects. |
 | [19 Access control models](19-access-control-models.md) | A role answers for a kind of user, a list for one item, a rule from facts. The default is no. |
 
-## The 6 questions most likely to come up
+## The 7 questions most likely to come up
 
 1. "What happens when a request hits your Express app? How do you handle errors in one place?" (03, 10)
 2. "Sessions or JWT? Why access and refresh tokens?" (06, 07)
@@ -53,6 +54,7 @@ This page is a short map of the 20 backend and API lessons. It tells you which o
 4. "How do you stop a user from reading another user's data?" (08)
 5. "How do you store passwords?" (09)
 6. "A webhook arrives twice. What happens?" (13)
+7. "Can you hide an API call from the browser? How do you protect a secret key?" (21)
 
 ## Practice
 

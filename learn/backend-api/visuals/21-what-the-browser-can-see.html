@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Tab Stepper</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --browser: #3b82f6; --browser-bg: #e3eefe;
+    --server: #8b5cf6; --server-bg: #efe8fd;
+    --db: #2f9e6b; --db-bg: #dff3ea;
+    --stream: #e8890c; --stream-bg: #fdecd2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 120px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  /* what the user sees */
+  .screen { border: 2px solid var(--ink); border-radius: 10px; padding: 10px 12px; min-height: 210px; background: #fff; }
+  .screen .blank { color: var(--muted); font-style: italic; font-size: .85rem; }
+  .screen .part { border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: .85rem; border: 1px dashed var(--border); animation: pop .35s ease; }
+  .screen .part.shell { background: #eef4ff; border-color: #bcd1f7; }
+  .screen .part.fb { background: #f2f2f2; color: var(--muted); font-style: italic; }
+  .screen .part.late { background: #e9f7ef; border-color: #b9e2cc; font-weight: 700; }
+  .screen button { font: inherit; border-radius: 8px; padding: 4px 12px; border: 1px solid var(--border); background: #f4f4f4; color: #888; }
+  .screen button.live { background: var(--ink); color: #fff; border-color: var(--ink); cursor: pointer; }
+  .click { margin-top: 8px; font-size: .8rem; font-weight: 700; }
+  .click.no { color: #b42318; } .click.yes { color: var(--db); }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.browser { border-color: var(--browser); background: var(--browser-bg); } .lane.browser h3 { color: var(--browser); }
+  .lane.server { border-color: var(--server); background: var(--server-bg); } .lane.server h3 { color: var(--server); }
+  .lane.db { border-color: var(--db); background: var(--db-bg); } .lane.db h3 { color: var(--db); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .stream { grid-column: 1 / -1; }
+  .pipe { background: var(--stream-bg); border: 2px solid var(--stream); border-radius: 12px; padding: 8px 10px; min-height: 58px; }
+  .pipe h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: var(--stream); }
+
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--db); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .screen .part.cart { background: #fff3e0; border-color: #f2c88b; }
+  .screen .part.white { background: #fff; border-style: solid; color: var(--muted); }
+  .reqs { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+
+  .nt { border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; background: #fff; font-size: .8rem; }
+  .nt .head { background: #e9edf0; padding: 6px 10px; font-weight: 700; display: grid; grid-template-columns: 1fr 52px; gap: 8px; }
+  .nt .row { padding: 6px 10px; display: grid; grid-template-columns: 1fr 52px; gap: 8px; border-top: 1px solid var(--border); animation: pop .35s ease; }
+  .nt .row.sel { background: #fff1bf; }
+  .nt .row span { overflow-wrap: anywhere; }
+  .nt .detail { border-top: 2px solid var(--ink); padding: 8px 10px; background: #fafafa; font-family: ui-monospace, Menlo, monospace; font-size: .78rem; min-height: 86px; overflow-wrap: anywhere; }
+  .nt .detail b { font-family: -apple-system, sans-serif; }
+  .leak { background: #fdecea; color: #b42318; padding: 1px 5px; border-radius: 4px; font-weight: 700; }
+  .safe { background: #e9f7ef; color: #1b6b45; padding: 1px 5px; border-radius: 4px; font-weight: 700; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/backend-api/README">← Backend lessons</a>
+    <a href="../../../viewer.html?note=learn/backend-api/21-what-the-browser-can-see">Open the lesson ↗</a>
+  </div>
+  <h1>What the Network tab shows</h1>
+  <p class="sub">A weather page needs a secret key. Pick a tab, press Next, and read the fake Network tab at each step. This follows a real test.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> In which tab can the user read the secret key in the Network tab? Write the tab number, then step through all three.<br>
+    <input id="guess" placeholder="example: 1" autocomplete="off" style="width:120px">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>The Network tab (what the user can read)</h2>
+      <div class="nt">
+        <div class="head"><span>Request</span><span>Status</span></div>
+        <div id="rows"></div>
+        <div class="detail" id="detail"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane browser" id="laneBrowser"><h3>Browser (the user)</h3><div class="items" id="browser"></div></div>
+        <div class="lane server" id="laneServer"><h3>Your server</h3><div class="items" id="server"></div></div>
+        <div class="lane db" id="laneDb"><h3>Weather API (third party)</h3><div class="items" id="third"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> you cannot hide a request from the Network tab. You can keep the <b>key</b> off the browser, and make your server check every request.</p>
+</div>
+
+<script>
+const KEY = "Bearer sk_live_ABC123";
+const MODES = [
+ { name: "1. Key in browser code", steps: [
+  { who: "browser", note: "The page code has the secret key inside it. The browser builds a request to the weather API and adds the key.",
+    browser: ["fetch weather API", "add key"], server: [], third: [], rows: [], sel: -1, detail: "" },
+  { who: "browser", note: "The request leaves the browser, so it appears in the Network tab. The user clicks it and reads the headers.",
+    browser: ["send"], server: [], third: [],
+    rows: [{ n: "GET api.weather.com/weather", s: "..." }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="leak">' + KEY + '</span>' },
+  { who: "third", note: "The weather API checks the key and answers. Everything works, so the developer thinks it is fine.",
+    browser: ["send"], server: [], third: ["key is valid", "send weather"],
+    rows: [{ n: "GET api.weather.com/weather", s: "200" }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="leak">' + KEY + '</span><br><b>Response</b> {"city":"Jakarta","temp":31}' },
+  { who: "browser", note: "<b>The key is public.</b> Anyone can copy it from the Network tab or the page code and use your account. The only fix is to make a new key and move the call to the server.",
+    browser: ["user copies the key"], server: [], third: ["a stranger uses the key"],
+    rows: [{ n: "GET api.weather.com/weather", s: "200" }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="leak">' + KEY + '</span><br><b>Anyone can copy this.</b>', finish: true, leaked: true }
+ ]},
+ { name: "2. Key on your server", steps: [
+  { who: "browser", note: "The page code has no key. It calls your own server: <code>GET /api/weather</code>.",
+    browser: ["fetch /api/weather"], server: [], third: [], rows: [], sel: -1, detail: "" },
+  { who: "browser", note: "The request is visible in the Network tab. That is fine. It holds no secret.",
+    browser: ["send"], server: [], third: [],
+    rows: [{ n: "GET /api/weather", s: "..." }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="safe">(none)</span><br>Cookie: session=abc' },
+  { who: "server", note: "Your server checks the login, checks the rate limit, then calls the weather API. <b>The key is added here</b>, on your server.",
+    browser: ["waiting"], server: ["check login", "check rate", "add key"], third: [],
+    rows: [{ n: "GET /api/weather", s: "..." }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="safe">(none)</span><br>Cookie: session=abc' },
+  { who: "third", note: "The weather API sees the key and answers your server. The browser never sees this call. It is not in the user's Network tab.",
+    browser: ["waiting"], server: ["call weather API"], third: ["key is valid", "send weather"],
+    rows: [{ n: "GET /api/weather", s: "..." }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="safe">(none)</span><br>Cookie: session=abc' },
+  { who: "server", note: "<b>Your server sends back only city and temp.</b> The user can read the weather. They cannot read the key. You did not hide the request, you hid the secret.",
+    browser: ["show weather"], server: ["send only city and temp"], third: [],
+    rows: [{ n: "GET /api/weather", s: "200" }], sel: 0,
+    detail: 'Request headers<br>Authorization: <span class="safe">(none)</span><br><b>Response</b> {"city":"Jakarta","temp":31}', finish: true }
+ ]},
+ { name: "3. Scrambled data", steps: [
+  { who: "server", note: "A team scrambles the answer with base64, so they think nobody can read it. The server sends <code>eyJjaXR5Ijoi...</code>.",
+    browser: [], server: ["answer in base64"], third: [], rows: [], sel: -1, detail: "" },
+  { who: "browser", note: "The response shows in the Network tab as strange text. It looks protected.",
+    browser: ["receive"], server: [], third: [],
+    rows: [{ n: "GET /api/data", s: "200" }], sel: 0,
+    detail: '<b>Response</b> eyJjaXR5IjoiSmFrYXJ0YSIsInRlbXAiOjMxfQ==' },
+  { who: "browser", note: "The page code must turn it back to show the weather. So the code to unscramble is <b>in the page</b>, and the user can read it.",
+    browser: ["atob(text)", "show weather"], server: [], third: [],
+    rows: [{ n: "GET /api/data", s: "200" }], sel: 0,
+    detail: '<b>Response</b> eyJjaXR5IjoiSmFrYXJ0YSIsInRlbXAiOjMxfQ==<br><b>atob(text)</b> <span class="leak">{"city":"Jakarta","temp":31}</span>' },
+  { who: "browser", note: "<b>One line undoes it.</b> The user can run <code>atob</code> in the console. Base64 is not a lock. Real protection is on the server: login, permission and fewer fields.",
+    browser: ["user runs atob in console"], server: [], third: [],
+    rows: [{ n: "GET /api/data", s: "200" }], sel: 0,
+    detail: '<b>Console</b> atob("eyJjaXR5Ijoi...")<br><span class="leak">{"city":"Jakarta","temp":31}</span>', finish: true }
+ ]}
+];
+
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(id, list) { $(id).innerHTML = list.length ? list.map(t => `<span class="chip">${t}</span>`).join("") : '<span class="empty">nothing</span>'; }
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => `<button class="${k === m ? "on" : ""}" data-k="${k}">${x.name}</button>`).join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  chips("browser", s.browser); chips("server", s.server); chips("third", s.third);
+  ["Browser", "Server", "Db"].forEach(n => $("lane" + n).classList.remove("active"));
+  $("lane" + (s.who === "third" ? "Db" : s.who === "server" ? "Server" : "Browser")).classList.add("active");
+  $("rows").innerHTML = s.rows.length
+    ? s.rows.map((r, k) => `<div class="row ${k === s.sel ? "sel" : ""}"><span>${r.n}</span><span>${r.s}</span></div>`).join("")
+    : '<div class="row"><span style="color:#6b7a86;font-style:italic">no requests yet</span><span></span></div>';
+  $("detail").innerHTML = s.detail || '<span style="color:#6b7a86;font-style:italic">Click a request to read it</span>';
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> tab 1. The key is in the request headers, in plain text. In tab 2 the key never reaches the browser. In tab 3 the scrambled data is undone with one line." +
+      (g ? " You wrote: <i>" + g + "</i>." : "") + " Check the other tabs too.";
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>

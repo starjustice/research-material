@@ -16,6 +16,14 @@
   "count": 6
  },
  {
+  "slug": "learn/backend-api/21-what-the-browser-can-see",
+  "subject": "backend-api",
+  "subjectTitle": "Backend and API",
+  "num": "21",
+  "title": "What the browser can see: hiding API calls and secrets",
+  "count": 6
+ },
+ {
   "slug": "learn/database/01-sql-basics-and-query-order",
   "subject": "database",
   "subjectTitle": "Database",
@@ -893,6 +901,22 @@
   "subjectTitle": "System Design",
   "num": "31",
   "title": "The frontend design round",
+  "count": 6
+ },
+ {
+  "slug": "learn/testing/01-the-kinds-of-tests",
+  "subject": "testing",
+  "subjectTitle": "Testing",
+  "num": "01",
+  "title": "The kinds of tests",
+  "count": 6
+ },
+ {
+  "slug": "learn/testing/02-test-tools-and-settings",
+  "subject": "testing",
+  "subjectTitle": "Testing",
+  "num": "02",
+  "title": "Test tools and settings",
   "count": 6
  }
 ]

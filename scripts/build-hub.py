@@ -23,7 +23,7 @@ SUBJECTS = [
     ("javascript", "JavaScript"), ("typescript", "TypeScript"), ("react", "React"),
     ("react-native", "React Native"), ("backend-api", "Backend and API"), ("database", "Database"),
     ("system-design", "System Design"), ("networking", "Networking"), ("devops-cloud", "DevOps and Cloud"),
-    ("problem-solving", "Problem Solving"), ("other-stacks", "Other Stacks"),
+    ("testing", "Testing"), ("problem-solving", "Problem Solving"), ("other-stacks", "Other Stacks"),
 ]
 
 

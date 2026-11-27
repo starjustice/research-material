@@ -1,0 +1,66 @@
+[
+  {
+    "type": "tf",
+    "q": "If your page uses HTTPS, the user cannot read the requests in their own Network tab.",
+    "answer": false,
+    "why": "No. HTTPS protects the road between the browser and the server from people in the middle. The user is on the browser side, so they see the plain request and answer."
+  },
+  {
+    "q": "A secret API key is in your browser JavaScript. Where can a visitor read it?",
+    "options": [
+      "In the Network tab headers and in the page code",
+      "Nowhere, because browser code is private",
+      "Only on your server logs",
+      "Only if they hack your database"
+    ],
+    "answer": 0,
+    "why": "Browser code and the requests it makes are on the user's machine. The key is visible in the Network tab and in the bundle file. A key that was ever public must be replaced."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these really protect an API that the frontend calls?",
+    "options": [
+      "Check the login and the permission on the server for every request",
+      "Call the third party from your server so the key stays there",
+      "Encode the answer with base64",
+      "Add a rate limit"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Server checks, a server-side proxy and a rate limit work. Base64 is only another way to write the same text, and one call to atob() undoes it."
+  },
+  {
+    "q": "A cookie is marked HttpOnly. What does that stop?",
+    "options": [
+      "JavaScript on the page reading the cookie, such as an XSS script",
+      "The user seeing the cookie in DevTools",
+      "The cookie being sent to the server",
+      "Anyone copying the session"
+    ],
+    "answer": 0,
+    "why": "HttpOnly keeps scripts away from the cookie. The user can still see their own cookie in DevTools, and a copied cookie still works until the session ends."
+  },
+  {
+    "type": "order",
+    "q": "Put the checks of a safe proxy route in the right order.",
+    "items": [
+      "Check that the user is logged in",
+      "Check the rate limit",
+      "Call the third party with the key",
+      "Send back only the fields the screen needs"
+    ],
+    "why": "Do the cheap checks first. Do not spend a paid third party call, or use your key, for someone who is not logged in or who is over the limit."
+  },
+  {
+    "type": "fill",
+    "q": "What is the name of the browser tool, opened with F12, where the user can read every request and answer? (two words)",
+    "answer": [
+      "Network tab",
+      "network tab"
+    ],
+    "why": "The Network tab lists the requests with their headers, bodies, answers and timing. You cannot hide a request from it."
+  }
+]

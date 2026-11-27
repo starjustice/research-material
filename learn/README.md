@@ -16,6 +16,8 @@ graph LR
     NET --> SD
     BE --> OPS["DevOps and Cloud"]
     OPS --> SD
+    R --> TEST["Testing"]
+    BE --> TEST
     PS["Problem Solving"]
 ```
 
@@ -30,6 +32,7 @@ graph LR
 | [System Design](system-design/README.md) | roadmap beginner to senior, building blocks, caching, queues, storage, distributed systems, architecture, production, frontend design, 12 workbook designs, question bank | [the roadmap](system-design/system-design-roadmap-beginner-to-senior.md), 15 guides, 13 cheatsheets |
 | [Networking](networking/README.md) | DNS, TCP, TLS, HTTP versions, CORS, browser, networking for system design | 2 guides, 2 cheatsheets |
 | [DevOps and Cloud](devops-cloud/README.md) | Docker, Kubernetes, CI/CD, serverless | 3 guides, 2 examples |
+| [Testing](testing/README.md) | kinds of tests, unit, integration, end to end, Vitest, Testing Library, Supertest, Playwright, coverage | 2 lessons ready |
 | [Problem Solving](problem-solving/README.md) | pattern based coding practice with tests | 12 problems ready |
 | [Other Stacks](other-stacks/README.md) | .NET and Java Spring from a TypeScript view | 2 guides, 2 cheatsheets |
 

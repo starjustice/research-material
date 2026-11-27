@@ -90,8 +90,9 @@ Each ready lesson has a step-through page in [visuals/](visuals/) and a practice
 |---|---|---|---|
 | 19 | [Access control models](19-access-control-models.md) | roles, a list on each item (ACL), rules on facts (ABAC), folder inheritance, token scopes, and how to design who may open what | ready |
 | 20 | [Login systems compared](20-login-systems-compared.md) | sessions, JWT, API keys, OAuth 2.0, OpenID Connect and SAML side by side, the "sign in with Google" flow, and the five ID token checks | ready |
+| 21 | [What the browser can see](21-what-the-browser-can-see.md) | why you cannot hide a request from the Network tab, and the real ways to keep a key secret and protect an API | ready |
 
-Each lesson from 06 to 20 (the Auth, Senior level, API styles and More on access groups) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
+Each lesson from 06 to 21 (the Auth, Senior level, API styles and More on access groups) has a stepper page in [visuals/](visuals/) and a runnable exercise with tests in [practice/](practice/README.md).
 
 **To make the next lesson:** in a chat with this folder open, say `/learn backend-api 01` to learn it live with Claude, or ask "make lesson backend-api 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 

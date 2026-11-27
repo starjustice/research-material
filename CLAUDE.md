@@ -99,7 +99,7 @@ sheet.css               shared colors and dark mode for the database, system des
 scripts/calm-apply.js   gives a new page the Calm look: node scripts/calm-apply.js page-step|page-sheet <file>
 ```
 
-Subjects: `javascript`, `typescript`, `react`, `react-native`, `backend-api`, `database`, `system-design`, `networking`, `devops-cloud`, `problem-solving`, `other-stacks`.
+Subjects: `javascript`, `typescript`, `react`, `react-native`, `backend-api`, `database`, `system-design`, `networking`, `devops-cloud`, `testing`, `problem-solving`, `other-stacks`.
 
 Rules:
 

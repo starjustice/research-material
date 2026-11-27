@@ -1,0 +1,67 @@
+[
+  {
+    "q": "Which Vitest option runs only the tests whose name matches a pattern?",
+    "options": [
+      "-t",
+      "--ui",
+      "--bail",
+      "--shard"
+    ],
+    "answer": 0,
+    "why": "-t (or --testNamePattern) filters by test name. In the lesson's run, 1 test ran and 6 were skipped."
+  },
+  {
+    "type": "multi",
+    "q": "What do you need to test a React component with Vitest?",
+    "options": [
+      "jsdom, a fake browser",
+      "React Testing Library",
+      "A real Chrome browser",
+      "Supertest"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "why": "React needs a page to draw on, which jsdom provides, and React Testing Library to render the component and use it like a user. A real browser is only needed for end to end tests, and Supertest is for API routes."
+  },
+  {
+    "q": "Why do you put app.listen in a different file than the Express app for Supertest?",
+    "options": [
+      "So tests can import the app without starting a server on a port",
+      "Because Supertest cannot read the app otherwise",
+      "To make the app faster",
+      "Because Express forbids listen in the app file"
+    ],
+    "answer": 0,
+    "why": "If the app file calls listen, every test file starts a real server on the same port and you get address already in use. Export the app, listen in server.js, and test with request(app)."
+  },
+  {
+    "type": "tf",
+    "q": "In a Playwright test, you should add await page.waitForTimeout(3000) before each check so the page has time to load.",
+    "answer": false,
+    "why": "No. Playwright's expect waits and retries until the thing is true. A fixed sleep makes tests slow and still flaky."
+  },
+  {
+    "q": "What does the webServer setting in playwright.config do?",
+    "options": [
+      "Starts your app before the tests and waits until its address answers",
+      "Sets the browser to use",
+      "Records a trace of each test",
+      "Runs tests in parallel"
+    ],
+    "answer": 0,
+    "why": "webServer takes a command to start the app and a url to wait for. Playwright starts it, runs the tests, then stops it."
+  },
+  {
+    "q": "The Next.js docs recommend what for testing an async Server Component?",
+    "options": [
+      "End to end tests",
+      "Snapshot tests only",
+      "Unit tests with Vitest",
+      "No tests at all"
+    ],
+    "answer": 0,
+    "why": "Some unit test tools do not fully support async Server Components yet, so the docs recommend end to end tests for them. Unit test the plain functions and synchronous components."
+  }
+]
