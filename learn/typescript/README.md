@@ -26,10 +26,10 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 01 | Why TypeScript and how it compiles `01-why-typescript-and-how-it-compiles.md` | types disappear at runtime, what tsc actually does | planned |
-| 02 | Basic types and inference `02-basic-types-and-inference.md` | string, number, arrays, tuples, and when you do not need to write types | planned |
-| 03 | Type vs interface `03-type-vs-interface.md` | the real differences and when to pick each | planned |
-| 04 | Union types and narrowing `04-union-types-and-narrowing.md` | string | number, typeof, in, and discriminated unions | planned |
+| 01 | [Why TypeScript and how it compiles](01-why-typescript-and-how-it-compiles.md) | types disappear at runtime, what tsc actually does, why data from outside still needs checking | ready |
+| 02 | [Basic types and inference](02-basic-types-and-inference.md) | string, number, arrays, tuples, literal types, and when you do not need to write types | ready |
+| 03 | [Type vs interface](03-type-vs-interface.md) | the real differences and when to pick each | ready |
+| 04 | [Union types and narrowing](04-union-types-and-narrowing.md) | string | number, typeof, in, and discriminated unions with an exhaustive check | ready |
 
 ### Core ideas
 
@@ -49,6 +49,15 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 11 | tsconfig and strict mode `11-tsconfig-and-strict-mode.md` | the flags that matter and why | planned |
 
 **To make the next lesson:** in a chat with this folder open, say `/learn typescript 01` to learn it live with Claude, or ask "make lesson typescript 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
+
+## Pages you can move
+
+- [From TypeScript to JavaScript](visuals/01-from-ts-to-js.html) - lesson 01: check the types, erase them, run the code, and see why bad data still crashes.
+- [Narrowing step by step](visuals/04-narrowing-steps.html) - lesson 04: watch the compiler's belief about a variable get smaller after each check.
+
+## Practice
+
+Exercises are in [`practice/`](practice/). Run `cd learn/typescript/practice && npm install`, then `node --test 01-types-vanish.test.ts` (and the same for 02, 03 and 04). Tests run your file with Node's built-in type stripping and also run the real `tsc` in strict mode.
 
 ## Watch and play
 

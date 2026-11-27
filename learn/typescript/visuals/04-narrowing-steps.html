@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How a type gets smaller</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/typescript/README">← TypeScript lessons</a>
+    <a href="../../../viewer.html?note=learn/typescript/04-union-types-and-narrowing">Open the lesson ↗</a>
+  </div>
+  <h1>How a type gets smaller</h1>
+  <p class="sub">Press Next and watch what the compiler believes about a value after each check. Pick a tab: typeof, a union with a kind field, or the never trap.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> A value has the type <code>string | number | null</code>. Inside <code>if (typeof x === "number")</code>, what type does the compiler believe <code>x</code> has now?<br>
+    <input id="guess" placeholder="a type" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What the compiler believes</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>Your code</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>The compiler (tsc)</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>What you may do with the value</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> A check in your code makes the type smaller inside that branch. A union with one literal field, like kind, lets the compiler pick the right member. Put never in the default branch, and the compiler tells you when a case is missing.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. typeof","steps":[{"who":0,"note":"A function takes <code>x: string | number | null</code>. The value can be a string, a number or null. The compiler does not know which one, so it only allows what <b>all three</b> can do.","lanes":[["function show(x: string | number | null)"],[],[]],"mem":[["x","string | number | null"],["Line","the start of the function"]]},{"who":1,"note":"You write <code>x.length</code> here. The compiler says: <code>'x' is possibly 'null'</code> and <code>Property 'length' does not exist on type 'string | number'</code>. A number has no length, and null has no properties.","lanes":[["return x.length"],["!TS18047 possibly null","!TS2339 no length on number"],["!nothing is safe yet"]],"mem":[["x","string | number | null"],["Line","return x.length"]]},{"who":0,"note":"<b>Check 1:</b> <code>if (typeof x === \"string\")</code>. Inside this branch the compiler removes <code>number</code> and <code>null</code>.","lanes":[["if (typeof x === \"string\")"],["+string"],["+x.length, x.toUpperCase()"]],"mem":[["x","string"],["Line","inside the if"]]},{"who":1,"note":"The <code>else</code> branch gets the rest. The compiler removed <code>string</code>, so what is left is <code>number | null</code>.","lanes":[["else"],["+number | null"],["still not safe for length"]],"mem":[["x","number | null"],["Line","inside the else"]]},{"who":0,"note":"<b>Check 2:</b> <code>else if (typeof x === \"number\")</code>. Inside this branch <code>x</code> is a <code>number</code>. Now <code>x.toFixed(2)</code> is allowed.","lanes":[["else if (typeof x === \"number\")"],["+number"],["+x.toFixed(2)"]],"mem":[["x","number"],["Line","inside the else if"]]},{"who":1,"note":"In the last <code>else</code> only <code>null</code> is left. Be careful with the older trick <code>typeof x === \"object\"</code>: it is also true for null, so the compiler still says <code>'x' is possibly 'null'</code>.","lanes":[["else"],["+null"],["nothing, only null"]],"mem":[["x","null"],["Line","the last else"]],"finish":true}]},{"name":"2. A union with a kind","steps":[{"who":0,"note":"A <code>Shape</code> is a circle, a square or a triangle. Each member has a <code>kind</code> field with one exact word. That field is the label that tells the members apart.","lanes":[["{ kind: \"circle\"; radius }","{ kind: \"square\"; side }","{ kind: \"triangle\"; base; height }"],[],[]],"mem":[["s","circle | square | triangle"],["Line","the type Shape"]]},{"who":1,"note":"You write <code>s.radius</code> without a check. The compiler says <code>Property 'radius' does not exist on type 'Shape'</code>. Only a circle has a radius.","lanes":[["return s.radius"],["!TS2339 not on every member"],["!only kind is safe"]],"mem":[["s","circle | square | triangle"],["Line","return s.radius"]]},{"who":0,"note":"<code>switch (s.kind)</code> and <code>case \"circle\"</code>. The compiler reads the word and keeps only the circle member.","lanes":[["case \"circle\":"],["+circle"],["+s.radius"]],"mem":[["s","{ kind: \"circle\"; radius: number }"],["Line","case \"circle\""]]},{"who":0,"note":"<code>case \"square\"</code> keeps only the square. After a return, the circle is gone from what is left.","lanes":[["case \"square\":"],["+square"],["+s.side"]],"mem":[["s","{ kind: \"square\"; side: number }"],["Line","case \"square\""]]},{"who":0,"note":"<code>case \"triangle\"</code> keeps only the triangle. Every member now has its own branch.","lanes":[["case \"triangle\":"],["+triangle"],["+s.base, s.height"]],"mem":[["s","{ kind: \"triangle\"; base; height }"],["Line","case \"triangle\""]]},{"who":1,"note":"In <code>default</code> nothing is left. The compiler believes <code>s</code> is <code>never</code>, the type with no values. This is the key for the next tab.","lanes":[["default:"],["+never"],["no value can get here"]],"mem":[["s","never"],["Line","default"]],"finish":true}]},{"name":"3. The never trap","steps":[{"who":0,"note":"All three shapes are handled. The default calls <code>assertNever(s)</code>, a function that only accepts <code>never</code>. This compiles, because <code>s</code> is <code>never</code> there.","lanes":[["default: return assertNever(s)"],["+s is never: OK"],["no error"]],"mem":[["Shape has","circle, square, triangle"],["Switch handles","circle, square, triangle"],["Errors","0"]]},{"who":0,"note":"A teammate adds a fourth shape: <code>{ kind: \"hexagon\"; side: number }</code> to the union. They do not touch your function.","lanes":[["| { kind: \"hexagon\"; side: number }"],[],[]],"mem":[["Shape has","circle, square, triangle, hexagon"],["Switch handles","circle, square, triangle"],["Errors","not checked yet"]]},{"who":1,"note":"You run tsc. In <code>default</code> the compiler now believes <code>s</code> is the hexagon, not <code>never</code>. It reports <code>Argument of type '{ kind: \"hexagon\"; ... }' is not assignable to parameter of type 'never'</code>. The error is in <b>your</b> function, not in the file that changed.","lanes":[["default: return assertNever(s)"],["!TS2345 hexagon is not never"],["!the build stops here"]],"mem":[["Shape has","circle, square, triangle, hexagon"],["Switch handles","circle, square, triangle"],["Errors","1, on the assertNever line"]]},{"who":0,"note":"You add <code>case \"hexagon\"</code>. The default is <code>never</code> again. The compiler is quiet.","lanes":[["case \"hexagon\": return ..."],["+s is never in default"],["+no error"]],"mem":[["Shape has","circle, square, triangle, hexagon"],["Switch handles","all four"],["Errors","0"]]},{"who":2,"note":"Compare with a default that only returns 0. It compiles with <b>no error</b> when the hexagon is added, and a hexagon silently gets area 0. I ran this: a triangle gave <code>0</code> and no warning.","lanes":[["default: return 0"],["+no error"],["!wrong answer in production"]],"mem":[["Shape has","circle, square, triangle, hexagon"],["Switch handles","three"],["Errors","0, but the result is wrong"]],"finish":true}]}];
+const ANSWER = "<code>number</code>. The check <code>typeof x === \"number\"</code> removes <code>string</code> and <code>null</code> inside that branch. This was run with tsc 7.0.2.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>

@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- TypeScript checks your code before it runs. The types are removed, so the running program has only values.
+- `tsc` can check, emit, or both. `--noEmit` is check only.
+- Anything that only describes types is erased. The code that does the work stays.
+- A type error is reported by the checker. The program can still run, so make your build stop on errors.
+- `as User` is a promise from you, not a check. Nothing is checked at run time.
+- A passing `tsc` means the types agree with each other. It does not mean the data is right.
+- Check outside data once, at the border, and throw a clear error. After that the type is true.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a spell checker that runs before the code
 
 A spell checker reads your essay and marks the mistakes. It does not change what the essay says. TypeScript is a **checker for your code**. It reads your file before the program runs and says where a value is used in the wrong way.

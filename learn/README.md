@@ -24,7 +24,7 @@ graph LR
 | Subject | What is inside | Start here |
 |---|---|---|
 | [JavaScript](javascript/README.md) | variables, functions, closures, this, prototypes, event loop, promises, async | 18 lessons planned |
-| [TypeScript](typescript/README.md) | types, unions, generics, utility types, typing API data | 11 lessons planned |
+| [TypeScript](typescript/README.md) | types, unions, generics, utility types, typing API data | [what to know first](typescript/must-know-summary.md), 4 of 11 lessons ready |
 | [React](react/README.md) | rendering, hooks, data fetching, performance, Next.js | main guide, hooks workbook, cheatsheet |
 | [React Native](react-native/README.md) | architecture, lists, Hermes, Expo, OTA | guide and cheatsheet |
 | [Backend and API](backend-api/README.md) | HTTP, REST, Express, GraphQL, auth, Hasura | tutorial, cheat sheet, 2 example apps |

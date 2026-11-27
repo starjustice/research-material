@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- Every value has a type label. The compiler checks the labels before the code runs. The labels are removed from the JavaScript that ships.
+- Use `string`, `number`, `boolean`, arrays, tuples and object types. A tuple has a fixed length, and each place has its own type.
+- The compiler works out the type from the first value. `let` keeps the wide type. `const` keeps the exact value.
+- A `const` object still widens its properties. Add `as const` to keep the exact values, and to make them read-only.
+- Write types on function parameters, on empty arrays and objects, and on values that start empty. Let the compiler infer the rest.
+- `any` switches the checking off. A wrong call compiles and crashes when it runs.
+- An empty array inside an object, or returned from a function, has the type `never[]`. Write what it holds.
+- Strict mode is on by default in TypeScript 6.0 and later. With it, `undefined` is a type that you must handle.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a label on every box
 
 Think of a shelf of boxes. A box can hold a number, some text, or a list. A careful helper puts a **label** on each box: "number", "text", "list of numbers". Before you use a box, the helper reads the label. If you try to do text things with a number box, the helper stops you.

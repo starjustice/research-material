@@ -1,0 +1,59 @@
+[
+  {
+    "q": "You write an interface and a type alias in a .ts file. What do they add to the JavaScript file that tsc writes?",
+    "options": [
+      "Nothing. Both are removed",
+      "A small object for each one",
+      "Only the interface stays",
+      "Only the type alias stays"
+    ],
+    "answer": 0,
+    "why": "Types and interfaces only exist for the compiler. tsc checks your code, then writes JavaScript without them. So you cannot test a value against an interface with if."
+  },
+  {
+    "type": "tf",
+    "q": "You write type Settings = { theme: string } in one place and type Settings = { language: string } in another. TypeScript merges them into one Settings.",
+    "answer": false,
+    "why": "No. A type alias cannot be re-opened. The compiler says: error TS2300: Duplicate identifier. Only interface blocks with the same name merge."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these can a type alias do, but an interface cannot?",
+    "options": [
+      "Name a union, such as string or number",
+      "Name a tuple, such as a string then a number",
+      "Be a mapped type with [K in keyof T]",
+      "Merge with another declaration of the same name"
+    ],
+    "answer": [0, 1, 2],
+    "why": "A type alias can name a union, a tuple or a mapped type. Merging is the reverse: an interface can merge, and a type alias cannot."
+  },
+  {
+    "type": "order",
+    "q": "Put the life of an interface in order.",
+    "items": [
+      "You write the .ts file with an interface",
+      "tsc checks your values against the interface",
+      "tsc writes a .js file without the interface",
+      "Node runs the .js file, and no interface exists"
+    ],
+    "why": "The interface helps only during the check. It is gone when the JavaScript is written, so it is gone at run time."
+  },
+  {
+    "q": "type Base = { id: string }, then type Row = Base & { id: number }, then const r: Row = { id: 1 }. What does the compiler say?",
+    "options": [
+      "Type 'number' is not assignable to type 'never'",
+      "Interface 'Row' incorrectly extends interface 'Base'",
+      "Duplicate identifier 'Row'",
+      "Nothing, the code is fine"
+    ],
+    "answer": 0,
+    "why": "With & the field must be a string and a number at once. No value is both, so the field becomes never and the error shows up only where you use it. With interface extends, you would get the error at the declaration."
+  },
+  {
+    "type": "fill",
+    "q": "To make interface Admin take every field of User without copying them, write: interface Admin ______ User { permissions: string[] }  (one word)",
+    "answer": ["extends"],
+    "why": "extends takes all the fields of User and adds more. If a field clashes, the compiler tells you at that line."
+  }
+]

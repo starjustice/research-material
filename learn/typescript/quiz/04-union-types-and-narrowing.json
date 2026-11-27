@@ -1,0 +1,60 @@
+[
+  {
+    "q": "x has the type string | number. Why does x.length not compile?",
+    "options": [
+      "A number has no length, and the compiler only allows what every member of the union has",
+      "Strings do not have a length property in TypeScript",
+      "x must be declared with let for length to work",
+      "length can only be used inside a function"
+    ],
+    "answer": 0,
+    "why": "On a union you can only use what every member has. A number has no length, so the compiler asks you to narrow first, for example with typeof x === \"string\"."
+  },
+  {
+    "type": "multi",
+    "q": "Which checks make a union type smaller in the compiler?",
+    "options": [
+      "typeof x === \"string\"",
+      "\"name\" in x",
+      "x instanceof Date",
+      "x as string"
+    ],
+    "answer": [0, 1, 2],
+    "why": "typeof, in and instanceof are real checks that the compiler follows. x as string is not a check. It only tells the compiler to believe you, and it disappears at run time."
+  },
+  {
+    "type": "tf",
+    "q": "count has the type number | undefined. The check if (count) is a safe way to test that count has a value.",
+    "answer": false,
+    "why": "No. 0 is falsy, so a real count of 0 goes to the else branch. Use count !== undefined. The compiler even keeps number | undefined in the else branch, but it does not stop you."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps in order: how a switch on a kind field catches a new shape that nobody handled.",
+    "items": [
+      "Every member has a kind field with one exact word",
+      "A switch on s.kind narrows s to one member in each case",
+      "In the default branch s is never, and assertNever(s) compiles",
+      "A new member is added to the union and no case is written for it",
+      "In the default branch s is now the new member, so tsc reports an error in the switch"
+    ],
+    "why": "The kind field lets the switch narrow. With all cases handled, the default is never. A new member breaks that, so the compiler points at the function that forgot it."
+  },
+  {
+    "q": "A function has default: return 0 instead of assertNever(s). A new shape is added to the union. What happens?",
+    "options": [
+      "No error from the compiler, and the new shape quietly gets 0",
+      "tsc reports a missing case",
+      "The program crashes when it starts",
+      "tsc changes the default to never by itself"
+    ],
+    "answer": 0,
+    "why": "I ran this: areaQuiet with a triangle printed 0 and tsc was quiet. Only assertNever, a function that accepts never, makes the compiler fail when a case is missing."
+  },
+  {
+    "type": "fill",
+    "q": "Inside the default branch of a switch where every kind has a case, the compiler believes the value has the type ______. (one word)",
+    "answer": ["never"],
+    "why": "Nothing is left after every member is handled, so the type is never, the type with no values. That is why assertNever(x: never) compiles there."
+  }
+]

@@ -12,6 +12,7 @@ Each subject has its own page with the same ★★★ ★★ ★ ranking, a "say
 |---|---|
 | JavaScript | [JavaScript: what to know first](javascript/must-know-summary.md) |
 | React and frontend | [React and frontend: what to know first](react/must-know-summary.md) |
+| TypeScript | [TypeScript: what to know first](typescript/must-know-summary.md) |
 | React Native | [React Native: what to know first](react-native/must-know-summary.md) |
 | Backend and API | [Backend and API: what to know first](backend-api/must-know-summary.md) |
 | Database | [Database: what to know first](database/must-know-summary.md) |
@@ -81,7 +82,7 @@ If you only learn 25 things, learn these. Each one is a lesson or section you ca
 
 ## What is missing
 
-- **TypeScript** has no lessons yet (11 are planned). Interviews usually ask: `type` vs `interface`, `any` vs `unknown`, generics, utility types (`Partial`, `Pick`, `Omit`), narrowing, and how you type an API response. These are in the [TypeScript plan](typescript/README.md), but there is no summary because there is nothing to summarise yet.
+- **TypeScript** has lessons 01 to 04 so far (types vanish at run time, basic types, `type` vs `interface`, unions and narrowing). Generics, utility types and typing API data are still planned. See [TypeScript: what to know first](typescript/must-know-summary.md).
 - **React** and **React Native** have guides, not numbered lessons, so their pages summarise the guides.
 - **Other stacks** (.NET, Java Spring) are low priority unless the job uses them.
 - **Behavioral questions** (STAR) are in the interview folder, not in `learn/`. See [interview](../interview/README.md).

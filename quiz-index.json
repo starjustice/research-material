@@ -998,5 +998,37 @@
   "num": "02",
   "title": "Test tools and settings",
   "count": 6
+ },
+ {
+  "slug": "learn/typescript/01-why-typescript-and-how-it-compiles",
+  "subject": "typescript",
+  "subjectTitle": "TypeScript",
+  "num": "01",
+  "title": "Why TypeScript and how it compiles",
+  "count": 6
+ },
+ {
+  "slug": "learn/typescript/02-basic-types-and-inference",
+  "subject": "typescript",
+  "subjectTitle": "TypeScript",
+  "num": "02",
+  "title": "Basic types and inference",
+  "count": 6
+ },
+ {
+  "slug": "learn/typescript/03-type-vs-interface",
+  "subject": "typescript",
+  "subjectTitle": "TypeScript",
+  "num": "03",
+  "title": "Type vs interface",
+  "count": 6
+ },
+ {
+  "slug": "learn/typescript/04-union-types-and-narrowing",
+  "subject": "typescript",
+  "subjectTitle": "TypeScript",
+  "num": "04",
+  "title": "Union types and narrowing",
+  "count": 6
  }
 ]
