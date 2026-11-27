@@ -1,0 +1,58 @@
+[
+  {
+    "q": "What does a React Native <Text> become on the phone?",
+    "options": [
+      "A real native text view, on Android and on iPhone",
+      "A piece of web text inside a hidden browser",
+      "A picture of text drawn by JavaScript",
+      "A web view that loads an HTML file"
+    ],
+    "answer": 0,
+    "why": "React Native has no browser inside. Each core component becomes the phone's own view, so the app looks and scrolls like a normal phone app."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are done by the UI thread?",
+    "options": [
+      "Listening to the finger",
+      "Making and updating the real native views",
+      "Running your onPress function",
+      "Running your React components"
+    ],
+    "answer": [0, 1],
+    "why": "The UI thread draws the screen, listens to touches and is the only thread that changes native views. Your onPress and your components run on the JavaScript thread."
+  },
+  {
+    "type": "order",
+    "q": "Put the three steps of the render pipeline in order.",
+    "items": [
+      "Render: React runs your components and the shadow tree is made",
+      "Commit: the layout is worked out and the tree becomes the next tree",
+      "Mount: the UI thread makes or updates the native views"
+    ],
+    "why": "Render, commit, mount. The JavaScript thread does the first two. The UI thread does the last one."
+  },
+  {
+    "type": "tf",
+    "q": "Your own App component gets a node in the shadow tree.",
+    "answer": false,
+    "why": "No. React keeps running your own components until only host parts such as View and Text are left. Only those get shadow nodes."
+  },
+  {
+    "q": "A loop blocks the JavaScript thread for 3 seconds. A user drags a long ScrollView and presses a button. What happens?",
+    "options": [
+      "The list scrolls, but the button does not react until the loop ends",
+      "Both the list and the button stop",
+      "Both keep working as normal",
+      "The button works, but the list is frozen"
+    ],
+    "answer": 0,
+    "why": "The ScrollView lives on the UI thread, so it scrolls without JavaScript. The button press must reach JavaScript, which is busy."
+  },
+  {
+    "type": "fill",
+    "q": "Speed tests must run in a ______ build, not in development mode. (one word)",
+    "answer": ["release", "Release"],
+    "why": "Development mode does a lot of extra checking, so JavaScript is much slower. Test speed in a release build, the version you ship."
+  }
+]

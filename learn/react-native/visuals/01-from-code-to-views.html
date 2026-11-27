@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From your code to a native view</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react-native/README">← React Native lessons</a>
+    <a href="../../../viewer.html?note=learn/react-native/01-how-react-native-works">Open the lesson ↗</a>
+  </div>
+  <h1>From your code to a native view</h1>
+  <p class="sub">Press Next and watch who does the work. Pick a tab: the first screen, or a tap that changes a number.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> You tap a button that adds 1 to a counter. Which thread runs your <code>onPress</code> code: the JavaScript thread or the UI thread?<br>
+    <input id="guess" placeholder="JS or UI" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What exists right now</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>JavaScript thread (React and your code)</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>Shadow tree (a copy in C++ memory)</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>UI thread (the real native views)</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> React Native does not draw anything itself. Your code builds a tree, and the UI thread turns it into real native views.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. First screen","steps":[{"who":0,"note":"The app starts. React runs <code>App()</code>. It returns <code>&lt;View&gt;&lt;Text&gt;Hello&lt;/Text&gt;&lt;/View&gt;</code>. This is only a description in JavaScript. Nothing is on the screen yet.","lanes":[["run App()","get View and Text"],[],[]],"mem":[["React elements","View, Text, 'Hello'"],["Shadow tree","empty"],["Native views","none"]]},{"who":1,"note":"<b>Render.</b> React keeps running components until only host parts are left. The renderer makes one shadow node for <code>View</code> and one for <code>Text</code>. There is <b>no node for App</b>, because App is your own component.","lanes":[["render finished"],["View node","Text node"],[]],"mem":[["React elements","View, Text, 'Hello'"],["Shadow tree","View, Text (no App)"],["Native views","none"]]},{"who":1,"note":"<b>Commit.</b> The shadow tree is complete. The layout engine works out the size and place of each box. The tree becomes the next tree to show.","lanes":[[],["View node","Text node","+layout done"],[]],"mem":[["React elements","View, Text, 'Hello'"],["Shadow tree","View and Text with sizes and places"],["Native views","none"]]},{"who":2,"note":"<b>Mount.</b> Only now does the UI thread make real views. The <code>View</code> becomes a native view group, and the <code>Text</code> becomes a native text view.","lanes":[[],["View node","Text node"],["+native view group","+native text view"]],"mem":[["React elements","View, Text, 'Hello'"],["Shadow tree","View and Text with sizes and places"],["Native views","view group, text view"]]},{"who":2,"note":"The user sees Hello. <b>Three steps: render, commit, mount.</b> The JavaScript thread did the first two. The UI thread did the last one, and it is the only thread that may touch native views.","lanes":[[],[],["+Hello on screen"]],"mem":[["React elements","View, Text, 'Hello'"],["Shadow tree","View and Text with sizes and places"],["Native views","view group, text view"]],"finish":true}]},{"name":"2. A tap changes a number","steps":[{"who":2,"note":"The screen shows a button and the number 0. The finger touches the button. The <b>UI thread</b> is the one that receives the touch.","lanes":[[],[],["finger touches button"]],"mem":[["count","0"],["Shadow tree","View, Text '0'"],["Native views","view group, text '0'"]]},{"who":0,"note":"The touch is sent to the <b>JavaScript thread</b>. Your <code>onPress</code> runs there and calls <code>setCount(1)</code>.","lanes":[["onPress runs","setCount(1)"],[],["waiting"]],"mem":[["count","0, about to be 1"],["Shadow tree","View, Text '0'"],["Native views","view group, text '0'"]]},{"who":0,"note":"<b>Render.</b> React runs the component again. The new description says Text '1'. If the JavaScript thread is busy with other work, this step waits, and the tap feels slow.","lanes":[["render again","Text says 1"],[],["waiting"]],"mem":[["count","1"],["Shadow tree","still the old tree: Text '0'"],["Native views","text '0'"]]},{"who":1,"note":"The renderer does not change the old shadow tree. It <b>copies the changed part</b> and shares the rest, so the new tree is ready and the old one is safe to read from other threads.","lanes":[[],["old tree kept","+new Text node '1'"],["waiting"]],"mem":[["count","1"],["Shadow tree","new tree: Text '1'"],["Native views","text '0'"]]},{"who":2,"note":"<b>Commit and mount.</b> The new tree is compared with the old one. Only the text changed. The UI thread updates <b>one native text view</b>. The other views are not touched.","lanes":[[],["compare old and new tree"],["+update text to 1"]],"mem":[["count","1"],["Shadow tree","new tree: Text '1'"],["Native views","text '1'"]],"finish":true}]}];
+const ANSWER = "the JavaScript thread. The finger lands on the UI thread, but the touch is sent over, and your <code>onPress</code> runs in JavaScript. That is why a busy JavaScript thread makes taps feel slow.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>
