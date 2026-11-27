@@ -34,18 +34,18 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 01 | How React Native works `01-how-react-native-works.md` | JavaScript thread, native thread, how a View becomes a native view | planned |
-| 02 | Core components and styling `02-core-components-and-styling.md` | View, Text, Flexbox defaults that differ from the web | planned |
-| 03 | Navigation `03-navigation.md` | stack and tab navigation, passing params | planned |
+| 01 | [How React Native works](01-how-react-native-works.md) | JavaScript thread, UI thread, render, commit and mount, how a View becomes a native view | ready |
+| 02 | [Core components and styling](02-core-components-and-styling.md) | View, Text, Image, ScrollView, TextInput, Pressable, style objects, what differs from the web | ready |
+| 03 | [Navigation](03-navigation.md) | stack and tab navigation, params, navigate vs push, going back | ready |
 
 ### Core ideas
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 04 | Lists and FlatList `04-lists-and-flatlist.md` | why ScrollView breaks with many items, virtualization, FlashList | planned |
-| 05 | The old bridge vs the new architecture `05-the-old-bridge-vs-the-new-architecture.md` | JSI, Fabric, TurboModules | planned |
-| 06 | Hermes `06-hermes.md` | what the engine changes for startup and memory | planned |
-| 07 | Expo vs bare `07-expo-vs-bare.md` | what you gain and lose | planned |
+| 04 | [Lists and FlatList](04-lists-and-flatlist.md) | why ScrollView breaks with many items, windowing, FlatList props, FlashList | ready |
+| 05 | [The old bridge vs the new architecture](05-the-old-bridge-vs-the-new-architecture.md) | JSI, Fabric, TurboModules, what the old bridge did and why it was replaced | ready |
+| 06 | [Hermes](06-hermes.md) | what the engine changes for startup and memory, bytecode, Hermes V1 | ready |
+| 07 | [Expo vs bare](07-expo-vs-bare.md) | what you gain and lose, development builds, prebuild, when to pick each | ready |
 
 ### Senior level
 
@@ -101,7 +101,7 @@ For when you have not written React Native for a while. These are the things a l
 | 26 | Testing React Native `26-testing-react-native.md` | Jest and React Native Testing Library | planned |
 | 27 | Accessibility and platform `27-accessibility-and-platform.md` | accessibility props, permissions, dark mode, keyboard | planned |
 
-To type the answers in the browser, use the [code lab](visuals/code-lab.html). Runnable exercises for your editor are in [`practice/`](practice/) (`cd learn/react-native/practice && npm install`, then `npm run test:11`, `test:14` or `test:17`). The layout answers are checked with Yoga, the same layout engine React Native uses.
+To type the answers in the browser, use the [code lab](visuals/code-lab.html). Runnable exercises for your editor are in [`practice/`](practice/) (`cd learn/react-native/practice && npm install`, then `npm run test:11`, `test:14` or `test:17`; for lessons 01 to 07 use `node --test 01-from-code-to-views.test.mjs` and so on). The layout answers are checked with Yoga, the same layout engine React Native uses.
 
 **To make the next lesson:** in a chat with this folder open, say `/learn react-native 01` to learn it live with Claude, or ask "make lesson react-native 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 
@@ -120,6 +120,10 @@ Open in the browser. Everything visible on one page.
 ## Pages you can move
 
 - [**Code lab**](visuals/code-lab.html) - **type code in the browser.** 16 tasks (flexbox, animation maths, regex) with Run tests, a Try it box and a phone preview, plus 5 screens to build in Expo Snack with starter code. Your code is saved in your browser.
+- [From your code to a native view](visuals/01-from-code-to-views.html) - lesson 01: press Next and watch render, commit and mount, then a tap.
+- [Navigation stack stepper](visuals/03-navigation-stack.html) - lesson 03: push, go back and params on a stack.
+- [List window stepper](visuals/04-list-window.html) - lesson 04: ScrollView against FlatList, and which rows exist as you scroll.
+- [Old bridge vs JSI stepper](visuals/05-bridge-vs-jsi.html) - lesson 05: the same call made the old way and the new way.
 - [Flexbox playground](visuals/11-flexbox-playground.html) - change `flexDirection`, `justifyContent` and the rest, and watch the boxes. Starts with the React Native defaults.
 - [Animated value lab](visuals/14-animated-lab.html) - drag the value, change the easing, compare `extend` and `clamp`.
 

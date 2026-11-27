@@ -5,9 +5,16 @@
   "description": "Runnable exercises for the React Native lessons. Layout answers are checked with Yoga, the layout engine React Native uses.",
   "scripts": {
     "test": "node --test",
+    "test:01": "node --test 01-from-code-to-views.test.mjs",
+    "test:02": "node --test 02-web-to-native-style.test.mjs",
+    "test:03": "node --test 03-stack-navigator.test.mjs",
+    "test:04": "node --test 04-list-window.test.mjs",
+    "test:05": "node --test 05-bridge-vs-jsi.test.mjs",
+    "test:06": "node --test 06-precompiled-code.test.mjs",
+    "test:07": "node --test 07-config-to-native.test.mjs",
     "test:11": "node --test 11-flexbox.test.mjs",
-    "test:17": "node --test 17-regex.test.mjs",
-    "test:14": "node --test 14-animation-math.test.mjs"
+    "test:14": "node --test 14-animation-math.test.mjs",
+    "test:17": "node --test 17-regex.test.mjs"
   },
   "devDependencies": {
     "yoga-layout": "3.2.1"

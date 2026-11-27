@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A `ScrollView` mounts every row. A `FlatList` mounts only the rows near the screen.
+- `windowSize` is counted in screens. A bigger window means more memory and less blank. A smaller window means the opposite.
+- Blank areas come from scrolling faster than rows can be made. Lighter rows fix it for free. Bigger numbers fix it, but cost memory or JavaScript time.
+- Give a stable key, and give `getItemLayout` when the rows have a fixed height.
+- `ScrollView` for a few things, `FlatList` for a long list.
+- The key must follow the item, not the place. Use the id, not the index.
+- If a row depends on something outside `data`, pass it as `extraData`.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a long scroll of paper, and a small window
 
 Picture a roll of paper 50 metres long. You look at it through a small window. You do not need to unroll all 50 metres. You only need the part in the window, and a little more on each side.
@@ -398,4 +412,4 @@ Close this file. Explain `ScrollView` and `FlatList` to a new junior, in 4 parts
 
 - [How React Native works](01-how-react-native-works.md) - mounting, and why JavaScript time matters.
 - [Navigation](03-navigation.md) - a list row usually opens a screen with params.
-- [Performance on mobile](10-performance-on-mobile.md) - `memo`, images, and finding the slow part.
+- Performance on mobile (planned) - `memo`, images, and finding the slow part.

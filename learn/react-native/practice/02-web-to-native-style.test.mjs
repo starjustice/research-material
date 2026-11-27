@@ -57,6 +57,7 @@ test("flattenStyle: one object, and nothing", () => {
 
 test("flattenStyle: does not change the styles it was given", () => {
   const base = { color: "red" };
-  flattenStyle([base, { color: "blue" }]);
+  const result = flattenStyle([base, { color: "blue" }]);
+  assert.deepStrictEqual(result, { color: "blue" });
   assert.deepStrictEqual(base, { color: "red" });
 });

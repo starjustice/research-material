@@ -8,6 +8,20 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 20 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A screen is made from about six blocks: `View`, `Text`, `Image`, `ScrollView`, `TextInput` and `Pressable`.
+- All words and numbers on screen must be inside a `Text`.
+- Styles are objects with camelCase names and plain numbers, no `px`.
+- In a style array the last item wins, and `false`, `null` and `undefined` are skipped.
+- There is no CSS cascade. Only text inside a `Text` inherits from its parent `Text`.
+- Give every network `Image` a width and a height.
+- `ScrollView` is for short content. Use `FlatList` for long lists.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a small box of building blocks
 
 On the web you have hundreds of tags. In React Native you start with a small box of about six blocks. Almost every screen is made of them.

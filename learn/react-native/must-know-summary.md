@@ -1,6 +1,6 @@
 # React Native: what to know first
 
-**Written:** 2026-11-25 · **For:** Software Engineer and Senior Software Engineer interviews · **Source:** [React Native interview guide](react-native-interview-guide.md) and 4 lessons (11, 14, 15, 17)
+**Written:** 2026-11-25, updated 2026-11-27 · **For:** Software Engineer and Senior Software Engineer interviews · **Source:** [React Native interview guide](react-native-interview-guide.md) and 11 lessons (01 to 07, 11, 14, 15, 17)
 
 This page is a short map of what interviewers ask about React Native. You worked on mobile apps, so expect questions about your own experience first. Use these lines to explain what you already did.
 
@@ -14,11 +14,11 @@ This page is a short map of what interviewers ask about React Native. You worked
 
 | Topic | Say this in the interview | Common trap |
 |---|---|---|
-| How React Native works | There is no browser or DOM. Your JavaScript runs on the Hermes engine, and a native layer turns the React tree into real iOS and Android views. | "Bridge vs New Architecture" really asks how the JS to native handoff works. |
-| New Architecture | JSI, Fabric and TurboModules replace the old bridge. React Native 0.82 (Oct 2025) removed the old bridge, so there is one architecture now. | Do not describe the old bridge as the current way. |
-| Lists: FlatList vs ScrollView | `ScrollView` renders everything, so use it for short content. `FlatList` renders only what is near the screen. FlashList is faster for big lists. | Set `keyExtractor`, avoid inline functions in `renderItem`, and use `getItemLayout` when heights are fixed. |
+| How React Native works ([lesson 01](01-how-react-native-works.md)) | There is no browser or DOM. Your JavaScript runs on the Hermes engine, and a native layer turns the React tree into real iOS and Android views. | "Bridge vs New Architecture" really asks how the JS to native handoff works. |
+| New Architecture ([lesson 05](05-the-old-bridge-vs-the-new-architecture.md)) | JSI, Fabric and TurboModules replace the old bridge. React Native 0.82 (Oct 2025) removed the old bridge, so there is one architecture now. | Do not describe the old bridge as the current way. |
+| Lists: FlatList vs ScrollView ([lesson 04](04-lists-and-flatlist.md)) | `ScrollView` renders everything, so use it for short content. `FlatList` renders only what is near the screen. FlashList is faster for big lists. | Set `keyExtractor`, avoid inline functions in `renderItem`, and use `getItemLayout` when heights are fixed. |
 | Flexbox ([lesson 11](11-flexbox-layout.md)) | Flexbox is the only layout system. The default `flexDirection` is `column`, the opposite of the web's `row`. | No CSS files and no cascade. Units are plain numbers. |
-| Expo vs bare | Expo gives speed and tooling (EAS). Bare gives full native control. With `prebuild` the gap is small now. | Say what your project used and why. |
+| Expo vs bare ([lesson 07](07-expo-vs-bare.md)) | Expo gives speed and tooling (EAS). Bare gives full native control. With `prebuild` the gap is small now. | Say what your project used and why. |
 | OTA updates | JavaScript and assets can ship over the air without store review. Native code cannot, ever. | Know the risk: it skips the review gate. CodePush was retired in 2025, so Expo Updates is the usual path. |
 
 ## ★★ Learn these second
@@ -26,7 +26,9 @@ This page is a short map of what interviewers ask about React Native. You worked
 | Topic | Say this in the interview |
 |---|---|
 | Animations ([lesson 14](14-animated-api.md), [lesson 15](15-reanimated.md)) | `Animated` with `useNativeDriver: true` runs on the native side. Reanimated runs worklets on the UI thread, so animations stay smooth even when JS is busy. |
-| Navigation | There is no browser URL. Deep links map to screens. React Navigation is low level and works in bare. Expo Router is file based and sits on top of it. |
+| Core components and styling ([lesson 02](02-core-components-and-styling.md)) | `View`, `Text`, `Image`, `ScrollView`, `TextInput` and `Pressable` become real native views. Styles are JavaScript objects with camelCase names and plain numbers. Only text inherits styles, and only inside `Text`. |
+| Hermes ([lesson 06](06-hermes.md)) | The default JavaScript engine. JavaScript is compiled to bytecode at build time, so the app starts faster and uses less memory. Hermes V1 became the default in React Native 0.84. |
+| Navigation ([lesson 03](03-navigation.md)) | There is no browser URL. Deep links map to screens. React Navigation is low level and works in bare. Expo Router is file based and sits on top of it. |
 | Storage | AsyncStorage for simple data. MMKV is much faster but not for secrets. SecureStore or Keychain is the only right place for tokens. |
 | Offline first | Save locally first, sync later, and decide how to resolve conflicts. |
 | Performance debugging | Use React Native DevTools (Flipper is dead). Look for list re-renders, big JS work on the main thread, and large images. |
@@ -49,5 +51,5 @@ This page is a short map of what interviewers ask about React Native. You worked
 
 ## Honest notes
 
-- Only 4 of the planned lessons exist, so most of this comes from the guide. The guide's facts (RN 0.82, Flipper, CodePush) were checked in 2025 and 2026. Re-check before an interview if the version matters.
+- Lessons 01 to 07, 11, 14, 15 and 17 exist. Lessons 08, 09, 10 and 12 to 27 are still planned, so those topics come from the guide. The guide's facts (RN 0.82, Flipper, CodePush) were checked in 2025 and 2026. Re-check before an interview if the version matters.
 - You built ZWS and the DBO mobile app. Only tell stories with facts you can state yourself. Use `/project-story` to prepare them.

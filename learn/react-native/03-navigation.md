@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- A stack is a list of screens. The last one is the screen you see.
+- `push` adds, `goBack` removes, `popTo` and `popToTop` remove many at once.
+- `navigate` adds only if you are not already on that route. `push` always adds.
+- Params go in the second argument and come out of `route.params`. Keep them small and plain.
+- Tabs switch between stacks. Each tab can keep its own pile of screens.
+- Use the native stack for real native transitions. Install the navigator package and its two helper packages.
+- Send an id, not the whole object.
+- After login, remove the login screens from the pile. Do not leave them under Home.
+<!-- quick-summary:end -->
+
 ## 1. The idea: a pile of cards
 
 Imagine a pile of cards on a table. You only see the **top** card. To open a new screen, you put a new card on top. To go back, you take the top card off, and the card below shows again.

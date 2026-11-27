@@ -8,6 +8,21 @@
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 25 minutes for the cards.
 
+<!-- quick-summary:start -->
+## Quick summary
+
+> Short on time? Read only this. These are the "Remember" lines from the cards below, so you can read the whole lesson in one minute.
+
+- The old bridge passed notes. The new way, JSI, holds the real object.
+- On the old bridge every call was turned into text, queued, and answered later.
+- The bridge costs time for every byte it copies. JSI copies nothing.
+- JSI lets JavaScript and native code share objects, so calls are direct and can be synchronous.
+- JSI is the link. Fabric is the renderer. TurboModules are the native modules. Codegen makes the typed glue.
+- 0.76 made the New Architecture the default. 0.82 made it the only one.
+- The New Architecture opens doors. You still have to walk through them.
+- A synchronous call is direct, but JavaScript waits for it.
+<!-- quick-summary:end -->
+
 ## 1. The idea: passing notes, or holding the remote control
 
 Two people sit in two rooms. They speak different languages. In the **old way**, they pass **written notes** through a slot in the wall. Each note must be written, carried, and read. In the **new way**, one person **holds a remote control** of the other room. They press a button and the thing happens now.
@@ -243,7 +258,7 @@ A synchronous call makes JavaScript **wait** until native finishes. If the nativ
 | read a big file, call the network, open a database | asynchronous (a promise) |
 | process a camera frame in real time | JSI with care, on a separate thread |
 
-[Lesson 09](09-offline-storage.md) shows this in storage libraries, for example one that reads synchronously and others that use promises.
+Lesson 09 (planned) shows this in storage libraries, for example one that reads synchronously and others that use promises.
 
 </details>
 
@@ -411,5 +426,5 @@ Close this file. Explain the old bridge and JSI to a new junior, in 4 parts (pro
 
 - [How React Native works](01-how-react-native-works.md) - the render, commit and mount steps that Fabric runs.
 - [Hermes](06-hermes.md) - the engine that runs JavaScript, and the other half of "faster startup".
-- [Offline storage](09-offline-storage.md) - storage libraries that use JSI, and the difference between sync and async reads.
-- [Performance on mobile](10-performance-on-mobile.md) - how to find out whether copying was your problem at all.
+- Offline storage (planned) - storage libraries that use JSI, and the difference between sync and async reads.
+- Performance on mobile (planned) - how to find out whether copying was your problem at all.
