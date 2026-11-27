@@ -1,0 +1,12 @@
+{
+  "name": "typescript-practice",
+  "private": true,
+  "type": "module",
+  "description": "Runnable and type-checked exercises for the TypeScript lessons. Runtime tests use Node's built-in type stripping. Type tests run the real tsc.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
