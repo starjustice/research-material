@@ -19,6 +19,9 @@ graph LR
     D --> E["Data fetching"]
     C --> F["Performance"]
     F --> G["Next.js rendering"]
+    G --> H["Server and Client Components"]
+    H --> I["Caching"]
+    I --> J["Server Actions"]
 ```
 
 ## Lessons, one concept per file
@@ -54,8 +57,18 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 | 11 | Data fetching `11-data-fetching.md` | loading and error states, race conditions, React Query | planned |
 | 12 | State management choices `12-state-management-choices.md` | local, context, Redux, Zustand, server state | planned |
 | 13 | Performance `13-performance.md` | React.memo, profiling, splitting code, virtualization | planned |
-| 14 | Next.js rendering `14-next-js-rendering.md` | CSR, SSR, SSG, ISR and server components, when to pick each | planned |
+| 14 | [Next.js rendering](14-next-js-rendering.md) | how a page request works: SSR, hydration, static pages, ISR, streaming, when to pick each | ready |
 | 15 | Testing React `15-testing-react.md` | React Testing Library, what to test | planned |
+
+### Next.js on the server
+
+How Next.js 16 works on the server side. Learn in this order after lesson 14.
+
+| # | Lesson | You will understand | Status |
+|---|---|---|---|
+| 16 | [Server and Client Components](16-server-and-client-components.md) | what runs where, what `"use client"` does, what can cross the boundary | ready |
+| 17 | [Caching and revalidation](17-nextjs-caching-and-revalidation.md) | `use cache`, `cacheLife`, tags, `updateTag` vs `revalidateTag` | ready |
+| 18 | [Server Actions](18-server-actions.md) | forms that call the server, why they are public doors, what to check | ready |
 
 **To make the next lesson:** in a chat with this folder open, say `/learn react 01` to learn it live with Claude, or ask "make lesson react 01" and the `research-material` agent writes the file. When a lesson file exists, its row becomes a link and the status changes to `ready`.
 
@@ -71,6 +84,16 @@ Longer guides that cover many concepts at once. Good for revision after the less
 Open in the browser. Everything visible on one page.
 
 - [React and JS visual cheatsheet](react-js-frontend-interview-guide-cheatsheet.html)
+
+## Step-by-step pages
+
+Press Next and watch it move.
+
+- [Next.js request journey](visuals/14-request-journey.html) - one visit: shell, streaming, hydration
+
+## Practice
+
+- [Tiny cache with tags (lesson 17)](practice/17-tiny-cache.js) - run `node --test learn/react/practice/17-tiny-cache.test.js`
 
 ## Watch and play
 

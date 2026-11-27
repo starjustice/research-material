@@ -1,0 +1,68 @@
+[
+  {
+    "q": "What is a Server Action, in the simplest words?",
+    "options": [
+      "A function that runs on the server and is called from the browser",
+      "A React component that renders on the server",
+      "A background job that runs on a timer",
+      "A faster version of fetch"
+    ],
+    "answer": 0,
+    "why": "You mark an async function with 'use server'. The browser gets a reference and sends a POST. The server runs the function."
+  },
+  {
+    "type": "tf",
+    "q": "If you only show the Delete form to admins, the deletePost Server Action is safe without any checks inside it.",
+    "answer": false,
+    "why": "No. A Server Action is a public POST address. Anyone who can send the request can call it. Check the session and the owner inside the action."
+  },
+  {
+    "type": "multi",
+    "q": "Which checks belong inside every Server Action?",
+    "options": [
+      "Is the user logged in, and may they do this?",
+      "Is the input valid?",
+      "Does the return value only hold what the screen needs?",
+      "Is the button visible?"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "why": "Authenticate and authorize, validate the input, and shape the return value. Whether a button is visible is not a security check."
+  },
+  {
+    "q": "An action ends with redirect('/posts') and has updateTag('posts') on the line after it. What happens?",
+    "options": [
+      "updateTag never runs, because redirect throws",
+      "Both run in order",
+      "The build fails",
+      "updateTag runs first automatically"
+    ],
+    "answer": 0,
+    "why": "redirect works by throwing an exception, so code after it does not run. Call updateTag before redirect."
+  },
+  {
+    "q": "Which refresh tool does not re-render the page in the action's response?",
+    "options": [
+      "revalidateTag with the 'max' profile",
+      "updateTag",
+      "revalidatePath",
+      "refresh"
+    ],
+    "answer": 0,
+    "why": "revalidateTag with max serves old data first and refreshes in the background, so the page updates on a later read."
+  },
+  {
+    "q": "A form sends a userId field and the action updates that user. What is the right fix?",
+    "options": [
+      "Take the user id from the session on the server",
+      "Hide the userId input",
+      "Check the userId with a regex",
+      "Encrypt the form field"
+    ],
+    "answer": 0,
+    "why": "Who is acting comes from the session. A client can send any id it likes, so a form field cannot decide whose account changes."
+  }
+]

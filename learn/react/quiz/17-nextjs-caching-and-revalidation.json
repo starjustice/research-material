@@ -1,0 +1,66 @@
+[
+  {
+    "q": "In Next.js 16 with Cache Components, what gets cached by default?",
+    "options": [
+      "Nothing, unless you add use cache",
+      "Every fetch call",
+      "Every page for one hour",
+      "Every Server Component"
+    ],
+    "answer": 0,
+    "why": "Caching is opt in. Before Next.js 16, the App Router cached some things by default, which surprised many people."
+  },
+  {
+    "q": "What is the cache key of a function marked 'use cache'?",
+    "options": [
+      "Its arguments, and the values it uses from outside",
+      "Only the function name",
+      "The URL of the page",
+      "The cacheTag"
+    ],
+    "answer": 0,
+    "why": "getUser(1) and getUser(2) are two separate entries because the arguments are part of the key."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are true about updateTag?",
+    "options": [
+      "The next visitor waits for fresh data",
+      "It can be called from a Route Handler",
+      "It only works in a Server Action",
+      "It is meant for read your own writes"
+    ],
+    "answer": [
+      0,
+      2,
+      3
+    ],
+    "why": "updateTag expires the tag at once, so the next read waits for fresh data. It is only allowed in Server Actions. In a Route Handler, Next.js stops the build and tells you to use revalidateTag."
+  },
+  {
+    "q": "You call revalidateTag('posts', 'max'). What does the very next visitor get?",
+    "options": [
+      "The old data, and the visitor after gets new data",
+      "The new data, and they wait for it",
+      "An error, until the cache is rebuilt",
+      "Nothing is changed until the deploy"
+    ],
+    "answer": 0,
+    "why": "This is stale while revalidate. The old copy is served at once and Next.js refreshes it in the background. I saw this on Next.js 16.4.6."
+  },
+  {
+    "type": "tf",
+    "q": "You can read cookies() inside a function marked 'use cache', because the cookie is part of the cache key.",
+    "answer": false,
+    "why": "No. Next.js stops the build. Read the cookie outside and pass the value in as an argument, so it becomes part of the key."
+  },
+  {
+    "type": "fill",
+    "q": "Which function sets how long a cached result stays fresh? (just the name)",
+    "answer": [
+      "cacheLife",
+      "cacheLife()"
+    ],
+    "why": "cacheLife takes a profile name like 'hours' or a custom object with stale, revalidate and expire."
+  }
+]

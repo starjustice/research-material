@@ -36,6 +36,20 @@ This page is a short map of the long guide. The guide is big, so this page tells
 | Rendering strategies | CSR, SSR, ISR, RSC. Pick per page type, not per app. That sentence is the senior answer. |
 | "What happens when you type a URL?" (1.8) | DNS, TCP, TLS, HTTP, then DOM, layout, paint. Map each stage to TTFB, LCP, INP. See the [networking summary](../networking/must-know-summary.md). |
 
+## ★★ Next.js on the server (lessons 14, 16, 17, 18)
+
+Written 2026-11-27 and checked against the Next.js 16 docs and a real Next.js 16.4.6 build.
+
+| Topic | Say this in the interview | Common trap |
+|---|---|---|
+| How a page request works ([14](14-next-js-rendering.md)) | The server sends a static shell first. Parts that need request data stream in behind Suspense. Hydration comes last, and only then do clicks work. | Saying SSR is "just HTML from the server". Forget hydration and you lose the point. |
+| ISR ([14](14-next-js-rendering.md)) | A saved page that refreshes in the background. The visitor who triggers the rebuild still gets the old copy. | Knowing only `getStaticProps`. In Next.js 16 it is `use cache` plus `cacheLife`. |
+| Server and Client Components ([16](16-server-and-client-components.md)) | Server Components send their result, not their code. `"use client"` marks the entry to the browser side, and its imports go along. | Putting `"use client"` on a big layout. Keep it at the leaves. |
+| Props across the boundary ([16](16-server-and-client-components.md)) | Props must be serializable. Functions cannot cross, except Server Actions. A server component can sit inside a client one if you pass it as `children`. | Importing the server component into the client file. |
+| Caching in Next.js 16 ([17](17-nextjs-caching-and-revalidation.md)) | Nothing is cached unless you write `use cache`. The arguments are the key. `cacheLife` sets freshness and `cacheTag` names the data. | Reading `cookies()` inside a cached function. Read it outside and pass it in. |
+| `updateTag` vs `revalidateTag` ([17](17-nextjs-caching-and-revalidation.md)) | `updateTag` (Server Actions only) makes the next read wait for fresh data. `revalidateTag(tag, 'max')` serves old data first and refreshes in the background. | Using `revalidateTag` when the user must see their own change at once. |
+| Server Actions ([18](18-server-actions.md)) | A function marked `'use server'`, called by a POST. It is a public endpoint. Check the session, the owner and the input inside every action. | Hiding the button and calling that "security". Taking the user id from the form. |
+
 ## ★ Frontend system design
 
 | Topic | Say this in the interview |
@@ -49,14 +63,16 @@ This page is a short map of the long guide. The guide is big, so this page tells
 
 For the full frontend design round, see [system design lesson 31](../system-design/31-the-frontend-design-round.md).
 
-## The 6 questions most likely to come up
+## The 8 questions most likely to come up
 
 1. "Explain the event loop. What does this print?" (1.3)
 2. "What is a closure? What is the stale closure bug?" (1.2, 2.4)
 3. "How does React decide what to re-render? Why do keys matter?" (2.2, 2.3)
 4. "When would you use `useMemo`? What does the compiler change?" (2.10)
 5. "Redux, Context or Zustand?" Start with "is it server state?". (3.7)
-6. "Server Components: what do they give you and what do they cost?" (2.11)
+6. "Server Components: what do they give you and what do they cost?" (2.11, [lesson 16](16-server-and-client-components.md))
+7. "How does caching work in Next.js 16? How do you refresh after a change?" ([lesson 17](17-nextjs-caching-and-revalidation.md))
+8. "What are Server Actions and what are the security risks?" ([lesson 18](18-server-actions.md))
 
 ## Practice
 
@@ -67,4 +83,4 @@ For the full frontend design round, see [system design lesson 31](../system-desi
 ## Honest notes
 
 - This page compresses the guide's own TL;DR and question list. Version facts (React 19.2, Compiler 1.0, Next.js 16, INP thresholds) were written into the guide in 2025 and 2026. Check them again before an interview if they matter for the role.
-- The guide has no numbered lessons or quizzes yet, so there is no quiz for React in the browser.
+- The main guide has no numbered lessons. The Next.js lessons (14, 16, 17, 18) do have quizzes you can take in the browser.

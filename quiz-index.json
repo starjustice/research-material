@@ -608,6 +608,38 @@
   "count": 6
  },
  {
+  "slug": "learn/react/14-next-js-rendering",
+  "subject": "react",
+  "subjectTitle": "React",
+  "num": "14",
+  "title": "Next.js rendering: how a page request works",
+  "count": 6
+ },
+ {
+  "slug": "learn/react/16-server-and-client-components",
+  "subject": "react",
+  "subjectTitle": "React",
+  "num": "16",
+  "title": "Server and Client Components",
+  "count": 6
+ },
+ {
+  "slug": "learn/react/17-nextjs-caching-and-revalidation",
+  "subject": "react",
+  "subjectTitle": "React",
+  "num": "17",
+  "title": "Caching and revalidation in Next.js 16",
+  "count": 6
+ },
+ {
+  "slug": "learn/react/18-server-actions",
+  "subject": "react",
+  "subjectTitle": "React",
+  "num": "18",
+  "title": "Server Actions",
+  "count": 6
+ },
+ {
   "slug": "learn/system-design/01-the-interview-framework",
   "subject": "system-design",
   "subjectTitle": "System Design",

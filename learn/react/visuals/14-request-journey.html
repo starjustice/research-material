@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next.js Request Journey</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --browser: #3b82f6; --browser-bg: #e3eefe;
+    --server: #8b5cf6; --server-bg: #efe8fd;
+    --db: #2f9e6b; --db-bg: #dff3ea;
+    --stream: #e8890c; --stream-bg: #fdecd2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 120px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  /* what the user sees */
+  .screen { border: 2px solid var(--ink); border-radius: 10px; padding: 10px 12px; min-height: 210px; background: #fff; }
+  .screen .blank { color: var(--muted); font-style: italic; font-size: .85rem; }
+  .screen .part { border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: .85rem; border: 1px dashed var(--border); animation: pop .35s ease; }
+  .screen .part.shell { background: #eef4ff; border-color: #bcd1f7; }
+  .screen .part.fb { background: #f2f2f2; color: var(--muted); font-style: italic; }
+  .screen .part.late { background: #e9f7ef; border-color: #b9e2cc; font-weight: 700; }
+  .screen button { font: inherit; border-radius: 8px; padding: 4px 12px; border: 1px solid var(--border); background: #f4f4f4; color: #888; }
+  .screen button.live { background: var(--ink); color: #fff; border-color: var(--ink); cursor: pointer; }
+  .click { margin-top: 8px; font-size: .8rem; font-weight: 700; }
+  .click.no { color: #b42318; } .click.yes { color: var(--db); }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.browser { border-color: var(--browser); background: var(--browser-bg); } .lane.browser h3 { color: var(--browser); }
+  .lane.server { border-color: var(--server); background: var(--server-bg); } .lane.server h3 { color: var(--server); }
+  .lane.db { border-color: var(--db); background: var(--db-bg); } .lane.db h3 { color: var(--db); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+
+  .stream { grid-column: 1 / -1; }
+  .pipe { background: var(--stream-bg); border: 2px solid var(--stream); border-radius: 12px; padding: 8px 10px; min-height: 58px; }
+  .pipe h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; color: var(--stream); }
+
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--db); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: #e9f7ef; border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react/README">← React lessons</a>
+    <a href="../../../viewer.html?note=learn/react/14-next-js-rendering">Open the lesson ↗</a>
+  </div>
+  <h1>Next.js request journey</h1>
+  <p class="sub">Press Next and follow one visit to <code>/shop</code>. The page has a cached product list and a greeting that reads a cookie and waits 1.5 seconds. Watch what the user sees at each step.</p>
+
+  <div class="predict">
+    <b>Predict first.</b> At which step can the user first <i>see</i> the page, and at which step can they first <i>click</i> the button? Write two step numbers, then step to the end.<br>
+    <input id="guess" placeholder="example: 3 and 7" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What the user sees</h2>
+      <div class="screen" id="screen"></div>
+      <div class="click no" id="click"></div>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane browser" id="laneBrowser"><h3>Browser</h3><div class="items" id="browser"></div></div>
+        <div class="lane server" id="laneServer"><h3>Next.js server</h3><div class="items" id="server"></div></div>
+        <div class="lane db" id="laneDb"><h3>Database</h3><div class="items" id="db"></div></div>
+      </div>
+    </div>
+    <div class="panel stream">
+      <h2>The response, in the order it arrives</h2>
+      <div class="pipe"><h3>One connection, sent in pieces</h3><div class="items" id="pipe"></div></div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> the shell goes first, so the user sees the page early. Each Suspense box is sent when its data is ready. Hydration comes last, and only then do the clicks work.</p>
+</div>
+
+<script>
+// Each step lists what is in every lane NOW, which pieces were sent, what the screen shows, and a note.
+// This follows a real check: Next.js 16.4.6 with Cache Components, a cached list and a Suspense greeting that waits 1.5 s.
+const STEPS = [
+  { who: "browser", note: "The user types <code>/shop</code>. The browser sends <code>GET /shop</code> to the server.",
+    browser: ["GET /shop"], server: [], db: [], pipe: [],
+    screen: { shell: false, fb: false, hello: false }, live: false },
+  { who: "server", note: "The server finds the <b>static shell</b> it built earlier: the header, the cached product list, and the loading box. No database call is needed for these.",
+    browser: ["waiting"], server: ["find static shell", "cached products"], db: [], pipe: [],
+    screen: { shell: false, fb: false, hello: false }, live: false },
+  { who: "server", note: "At the same time, the server starts the <code>Greeting</code> part. It reads the cookie, which is request data, so it cannot be built early. It asks the database.",
+    browser: ["waiting"], server: ["send shell", "start Greeting", "read cookie"], db: ["query: user name"], pipe: [],
+    screen: { shell: false, fb: false, hello: false }, live: false },
+  { who: "stream", note: "<b>First piece sent.</b> The shell HTML goes out at once, with the loading box inside it. In a real test the first byte arrived after about 0.06 seconds.",
+    browser: ["receive piece 1"], server: ["Greeting still waiting"], db: ["query: user name"], pipe: ["piece 1: shell + loading box"],
+    screen: { shell: true, fb: true, hello: false }, live: false, seen: true },
+  { who: "browser", note: "The browser starts downloading the JavaScript files for the interactive parts. The user can already read the page, but the button is only a picture.",
+    browser: ["paint HTML", "download JavaScript"], server: ["Greeting still waiting"], db: ["query: user name"], pipe: ["piece 1: shell + loading box"],
+    screen: { shell: true, fb: true, hello: false }, live: false },
+  { who: "browser", note: "<b>Hydration.</b> React attaches the click handlers to the HTML. Now the button works.",
+    browser: ["hydrate", "clicks attached"], server: ["Greeting still waiting"], db: ["query: user name"], pipe: ["piece 1: shell + loading box"],
+    screen: { shell: true, fb: true, hello: false }, live: true, clicked: true },
+  { who: "db", note: "About 1.5 seconds after the start, the database answers with the name.",
+    browser: ["page is usable"], server: ["render Greeting"], db: ["answer: Sam"], pipe: ["piece 1: shell + loading box"],
+    screen: { shell: true, fb: true, hello: false }, live: true },
+  { who: "stream", note: "<b>Second piece sent.</b> The server sends the finished <code>Greeting</code> in a hidden block, plus a tiny script that moves it into the place of the loading box.",
+    browser: ["receive piece 2", "swap box for Greeting"], server: ["done"], db: [], pipe: ["piece 1: shell + loading box", "piece 2: Hello Sam + swap script"],
+    screen: { shell: true, fb: false, hello: true }, live: true },
+  { who: "browser", note: "Done. The page was readable at step 4 and usable at step 6. The slow part never blocked the fast part.",
+    browser: ["page complete"], server: [], db: [], pipe: ["piece 1: shell + loading box", "piece 2: Hello Sam + swap script"],
+    screen: { shell: true, fb: false, hello: true }, live: true, finish: true }
+];
+
+const $ = id => document.getElementById(id);
+let i = 0, timer = null;
+
+function chips(id, list) {
+  $(id).innerHTML = list.length ? list.map(t => `<span class="chip">${t}</span>`).join("") : '<span class="empty">nothing</span>';
+}
+function render() {
+  const s = STEPS[i];
+  chips("browser", s.browser); chips("server", s.server); chips("db", s.db); chips("pipe", s.pipe);
+  ["Browser","Server","Db"].forEach(n => $("lane" + n).classList.remove("active"));
+  if (s.who === "browser") $("laneBrowser").classList.add("active");
+  if (s.who === "server" || s.who === "stream") $("laneServer").classList.add("active");
+  if (s.who === "db") $("laneDb").classList.add("active");
+
+  let html = "";
+  if (!s.screen.shell && !s.screen.fb && !s.screen.hello) html = '<div class="blank">Blank page. Nothing has arrived yet.</div>';
+  else {
+    html += '<div class="part shell"><b>My Shop</b> (header, static)</div>';
+    html += '<div class="part shell">Products: shoes, hats (cached)</div>';
+    html += '<div class="part shell"><button class="' + (s.live ? "live" : "") + '">3 likes</button></div>';
+    if (s.screen.fb) html += '<div class="part fb">Loading greeting...</div>';
+    if (s.screen.hello) html += '<div class="part late">Hello, Sam</div>';
+  }
+  $("screen").innerHTML = html;
+  const c = $("click");
+  if (!s.screen.shell) { c.textContent = ""; }
+  else if (s.live) { c.textContent = "The button works now (hydrated)."; c.className = "click yes"; }
+  else { c.textContent = "The button is only a picture. Clicks do nothing yet."; c.className = "click no"; }
+
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + STEPS.length;
+  $("bar").style.width = ((i + 1) / STEPS.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === STEPS.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim();
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> the user can first <b>see</b> the page at step 4 and first <b>click</b> at step 6." +
+      (g ? " You wrote: <i>" + g.replace(/[<>&]/g, "") + "</i>." : "") +
+      " Seeing comes first, clicking comes after hydration. That gap is why shipping less JavaScript matters.";
+  } else r.className = "result";
+}
+function go(d) { i = Math.max(0, Math.min(STEPS.length - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= STEPS.length - 1) return stop(); go(1); }, 1700);
+};
+render();
+</script>
+</body>
+</html>

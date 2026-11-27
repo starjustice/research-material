@@ -1,0 +1,63 @@
+[
+  {
+    "q": "In the Next.js App Router, what is a page or layout by default?",
+    "options": [
+      "A Server Component",
+      "A Client Component",
+      "A static HTML file with no React",
+      "A Route Handler"
+    ],
+    "answer": 0,
+    "why": "Layouts and pages are Server Components by default. You opt in to the browser with \"use client\"."
+  },
+  {
+    "type": "tf",
+    "q": "Every component under a file with \"use client\" needs its own \"use client\" line.",
+    "answer": false,
+    "why": "No. The directive marks the entry to the browser side. Its imports and the components it renders directly join the client bundle automatically."
+  },
+  {
+    "q": "What does the browser receive when a Server Component runs?",
+    "options": [
+      "The result, as an RSC payload",
+      "The source code of the component",
+      "The database connection",
+      "Only an empty placeholder"
+    ],
+    "answer": 0,
+    "why": "The server runs the component and sends the finished result. The code, the query and the secrets stay on the server."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these can be passed as props from a Server Component to a Client Component?",
+    "options": [
+      "A string",
+      "A Date",
+      "A normal function like () => save()",
+      "A plain object with numbers"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Props must be serializable. Strings, dates and plain objects work. A normal function cannot be turned into plain data, so it cannot cross. Only Server Actions can."
+  },
+  {
+    "q": "A client Modal must show a cart that reads the database. How do you keep the cart on the server?",
+    "options": [
+      "Pass <Cart /> to Modal as children from a Server Component",
+      "Import Cart inside Modal.tsx",
+      "Put \"use client\" on Cart",
+      "Call the database from Modal"
+    ],
+    "answer": 0,
+    "why": "A component passed as children is rendered on the server and dropped into the slot. If Modal imports Cart, Cart joins the client bundle."
+  },
+  {
+    "type": "fill",
+    "q": "Which npm package makes the build fail if a file with secrets is imported into a Client Component? (one word with a hyphen)",
+    "answer": "server-only",
+    "why": "import 'server-only' at the top of the file turns the mistake into a build error instead of a bug in production."
+  }
+]

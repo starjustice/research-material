@@ -1,0 +1,67 @@
+[
+  {
+    "type": "tf",
+    "q": "With SSR, once the HTML has arrived and the button is on screen, the button always works right away.",
+    "answer": false,
+    "why": "No. The HTML is only a picture until the JavaScript has loaded and React has hydrated it. Early taps can do nothing."
+  },
+  {
+    "q": "In ISR, what does the visitor who triggers the background rebuild see?",
+    "options": [
+      "The old saved copy",
+      "A loading spinner until the new page is ready",
+      "An error page",
+      "The new page, because the rebuild is instant"
+    ],
+    "answer": 0,
+    "why": "ISR serves the saved copy at once and rebuilds in the background. Nobody waits for the rebuild. This is stale while revalidate."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these make a part of a Next.js 16 page dynamic, so it needs Suspense or caching?",
+    "options": [
+      "Reading cookies()",
+      "Reading searchParams",
+      "A pure calculation with no request data",
+      "An uncached database call"
+    ],
+    "answer": [
+      0,
+      1,
+      3
+    ],
+    "why": "Request data (cookies, headers, searchParams) and uncached database or API calls need request time. Pure calculations finish at build time and go into the static shell."
+  },
+  {
+    "q": "What does a <Suspense> boundary decide on a Next.js 16 page?",
+    "options": [
+      "What is in the static shell and what streams in later",
+      "Which components run in the browser",
+      "How long data stays in the cache",
+      "Which pages are built at deploy time"
+    ],
+    "answer": 0,
+    "why": "Everything outside Suspense is the shell and is sent first. The fallback sits in the shell. The content inside streams in when its data is ready."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of a first page load in order.",
+    "items": [
+      "The browser asks the server for the page",
+      "The server sends the shell HTML",
+      "The browser shows the page, but it is not clickable",
+      "The browser downloads the JavaScript",
+      "Hydration attaches the click handlers"
+    ],
+    "why": "Seeing the page comes before using it. Hydration is the last step, and only then do clicks work."
+  },
+  {
+    "type": "fill",
+    "q": "Which Next.js function lists the dynamic addresses (like /blog/[slug]) that should be built at build time?",
+    "answer": [
+      "generateStaticParams",
+      "generateStaticParams()"
+    ],
+    "why": "generateStaticParams returns the list of params to prebuild. Other params can be built on the first visit."
+  }
+]
