@@ -1,0 +1,58 @@
+[
+  {
+    "q": "On the old bridge, why were big or frequent calls slow?",
+    "options": [
+      "Every call was turned into text, queued and answered later",
+      "JavaScript was not allowed to call native code at all",
+      "The phone had no native threads",
+      "Native code could only run once at startup"
+    ],
+    "answer": 0,
+    "why": "The old bridge serialized (turned into text) and queued each call and answered it asynchronously. The cost grew with the size of the data and the number of calls."
+  },
+  {
+    "type": "tf",
+    "q": "On the old bridge you could write const value = nativeModule.getValue() and use value on the next line.",
+    "answer": false,
+    "why": "No. The answer came later, so you passed a callback. With JSI and the New Architecture, a native module can return the value at once."
+  },
+  {
+    "type": "multi",
+    "q": "Which of these are part of the New Architecture?",
+    "options": [
+      "JSI, the direct link between JavaScript and C++",
+      "Fabric, the new renderer",
+      "TurboModules, native modules loaded when needed",
+      "The JSON message queue between JavaScript and native"
+    ],
+    "answer": [0, 1, 2],
+    "why": "JSI, Fabric, TurboModules and Codegen make the New Architecture. The message queue is the old bridge, and it is gone."
+  },
+  {
+    "type": "order",
+    "q": "Put the versions in order, oldest first.",
+    "items": [
+      "0.74: Bridgeless is the default with the New Architecture",
+      "0.76: the New Architecture is on by default",
+      "0.82: the New Architecture is the only option"
+    ],
+    "why": "0.74 in April 2024, 0.76 in October 2024, 0.82 in October 2025. 0.81 and Expo SDK 54 were the last versions that allowed the old architecture."
+  },
+  {
+    "q": "A team turns on the New Architecture and sees no speed up on a heavy screen. What is the best next step?",
+    "options": [
+      "Measure to find the real slow part, because data copying may not be the problem",
+      "Switch the old bridge back on",
+      "Send bigger objects to native code",
+      "Remove Fabric"
+    ],
+    "answer": 0,
+    "why": "The docs say enabling it may not immediately improve performance. JSI only helps when copying was the bottleneck. Measure first."
+  },
+  {
+    "type": "fill",
+    "q": "Codegen reads a typed description of a module and makes the native ______. (one word: code, interfaces or types)",
+    "answer": ["interfaces", "code", "types"],
+    "why": "Codegen turns a TypeScript or Flow spec into native interfaces, so a mismatch between JavaScript and native becomes a build error."
+  }
+]

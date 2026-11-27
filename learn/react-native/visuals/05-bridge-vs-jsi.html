@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The old bridge and JSI</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react-native/README">← React Native lessons</a>
+    <a href="../../../viewer.html?note=learn/react-native/05-the-old-bridge-vs-the-new-architecture">Open the lesson ↗</a>
+  </div>
+  <h1>The old bridge and JSI</h1>
+  <p class="sub">JavaScript asks native code for something. Pick a tab, press Next, and watch the data travel.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> On the old bridge, can JavaScript get the answer from a native function on the very next line of code, yes or no?<br>
+    <input id="guess" placeholder="yes or no" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What exists right now</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Where the data is</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>JavaScript side</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>In between</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>Native side</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> The old bridge copies data into text and waits for an answer later. JSI lets JavaScript hold the native object and call it directly.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. The old bridge","steps":[{"who":0,"note":"Your code calls a native function and passes a list of products. The list is a normal JavaScript object in memory.","lanes":[["products list"],[],[]],"mem":[["Your data","an object in JavaScript"],["Queue","empty"],["Native side","knows nothing"]]},{"who":0,"note":"The bridge cannot hand over the object. It <b>turns the call into text</b> (serializes it). A big list means a lot of text, and making it costs time on the JavaScript thread.","lanes":[["products list","!make text (copy)"],[],[]],"mem":[["Your data","an object, and now a copy as text"],["Queue","empty"],["Native side","knows nothing"]]},{"who":1,"note":"The text goes into a <b>queue</b>. Calls are sent in batches, not one by one. Your code does not wait. It must use a callback or a promise to get the answer later.","lanes":[["products list","register callback"],["+text waits in queue"],[]],"mem":[["Your data","object plus text copy"],["Queue","1 message, waiting for its batch"],["Native side","knows nothing"]]},{"who":2,"note":"The batch arrives. The native side <b>reads the text</b> and builds its own copy of the list. Then it runs the function.","lanes":[[],["batch delivered"],["!read text (copy)","run function"]],"mem":[["Your data","object plus text copy"],["Queue","empty"],["Native side","its own copy of the list"]]},{"who":2,"note":"The result must also go back as text. The same work is done in the other direction.","lanes":[[],["+answer as text"],["!make text (copy)"]],"mem":[["Your data","waiting for the answer"],["Queue","1 answer message"],["Native side","its own copy, result as text"]]},{"who":0,"note":"<b>Later</b>, the answer reaches JavaScript and your callback runs. For frequent calls or big objects, this copying and waiting became a bottleneck (the React Native team's words).","lanes":[["+callback runs, later"],[],[]],"mem":[["Your data","answer received, later"],["Queue","empty"],["Native side","done"]],"finish":true}]},{"name":"2. JSI","steps":[{"who":0,"note":"With JSI, JavaScript can <b>hold a reference to a native C++ object</b>. It is like holding the remote control of the real thing.","lanes":[["+hold the native object"],[],["native C++ object"]],"mem":[["Your data","an object in JavaScript"],["Link","a direct reference"],["Native side","the real object"]]},{"who":0,"note":"JavaScript calls a method on that object. <b>No text is made.</b> No queue is used.","lanes":[["call method"],["direct call"],["native C++ object"]],"mem":[["Your data","the same memory can be used"],["Link","direct call, no queue"],["Native side","the real object"]]},{"who":2,"note":"The native function runs at once and can <b>return its value right away</b>. The React Native team says a native module can now call a function and return a value synchronously.","lanes":[[],[],["run function","+return value"]],"mem":[["Your data","no copy made"],["Link","direct call, no queue"],["Native side","result ready"]]},{"who":0,"note":"The value is back on the very next line. A camera library can use this to handle big frames in real time, without turning them into text.","lanes":[["+value on next line"],[],[]],"mem":[["Your data","no copy made"],["Link","direct call, no queue"],["Native side","done"]],"finish":true}]},{"name":"3. What changed","steps":[{"who":1,"note":"<b>JSI</b> is the base of everything new. JavaScript and native code can hold each other's objects and call each other directly.","lanes":[["JavaScript"],["+JSI"],["Native"]],"mem":[["The base","JSI"],["Old way","bridge removed"],["Since","0.82: only the New Architecture"]]},{"who":1,"note":"<b>Fabric</b> is the new renderer. It uses JSI to share the shadow tree between JavaScript and native, so layout can be read at once. This is what lesson 01 drew.","lanes":[["React"],["+Fabric renderer in C++"],["native views"]],"mem":[["The base","JSI"],["Renderer","Fabric"],["Gives","synchronous layout, concurrent React features"]]},{"who":1,"note":"<b>TurboModules</b> are the new native modules. They load <b>lazily</b>, only when your code first needs them. This helps startup time.","lanes":[["asks for a module"],["+load it now"],["module starts"]],"mem":[["The base","JSI"],["Native modules","TurboModules, loaded when needed"],["Gives","faster startup, direct calls"]]},{"who":1,"note":"<b>Codegen</b> reads a typed description (TypeScript or Flow) of a module and makes the native interfaces. A mismatch between JavaScript and native becomes a build error, not a crash.","lanes":[["typed spec"],["+Codegen"],["generated interfaces"]],"mem":[["The base","JSI"],["Typed contract","Codegen"],["Gives","type safety across the boundary"]]},{"who":1,"note":"Old libraries kept working through an <b>interop layer</b> for a while. From React Native 0.82 the app runs only on the New Architecture. Libraries must support it.","lanes":[["old library"],["interop layer (0.76 to 0.81)"],["+0.82: New Architecture only"]],"mem":[["Default on","0.76"],["Only option","0.82"],["Last with legacy","0.81 and Expo SDK 54"]],"finish":true}]}];
+const ANSWER = "no. On the old bridge the call was queued and the answer came back later, through a callback or a promise. With JSI a native function can return its value at once, in the same line.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>
