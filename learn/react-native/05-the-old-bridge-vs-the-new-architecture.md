@@ -258,7 +258,7 @@ A synchronous call makes JavaScript **wait** until native finishes. If the nativ
 | read a big file, call the network, open a database | asynchronous (a promise) |
 | process a camera frame in real time | JSI with care, on a separate thread |
 
-Lesson 09 (planned) shows this in storage libraries, for example one that reads synchronously and others that use promises.
+[Lesson 09](09-offline-storage.md) shows this in storage libraries, for example one that reads synchronously and others that use promises.
 
 </details>
 
@@ -426,5 +426,5 @@ Close this file. Explain the old bridge and JSI to a new junior, in 4 parts (pro
 
 - [How React Native works](01-how-react-native-works.md) - the render, commit and mount steps that Fabric runs.
 - [Hermes](06-hermes.md) - the engine that runs JavaScript, and the other half of "faster startup".
-- Offline storage (planned) - storage libraries that use JSI, and the difference between sync and async reads.
-- Performance on mobile (planned) - how to find out whether copying was your problem at all.
+- [Offline storage](09-offline-storage.md) - storage libraries that use JSI, and the difference between sync and async reads.
+- [Performance on mobile](10-performance-on-mobile.md) - how to find out whether copying was your problem at all.

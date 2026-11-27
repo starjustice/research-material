@@ -4,7 +4,7 @@
 >
 > **You will be able to:** say what Expo is, what "bare" means, why Expo Go is not for real apps, and pick one for a project with the tradeoffs.
 >
-> **Before this:** [Hermes](06-hermes.md) · **Next:** Over the air updates (planned)
+> **Before this:** [Hermes](06-hermes.md) · **Next:** [Over the air updates](08-over-the-air-updates.md)
 >
 > **How to read it:** one card is one idea. Look at the picture, guess, then press the orange bar to check. The blue bars (📖 More detail) hold the longer explanation. Skip them on the first read, open them when you want more. About 20 minutes for the cards.
 
@@ -401,7 +401,7 @@ Close this file. Explain Expo vs bare to a new junior, in 4 parts (problem, how,
 - **Checked on 2026-11-27** against the React Native Getting Started page and these Expo docs pages: Develop an app with Expo, Continuous Native Generation, development builds, Config plugins, Existing React Native apps, and the glossary.
 - The Expo docs say the "managed" and "bare" workflows are **deprecated** and all projects use CNG. The glossary still describes "bare workflow" as native projects kept in git and maintained by hand, typical for existing React Native apps.
 - The Expo docs say Expo Go "can load arbitrary React Native projects only if they include JavaScript fallbacks".
-- **Expo Update** and the older word "eject" are not covered here. Over the air updates are in lesson 08 (planned).
+- **Expo Update** and the older word "eject" are not covered here. Over the air updates are in [lesson 08](08-over-the-air-updates.md).
 - Not checked here: how long a given Expo SDK is supported, and the price of Expo Services plans. Look at the Expo pages before you quote them.
 - Today's versions: React Native 0.88 (released 2026-10-19) and Expo SDK 58.
 
@@ -410,6 +410,6 @@ Close this file. Explain Expo vs bare to a new junior, in 4 parts (problem, how,
 ## Connected lessons
 
 - [Hermes](06-hermes.md) - the engine that comes with every React Native and Expo app.
-- Over the air updates (planned) - what you can change without a new store release, and how Expo Update fits.
+- [Over the air updates](08-over-the-air-updates.md) - what you can change without a new store release, and how Expo Update fits.
 - [Navigation](03-navigation.md) - Expo Router is the file based option.
 - [How React Native works](01-how-react-native-works.md) - the JavaScript part and the native part.

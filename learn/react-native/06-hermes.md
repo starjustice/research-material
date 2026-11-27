@@ -375,7 +375,7 @@ Close this file. Explain Hermes to a new junior, in 4 parts (problem, how, trade
 - **Hermes V1 and the JIT:** the 0.82 post says Hermes V1 does not yet have JIT compile or the native compile once called "Static Hermes".
 - **Expo:** the Expo docs say `TextDecoder` is provided by Hermes starting with SDK 58 and React Native 0.88.
 - **JavaScriptCore** is the older engine. The docs point to a community repository to opt out of Hermes.
-- Not covered here: the Hermes debugger, the Hermes profiler, and the sampling profile. They fit lesson 10 (planned).
+- Not covered here: the Hermes debugger, the Hermes profiler, and the sampling profile. They fit [lesson 10](10-performance-on-mobile.md).
 
 </details>
 
@@ -383,5 +383,5 @@ Close this file. Explain Hermes to a new junior, in 4 parts (problem, how, trade
 
 - [The old bridge vs the new architecture](05-the-old-bridge-vs-the-new-architecture.md) - how JavaScript talks to the native side. Hermes is the engine that runs the JavaScript side.
 - [Expo vs bare](07-expo-vs-bare.md) - Expo builds use Hermes as well, and the Expo SDK follows a React Native version.
-- Performance on mobile (planned) - what to do after start up, when the JavaScript thread is the problem.
+- [Performance on mobile](10-performance-on-mobile.md) - what to do after start up, when the JavaScript thread is the problem.
 - [How React Native works](01-how-react-native-works.md) - the JavaScript thread that Hermes runs on.

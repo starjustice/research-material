@@ -51,9 +51,9 @@ Status: `planned` (not written yet), `ready` (written, not studied), `learning`,
 
 | # | Lesson | You will understand | Status |
 |---|---|---|---|
-| 08 | Over the air updates `08-over-the-air-updates.md` | what OTA can and cannot change | planned |
-| 09 | Offline storage `09-offline-storage.md` | AsyncStorage, MMKV, SQLite | planned |
-| 10 | Performance on mobile `10-performance-on-mobile.md` | re-renders, images, animations on the UI thread | planned |
+| 08 | [Over the air updates](08-over-the-air-updates.md) | what OTA can and cannot change, runtime versions, channels, rollbacks | ready |
+| 09 | [Offline storage](09-offline-storage.md) | AsyncStorage, MMKV, SQLite, SecureStore, versions and the offline outbox | ready |
+| 10 | [Performance on mobile](10-performance-on-mobile.md) | JS and UI frame rates, re-renders and memo, images, animations on the UI thread | ready |
 
 ### Coding refresh: what interviews make you build
 
@@ -124,6 +124,8 @@ Open in the browser. Everything visible on one page.
 - [Navigation stack stepper](visuals/03-navigation-stack.html) - lesson 03: push, go back and params on a stack.
 - [List window stepper](visuals/04-list-window.html) - lesson 04: ScrollView against FlatList, and which rows exist as you scroll.
 - [Old bridge vs JSI stepper](visuals/05-bridge-vs-jsi.html) - lesson 05: the same call made the old way and the new way.
+- [OTA update stepper](visuals/08-ota-launch.html) - lesson 08: an update reaching a build, and a build it must not reach.
+- [Frame budget stepper](visuals/10-frame-budget.html) - lesson 10: what a busy JavaScript thread does to animations and scrolling.
 - [Flexbox playground](visuals/11-flexbox-playground.html) - change `flexDirection`, `justifyContent` and the rest, and watch the boxes. Starts with the React Native defaults.
 - [Animated value lab](visuals/14-animated-lab.html) - drag the value, change the easing, compare `extend` and `clamp`.
 

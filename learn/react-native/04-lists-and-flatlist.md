@@ -412,4 +412,4 @@ Close this file. Explain `ScrollView` and `FlatList` to a new junior, in 4 parts
 
 - [How React Native works](01-how-react-native-works.md) - mounting, and why JavaScript time matters.
 - [Navigation](03-navigation.md) - a list row usually opens a screen with params.
-- Performance on mobile (planned) - `memo`, images, and finding the slow part.
+- [Performance on mobile](10-performance-on-mobile.md) - `memo`, images, and finding the slow part.

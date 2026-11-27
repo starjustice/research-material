@@ -1,0 +1,60 @@
+[
+  {
+    "q": "Which of these can an over the air update change?",
+    "options": [
+      "The text and layout of a screen written in JavaScript",
+      "A native library that the app uses",
+      "The camera permission of the app",
+      "The Expo SDK version"
+    ],
+    "answer": 0,
+    "why": "An update swaps the JavaScript layer: code, text, styles and images. Native code, permissions and the SDK version need a new build and a store release."
+  },
+  {
+    "type": "multi",
+    "q": "Which labels must match for a build to take an update?",
+    "options": [
+      "The platform",
+      "The runtime version",
+      "The color of the app icon",
+      "The branch that the build's channel is linked to"
+    ],
+    "answer": [0, 1, 3],
+    "why": "The platform and the runtime version must match exactly, and the update must be on the branch that the build's channel points to. The icon has nothing to do with it."
+  },
+  {
+    "type": "tf",
+    "q": "A build with runtime version 1.0.0 will receive an update that has runtime version 2.0.0.",
+    "answer": false,
+    "why": "No. The runtime versions must match exactly. The update is not sent, so the old build keeps running what it has and does not crash."
+  },
+  {
+    "type": "order",
+    "q": "Put these steps of a normal update in order.",
+    "items": [
+      "You publish the update to a branch",
+      "The user opens the app and it asks the server for an update",
+      "The server checks the platform and the runtime version",
+      "The phone downloads the manifest, then the missing assets",
+      "The new update runs on that launch or the next one"
+    ],
+    "why": "The app asks. By default it checks when it opens. The download has two parts, and the update runs at once only if it arrives fast enough, otherwise on the next launch."
+  },
+  {
+    "q": "A team adds a native library, forgets to change a hand written runtime version, and publishes an update. What happens?",
+    "options": [
+      "Old builds take the update, and the app can crash because the native part is missing",
+      "The server refuses the update because it uses a native library",
+      "Nothing, because updates can add native code",
+      "Users get the update after a store review"
+    ],
+    "answer": 0,
+    "why": "The labels still match, so old builds take it. Its JavaScript calls native code that is not in the old app. Change the runtime version when native code changes, or use the fingerprint policy."
+  },
+  {
+    "type": "fill",
+    "q": "What is the name of the runtime version policy that works out the runtime version from a hash of your native parts? (one word)",
+    "answer": ["fingerprint", "Fingerprint"],
+    "why": "The fingerprint policy hashes your project's native parts, so adding a native library or upgrading the SDK changes the runtime version for you."
+  }
+]

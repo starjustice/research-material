@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The frame budget: who draws while JavaScript is busy?</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react-native/README">← React Native lessons</a>
+    <a href="../../../viewer.html?note=learn/react-native/10-performance-on-mobile">Open the lesson ↗</a>
+  </div>
+  <h1>The frame budget: who draws while JavaScript is busy?</h1>
+  <p class="sub">A phone draws about 60 frames each second, so one frame has about 16 ms. In every tab a 100 ms job blocks the JavaScript thread. Press Next and see what the user sees. The 100 ms is an example, not a measurement.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> A 100 ms job blocks the JavaScript thread. Which of these still moves smoothly? (a) a box moved by <code>setState</code> on every frame, (b) a box moved with <code>useNativeDriver: true</code>, (c) dragging a <code>ScrollView</code>.<br>
+    <input id="guess" placeholder="for example: a, b, c" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>The frame budget</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>JavaScript thread</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>UI thread</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>What the user sees</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> Work that needs JavaScript on every frame stutters when JavaScript is busy. Work that the UI thread can do alone keeps going. Move animations to the UI thread and keep the JavaScript thread free.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. Animation with setState","steps":[{"who":0,"note":"A box moves because <code>setState</code> runs on every frame. Each frame needs the <b>JavaScript thread</b> to work out the new place, and it must finish inside about 16 ms.","lanes":[["timer tick","setState(x = 10)","render and commit"],["waiting for a new place"],["box at x = 10"]],"mem":[["Frame budget","about 16 ms"],["JS needed each frame?","yes"],["Frames drawn on time","1"]]},{"who":0,"note":"Frame 2 is on time. The box moves again. At 60 frames each second this looks smooth.","lanes":[["timer tick","setState(x = 20)","render and commit"],["draw frame"],["box at x = 20"]],"mem":[["Frame budget","about 16 ms"],["JS needed each frame?","yes"],["Frames drawn on time","2"]]},{"who":0,"note":"Now a <b>100 ms job</b> starts on the JavaScript thread, for example reading a very big answer from the server. The timer tick has to wait behind it.","lanes":[["!big job (100 ms)","tick is waiting"],["no new place to draw"],["box at x = 20"]],"mem":[["Frame budget","about 16 ms"],["The job","100 ms"],["Frames drawn on time","2"]]},{"who":1,"note":"The UI thread is free, but it has nothing new to draw. It draws the <b>old place again</b>. About 6 frames pass (100 divided by 16). The user sees the box freeze.","lanes":[["!still in the big job"],["draw the old place again"],["!box frozen at x = 20"]],"mem":[["Frames missed","about 6 (100 / 16)"],["Frames drawn on time","2"]]},{"who":0,"note":"The job ends. The waiting tick runs and the box <b>jumps</b> to its new place. The user saw a stutter.","lanes":[["+job done","setState(x = 90)"],["draw frame"],["!box jumps to x = 90"]],"mem":[["Frames missed","about 6"],["Result","stutter and a jump"]],"finish":true}]},{"name":"2. Native driver","steps":[{"who":0,"note":"The animation starts. With <code>useNativeDriver: true</code>, JavaScript sends the whole <b>recipe once</b>: move 200 points in 500 ms, with this easing.","lanes":[["Animated.timing start","send the recipe once"],["get the recipe"],["box at x = 0"]],"mem":[["JS needed each frame?","no"],["Recipe","200 points, 500 ms"]]},{"who":1,"note":"From now on the <b>UI thread</b> works out each frame by itself. The JavaScript thread is not needed.","lanes":[["free"],["+work out x each frame"],["box at x = 40"]],"mem":[["JS needed each frame?","no"],["Frames drawn on time","3"]]},{"who":0,"note":"The same <b>100 ms job</b> blocks the JavaScript thread.","lanes":[["!big job (100 ms)"],["+keep working out x"],["box at x = 100"]],"mem":[["The job","100 ms"],["Frames drawn on time","all of them"]]},{"who":1,"note":"The user sees a smooth animation. The UI thread did not need JavaScript. The docs say that without the native driver, <code>Animated</code> works out each frame in JavaScript.","lanes":[["!still in the big job"],["+draw every frame"],["+box moves smoothly"]],"mem":[["Frames missed","0"],["Result","smooth"]],"finish":true}]},{"name":"3. Scrolling","steps":[{"who":2,"note":"A <code>ScrollView</code> is on screen. The user drags it with a finger. The scroll is handled by the <b>UI thread</b>.","lanes":[["free"],["+scroll with the finger"],["list moves"]],"mem":[["Needs JavaScript to scroll?","no"],["Frames drawn on time","all of them"]]},{"who":0,"note":"The 100 ms job blocks the JavaScript thread.","lanes":[["!big job (100 ms)"],["+keep scrolling"],["list moves"]],"mem":[["The job","100 ms"],["Frames drawn on time","all of them"]]},{"who":1,"note":"The list <b>keeps scrolling</b>. The scroll events are sent to JavaScript, but JavaScript does not need to receive them for the scroll to happen.","lanes":[["!still in the big job","scroll events wait"],["+draw every frame"],["+list scrolls smoothly"]],"mem":[["Frames missed","0"]]},{"who":2,"note":"Now the user <b>taps a button</b>. The tap must reach JavaScript, and JavaScript is busy, so the button reacts late. The tap waits in line.","lanes":[["!big job (100 ms)","!tap is waiting"],["finger touches the button"],["!button does not react yet"]],"mem":[["Tap handled by","JavaScript thread"],["Result","scroll is fine, tap is late"]],"finish":true}]}];
+const ANSWER = "(b) and (c). The native driver and the <code>ScrollView</code> run on the UI thread, so they keep going. Taps still wait, because a tap must reach JavaScript. The <code>setState</code> box (a) stops until the job ends.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>

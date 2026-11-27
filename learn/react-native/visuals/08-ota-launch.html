@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>An update travels to a phone</title>
+<style>
+  :root {
+    --bg: #faf6ee; --card: #fff; --ink: #1e3a4c; --muted: #6b7a86; --border: #e6dfd2;
+    --accent: #f5c542; --radius: 14px;
+    --c0: #3b82f6; --c0bg: #e3eefe;
+    --c1: #8b5cf6; --c1bg: #efe8fd;
+    --c2: #2f9e6b; --c2bg: #dff3ea;
+    --bad: #b42318; --badbg: #fdecea; --good: #1b6b45; --goodbg: #e9f7ef;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 14px 16px 60px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h1 { font-size: 1.35rem; margin: 6px 0 2px; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 12px; }
+  .predict { background: #fff8e1; border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; }
+  .predict input { font: inherit; padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px; width: 220px; max-width: 100%; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .grid > * { min-width: 0; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .panel h2 { font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .lane { border-radius: 12px; padding: 8px 10px 10px; border: 2px solid; min-height: 62px; }
+  .lane h3 { font-size: .74rem; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
+  .lane.l0 { border-color: var(--c0); background: var(--c0bg); } .lane.l0 h3 { color: var(--c0); }
+  .lane.l1 { border-color: var(--c1); background: var(--c1bg); } .lane.l1 h3 { color: var(--c1); }
+  .lane.l2 { border-color: var(--c2); background: var(--c2bg); } .lane.l2 h3 { color: var(--c2); }
+  .lane.active { box-shadow: 0 0 0 4px rgba(245,197,66,.55); }
+  .items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 8px; padding: 4px 9px; font-size: .76rem; font-weight: 650; border: 1px solid rgba(0,0,0,.12); animation: pop .35s ease; }
+  .chip.bad { background: var(--badbg); color: var(--bad); border-color: #f0b4ae; }
+  .chip.good { background: var(--goodbg); color: var(--good); border-color: #b9e2cc; }
+  .empty { color: var(--muted); font-size: .76rem; font-style: italic; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  table.mem { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.mem td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  table.mem tr:first-child td { border-top: 0; }
+  table.mem td:first-child { font-weight: 700; width: 42%; }
+  table.mem tr { animation: pop .35s ease; }
+  .bad { color: var(--bad); } .good { color: var(--good); }
+  .note { margin-top: 12px; background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--accent);
+    border-radius: var(--radius); padding: 14px 16px; font-size: 1.02rem; min-height: 78px; }
+  .note code { background: #efe9db; border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .controls button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 10px; padding: 9px 18px; font-size: .95rem; font-weight: 650; }
+  .controls button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .controls button:disabled { opacity: .4; cursor: default; }
+  .count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c2); width: 0; transition: width .2s; }
+  .result { margin-top: 12px; background: var(--goodbg); border: 1px solid #b9e2cc; border-radius: var(--radius); padding: 12px 16px; display: none; }
+  .result.show { display: block; }
+  .legend { margin-top: 18px; font-size: .84rem; color: var(--muted); }
+  .legend b { color: var(--ink); }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; font-size: .85rem; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+</style>
+<link rel="stylesheet" href="../../../calm.css">
+</head>
+<body class="calm page-step">
+<div class="wrap">
+  <div class="top">
+    <a href="../../../viewer.html?note=learn/react-native/README">← React Native lessons</a>
+    <a href="../../../viewer.html?note=learn/react-native/08-over-the-air-updates">Open the lesson ↗</a>
+  </div>
+  <h1>An update travels to a phone</h1>
+  <p class="sub">Press Next and follow one update. Pick a tab: a normal launch, an update that does not fit the build, and a bad update.</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="predict">
+    <b>Predict first.</b> A user has your app on their phone, closed. You publish an update that fixes a typo. When do they see the fix: right away, or later?<br>
+    <input id="guess" placeholder="right away or later" autocomplete="off">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>What exists right now</h2>
+      <table class="mem"><tbody id="mem"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Who is working</h2>
+      <div class="lanes">
+        <div class="lane l0" id="lane0"><h3>The phone (the app)</h3><div class="items" id="chips0"></div></div>
+        <div class="lane l1" id="lane1"><h3>Update server (branch and channel)</h3><div class="items" id="chips1"></div></div>
+        <div class="lane l2" id="lane2"><h3>You (your computer)</h3><div class="items" id="chips2"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="controls">
+    <button id="back1">← Back</button>
+    <button id="next1" class="primary">Next →</button>
+    <button id="play">▶ Auto</button>
+    <button id="reset">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="legend"><b>The rule to remember:</b> An update can only change the JavaScript layer. It must match the build's runtime version, and the phone fetches it when the app checks.</p>
+</div>
+
+<script>
+const MODES = [{"name":"1. A normal launch","steps":[{"who":2,"note":"You fix the typo and run <code>eas update --channel production</code>. This makes a bundle and uploads it to the server as a new update on a <b>branch</b>. The branch holds a list of updates. The newest one is the active one.","lanes":[[],["+update u2 uploaded","branch production: u1, u2"],["eas update","bundle made"]],"mem":[["Build on the phone","ios, runtime 1.0.0, channel production"],["Newest update on the branch","u2 (runtime 1.0.0, ios)"],["Phone runs","u1 (the update inside the build)"]]},{"who":0,"note":"Later the user opens the app. The phone starts with the update it already has, <b>u1</b>. The update library is part of the build, so it can ask the server: is there a newer update?","lanes":[["start with u1","ask the server"],[],[]],"mem":[["Build on the phone","ios, runtime 1.0.0, channel production"],["Newest update on the branch","u2"],["Phone runs","u1"]]},{"who":1,"note":"The server checks three things. The <b>platform</b> must match. The <b>runtime version</b> must match. The build's <b>channel</b> points to a branch, and the newest update on that branch is the candidate.","lanes":[[],["platform ios: match","runtime 1.0.0: match","channel production to branch production","+send manifest of u2"],[]],"mem":[["Build on the phone","ios, runtime 1.0.0, channel production"],["Newest update on the branch","u2 fits this build"],["Phone runs","u1"]]},{"who":0,"note":"The phone downloads in two parts. First the <b>manifest</b> (a list of what u2 needs). Then only the <b>assets it does not have yet</b>, such as the new JavaScript bundle.","lanes":[["get manifest","get new JS bundle","skip images it already has"],["send files"],[]],"mem":[["Build on the phone","ios, runtime 1.0.0, channel production"],["Newest update on the branch","u2"],["Phone runs","u1, u2 is downloading"]]},{"who":0,"note":"<b>When does the user see u2?</b> If everything arrived before the time limit (<code>fallbackToCacheTimeout</code>), u2 runs at once. If not, the download goes on in the background and u2 runs on the <b>next launch</b>. The user never reinstalls the app.","lanes":[["+u2 runs now, if it was fast","or u2 runs on the next launch"],[],[]],"mem":[["Build on the phone","ios, runtime 1.0.0, channel production"],["Newest update on the branch","u2"],["Phone runs","u2 now, or u2 next launch"]],"finish":true}]},{"name":"2. Does not fit the build","steps":[{"who":2,"note":"Your new feature needs a <b>new native library</b>. You publish an update that uses it. Its runtime version is <b>2.0.0</b> because the native layer changed.","lanes":[[],["+update u3 (runtime 2.0.0)"],["add native library","eas update"]],"mem":[["Old build on phones","ios, runtime 1.0.0, channel production"],["Update u3 needs","runtime 2.0.0"],["Phone runs","u2"]]},{"who":1,"note":"An old phone asks for an update. The server compares the runtime versions: the build says 1.0.0, the update says 2.0.0. They must match <b>exactly</b>, so the update is <b>not sent</b>.","lanes":[[],["runtime 1.0.0 against 2.0.0","!no match, not sent"],[]],"mem":[["Old build on phones","runtime 1.0.0"],["Update u3 needs","runtime 2.0.0"],["Phone runs","u2"]]},{"who":0,"note":"Nothing breaks. The old build keeps running its current update. This check is what stops new JavaScript from calling a native library that is not in the old app.","lanes":[["+keeps running u2"],[],[]],"mem":[["Old build on phones","runtime 1.0.0"],["Update u3 needs","runtime 2.0.0"],["Phone runs","u2, no crash"]]},{"who":2,"note":"To reach those users you must make a <b>new build</b> with runtime 2.0.0 and send it through the app stores, with their review. An update cannot add native code.","lanes":[[],[],["eas build","submit to the stores"]],"mem":[["New build","runtime 2.0.0"],["Update u3 needs","runtime 2.0.0"],["Old builds","still runtime 1.0.0"]]},{"who":1,"note":"Users install the new build. Now the runtime versions match, and the build gets u3. <b>Native changes need a new build. JavaScript changes can go as an update.</b>","lanes":[["+new build installed"],["runtime 2.0.0 matches","+send u3"],[]],"mem":[["New build","runtime 2.0.0"],["Update u3 needs","runtime 2.0.0"],["Phone runs","u3"]],"finish":true}]},{"name":"3. A bad update","steps":[{"who":2,"note":"You publish update <b>u4</b>. It has a bug that crashes the checkout screen. Phones pick it up as they open the app.","lanes":[["!u4 crashes checkout"],["branch production: u1, u2, u3, u4"],["eas update"]],"mem":[["Newest update on the branch","u4 (bad)"],["Last good update","u3"],["Phones","getting u4"]]},{"who":2,"note":"You see the crash reports. You start a rollback: <code>eas update:rollback</code>. The docs offer two kinds: go back to an earlier published update, or go back to the update inside the build.","lanes":[[],[],["eas update:rollback","choose: back to u3"]],"mem":[["Newest update on the branch","u4 (bad)"],["Last good update","u3"],["Phones","getting u4"]]},{"who":1,"note":"The server does not delete u4. It <b>publishes a copy of u3 on top</b>, like a new commit that reverts an old one. The history stays, and the newest update is the good one.","lanes":[[],["branch production: u1, u2, u3, u4","+u5 = copy of u3, newest"],[]],"mem":[["Newest update on the branch","u5 (copy of u3)"],["History","u4 is still listed"],["Phones","not changed yet"]]},{"who":0,"note":"Phones fix themselves <b>when they next check</b>, which is when the app opens. People who never open the app stay on u4 until they do. This is why you roll out to a small group first.","lanes":[["open app","ask the server"],["send u5"],[]],"mem":[["Newest update on the branch","u5"],["Phones that opened the app","now run u5"],["Phones not opened yet","still u4"]]},{"who":0,"note":"The bug is gone for everyone who opened the app. <b>An update fixes things fast, but never at once.</b> A percentage rollout, such as 10% first, would have limited the damage.","lanes":[["+u5 runs"],[],[]],"mem":[["Newest update on the branch","u5"],["Phones that opened the app","u5"],["Next time","publish with --rollout-percentage"]],"finish":true}]}];
+const ANSWER = "later. Nothing is pushed to the phone. By default the app asks for updates when it opens. If the new update downloads fast enough, it runs at once on that launch. If not, it downloads in the background and runs on the next launch. Either way the user does not reinstall the app.";
+const NL = 3;
+const $ = id => document.getElementById(id);
+let m = 0, i = 0, timer = null;
+function chips(k, list) {
+  $("chips" + k).innerHTML = list && list.length
+    ? list.map(t => { const bad = t.startsWith("!"), good = t.startsWith("+"); return '<span class="chip ' + (bad ? "bad" : good ? "good" : "") + '">' + (bad || good ? t.slice(1) : t) + "</span>"; }).join("")
+    : '<span class="empty">nothing</span>';
+}
+function tabs() {
+  $("tabs").innerHTML = MODES.map((x, k) => '<button class="' + (k === m ? "on" : "") + '" data-k="' + k + '">' + x.name + "</button>").join("");
+  $("tabs").querySelectorAll("button").forEach(b => b.onclick = () => { stop(); m = +b.dataset.k; i = 0; tabs(); render(); });
+  if (MODES.length < 2) $("tabs").style.display = "none";
+}
+function render() {
+  const steps = MODES[m].steps, s = steps[i];
+  for (let k = 0; k < NL; k++) { chips(k, s.lanes[k]); $("lane" + k).classList.toggle("active", s.who === k); }
+  $("mem").innerHTML = (s.mem || []).map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join("");
+  $("note").innerHTML = s.note;
+  $("count").textContent = "Step " + (i + 1) + " of " + steps.length;
+  $("bar").style.width = ((i + 1) / steps.length * 100) + "%";
+  $("back1").disabled = i === 0;
+  $("next1").disabled = i === steps.length - 1;
+  const r = $("result");
+  if (s.finish) {
+    const g = $("guess").value.trim().replace(/[<>&]/g, "");
+    r.className = "result show";
+    r.innerHTML = "<b>Answer:</b> " + ANSWER + (g ? " You wrote: <i>" + g + "</i>." : "");
+  } else r.className = "result";
+}
+function go(d) { const n = MODES[m].steps.length; i = Math.max(0, Math.min(n - 1, i + d)); render(); }
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ Auto"; } }
+$("next1").onclick = () => { stop(); go(1); };
+$("back1").onclick = () => { stop(); go(-1); };
+$("reset").onclick = () => { stop(); i = 0; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  $("play").textContent = "⏸ Pause";
+  timer = setInterval(() => { if (i >= MODES[m].steps.length - 1) return stop(); go(1); }, 1900);
+};
+tabs(); render();
+</script>
+</body>
+</html>

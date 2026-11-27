@@ -1,0 +1,59 @@
+[
+  {
+    "q": "Where should a login token be saved on the phone?",
+    "options": [
+      "In a secure store (SecureStore, Keychain or Keystore)",
+      "In AsyncStorage, because it is easy",
+      "In plain MMKV with no encryption key",
+      "In the app code, as a constant"
+    ],
+    "answer": 0,
+    "why": "The React Native security guide says Async Storage is unencrypted and lists token storage as a thing not to do with it. Keychain on iPhone and an encrypted store on Android are made for secrets."
+  },
+  {
+    "type": "multi",
+    "q": "Which statements about AsyncStorage and MMKV are true?",
+    "options": [
+      "AsyncStorage calls are async, so you await them",
+      "MMKV calls are synchronous through JSI",
+      "MMKV encrypts everything by default",
+      "AsyncStorage is encrypted by default"
+    ],
+    "answer": [0, 1],
+    "why": "AsyncStorage is asynchronous and unencrypted. MMKV is synchronous, and by default it keeps plain text. It encrypts only if you give it an encryption key."
+  },
+  {
+    "type": "tf",
+    "q": "In an outbox, you should remove an item from the saved queue before you send it, so it is not sent twice.",
+    "answer": false,
+    "why": "No. Send first and remove the item only after the server said ok. If you remove it first and the call fails, the data is lost."
+  },
+  {
+    "type": "order",
+    "q": "Put the offline first steps in order.",
+    "items": [
+      "The user acts and the app saves it on the phone",
+      "The app shows the result at once",
+      "Later, when online, the app sends the first item from the outbox",
+      "The server says ok and the app removes that item from the outbox"
+    ],
+    "why": "Save locally first, show it, send later, and remove an item only after the server confirms it."
+  },
+  {
+    "q": "The saved data says version 5, but the running code only knows version 3. What should a safe store do?",
+    "options": [
+      "Return the fallback value and do not crash",
+      "Run the version 3 code on it anyway",
+      "Delete the app",
+      "Run migrations backwards"
+    ],
+    "answer": 0,
+    "why": "Data from a newer version can have a shape the code does not understand. Use a default value. Migrations only move data forward, one step at a time."
+  },
+  {
+    "type": "fill",
+    "q": "To keep the order of 5,000 products searchable by price on the phone, you would use a ______ database. (one word)",
+    "answer": ["SQLite", "sqlite", "SQLITE"],
+    "why": "SQLite can filter and sort inside the database with a query such as SELECT * FROM products WHERE price < 50, instead of loading everything into JavaScript."
+  }
+]

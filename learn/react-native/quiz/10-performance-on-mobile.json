@@ -1,0 +1,59 @@
+[
+  {
+    "q": "At 60 frames each second, about how long does one frame have to be ready?",
+    "options": [
+      "About 16 ms",
+      "About 100 ms",
+      "About 1 ms",
+      "About 1 second"
+    ],
+    "answer": 0,
+    "why": "One second is 1000 ms. 1000 divided by 60 is about 16.7. If the work is not ready in time, the screen shows the old frame again, and the user sees a stutter."
+  },
+  {
+    "type": "multi",
+    "q": "A 100 ms job blocks the JavaScript thread. Which of these still run smoothly?",
+    "options": [
+      "Dragging a ScrollView",
+      "An animation with useNativeDriver: true",
+      "An animation moved by setState on every frame",
+      "Reacting to a button press"
+    ],
+    "answer": [0, 1],
+    "why": "The ScrollView and the native driver run on the UI thread, so they do not need JavaScript. The setState animation needs JavaScript on every frame, and a button press must reach JavaScript, so both wait."
+  },
+  {
+    "type": "tf",
+    "q": "memo skips a re-render when the new props have the same content, even if they are new objects.",
+    "answer": false,
+    "why": "No. memo compares props one level deep, by reference. A new object or a new inline function is a different reference, so React sees a change and renders again."
+  },
+  {
+    "type": "order",
+    "q": "Put the steps of fixing a slow screen in a sensible order.",
+    "items": [
+      "Test in a release build, not in development mode",
+      "Find out which thread is the problem",
+      "Change the part that you measured",
+      "Measure again to check that it helped"
+    ],
+    "why": "Measure first, fix what you measured, and measure again. Guessing or testing in development mode can cost time and change nothing."
+  },
+  {
+    "q": "A zoom animation on a big image stutters on iPhone because the width and height change on every frame. What do the React Native docs suggest?",
+    "options": [
+      "Animate transform: [{ scale }] instead of the size",
+      "Animate the image width with setState",
+      "Remove the image",
+      "Turn on development mode"
+    ],
+    "answer": 0,
+    "why": "On iPhone the image is cut and scaled again each time its width or height changes, which is expensive. A scale transform does not do that."
+  },
+  {
+    "type": "fill",
+    "q": "Speed tests must be made in a ______ build, because JavaScript is much slower in development mode. (one word)",
+    "answer": ["release", "Release"],
+    "why": "Development mode does a lot of extra checking, so the docs say JavaScript speed suffers greatly. Test in a release build, the one you ship."
+  }
+]

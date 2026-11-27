@@ -81,7 +81,7 @@ They can scroll, but the button feels dead. The `ScrollView` lives on the UI thr
 
 A phone draws at least 60 frames each second, so one frame has about 16 milliseconds. React Native has **two frame rates**: the JS frame rate (how often JavaScript finishes its work) and the UI frame rate (how often the screen is drawn). The Perf Monitor in the dev menu shows both.
 
-Native stack navigators are smooth even when JavaScript is busy, because their transition runs on the UI thread. That idea comes back in lesson 10 (planned).
+Native stack navigators are smooth even when JavaScript is busy, because their transition runs on the UI thread. That idea comes back in [lesson 10](10-performance-on-mobile.md).
 
 </details>
 
@@ -346,5 +346,5 @@ Close this file. Explain how React Native works to a new junior, in 4 parts (pro
 
 - [Core components and styling](02-core-components-and-styling.md) - the parts you put in the tree.
 - [The old bridge vs the new architecture](05-the-old-bridge-vs-the-new-architecture.md) - how JavaScript talks to the native side.
-- Performance on mobile (planned) - what to do when the JavaScript thread is the problem.
+- [Performance on mobile](10-performance-on-mobile.md) - what to do when the JavaScript thread is the problem.
 - [Flexbox layout](11-flexbox-layout.md) - the layout step in detail.

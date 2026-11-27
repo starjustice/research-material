@@ -12,6 +12,9 @@
     "test:05": "node --test 05-bridge-vs-jsi.test.mjs",
     "test:06": "node --test 06-precompiled-code.test.mjs",
     "test:07": "node --test 07-config-to-native.test.mjs",
+    "test:08": "node --test 08-pick-update.test.mjs",
+    "test:09": "node --test 09-versioned-store.test.mjs",
+    "test:10": "node --test 10-skip-the-render.test.mjs",
     "test:11": "node --test 11-flexbox.test.mjs",
     "test:14": "node --test 14-animation-math.test.mjs",
     "test:17": "node --test 17-regex.test.mjs"
